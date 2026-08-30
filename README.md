@@ -75,7 +75,14 @@ python -m pytest -q
 python -m ruff check .
 python -m mypy src/apc
 python scripts/smoke_train.py --config configs/phase_a_smoke.yaml
+python scripts/composition_benchmark.py --run-dir runs/phase_a_smoke
 ```
+
+`composition_benchmark.py` evaluates a trained checkpoint on known-operation
+(`K`) and held-out novel-composition (`C`) examples and writes
+`composition_benchmark.json` into the run directory (Task 006). It requires a
+run directory already produced by `smoke_train.py` or an equivalent training
+script.
 
 If a tool is not yet configured, add it as part of the repository-bootstrap task rather than silently skipping verification.
 
