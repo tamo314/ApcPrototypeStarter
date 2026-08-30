@@ -1,6 +1,6 @@
 # APC Prototype Implementation Plan
 
-このファイルはプロジェクト所有者向けの実装計画サマリーです。Codexが実際に作業するときの詳細な受け入れ条件は `docs/exec-plans/active/PHASE_A.md` を正とします。
+このファイルはプロジェクト所有者向けの実装計画サマリーです。エージェントが実際に作業するときの詳細な受け入れ条件は `docs/exec-plans/active/PHASE_A.md` を正とします。
 
 ## 目的
 
@@ -103,14 +103,8 @@ Plastic Workspaceも数M〜数十Mparameter単位で段階的に追加する。�
 
 自然言語モデルを使うPhase Dでは、0.5B〜2B pretrained model + LoRA/QLoRAを基本とし、full pretraining/full fine-tuningを前提としない。
 
-## Codexとの作業方法
+## 作業方法
 
-`docs/CODEX_TASKS.md` のTask 001から一つずつ進める。
-
-最初のCodex指示例:
-
-```text
-Read AGENTS.md and every document listed under "Read first". Implement only Task 001 from docs/CODEX_TASKS.md. Do not start Task 002. Run all verification commands that are applicable, and report changed files, tests run, assumptions, and limitations.
-```
+`docs/TASKS.md` のTask 001から一つずつ進める。
 
 各task完了後に人間が差分・tests・architecture driftを確認してから次へ進む。

@@ -95,11 +95,11 @@ checkpoint/
 
 ## Documentation
 
-- `AGENTS.md` — Codex operating instructions.
+- `AGENTS.md` — operating instructions.
 - `docs/design-docs/ARCHITECTURE.md` — architecture source of truth.
 - `docs/exec-plans/active/PHASE_A.md` — actionable development plan.
 - `docs/EXPERIMENT_PLAN.md` — experimental design and baselines.
 - `docs/HARDWARE_ENVIRONMENT.md` — target machine constraints.
-- `docs/CODEX_TASKS.md` — issue-sized task queue.
+- `docs/TASKS.md` — issue-sized task queue.
 - `docs/DECISIONS.md` — architecture decision log.
 - `docs/research/REFERENCES.md` — existing research relevant to APC.

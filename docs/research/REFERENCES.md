@@ -99,13 +99,6 @@ Fast episodic learning and slower statistical consolidation provide a biological
 Recent review:
 https://pubmed.ncbi.nlm.nih.gov/42421581/
 
-## 9. Codex repository design references
-
-OpenAI recommends using `AGENTS.md` for persistent repository context and, in current agent-first engineering guidance, keeping it short and using it as a map to a structured `docs/` system of record.
-
-https://openai.com/business/guides-and-resources/how-openai-uses-codex/
-https://openai.com/index/harness-engineering/
-
 ## Notes for future literature reviews
 
 Before Phase D and before publishing claims, re-check current literature for:

@@ -106,7 +106,7 @@ For each run, record at least:
 
 Never compare runs with materially different data budgets without saying so.
 
-## Codex workflow
+## workflow
 Work in issue-sized changes. Prefer one milestone task or a few hundred lines of focused code per change.
 
 Before editing:

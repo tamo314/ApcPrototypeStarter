@@ -1,6 +1,6 @@
-# Codex Task Queue
+# Task Queue
 
-Use these as issue-sized Codex prompts. Complete them in order unless an earlier task reveals an architecture problem.
+Use these as issue-sized prompts. Complete them in order unless an earlier task reveals an architecture problem.
 
 ## Task 001 — Bootstrap the repository
 
