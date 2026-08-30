@@ -1,0 +1,29 @@
+# Phase A Milestone A2 smoke config: overfit a tiny deterministic dataset
+# with the fixed dense baseline (Task 003). CPU-capable by default.
+run_name: phase_a_smoke
+seed: 0
+output_dir: runs
+
+data:
+  vocab_size: 10
+  sequence_length_range: [6, 10]
+  max_depth: 2
+  novel_composition_fraction: 0.3
+  num_examples: 16
+
+model:
+  max_seq_len: 64
+  d_model: 192
+  n_layer: 4
+  n_head: 4
+  d_ff: 768
+  dropout: 0.0
+
+optim:
+  steps: 400
+  lr: 0.0003
+  weight_decay: 0.01
+  grad_clip: 1.0
+  log_every: 20
+  device: auto
+  amp: false
