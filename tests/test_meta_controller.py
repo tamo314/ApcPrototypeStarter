@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import dataclasses
+import inspect
+
 import pytest
 
+from apc.meta import controller as controller_module
 from apc.meta.controller import (
     Controller,
     ControllerConfig,
@@ -341,3 +345,28 @@ def test_hysteresis_keeps_state_in_search_through_the_ambiguous_band() -> None:
     transition = controller.step(ControllerSignals(novelty=0.35))
     assert transition is not None
     assert transition.new_state == ControllerState.STABLE
+
+
+def test_controller_signals_carry_no_oracle_task_label() -> None:
+    """Task 009 acceptance: oracle metadata (K/C/N/R, `Example.category`)
+    must remain hidden from the controller. `ControllerSignals` only has
+    scalar/bool novelty and bookkeeping fields -- never a category/label
+    field an evaluator's oracle could leak through."""
+    field_names = {f.name for f in dataclasses.fields(ControllerSignals)}
+    assert field_names == {
+        "novelty",
+        "plastic_improved",
+        "plastic_accuracy",
+        "candidate_ready",
+        "shadow_passed",
+        "allocated_params",
+        "released_params",
+    }
+
+
+def test_controller_module_does_not_import_the_environment_or_examples() -> None:
+    """The controller must be reachable only through scalar signals, never
+    through `apc.environments.generator.Example` or its oracle category."""
+    source = inspect.getsource(controller_module)
+    assert "environments" not in source
+    assert "category" not in source

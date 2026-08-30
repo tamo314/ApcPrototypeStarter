@@ -10,10 +10,16 @@ import pytest
 from apc.core.data import encode_example
 from apc.core.model import DecoderOnlyTransformer, TransformerConfig
 from apc.core.tokens import build_special_tokens
-from apc.environments.generator import NOVEL_COMPOSITION_SPLIT, TaskGenerator
+from apc.environments.generator import (
+    NOVEL_COMPOSITION_SPLIT,
+    NOVEL_OPERATION_SPLIT,
+    TaskGenerator,
+)
+from apc.environments.operations import NOVEL_OPERATION_NAMES
 from apc.evaluation.composition_benchmark import (
     LABEL_KNOWN,
     LABEL_NOVEL_COMPOSITION,
+    LABEL_NOVEL_OPERATION,
     CompositionBenchmarkConfig,
     label_example,
     run_composition_benchmark,
@@ -44,9 +50,19 @@ def test_label_example_maps_known_and_novel_composition() -> None:
     assert all(label_example(e) == LABEL_NOVEL_COMPOSITION for e in novel)
 
 
+def test_label_example_maps_novel_operation_to_n() -> None:
+    generator = TaskGenerator(
+        seed=3,
+        sequence_length_range=LENGTH_RANGE,
+        novel_operation_names=NOVEL_OPERATION_NAMES,
+    )
+    novel_operation = generator.generate(5, NOVEL_OPERATION_SPLIT)
+    assert all(label_example(e) == LABEL_NOVEL_OPERATION for e in novel_operation)
+
+
 def test_label_example_rejects_unknown_category() -> None:
     [example] = TaskGenerator(seed=0, sequence_length_range=LENGTH_RANGE).generate(1, "train")
-    bogus = dataclasses.replace(example, category="novel_operation")
+    bogus = dataclasses.replace(example, category="not_a_real_category")
     with pytest.raises(ValueError):
         label_example(bogus)
 
@@ -77,6 +93,21 @@ def test_oracle_label_is_not_encoded_for_the_model() -> None:
         example, category="novel_composition", split=NOVEL_COMPOSITION_SPLIT
     )
 
+    assert label_example(example) != label_example(relabeled)
+    assert encode_example(example, specials) == encode_example(relabeled, specials)
+
+
+def test_oracle_n_label_is_not_encoded_for_the_model() -> None:
+    """Task 009 acceptance: oracle metadata marks N but stays hidden from
+    the model/controller, exactly like the K/C labels above."""
+    [example] = TaskGenerator(seed=1, sequence_length_range=LENGTH_RANGE).generate(1, "train")
+    specials = build_special_tokens(example.vocab_size)
+
+    relabeled = dataclasses.replace(
+        example, category="novel_operation", split=NOVEL_OPERATION_SPLIT
+    )
+
+    assert label_example(relabeled) == LABEL_NOVEL_OPERATION
     assert label_example(example) != label_example(relabeled)
     assert encode_example(example, specials) == encode_example(relabeled, specials)
 

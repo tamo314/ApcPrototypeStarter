@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import inspect
 import math
 
 import pytest
 
+from apc.meta import novelty as novelty_module
 from apc.meta.novelty import NoveltyConfig, NoveltyEstimator, NoveltySignals
 
 
@@ -64,3 +66,12 @@ def test_signals_to_dict_round_trips_fields() -> None:
         "router_entropy": 0.1,
         "max_router_entropy": None,
     }
+
+
+def test_novelty_module_does_not_import_the_environment_or_examples() -> None:
+    """Task 009 acceptance: oracle metadata (K/C/N/R, `Example.category`)
+    must remain hidden from the controller's novelty estimator, which only
+    ever sees error/router-entropy scalars."""
+    source = inspect.getsource(novelty_module)
+    assert "environments" not in source
+    assert "category" not in source

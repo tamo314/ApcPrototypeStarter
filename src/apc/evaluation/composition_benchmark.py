@@ -14,6 +14,13 @@ examples for the report; `apc.core.generation.evaluate_exact_match` (via
 `apc.core.data.encode_example`) reads only `input_tokens`/`target_tokens`
 from each example, so the label is never part of what the model (or, in
 later tasks, the meta-controller) sees.
+
+`label_example` also maps the `novel_operation` category (Task 009,
+`apc.environments.generator.NOVEL_OPERATION_SPLIT`) to the `N` label from
+`docs/EXPERIMENT_PLAN.md`'s K/C/N/R event taxonomy; `evaluate_category` is
+exposed (not private) so `apc.evaluation.novel_operation_benchmark` can
+reuse the same oracle-label-checked per-group evaluation instead of
+duplicating it.
 """
 
 from __future__ import annotations
@@ -38,10 +45,12 @@ from apc.environments.vocab import DEFAULT_VOCAB_SIZE
 
 LABEL_KNOWN = "K"
 LABEL_NOVEL_COMPOSITION = "C"
+LABEL_NOVEL_OPERATION = "N"
 
 _CATEGORY_TO_LABEL = {
     "known": LABEL_KNOWN,
     "novel_composition": LABEL_NOVEL_COMPOSITION,
+    "novel_operation": LABEL_NOVEL_OPERATION,
 }
 
 
@@ -126,13 +135,15 @@ class CompositionBenchmarkReport:
         }
 
 
-def _evaluate_category(
+def evaluate_category(
     model: DecoderOnlyTransformer,
     examples: list[Example],
     expected_label: str,
     specials: SpecialTokens,
     device: torch.device | str,
 ) -> CategoryResult:
+    """Evaluate one oracle-labeled group of examples (shared by every
+    Phase A benchmark that reports per-K/C/N/R-label exact match)."""
     if not examples:
         raise ValueError("examples must be non-empty")
     labels = {label_example(example) for example in examples}
@@ -176,8 +187,8 @@ def run_composition_benchmark(
     known_examples = generator.generate(config.num_known, config.known_split)
     novel_examples = generator.generate(config.num_novel, NOVEL_COMPOSITION_SPLIT)
 
-    known_result = _evaluate_category(model, known_examples, LABEL_KNOWN, specials, device)
-    novel_result = _evaluate_category(
+    known_result = evaluate_category(model, known_examples, LABEL_KNOWN, specials, device)
+    novel_result = evaluate_category(
         model, novel_examples, LABEL_NOVEL_COMPOSITION, specials, device
     )
     return CompositionBenchmarkReport(

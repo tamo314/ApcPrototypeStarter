@@ -7,12 +7,13 @@ import pytest
 from apc.environments.generator import (
     KNOWN_SPLITS,
     NOVEL_COMPOSITION_SPLIT,
+    NOVEL_OPERATION_SPLIT,
     CompositionSpace,
     TaskGenerator,
     enumerate_compositions,
 )
 from apc.environments.interpreter import run_program
-from apc.environments.operations import KNOWN_OPERATION_NAMES
+from apc.environments.operations import KNOWN_OPERATION_NAMES, NOVEL_OPERATION_NAMES
 
 LENGTH_RANGE = (6, 10)
 
@@ -70,6 +71,63 @@ def test_novel_composition_split_is_labeled_and_multi_step() -> None:
 def test_unknown_split_raises() -> None:
     with pytest.raises(ValueError):
         TaskGenerator(seed=0).generate(1, "not_a_real_split")
+
+
+# --- novel_operation split (Task 009) ---------------------------------------
+
+
+def test_novel_operation_split_without_configured_names_raises() -> None:
+    with pytest.raises(ValueError):
+        TaskGenerator(seed=0, sequence_length_range=LENGTH_RANGE).generate(1, NOVEL_OPERATION_SPLIT)
+
+
+def test_novel_operation_split_is_labeled_and_single_step() -> None:
+    generator = TaskGenerator(
+        seed=5,
+        sequence_length_range=LENGTH_RANGE,
+        novel_operation_names=NOVEL_OPERATION_NAMES,
+    )
+    examples = generator.generate(10, NOVEL_OPERATION_SPLIT)
+    assert all(e.category == "novel_operation" for e in examples)
+    assert all(e.split == NOVEL_OPERATION_SPLIT for e in examples)
+    assert all(len(e.program.steps) == 1 for e in examples)
+    assert all(e.program.operation_sequence[0] in NOVEL_OPERATION_NAMES for e in examples)
+
+
+def test_novel_operation_split_is_deterministic_given_same_seed() -> None:
+    kwargs = dict(
+        seed=8, sequence_length_range=LENGTH_RANGE, novel_operation_names=NOVEL_OPERATION_NAMES
+    )
+    first = TaskGenerator(**kwargs).generate(10, NOVEL_OPERATION_SPLIT)
+    second = TaskGenerator(**kwargs).generate(10, NOVEL_OPERATION_SPLIT)
+    assert [e.to_dict() for e in first] == [e.to_dict() for e in second]
+
+
+def test_novel_operation_examples_match_independent_interpreter_replay() -> None:
+    generator = TaskGenerator(
+        seed=12,
+        sequence_length_range=LENGTH_RANGE,
+        novel_operation_names=NOVEL_OPERATION_NAMES,
+    )
+    for example in generator.generate(10, NOVEL_OPERATION_SPLIT):
+        replay = run_program(example.program, example.input_tokens, example.vocab_size)
+        assert replay.output_tokens == example.target_tokens
+
+
+def test_known_and_novel_composition_splits_unaffected_by_novel_operation_names() -> None:
+    """Configuring `novel_operation_names` must not perturb the existing
+    `known`/`novel_composition` pools (Task 009 must not silently widen the
+    known-composition budget)."""
+    plain = TaskGenerator(seed=4, sequence_length_range=LENGTH_RANGE)
+    with_novel_op = TaskGenerator(
+        seed=4,
+        sequence_length_range=LENGTH_RANGE,
+        novel_operation_names=NOVEL_OPERATION_NAMES,
+    )
+    for split in (*KNOWN_SPLITS, NOVEL_COMPOSITION_SPLIT):
+        plain_examples = [e.to_dict() for e in plain.generate(10, split)]
+        with_novel_op_examples = [e.to_dict() for e in with_novel_op.generate(10, split)]
+        assert plain_examples == with_novel_op_examples
 
 
 def test_generated_examples_match_independent_interpreter_replay() -> None:

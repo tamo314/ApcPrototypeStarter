@@ -8,6 +8,7 @@ import pytest
 
 from apc.environments.operations import (
     KNOWN_OPERATION_NAMES,
+    NOVEL_OPERATION_NAMES,
     AccumulateOp,
     BindOp,
     CompareOp,
@@ -17,6 +18,7 @@ from apc.environments.operations import (
     Operation,
     SelectOp,
     ShiftOp,
+    SortOp,
     get_operation,
     register_operation,
     registered_operation_names,
@@ -47,7 +49,7 @@ def test_registry_lookup_matches_registered_names() -> None:
 
 def test_get_unknown_operation_raises() -> None:
     with pytest.raises(KeyError):
-        get_operation("SORT")
+        get_operation("MODULAR_ADD")
 
 
 def test_register_duplicate_without_overwrite_raises() -> None:
@@ -232,11 +234,50 @@ def test_accumulate_preserves_length() -> None:
     assert op.output_length(7) == 7
 
 
+# --- SORT (Task 009 novel operation) ----------------------------------------
+
+
+def test_sort_sorts_ascending() -> None:
+    op = SortOp()
+    seq = (4, 1, 3, 1, 9, 0)
+    assert op.apply(seq, VOCAB_SIZE, {}) == (0, 1, 1, 3, 4, 9)
+
+
+def test_sort_preserves_length() -> None:
+    op = SortOp()
+    assert op.output_length(7) == 7
+
+
+def test_sort_sample_params_is_empty() -> None:
+    op = SortOp()
+    rng = random.Random(0)
+    assert op.sample_params(rng, (3, 1, 2), VOCAB_SIZE) == {}
+
+
+def test_novel_operation_names_is_sort_and_disjoint_from_known() -> None:
+    assert NOVEL_OPERATION_NAMES == ("SORT",)
+    assert set(NOVEL_OPERATION_NAMES).isdisjoint(KNOWN_OPERATION_NAMES)
+
+
+def test_sort_is_registered_but_not_a_known_operation() -> None:
+    assert get_operation("SORT").name == "SORT"
+    assert "SORT" in registered_operation_names()
+    assert "SORT" not in KNOWN_OPERATION_NAMES
+
+
 # --- shared Operation contract ---------------------------------------------
 
 
 @pytest.mark.parametrize("name", KNOWN_OPERATION_NAMES)
 def test_every_known_operation_is_registered_and_typed(name: str) -> None:
+    op = get_operation(name)
+    assert isinstance(op, Operation)
+    assert op.name == name
+    assert op.min_input_length >= 1
+
+
+@pytest.mark.parametrize("name", NOVEL_OPERATION_NAMES)
+def test_every_novel_operation_is_registered_and_typed(name: str) -> None:
     op = get_operation(name)
     assert isinstance(op, Operation)
     assert op.name == name

@@ -8,10 +8,12 @@ without a model.
 Composition chains operations: the output tokens of one operation become
 the input tokens of the next (see `program.py` and `interpreter.py`).
 
-Extension interface: to add a genuinely novel operation later (Phase A
-Task 009), implement `Operation` and call `register_operation`. Nothing in
-the interpreter or generator needs to change; the generator only needs the
-new name passed in its `operation_names`.
+Extension interface: `Operation` + `register_operation` is how a genuinely
+novel operation is added without changing the interpreter. Task 009 uses it
+for `SortOp`/`SORT` (see `NOVEL_OPERATION_NAMES` below); the interpreter
+needed no changes, and `apc.environments.generator.TaskGenerator` reads
+`NOVEL_OPERATION_NAMES` separately from `KNOWN_OPERATION_NAMES` to build a
+dedicated, oracle-labeled `novel_operation` split.
 """
 
 from __future__ import annotations
@@ -261,6 +263,33 @@ class AccumulateOp(Operation):
         return tuple(result)
 
 
+class SortOp(Operation):
+    """Ascending sort of the whole sequence.
+
+    Deliberately outside the Phase A known curriculum (Task 009): none of
+    COPY/SELECT/COMPARE/COUNT/SHIFT/BIND/NEGATE/ACCUMULATE can reorder
+    tokens by value (SHIFT only rotates, SELECT only subsets without
+    reordering), so a global ascending reordering cannot be assembled from
+    a bounded-depth chain of them. See `NOVEL_OPERATION_NAMES` below.
+    """
+
+    name = "SORT"
+    min_input_length = 1
+
+    def output_length(self, input_length: int) -> int:
+        return input_length
+
+    def sample_params(
+        self, rng: random.Random, sequence: tuple[int, ...], vocab_size: int
+    ) -> dict[str, Any]:
+        return {}
+
+    def apply(
+        self, sequence: tuple[int, ...], vocab_size: int, params: dict[str, Any]
+    ) -> tuple[int, ...]:
+        return tuple(sorted(sequence))
+
+
 _REGISTRY: dict[str, Operation] = {}
 
 
@@ -304,3 +333,11 @@ for _op in (
 # operations added later (Task 009) are registered separately and must not
 # be appended to this tuple.
 KNOWN_OPERATION_NAMES: tuple[str, ...] = tuple(_REGISTRY.keys())
+
+# Registered strictly after KNOWN_OPERATION_NAMES is captured, so it can
+# never be silently absorbed into the known-composition budget (Task 009,
+# PHASE_A.md Milestone A6/ARCHITECTURE.md section 13 "Novel operation
+# tasks"). `apc.environments.generator.TaskGenerator` uses this tuple to
+# build the dedicated `novel_operation` split, oracle-labeled `N`.
+register_operation(SortOp())
+NOVEL_OPERATION_NAMES: tuple[str, ...] = ("SORT",)

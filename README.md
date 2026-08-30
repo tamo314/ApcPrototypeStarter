@@ -76,6 +76,7 @@ python -m ruff check .
 python -m mypy src/apc
 python scripts/smoke_train.py --config configs/phase_a_smoke.yaml
 python scripts/composition_benchmark.py --run-dir runs/phase_a_smoke
+python scripts/novel_operation_benchmark.py --run-dir runs/phase_a_smoke
 ```
 
 `composition_benchmark.py` evaluates a trained checkpoint on known-operation
@@ -83,6 +84,14 @@ python scripts/composition_benchmark.py --run-dir runs/phase_a_smoke
 `composition_benchmark.json` into the run directory (Task 006). It requires a
 run directory already produced by `smoke_train.py` or an equivalent training
 script.
+
+`novel_operation_benchmark.py` evaluates the same kind of checkpoint on
+held-out novel-composition (`C`) and genuinely novel-operation (`N`, e.g.
+`SORT`) examples and writes `novel_operation_benchmark.json` into the run
+directory (Task 009). The checkpoint's training data never included the
+novel operation, so `novelty_gap` (`C` minus `N` exact match) measures
+whether a static composition baseline fails on `N` materially more than on
+`C`.
 
 If a tool is not yet configured, add it as part of the repository-bootstrap task rather than silently skipping verification.
 
