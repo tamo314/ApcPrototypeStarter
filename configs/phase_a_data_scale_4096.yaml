@@ -1,0 +1,41 @@
+# Phase A data-quantity check (Task 014 follow-up), see
+# phase_a_data_scale_1024.yaml for the full rationale.
+# "4096" = 16x the original phase_a_scale_check_low.yaml's 256 examples.
+#
+# Model switched down to the original phase_a_smoke.yaml dims (1.79M params,
+# not the 14.2M "low" recommended-scale model used for the 256/1024 points):
+# a single-batch (whole-dataset-every-step) training loop's activation
+# memory scales with num_examples, and 4096 examples at the 14.2M model's
+# width overflowed the 16GB card (projected ~19GB, observed 67x per-step
+# slowdown from VRAM-overflow thrashing rather than any real compute
+# increase -- killed after ~4h stuck at step 900/1500). ADR-0013 already
+# established that held-out generalization is flat across 1.79M-39.4M
+# params at fixed data, so using the smaller model here for VRAM headroom
+# does not confound the data-quantity comparison.
+run_name: phase_a_data_scale_4096
+seed: 0
+output_dir: runs
+
+data:
+  vocab_size: 10
+  sequence_length_range: [6, 10]
+  max_depth: 2
+  novel_composition_fraction: 0.3
+  num_examples: 4096
+
+model:
+  max_seq_len: 64
+  d_model: 192
+  n_layer: 4
+  n_head: 4
+  d_ff: 768
+  dropout: 0.0
+
+optim:
+  steps: 1500
+  lr: 0.0003
+  weight_decay: 0.01
+  grad_clip: 1.0
+  log_every: 100
+  device: auto
+  amp: false

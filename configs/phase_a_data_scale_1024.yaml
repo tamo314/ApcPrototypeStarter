@@ -1,0 +1,36 @@
+# Phase A data-quantity check (Task 014 follow-up, ADR-0013 next hypothesis):
+# re-run the ADR-0006 generalization measurement (train vs. held-out "test"
+# split exact match, same known operation chains, fresh random token
+# content) while holding model scale fixed at the recommended-range "low"
+# point (14.2M params, ruled out as the bottleneck by ADR-0013) and instead
+# scaling up `data.num_examples` -- to test whether the model's failure to
+# generalize to unseen token content is a training-data quantity/coverage
+# artifact rather than an architectural one.
+# "1024" = 4x the original phase_a_scale_check_low.yaml's 256 examples.
+run_name: phase_a_data_scale_1024
+seed: 0
+output_dir: runs
+
+data:
+  vocab_size: 10
+  sequence_length_range: [6, 10]
+  max_depth: 2
+  novel_composition_fraction: 0.3
+  num_examples: 1024
+
+model:
+  max_seq_len: 64
+  d_model: 384
+  n_layer: 8
+  n_head: 8
+  d_ff: 1536
+  dropout: 0.0
+
+optim:
+  steps: 1500
+  lr: 0.0003
+  weight_decay: 0.01
+  grad_clip: 1.0
+  log_every: 100
+  device: auto
+  amp: false

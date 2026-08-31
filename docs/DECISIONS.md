@@ -143,3 +143,46 @@ Use this file for short decisions discovered during implementation. Do not rewri
 **Reason:** `ConsolidationConfig.replay_weight` scales a consolidation-distillation loss: a candidate primitive learning to reproduce a frozen teacher's *delta* on replay hidden states. B3 has no distillation step at all -- it adds a plain cross-entropy replay loss directly onto the raw task loss its newly grown transforms are trained with. These are different losses over different targets; reusing the same config field for both would be a silent semantic overload of one number meaning two different things depending on which baseline reads it.
 
 **Consequence:** A config file that wants to tune B3's replay strength sets a new top-level `baseline_replay_weight` key (see `apc.evaluation.baselines.baseline_config_from_dict`), separate from the `consolidation.replay_weight` key that affects B4 (and B1's one seed cycle, per ADR-0010).
+
+---
+
+## ADR-0013 — ADR-0006's generalization failure is not a model-scale artifact
+
+**Status:** Accepted
+
+**Decision:** No further Phase A time is spent re-testing whether a bigger dense core (within or above `docs/design-docs/ARCHITECTURE.md` section 3's "recommended first scale") fixes held-out generalization. Model scale is ruled out as the explanation; investigation should move to other candidate causes (training data quantity/coverage, training duration/"grokking"-style late-phase generalization, or task representation) before trying yet another scale point.
+
+**Reason:** ADR-0006 measured no generalization at every scale tried during Task 012 (d_model 32-192, up to ~1.8M parameters) -- below `ARCHITECTURE.md` section 3's own "recommended first scale" of 10M-60M parameters and `docs/HARDWARE_ENVIRONMENT.md`'s "10M-100M comfortable" range, leaving open whether the negative result was simply a too-small-model artifact (`docs/exec-plans/completed/PHASE_A_RESULT.md` recommendation 1). This was retested directly: three new configs (`configs/phase_a_scale_check_{low,mid,high}.yaml`, 384/512/640 hidden size x 8 layers, 14.2M/25.3M/39.4M parameters -- spanning the full recommended range) were each trained from scratch (seed 0, 256 examples, 1500 steps, first real GPU run in this repository's history via the WSL Python 3.12 + CUDA environment built for this investigation) and evaluated with `scripts/composition_benchmark.py`:
+
+| Config | Parameters | Train exact match | Held-out `known` (test) exact match | `novel_composition` exact match |
+|---|---:|---:|---:|---:|
+| Original smoke (192d, 4L) | 1.79M | 1.0 | 0.0156 | 0.0156 |
+| `phase_a_scale_check_low` (384d, 8L) | 14.2M | 1.0 | 0.0078 | 0.0313 |
+| `phase_a_scale_check_mid` (512d, 8L) | 25.3M | 1.0 | 0.0078 | 0.0234 |
+| `phase_a_scale_check_high` (640d, 8L) | 39.4M | 1.0 | 0.0156 | 0.0156 |
+
+Across a 22x parameter range spanning the entire recommended scale, held-out exact match stays flat at chance (0.008-0.016) while training exact match is a perfect 1.0 in every case -- the model always has more than enough capacity to memorize its (small) training set, and more capacity does not measurably help it do anything else with unseen token content.
+
+**Consequence:** `docs/exec-plans/completed/PHASE_A_RESULT.md` recommendation 1 ("retest at the project's own comfortable scale before concluding the negative result is scale-independent") is now satisfied for the *model-parameter-count* axis specifically; the open caveat about scale no longer applies to that axis. The more likely remaining explanations are training-data quantity/coverage (256-512 examples is a vanishingly small fraction of the possible token sequences at this vocabulary/length range) and training duration (loss was already fully converged, ~1e-4 to 1e-5, after 1500 steps at every scale tried -- these runs cannot distinguish "no generalizing solution exists" from "a generalizing solution exists but was never reached because memorization is the lower-loss optimum found first," the latter being the standard "grokking" phenomenon in the literature, which typically requires an order of magnitude or more additional training steps with weight decay to resolve). Neither has been tested yet.
+
+---
+
+## ADR-0014 — ADR-0006's generalization failure is not a training-data-quantity artifact (at least up to 4096 examples)
+
+**Status:** Accepted
+
+**Decision:** No further Phase A time is spent scaling `data.num_examples` alone, within a single-batch (whole-dataset-every-gradient-step) training loop, as a way to fix held-out generalization. Training-data quantity/coverage is ruled out as the explanation over the range actually tested (256-4096 examples, a 16x span); investigation should move to training duration ("grokking") or task representation before trying yet more raw examples under this training regime.
+
+**Reason:** ADR-0013 left training-data quantity/coverage as a leading untested candidate cause of ADR-0006's finding. This was tested directly: `configs/phase_a_data_scale_{1024,4096}.yaml` reran the same held-out-generalization measurement at 4x and 16x the original 256-example count (seed 0, 1500 steps, `scripts/composition_benchmark.py` with `known_split=test`, 128 known + 128 novel-composition examples evaluated):
+
+| `num_examples` | Model | Parameters | Train exact match | Held-out `known` (test) exact match | `novel_composition` exact match |
+|---:|---|---:|---:|---:|---:|
+| 256 | `phase_a_scale_check_low` (384d, 8L) | 14.2M | 1.0 | 0.0078 | 0.0313 |
+| 1024 | same (384d, 8L) | 14.2M | 1.0 | 0.0156 | 0.0313 |
+| 4096 | original smoke dims (192d, 4L) | 1.79M | 1.0 | 0.0156 | 0.0469 |
+
+(The 4096 row uses the smaller model because this training loop collates the *entire* dataset into one batch and reruns it every step, so activation memory scales directly with `num_examples`; 4096 examples at the 14.2M model's width overflowed the 16GB card -- observed as a 67x per-step slowdown from VRAM-overflow thrashing, not real compute growth, killed after ~4h stuck at step 900/1500 -- while 4096 at 1.79M params fit comfortably (4.9GB peak). ADR-0013 already established held-out exact match is flat across this exact parameter range at fixed data, so the model-size change does not confound this row.)
+
+Across a 16x increase in training examples, held-out exact match stays flat at chance (0.008-0.016, same range as ADR-0013) and training exact match remains a perfect 1.0 throughout -- more data did not produce any measurable movement toward generalization, at any point along the range tested.
+
+**Consequence:** Training-data quantity/coverage, on its own, is ruled out as the explanation for ADR-0006's finding, *for the 256-4096 example range*. Pushing further (e.g. 16384+ examples) under this exact training loop is not straightforward: the whole-dataset-every-step design means VRAM scales with `num_examples` regardless of model size, and doing so would require either implementing minibatching/gradient accumulation in `apc.core.train.run_smoke_training` (a real code change, not just a new config) or shrinking the model further, which risks losing enough capacity to fit even the training set. The two remaining untested candidate causes from ADR-0013 narrow to one: training duration / "grokking"-style late-phase generalization (loss is already fully converged, ~1e-4, after only 1500 steps at every data scale tried here too -- these runs still cannot distinguish "no generalizing solution exists" from "one exists but was never reached").
