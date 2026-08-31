@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 import torch
 
 from apc.core.execution import (
@@ -178,6 +179,55 @@ def test_apply_bank_executes_only_selected_primitives_for_a_batched_input() -> N
     assert bank.persistent_parameter_count() == 4 * bank.get(0).num_parameters()
 
 
+def test_apply_bank_routes_on_route_state_not_on_hidden_when_given() -> None:
+    """Phase A.1 Task A1-005: `route_state` (e.g. a Stable Core's
+    `task_state`) decides *which* primitive runs; the primitive's actual
+    output is still computed from `hidden` (`content_state`), not
+    `route_state`."""
+    bank = _bank_with_stable_primitives(4)
+    router = _router(top_k=1)
+    primitive_ids = bank.ids()
+    _configure_identity_router(router, primitive_ids)
+    content = torch.randn(1, 1, D_MODEL)  # arbitrary; would route elsewhere if used
+    route_state = torch.eye(D_MODEL)[2].reshape(1, 1, D_MODEL)  # selects primitive id 2
+
+    actual, router_out = apply_bank(
+        content, bank, router, stable_ids=primitive_ids, route_state=route_state
+    )
+
+    assert router_out.executed_primitive_ids == (2,)
+    expected = bank.get(2)(content)
+    torch.testing.assert_close(actual, expected)
+
+
+def test_apply_bank_route_state_defaults_to_hidden() -> None:
+    """Omitting `route_state` reproduces the pre-A1-005 behavior exactly:
+    routing and primitive execution read the same tensor."""
+    bank = _bank_with_stable_primitives(4)
+    router = _router(top_k=1)
+    primitive_ids = bank.ids()
+    _configure_identity_router(router, primitive_ids)
+    h = torch.eye(D_MODEL)[1].reshape(1, 1, D_MODEL)
+
+    with_default, router_out_default = apply_bank(h, bank, router, stable_ids=primitive_ids)
+    with_explicit, router_out_explicit = apply_bank(
+        h, bank, router, stable_ids=primitive_ids, route_state=h
+    )
+
+    torch.testing.assert_close(with_default, with_explicit)
+    assert router_out_default.executed_primitive_ids == router_out_explicit.executed_primitive_ids
+
+
+def test_apply_bank_rejects_route_state_with_mismatched_leading_shape() -> None:
+    bank = _bank_with_stable_primitive()
+    router = _router()
+    router.add_primitive_key(bank.ids()[0])
+    h = torch.randn(2, 3, D_MODEL)
+    route_state = torch.randn(2, 4, D_MODEL)  # mismatched sequence length
+    with pytest.raises(ValueError, match="route_state"):
+        apply_bank(h, bank, router, stable_ids=bank.ids(), route_state=route_state)
+
+
 def test_apply_bank_matches_dense_execution_when_top_k_selects_every_candidate() -> None:
     bank = _bank_with_stable_primitives(3)
     router = _router(top_k=4)  # three real primitives plus the null candidate
@@ -263,6 +313,59 @@ def test_forward_logits_shape_with_bank_and_workspace_applied() -> None:
     )
     assert logits.shape == (2, 5, 14)
     assert router_out.entropy.shape == (2, 5)
+
+
+def test_forward_logits_split_state_matches_default_when_bank_and_workspace_are_empty() -> None:
+    """With no real primitives to select, routing input is irrelevant --
+    `use_split_state=True` and the default must agree exactly."""
+    model = _model()
+    bank = PrimitiveBank()
+    router = _router()
+    input_ids = torch.randint(0, 14, (2, 5))
+    with torch.no_grad():
+        default_logits, _ = forward_logits(model, input_ids, bank, router)
+        split_logits, _ = forward_logits(model, input_ids, bank, router, use_split_state=True)
+    torch.testing.assert_close(split_logits, default_logits)
+
+
+def test_forward_logits_split_state_routes_on_task_state_and_decodes_content_state() -> None:
+    """Phase A.1 Task A1-005 end to end: with a bank primitive that only
+    *task_state*-derived routing selects, `use_split_state=True` applies
+    it (changing the logits relative to the default, which routes on
+    `content_state` and does not select it), while the primitive's delta
+    -- in both paths -- is still computed from `content_state`, and
+    `decode` still reads `content_state`."""
+    model = _model()
+    bank = _bank_with_stable_primitive()
+    pid = bank.ids()[0]
+    router = _router(top_k=1)
+    _configure_identity_router(router, [pid])
+    input_ids = torch.randint(0, 14, (1, 4))
+
+    # A fixed, controlled content_state whose pid-th component is negative
+    # (loses to the identity router's null candidate, score 0, when routing
+    # reads content_state directly) but is the unique maximum among the
+    # D_MODEL components (the other seven are equal). task_head (a
+    # parameter-free per-position LayerNorm) mean-centers each position,
+    # which provably makes a unique maximum among otherwise-equal
+    # components positive -- so it wins under task_state routing instead.
+    fixed_content = torch.full((1, 4, D_MODEL), -1.0)
+    fixed_content[..., pid] = -0.5
+    model.encode = lambda ids: fixed_content  # type: ignore[method-assign]
+
+    with torch.no_grad():
+        default_logits, default_router_out = forward_logits(model, input_ids, bank, router)
+        split_logits, split_router_out = forward_logits(
+            model, input_ids, bank, router, use_split_state=True
+        )
+
+    assert pid not in default_router_out.executed_primitive_ids
+    torch.testing.assert_close(default_logits, model.decode(fixed_content))
+
+    assert split_router_out.executed_primitive_ids == (pid,)
+    expected_content = bank.get(pid)(fixed_content)
+    torch.testing.assert_close(split_logits, model.decode(expected_content))
+    assert not torch.equal(split_logits, default_logits)
 
 
 def test_generate_greedy_with_capacity_matches_plain_generation_when_empty() -> None:

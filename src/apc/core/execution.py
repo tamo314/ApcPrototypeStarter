@@ -48,6 +48,21 @@ AGENTS.md workflow rather than hidden):
   can still read and backprop through -- only the workspace's own low-rank
   weights receive gradient from a task loss computed on the combined
   output.
+
+- **Task/content split is opt-in here (Phase A.1 Task A1-005).**
+  `apply_bank`'s `route_state` parameter and `forward_logits`'s
+  `use_split_state` flag let a caller route on `apc.core.model.
+  EncodedState.task_state` while primitives/workspace transform
+  `content_state`, but default to the pre-A1-005 behavior (route on the
+  same tensor primitives transform). `apc.evaluation.baselines` and
+  `apc.evaluation.sequential_benchmark` calibrate the router and measure
+  novelty against plain `encode` hidden states; flipping their routing
+  input to `task_state` without also recalibrating against it would route
+  through an untrained input space, so that migration is left to whichever
+  later task actually needs learned routing to consume `task_state` (e.g.
+  A1-007 oracle routing or A1-015 learned routing), not bundled here. See
+  ADR-0015 for why `task_state` itself is a parameter-free view rather
+  than a learned projection.
 """
 
 from __future__ import annotations
@@ -94,10 +109,12 @@ def apply_bank(
     bank: PrimitiveBank,
     router: Router,
     stable_ids: Sequence[int] | None = None,
+    *,
+    route_state: torch.Tensor | None = None,
 ) -> tuple[torch.Tensor, RouterOutput]:
-    """Route `hidden` (`[..., d_model]`) among `stable_ids` (default:
-    `stable_candidate_ids(bank)`) plus the permanent null candidate, and
-    add each selected primitive's delta weighted by its routed weight.
+    """Route among `stable_ids` (default: `stable_candidate_ids(bank)`) plus
+    the permanent null candidate, and add each selected primitive's delta
+    (computed from `hidden`, `[..., d_model]`) weighted by its routed weight.
 
     Always executed under `torch.no_grad()` (see module docstring); the
     returned hidden state is safe to feed into a trainable module (e.g.
@@ -109,13 +126,27 @@ def apply_bank(
     weighted delta is scattered back to the corresponding positions.  This
     preserves the prior parallel-delta semantics while making the primitive
     computation genuinely top-k sparse (Phase A.1 task A1-002).
+
+    `route_state` (Phase A.1 Task A1-005): the tensor the *router* scores
+    candidates against, e.g. a Stable Core's `task_state` (`z_task`,
+    `apc.core.model.EncodedState`) rather than `hidden` itself. Must share
+    `hidden`'s leading (batch/sequence) shape. Defaults to `hidden`, which
+    reproduces every pre-A1-005 call site exactly -- routing and primitive
+    execution read the same undivided tensor.
     """
     ensure_null_key(router)
     ids = list(stable_ids) if stable_ids is not None else stable_candidate_ids(bank)
     candidate_ids = [NULL_PRIMITIVE_ID, *ids]
+    if route_state is None:
+        route_state = hidden
+    elif route_state.shape[:-1] != hidden.shape[:-1]:
+        raise ValueError(
+            f"route_state leading shape {tuple(route_state.shape[:-1])} must match "
+            f"hidden leading shape {tuple(hidden.shape[:-1])}"
+        )
 
     with torch.no_grad():
-        router_out = router(hidden, candidate_ids)
+        router_out = router(route_state, candidate_ids)
         if not ids:
             return hidden, router_out
 
@@ -175,15 +206,34 @@ def forward_logits(
     stable_ids: Sequence[int] | None = None,
     workspace: PlasticWorkspace | None = None,
     workspace_ids: Sequence[int] | None = None,
+    use_split_state: bool = False,
 ) -> tuple[torch.Tensor, RouterOutput]:
     """`input_ids -> logits`, executed through the stable core, the
     persistent bank (always applied), and the plastic workspace (applied
-    only when `workspace` is given -- PLASTIC/CONSOLIDATE/SHADOW)."""
-    hidden = model.encode(input_ids)
-    hidden, router_out = apply_bank(hidden, bank, router, stable_ids)
+    only when `workspace` is given -- PLASTIC/CONSOLIDATE/SHADOW).
+
+    `use_split_state` (Phase A.1 Task A1-005): when True, encodes via
+    `model.encode_split` and routes the bank on `task_state` while the
+    bank/workspace transform and `decode` read `content_state` -- see
+    `apc.core.model.EncodedState`. Default False keeps every existing
+    caller (`apc.evaluation.baselines`, `apc.evaluation.sequential_
+    benchmark`, `apc.core.generation`-style callers) byte-for-byte
+    identical to Phase A.1 up to A1-004: those modules calibrate routing
+    and measure novelty against the plain `encode` hidden state, and
+    switching their routing input to `task_state` without also
+    recalibrating against it is a separate, not-yet-scoped change (see
+    `docs/DECISIONS.md`).
+    """
+    if use_split_state:
+        encoded = model.encode_split(input_ids)
+        content, router_out = apply_bank(
+            encoded.content_state, bank, router, stable_ids, route_state=encoded.task_state
+        )
+    else:
+        content, router_out = apply_bank(model.encode(input_ids), bank, router, stable_ids)
     if workspace is not None:
-        hidden = apply_workspace(hidden, workspace, workspace_ids)
-    return model.decode(hidden), router_out
+        content = apply_workspace(content, workspace, workspace_ids)
+    return model.decode(content), router_out
 
 
 @torch.no_grad()

@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 import torch
 
-from apc.core.model import DecoderOnlyTransformer, TransformerConfig
+from apc.core.model import DecoderOnlyTransformer, EncodedState, TransformerConfig
 from apc.utils.seed import set_seed
 
 
@@ -77,3 +77,69 @@ def test_num_parameters_trainable_only() -> None:
 def test_weight_tying_between_embedding_and_head() -> None:
     model = DecoderOnlyTransformer(_tiny_config())
     assert model.head.weight is model.token_emb.weight
+
+
+# --- encode_split (Phase A.1 Task A1-005) -----------------------------------
+
+
+def test_encode_split_returns_encoded_state_with_expected_shapes() -> None:
+    model = DecoderOnlyTransformer(_tiny_config())
+    input_ids = torch.randint(0, 14, (3, 7))
+    encoded = model.encode_split(input_ids)
+    assert isinstance(encoded, EncodedState)
+    assert encoded.task_state.shape == (3, 7, 16)
+    assert encoded.content_state.shape == (3, 7, 16)
+
+
+def test_encode_split_content_state_matches_plain_encode() -> None:
+    """Phase A/A.1 compatibility: `content_state` is exactly `encode`'s
+    output, value-for-value, so callers that have not migrated to the
+    split API see no behavior change."""
+    set_seed(0)
+    model = DecoderOnlyTransformer(_tiny_config())
+    input_ids = torch.randint(0, 14, (2, 5))
+    with torch.no_grad():
+        expected = model.encode(input_ids)
+        encoded = model.encode_split(input_ids)
+    torch.testing.assert_close(encoded.content_state, expected)
+
+
+def test_encode_split_task_state_is_independently_probeable() -> None:
+    """`task_state` and `content_state` are distinct tensors carrying
+    different values -- not aliases of one shared hidden state -- so each
+    can be logged/probed on its own."""
+    set_seed(0)
+    model = DecoderOnlyTransformer(_tiny_config())
+    input_ids = torch.randint(0, 14, (2, 5))
+    with torch.no_grad():
+        encoded = model.encode_split(input_ids)
+    assert encoded.task_state.data_ptr() != encoded.content_state.data_ptr()
+    assert not torch.allclose(encoded.task_state, encoded.content_state)
+
+
+def test_encode_split_content_state_gradient_matches_plain_encode_gradient() -> None:
+    """`task_head` is parameter-free and sits downstream of `content_state`
+    (see `encode_split`'s docstring), so backpropagating through
+    `content_state` alone must produce the exact same trunk gradient as
+    backpropagating through plain `encode`'s output -- `task_head`'s
+    existence changes nothing about that path."""
+    set_seed(0)
+    model_a = DecoderOnlyTransformer(_tiny_config())
+    set_seed(0)
+    model_b = DecoderOnlyTransformer(_tiny_config())
+    input_ids = torch.randint(0, 14, (2, 5))
+
+    model_a.encode(input_ids).pow(2).sum().backward()
+    model_b.encode_split(input_ids).content_state.pow(2).sum().backward()
+
+    torch.testing.assert_close(model_a.token_emb.weight.grad, model_b.token_emb.weight.grad)
+
+
+def test_encode_split_task_state_gradient_reaches_trunk() -> None:
+    """`task_state` is a function of `content_state`, so a loss on
+    `task_state` alone must still reach the trunk's parameters."""
+    model = DecoderOnlyTransformer(_tiny_config())
+    input_ids = torch.randint(0, 14, (2, 5))
+    encoded = model.encode_split(input_ids)
+    encoded.task_state.pow(2).sum().backward()
+    assert model.token_emb.weight.grad is not None

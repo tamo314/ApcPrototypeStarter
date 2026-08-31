@@ -102,6 +102,22 @@ class Block(nn.Module):
         return x
 
 
+@dataclass(frozen=True)
+class EncodedState:
+    """Factorized Stable Core encoding (Phase A.1 Task A1-005,
+    `docs/design-docs/PHASE_A1_ARCHITECTURE_DELTA.md` section 4).
+
+    `task_state` (`z_task`) is what routing/novelty read (`apc.primitives.
+    router.Router`, `apc.meta.novelty`); `content_state` (`h_content`) is
+    the state primitives transform and `decode` reads. Both are
+    `[batch, seq_len, d_model]` -- same leading shape as plain `encode`'s
+    return, so either field is a drop-in replacement for it.
+    """
+
+    task_state: torch.Tensor
+    content_state: torch.Tensor
+
+
 class DecoderOnlyTransformer(nn.Module):
     """The Phase A fixed dense baseline: a small autoregressive Transformer."""
 
@@ -115,6 +131,10 @@ class DecoderOnlyTransformer(nn.Module):
         self.ln_f = nn.LayerNorm(config.d_model)
         self.head = nn.Linear(config.d_model, config.vocab_size, bias=False)
         self.head.weight = self.token_emb.weight  # weight tying
+        # Task A1-005: a separate (parameter-free -- see `encode_split`)
+        # view of the trunk output that routing/novelty can read instead of
+        # `content_state` directly.
+        self.task_head = nn.LayerNorm(config.d_model, elementwise_affine=False)
 
         self.apply(self._init_weights)
 
@@ -158,6 +178,45 @@ class DecoderOnlyTransformer(nn.Module):
             x = block(x)
         x = self.ln_f(x)
         return x
+
+    def encode_split(self, input_ids: torch.Tensor) -> EncodedState:
+        """Factorized encoding (Task A1-005): `content_state` is exactly
+        `encode(input_ids)` -- unchanged value and gradient path, so every
+        Phase A/A.1 call site that still calls plain `encode` is byte-for-
+        byte unaffected by this method's existence. `task_state` is a
+        separate *parameter-free* view of that same trunk output
+        (`task_head`, a `LayerNorm` with `elementwise_affine=False`): not
+        literally the content tensor primitives transform, without adding a
+        second encoder stack up front.
+
+        Deliberately parameter-free rather than a learned projection
+        (recorded per AGENTS.md workflow -- see `docs/DECISIONS.md`): this
+        codebase seeds one shared global `torch` RNG stream per run
+        (`apc.utils.seed.set_seed`), and every `nn.Module` with learnable
+        weights consumes from it at construction. A *new* randomly-
+        initialized submodule -- even one nothing yet reads, like an
+        unused learned `task_head` -- shifts every later random draw in
+        the same process (primitive bank/router initialization, data
+        sampling, training noise), silently changing already-seeded
+        integration tests' step-by-step trajectories even though its own
+        output is never consumed. A parameter-free transform reads
+        `content_state` but registers no `nn.Parameter`, so constructing a
+        `DecoderOnlyTransformer` consumes exactly the RNG draws it did
+        before this task.
+
+        `PHASE_A1_ARCHITECTURE_DELTA.md` section 4 leaves the exact
+        implementation flexible ("must not depend *solely* on a
+        low-information content state" is a later milestone's
+        generalization gate, not this task's acceptance criterion) -- a
+        genuinely learned, separate task-stream encoder can replace
+        `task_head` later, once a concrete downstream mechanism (e.g. a
+        learned router, A1-015) actually needs one and can afford to
+        retune every seed-sensitive test/config that assumes today's RNG
+        trajectory.
+        """
+        content_state = self.encode(input_ids)
+        task_state = self.task_head(content_state)
+        return EncodedState(task_state=task_state, content_state=content_state)
 
     def decode(self, hidden: torch.Tensor) -> torch.Tensor:
         """Project a final hidden state `[..., d_model]` to vocabulary logits."""
