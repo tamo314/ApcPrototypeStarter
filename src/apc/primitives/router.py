@@ -77,6 +77,9 @@ class RouterOutput:
     weights: torch.Tensor  # float, [..., k_eff], softmax over the top-k, sums to 1
     probs: torch.Tensor  # float, [..., C], softmax over every candidate
     entropy: torch.Tensor  # float, [...], entropy of `probs`
+    # Filled by the execution layer, not the router: unique, enabled real
+    # primitives whose forward methods actually ran for this batch.
+    executed_primitive_ids: tuple[int, ...] = ()
 
 
 class Router(nn.Module):

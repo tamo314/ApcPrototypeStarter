@@ -53,6 +53,47 @@ def _bank_with_stable_primitive(rank: int = 4, *, perturb: bool = True) -> Primi
     return bank
 
 
+def _bank_with_stable_primitives(count: int, rank: int = 4) -> PrimitiveBank:
+    bank = PrimitiveBank()
+    for _ in range(count):
+        primitive = bank.new_primitive(
+            PrimitiveConfig(d_model=D_MODEL, rank=rank), status=PrimitiveStatus.STABLE
+        )
+        with torch.no_grad():
+            primitive.b_proj.weight.add_(1.0)
+    bank.freeze_by_status(PrimitiveStatus.STABLE)
+    return bank
+
+
+def _configure_identity_router(router: Router, primitive_ids: list[int]) -> None:
+    ensure_null_key(router)
+    for primitive_id in primitive_ids:
+        router.add_primitive_key(primitive_id)
+    with torch.no_grad():
+        router.query_proj.weight.copy_(torch.eye(D_MODEL))
+        assert router.query_proj.bias is not None
+        router.query_proj.bias.zero_()
+        router.key_parameter(NULL_PRIMITIVE_ID).zero_()
+        for primitive_id in primitive_ids:
+            key = torch.zeros(D_MODEL)
+            key[primitive_id] = 1.0
+            router.key_parameter(primitive_id).copy_(key)
+
+
+def _dense_top_k_reference(
+    hidden: torch.Tensor, bank: PrimitiveBank, router: Router, primitive_ids: list[int]
+) -> torch.Tensor:
+    """The pre-A1-002 dense implementation, used only as a numerical oracle."""
+    router_out = router(hidden, [NULL_PRIMITIVE_ID, *primitive_ids])
+    combined_delta = torch.zeros_like(hidden)
+    for primitive_id in primitive_ids:
+        selected = (router_out.selected_ids == primitive_id).to(hidden.dtype)
+        weight = (selected * router_out.weights).sum(dim=-1, keepdim=True)
+        primitive = bank.get(primitive_id)
+        combined_delta = combined_delta + weight * primitive.b_proj(primitive.a_proj(hidden))
+    return hidden + combined_delta
+
+
 # --- apply_bank --------------------------------------------------------
 
 
@@ -112,6 +153,46 @@ def test_apply_bank_null_candidate_is_never_looked_up_in_bank() -> None:
     out, router_out = apply_bank(h, bank, router, stable_ids=[])
     assert torch.equal(out, h)
     assert NULL_PRIMITIVE_ID in router_out.candidate_ids
+
+
+def test_apply_bank_executes_only_selected_primitives_for_a_batched_input() -> None:
+    bank = _bank_with_stable_primitives(4)
+    router = _router(top_k=1)
+    primitive_ids = bank.ids()
+    _configure_identity_router(router, primitive_ids)
+    # Different batch/sequence positions select primitives 0 and 1.  The
+    # other two bank entries must not run at all.
+    h = torch.stack((torch.eye(D_MODEL)[0], torch.eye(D_MODEL)[1])).reshape(1, 2, D_MODEL)
+    expected = _dense_top_k_reference(h, bank, router, primitive_ids)
+    for primitive_id in primitive_ids:
+        bank.get(primitive_id).reset_forward_call_count()
+
+    actual, router_out = apply_bank(h, bank, router, stable_ids=primitive_ids)
+
+    torch.testing.assert_close(actual, expected)
+    assert router_out.executed_primitive_ids == (0, 1)
+    assert [bank.get(pid).forward_call_count for pid in primitive_ids] == [1, 1, 0, 0]
+    assert bank.active_parameter_count(router_out.executed_primitive_ids) == (
+        2 * bank.get(0).num_parameters()
+    )
+    assert bank.persistent_parameter_count() == 4 * bank.get(0).num_parameters()
+
+
+def test_apply_bank_matches_dense_execution_when_top_k_selects_every_candidate() -> None:
+    bank = _bank_with_stable_primitives(3)
+    router = _router(top_k=4)  # three real primitives plus the null candidate
+    primitive_ids = bank.ids()
+    _configure_identity_router(router, primitive_ids)
+    h = torch.randn(2, 3, D_MODEL)
+    expected = _dense_top_k_reference(h, bank, router, primitive_ids)
+    for primitive_id in primitive_ids:
+        bank.get(primitive_id).reset_forward_call_count()
+
+    actual, router_out = apply_bank(h, bank, router, stable_ids=primitive_ids)
+
+    torch.testing.assert_close(actual, expected)
+    assert router_out.executed_primitive_ids == tuple(primitive_ids)
+    assert [bank.get(pid).forward_call_count for pid in primitive_ids] == [1, 1, 1]
 
 
 # --- apply_workspace / sum_primitive_deltas --------------------------------

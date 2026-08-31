@@ -80,6 +80,15 @@ def test_active_parameter_count_respects_selection_and_enabled_flag() -> None:
     assert bank.active_parameter_count(all_ids) == 2 * PARAMS_PER_PRIMITIVE
 
 
+def test_active_parameter_count_deduplicates_batched_selected_ids() -> None:
+    bank = _filled_bank(n_stable=2, n_candidate=0)
+    ids = bank.ids()
+    # -1 models the router's null candidate: it has no bank capacity.
+    assert bank.active_parameter_count([-1, ids[0], ids[1], ids[0], ids[1]]) == (
+        2 * PARAMS_PER_PRIMITIVE
+    )
+
+
 def test_active_parameter_count_is_not_limited_to_stable_status() -> None:
     # A candidate under evaluation is still "active" for the forward step
     # that uses it; persistent accounting is a separate, stricter count.

@@ -149,6 +149,9 @@ def test_baseline_report_to_dict_round_trips_through_json(
         assert event["resident_total_param_count"] == (
             payload["stable_core_parameter_count"] + event["resident_primitive_param_count"]
         )
+        assert event["active_param_count"] == (
+            payload["stable_core_parameter_count"] + event["active_primitive_param_count"]
+        )
 
 
 def test_b0_trains_the_dense_core_every_event_and_never_adds_capacity(
@@ -194,7 +197,10 @@ def test_b2_grows_unconditionally_every_event(
     assert counts == [per_event_params * (i + 1) for i in range(len(counts))]
     assert report.resident_primitive_parameter_count_final == per_event_params * len(report.events)
     # Dense unconditional growth: every grown transform is always active.
-    assert report.events[-1].active_param_count == report.events[-1].resident_primitive_param_count
+    assert (
+        report.events[-1].active_primitive_param_count
+        == report.events[-1].resident_primitive_param_count
+    )
 
 
 def test_b3_grows_unconditionally_every_event_like_b2(

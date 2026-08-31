@@ -331,6 +331,7 @@ class EventReport:
     resident_total_param_count: int
     resident_primitive_param_count: int
     temporary_peak_param_count: int
+    active_primitive_param_count: int
     active_param_count: int
 
 
@@ -457,6 +458,20 @@ class _SequentialBenchmarkRunner:
         hidden = self._raw_hidden(batch.input_ids)
         _, router_out = apply_bank(hidden, self.bank, self.router, stable_ids)
         return float(router_out.entropy.mean().item())
+
+    def _active_primitive_parameter_count(
+        self, examples: list[Example], stable_ids: list[int]
+    ) -> int:
+        """Selected primitive capacity for one representative batched forward.
+
+        The benchmark reports this batch-level proxy separately from the
+        always-active Stable Core, rather than treating every resident bank
+        primitive as active.
+        """
+        batch = collate_batch(examples, self.specials)
+        hidden = self._raw_hidden(batch.input_ids)
+        _, router_out = apply_bank(hidden, self.bank, self.router, stable_ids)
+        return self.bank.active_parameter_count(router_out.executed_primitive_ids)
 
     def _evaluate_novelty(self, eval_examples: list[Example]) -> tuple[float, float, float]:
         stable_ids = stable_candidate_ids(self.bank)
@@ -754,6 +769,9 @@ class _SequentialBenchmarkRunner:
         post_exact_match, _ = evaluate_exact_match_with_capacity(
             self.model, eval_examples, self.specials, self.bank, self.router, stable_ids=stable_ids
         )
+        active_primitive_param_count = self._active_primitive_parameter_count(
+            eval_examples, stable_ids
+        )
 
         report = EventReport(
             index=index,
@@ -777,7 +795,8 @@ class _SequentialBenchmarkRunner:
             ),
             resident_primitive_param_count=self.bank.persistent_parameter_count(),
             temporary_peak_param_count=self.workspace.total_parameter_count(),
-            active_param_count=self.bank.active_parameter_count(stable_ids),
+            active_primitive_param_count=active_primitive_param_count,
+            active_param_count=self.model.num_parameters() + active_primitive_param_count,
         )
         self.event_eval_examples.append(eval_examples)
         self.replay_buffer.append((event, eval_examples))

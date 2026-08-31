@@ -77,6 +77,10 @@ class Primitive(nn.Module):
         self.metadata: dict[str, Any] = dict(metadata) if metadata else {}
 
         self.usage_count = 0
+        # Execution instrumentation is deliberately separate from router
+        # usage.  The latter counts selected IDs, while this counter proves
+        # whether this module's low-rank transform actually ran.
+        self.forward_call_count = 0
         self.utility_ema = 0.0
         self.stability_score = 0.0
 
@@ -97,8 +101,13 @@ class Primitive(nn.Module):
         """
         if not self.enabled:
             return h
+        self.forward_call_count += 1
         delta = self.b_proj(self.a_proj(h))
         return h + gate * delta
+
+    def reset_forward_call_count(self) -> None:
+        """Reset the execution-instrumentation counter used by sparse tests."""
+        self.forward_call_count = 0
 
     def num_parameters(self, *, trainable_only: bool = False) -> int:
         params = self.parameters()

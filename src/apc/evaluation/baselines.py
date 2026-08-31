@@ -107,6 +107,7 @@ from apc.consolidation.distill import consolidate
 from apc.consolidation.shadow import run_shadow_validation
 from apc.core.data import IGNORE_INDEX, Batch, collate_batch
 from apc.core.execution import (
+    apply_bank,
     apply_workspace,
     ensure_null_key,
     evaluate_exact_match_with_capacity,
@@ -181,6 +182,7 @@ class BaselineEventReport:
     train_steps: int
     resident_total_param_count: int
     resident_primitive_param_count: int
+    active_primitive_param_count: int
     active_param_count: int
 
 
@@ -299,8 +301,12 @@ class _BaseRunner:
     def resident_total_param_count(self) -> int:
         return self.model.num_parameters() + self.resident_primitive_param_count()
 
-    def active_param_count(self) -> int:
+    def active_primitive_param_count(self, examples: list[Example]) -> int:
         raise NotImplementedError
+
+    def active_param_count(self, examples: list[Example]) -> int:
+        """Stable-Core plus actually executed primitive capacity."""
+        return self.model.num_parameters() + self.active_primitive_param_count(examples)
 
     def compute_retention(
         self, events: tuple[BaselineEventReport, ...]
@@ -377,8 +383,8 @@ class B0Runner(_BaseRunner):
     def resident_primitive_param_count(self) -> int:
         return 0
 
-    def active_param_count(self) -> int:
-        return self.model.num_parameters()
+    def active_primitive_param_count(self, examples: list[Example]) -> int:
+        return 0
 
     def process_event(self, event: StreamEvent, index: int) -> BaselineEventReport:
         examples = self.pool_for_event(event)
@@ -407,6 +413,7 @@ class B0Runner(_BaseRunner):
         steps, post = self._plateau(step_fn, eval_fn)
         self.total_train_steps += steps
         self.event_eval_examples.append(examples)
+        active_primitive_param_count = self.active_primitive_param_count(examples)
         return BaselineEventReport(
             index=index,
             label=event.label,
@@ -416,7 +423,8 @@ class B0Runner(_BaseRunner):
             train_steps=steps,
             resident_total_param_count=self.resident_total_param_count(),
             resident_primitive_param_count=self.resident_primitive_param_count(),
-            active_param_count=self.active_param_count(),
+            active_primitive_param_count=active_primitive_param_count,
+            active_param_count=self.model.num_parameters() + active_primitive_param_count,
         )
 
 
@@ -442,8 +450,13 @@ class B1Runner(_BaseRunner):
     def resident_primitive_param_count(self) -> int:
         return self.bank.persistent_parameter_count()
 
-    def active_param_count(self) -> int:
-        return self.bank.active_parameter_count(stable_candidate_ids(self.bank))
+    def active_primitive_param_count(self, examples: list[Example]) -> int:
+        stable_ids = stable_candidate_ids(self.bank)
+        batch = collate_batch(examples, self.specials)
+        with torch.no_grad():
+            hidden = self.model.encode(batch.input_ids)
+        _, router_out = apply_bank(hidden, self.bank, self.router, stable_ids)
+        return self.bank.active_parameter_count(router_out.executed_primitive_ids)
 
     def after_pretrain(self) -> None:
         seq = self.config.sequential
@@ -538,6 +551,7 @@ class B1Runner(_BaseRunner):
         examples = self.pool_for_event(event)
         exact_match = self.evaluate(examples)
         self.event_eval_examples.append(examples)
+        active_primitive_param_count = self.active_primitive_param_count(examples)
         return BaselineEventReport(
             index=index,
             label=event.label,
@@ -547,7 +561,8 @@ class B1Runner(_BaseRunner):
             train_steps=0,
             resident_total_param_count=self.resident_total_param_count(),
             resident_primitive_param_count=self.resident_primitive_param_count(),
-            active_param_count=self.active_param_count(),
+            active_primitive_param_count=active_primitive_param_count,
+            active_param_count=self.model.num_parameters() + active_primitive_param_count,
         )
 
 
@@ -626,7 +641,7 @@ class _GrowRunner(_BaseRunner):
     def resident_primitive_param_count(self) -> int:
         return sum(t.num_parameters() for t in self.grown)
 
-    def active_param_count(self) -> int:
+    def active_primitive_param_count(self, examples: list[Example]) -> int:
         # Every grown transform is summed unconditionally into every
         # forward pass (no routing) -- see module docstring.
         return self.resident_primitive_param_count()
@@ -685,6 +700,7 @@ class _GrowRunner(_BaseRunner):
         max_replay = seq.replay_buffer_max_events * seq.num_examples
         self.replay_buffer = self.replay_buffer[-max_replay:]
 
+        active_primitive_param_count = self.active_primitive_param_count(examples)
         return BaselineEventReport(
             index=index,
             label=event.label,
@@ -694,7 +710,8 @@ class _GrowRunner(_BaseRunner):
             train_steps=steps,
             resident_total_param_count=self.resident_total_param_count(),
             resident_primitive_param_count=self.resident_primitive_param_count(),
-            active_param_count=self.active_param_count(),
+            active_primitive_param_count=active_primitive_param_count,
+            active_param_count=self.model.num_parameters() + active_primitive_param_count,
         )
 
 

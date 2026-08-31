@@ -103,16 +103,12 @@ def apply_bank(
     returned hidden state is safe to feed into a trainable module (e.g.
     `apply_workspace`) afterwards.
 
-    Not currently sparse in compute (Task 014 review finding): every
-    enabled primitive in `ids` has its delta computed unconditionally --
-    the router's top-k selection only zeroes out the *weight* of
-    non-selected primitives in the sum below, it does not skip computing
-    them. `stable_candidate_ids(bank)`-sized routing cost is paid every
-    forward pass regardless of `router.config.top_k`. This means a
-    caller-side "active parameters per inference step" figure derived from
-    `stable_ids` (as `apc.evaluation.sequential_benchmark.EventReport`
-    currently does) is not distinguishable from persistent parameter
-    count -- see `docs/exec-plans/completed/PHASE_A_RESULT.md` section 3.2.
+    Only primitives selected at one or more batch/sequence positions are
+    executed.  The selected hidden states are gathered per primitive, the
+    low-rank transform is evaluated once for that gathered tensor, and its
+    weighted delta is scattered back to the corresponding positions.  This
+    preserves the prior parallel-delta semantics while making the primitive
+    computation genuinely top-k sparse (Phase A.1 task A1-002).
     """
     ensure_null_key(router)
     ids = list(stable_ids) if stable_ids is not None else stable_candidate_ids(bank)
@@ -123,16 +119,34 @@ def apply_bank(
         if not ids:
             return hidden, router_out
 
-        combined_delta = torch.zeros_like(hidden)
-        for pid in ids:
+        flat_hidden = hidden.reshape(-1, hidden.shape[-1])
+        flat_selected_ids = router_out.selected_ids.reshape(-1, router_out.selected_ids.shape[-1])
+        flat_weights = router_out.weights.reshape(-1, router_out.weights.shape[-1])
+        flat_delta = torch.zeros_like(flat_hidden)
+
+        candidate_id_set = set(ids)
+        selected_ids = {
+            int(pid)
+            for pid in flat_selected_ids.reshape(-1).tolist()
+            if int(pid) in candidate_id_set and bank.get(int(pid)).enabled
+        }
+        executed_ids = tuple(sorted(selected_ids))
+        router_out.executed_primitive_ids = executed_ids
+
+        for pid in executed_ids:
             primitive = bank.get(pid)
-            if not primitive.enabled:
-                continue
-            weight = ((router_out.selected_ids == pid).float() * router_out.weights).sum(
-                dim=-1, keepdim=True
-            )
-            combined_delta = combined_delta + weight * primitive.b_proj(primitive.a_proj(hidden))
-        return hidden + combined_delta, router_out
+            selected_mask = flat_selected_ids == pid
+            position_mask = selected_mask.any(dim=-1)
+            positions = position_mask.nonzero(as_tuple=False).squeeze(-1)
+            selected_hidden = flat_hidden.index_select(0, positions)
+            # Call Primitive.forward rather than its projections directly so
+            # execution instrumentation reflects actual sparse work.
+            delta = primitive(selected_hidden) - selected_hidden
+            gates = (selected_mask.to(flat_weights.dtype) * flat_weights).sum(dim=-1)
+            weighted_delta = gates.index_select(0, positions).unsqueeze(-1) * delta
+            flat_delta.index_add_(0, positions, weighted_delta)
+
+        return hidden + flat_delta.reshape_as(hidden), router_out
 
 
 def apply_workspace(

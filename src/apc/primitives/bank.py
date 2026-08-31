@@ -138,10 +138,17 @@ class PrimitiveBank(nn.Module):
     def active_parameter_count(
         self, selected_ids: Iterable[int], *, trainable_only: bool = False
     ) -> int:
-        """Parameters of the given (e.g. router-selected) ids that are
-        actually enabled — the "active parameters" of one forward step."""
+        """Parameters of unique enabled router-selected ids.
+
+        A primitive can be selected at many batch/sequence positions but
+        contributes its resident capacity only once to a batched forward's
+        active-capacity count.
+        """
+        unique_ids = dict.fromkeys(int(pid) for pid in selected_ids)
         return sum(
             self.get(pid).num_parameters(trainable_only=trainable_only)
-            for pid in selected_ids
-            if self.get(pid).enabled
+            for pid in unique_ids
+            # Router selections also include the unassigned null candidate;
+            # it has no bank capacity and therefore contributes zero.
+            if str(pid) in self._primitives and self.get(pid).enabled
         )

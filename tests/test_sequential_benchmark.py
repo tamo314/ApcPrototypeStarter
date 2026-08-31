@@ -232,6 +232,9 @@ def test_report_to_dict_round_trips_through_json(
         assert event["resident_total_param_count"] == (
             payload["stable_core_parameter_count"] + event["resident_primitive_param_count"]
         )
+        assert event["active_param_count"] == (
+            payload["stable_core_parameter_count"] + event["active_primitive_param_count"]
+        )
 
 
 def test_failing_shadow_preserves_temporary_capacity_and_retries() -> None:
