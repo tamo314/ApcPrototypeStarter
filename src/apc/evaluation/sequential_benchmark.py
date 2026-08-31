@@ -83,8 +83,13 @@ budget -- see `apc.environments.operations`). Building that support is an
 environment change beyond this task's scope, so `default_task_stream`
 omits that event; `docs/DECISIONS.md` records this as a scope reduction.
 
-Only one configuration (the full APC loop) is run here. Baselines B0-B4
-from `docs/EXPERIMENT_PLAN.md` section 5 are Task 013's job.
+Only one configuration (the full APC loop) is implemented here; Baselines
+B0-B4 from `docs/EXPERIMENT_PLAN.md` section 5 live in
+`apc.evaluation.baselines` (Task 013), sharing the task-stream/data-pooling
+plumbing this module uses via `apc.evaluation.stream` (see that module's
+docstring). `StreamEvent`, `default_task_stream`, and the `LABEL_*`
+constants are defined there and re-exported here unchanged, so existing
+imports from this module keep working.
 """
 
 from __future__ import annotations
@@ -107,7 +112,6 @@ from apc.consolidation.shadow import (
 )
 from apc.core.data import IGNORE_INDEX, collate_batch
 from apc.core.execution import (
-    NULL_PRIMITIVE_ID,
     apply_bank,
     apply_workspace,
     ensure_null_key,
@@ -118,11 +122,17 @@ from apc.core.execution import (
 from apc.core.generation import evaluate_exact_match
 from apc.core.model import DecoderOnlyTransformer, TransformerConfig
 from apc.core.tokens import SpecialTokens, build_special_tokens
-from apc.environments.generator import (
-    NOVEL_COMPOSITION_SPLIT,
-    NOVEL_OPERATION_SPLIT,
-    Example,
-    TaskGenerator,
+from apc.environments.generator import Example
+from apc.evaluation.stream import (
+    LABEL_KNOWN,
+    LABEL_NOVEL_COMPOSITION,
+    LABEL_NOVEL_OPERATION,
+    LABEL_RECURRENCE,
+    EventExamplePool,
+    StreamEvent,
+    build_task_generators,
+    calibrate_router,
+    default_task_stream,
 )
 from apc.meta.controller import Controller, ControllerConfig, ControllerSignals, ControllerState
 from apc.meta.novelty import NoveltyConfig, NoveltyEstimator, NoveltySignals
@@ -132,45 +142,23 @@ from apc.primitives.bank import PrimitiveBank
 from apc.primitives.router import Router, RouterConfig
 from apc.utils.seed import set_seed
 
-LABEL_KNOWN = "K"
-LABEL_NOVEL_COMPOSITION = "C"
-LABEL_NOVEL_OPERATION = "N"
-LABEL_RECURRENCE = "R"
-_LABELS = (LABEL_KNOWN, LABEL_NOVEL_COMPOSITION, LABEL_NOVEL_OPERATION, LABEL_RECURRENCE)
-
-
-@dataclass(frozen=True)
-class StreamEvent:
-    """One task-stream entry. `operation_name` selects which novel
-    operation an `N`/`R` event drills; ignored for `K`/`C`."""
-
-    label: str
-    operation_name: str | None = None
-
-    def __post_init__(self) -> None:
-        if self.label not in _LABELS:
-            raise ValueError(f"label must be one of {_LABELS}, got {self.label!r}")
-        if self.label in (LABEL_NOVEL_OPERATION, LABEL_RECURRENCE) and not self.operation_name:
-            raise ValueError(f"{self.label} events require a non-empty operation_name")
-
-
-def default_task_stream(novel_operation_names: tuple[str, ...]) -> tuple[StreamEvent, ...]:
-    """`K C N(op0) K C N(op1) K C ... R(op0) R(op1) ...` -- a reduced form
-    of Milestone A9's example stream (see module docstring for what was
-    dropped and why): one learn/consolidate/release cycle per novel
-    operation, each preceded by known/composition checks, followed by a
-    recurrence of every novel operation to measure reuse.
-    """
-    if not novel_operation_names:
-        raise ValueError("novel_operation_names must be non-empty")
-    events = [StreamEvent(LABEL_KNOWN), StreamEvent(LABEL_NOVEL_COMPOSITION)]
-    for op in novel_operation_names:
-        events.append(StreamEvent(LABEL_NOVEL_OPERATION, operation_name=op))
-        events.append(StreamEvent(LABEL_KNOWN))
-        events.append(StreamEvent(LABEL_NOVEL_COMPOSITION))
-    for op in novel_operation_names:
-        events.append(StreamEvent(LABEL_RECURRENCE, operation_name=op))
-    return tuple(events)
+__all__ = [
+    "LABEL_KNOWN",
+    "LABEL_NOVEL_COMPOSITION",
+    "LABEL_NOVEL_OPERATION",
+    "LABEL_RECURRENCE",
+    "StreamEvent",
+    "default_task_stream",
+    "PretrainConfig",
+    "PlasticTrainingConfig",
+    "RouterCalibrationConfig",
+    "SequentialBenchmarkConfig",
+    "sequential_config_from_dict",
+    "EventReport",
+    "RetentionSample",
+    "SequentialBenchmarkReport",
+    "run_sequential_benchmark",
+]
 
 
 @dataclass(frozen=True)
@@ -397,24 +385,14 @@ class _SequentialBenchmarkRunner:
         self.config = config
         set_seed(config.seed)
         self.specials: SpecialTokens = build_special_tokens(config.vocab_size)
-        self.main_generator = TaskGenerator(
+        self.main_generator, self.novel_generators = build_task_generators(
             seed=config.seed,
             vocab_size=config.vocab_size,
             sequence_length_range=config.sequence_length_range,
             max_depth=config.max_depth,
             novel_composition_fraction=config.novel_composition_fraction,
+            novel_operation_names=config.novel_operation_names,
         )
-        self.novel_generators: dict[str, TaskGenerator] = {
-            op: TaskGenerator(
-                seed=config.seed,
-                vocab_size=config.vocab_size,
-                sequence_length_range=config.sequence_length_range,
-                max_depth=config.max_depth,
-                novel_composition_fraction=config.novel_composition_fraction,
-                novel_operation_names=(op,),
-            )
-            for op in config.novel_operation_names
-        }
 
         self.model_config = TransformerConfig(
             vocab_size=self.specials.model_vocab_size, **config.model
@@ -431,25 +409,16 @@ class _SequentialBenchmarkRunner:
         self.anchors: dict[int, torch.Tensor] = {}
         self.replay_buffer: list[tuple[StreamEvent, list[Example]]] = []
         self.event_eval_examples: list[list[Example]] = []
-        self._offsets: dict[tuple[str, str | None], int] = {}
+        self._pool = EventExamplePool()
         self.temporary_peak_params = 0
         self.total_train_steps = 0
 
     # --- data ----------------------------------------------------------
 
     def _pool_for_event(self, event: StreamEvent, total_count: int) -> list[Example]:
-        key = (event.label, event.operation_name)
-        start = self._offsets.get(key, 0)
-        self._offsets[key] = start + total_count
-        if event.label == LABEL_KNOWN:
-            generator, split = self.main_generator, "test"
-        elif event.label == LABEL_NOVEL_COMPOSITION:
-            generator, split = self.main_generator, NOVEL_COMPOSITION_SPLIT
-        else:
-            assert event.operation_name is not None  # enforced by StreamEvent.__post_init__
-            generator, split = self.novel_generators[event.operation_name], NOVEL_OPERATION_SPLIT
-        pool = generator.generate(start + total_count, split)
-        return pool[start : start + total_count]
+        return self._pool.pool_for_event(
+            event, self.main_generator, self.novel_generators, total_count
+        )
 
     # --- hidden-state helpers -------------------------------------------
 
@@ -540,29 +509,14 @@ class _SequentialBenchmarkRunner:
         self.anchors[new_primitive_id] = self._raw_hidden(train_input_ids).reshape(
             -1, self.model_config.d_model
         )
-        ids = sorted(self.anchors)
         background = self._replay_raw_hidden()
-        classes = [NULL_PRIMITIVE_ID, *ids]
-
-        saved_usage = dict(self.router.usage_count)
-        params = list(self.router.query_proj.parameters()) + [
-            self.router.key_parameter(c) for c in classes
-        ]
-        optimizer = torch.optim.Adam(params, lr=self.config.router_calibration.lr)
-        for _ in range(self.config.router_calibration.steps):
-            optimizer.zero_grad(set_to_none=True)
-            loss = torch.zeros(())
-            if background.shape[0] > 0:
-                router_out = self.router(background, classes)
-                target = torch.zeros(background.shape[0], dtype=torch.long)
-                loss = loss + F.cross_entropy(router_out.probs, target)
-            for class_idx, pid in enumerate(ids, start=1):
-                router_out = self.router(self.anchors[pid], classes)
-                target = torch.full((self.anchors[pid].shape[0],), class_idx, dtype=torch.long)
-                loss = loss + F.cross_entropy(router_out.probs, target)
-            loss.backward()
-            optimizer.step()
-        self.router.usage_count = saved_usage
+        calibrate_router(
+            self.router,
+            self.anchors,
+            background,
+            steps=self.config.router_calibration.steps,
+            lr=self.config.router_calibration.lr,
+        )
 
     # --- PLASTIC / CONSOLIDATE / SHADOW ----------------------------------
 

@@ -6,10 +6,12 @@ Kept separate from `apc.evaluation.sequential_benchmark` so importing that
 module (or running its tests) never requires matplotlib -- only callers
 that actually want plots (the CLI script) pay for the dependency.
 
-Only the single APC configuration Task 012 runs is available, so "primitive
-reuse heatmap by task family" and "lifetime compute proxy by baseline" are
-necessarily single-run/single-baseline views; Task 013 adds the B0-B4
-baselines section 9 compares against.
+Only the single APC configuration Task 012 runs is available here, so
+"primitive reuse heatmap by task family" is necessarily a single-run view
+and `plot_lifetime_compute_proxy` below only plots this one run's compute.
+For the actual cross-baseline "lifetime compute proxy by baseline" plot
+section 9 asks for (B0-B4), see `apc.evaluation.baseline_plots.
+plot_lifetime_compute_comparison` (Task 013).
 """
 
 from __future__ import annotations
@@ -177,7 +179,10 @@ def plot_lifetime_compute_proxy(report: SequentialBenchmarkReport, out_path: Pat
     ax.plot(range(len(cumulative)), cumulative, "o-", label="APC (this run)")
     ax.set_xlabel("pretrain, then event index")
     ax.set_ylabel("cumulative train steps (compute proxy)")
-    ax.set_title("Lifetime compute proxy (single baseline -- see Task 013 for B0-B4)")
+    ax.set_title(
+        "Lifetime compute proxy (this run only -- see "
+        "apc.evaluation.baseline_plots for the B0-B4 comparison)"
+    )
     ax.legend()
     fig.tight_layout()
     fig.savefig(out_path)

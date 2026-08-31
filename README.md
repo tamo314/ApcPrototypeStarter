@@ -78,6 +78,7 @@ python scripts/smoke_train.py --config configs/phase_a_smoke.yaml
 python scripts/composition_benchmark.py --run-dir runs/phase_a_smoke
 python scripts/novel_operation_benchmark.py --run-dir runs/phase_a_smoke
 python scripts/sequential_benchmark.py --config configs/phase_a_sequential.yaml --run-dir runs/phase_a_sequential
+python scripts/baseline_benchmark.py --config configs/phase_a_sequential.yaml --run-dir runs/phase_a_baselines
 ```
 
 `composition_benchmark.py` evaluates a trained checkpoint on known-operation
@@ -106,6 +107,17 @@ in particular that the current dense core does not generalize known-op
 execution to unseen token content, so novelty/PLASTIC/shadow are all
 evaluated against the same fixed per-event example set rather than a
 held-out split.
+
+`baseline_benchmark.py` runs `docs/EXPERIMENT_PLAN.md` section 5's B0-B4
+baselines (fixed dense, fixed sparse, grow-only, grow-plus-replay, and the
+full APC loop) under one shared config -- same seed, task stream,
+per-event data, model size, and PLASTIC-equivalent training budget for
+every baseline -- writing each one's `report.json` under its own
+subdirectory of the run directory, a combined `summary.json`, and (unless
+`--no-plots`) cross-baseline comparison plots in `plots/` (Task 013). See
+`docs/DECISIONS.md` ADR-0010 through ADR-0012 for how the B1 fixed bank is
+populated, why B2/B3 bypass the primitive bank/router entirely, and why B3
+has its own replay-weight config key instead of reusing consolidation's.
 
 If a tool is not yet configured, add it as part of the repository-bootstrap task rather than silently skipping verification.
 
