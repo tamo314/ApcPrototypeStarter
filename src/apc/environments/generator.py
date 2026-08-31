@@ -25,7 +25,7 @@ import hashlib
 import random
 from dataclasses import dataclass
 from itertools import product
-from typing import Any
+from typing import Any, Final, Literal
 
 from apc.environments.interpreter import OperationGraph, run_program
 from apc.environments.operations import KNOWN_OPERATION_NAMES, get_operation
@@ -35,6 +35,36 @@ from apc.environments.vocab import DEFAULT_VOCAB_SIZE
 KNOWN_SPLITS: tuple[str, ...] = ("train", "val", "test")
 NOVEL_COMPOSITION_SPLIT = "novel_composition"
 NOVEL_OPERATION_SPLIT = "novel_operation"
+
+OracleLabel = Literal["K", "C", "N", "R"]
+ORACLE_LABEL_KNOWN: Final[OracleLabel] = "K"
+ORACLE_LABEL_NOVEL_COMPOSITION: Final[OracleLabel] = "C"
+ORACLE_LABEL_NOVEL_OPERATION: Final[OracleLabel] = "N"
+ORACLE_LABEL_RECURRENCE: Final[OracleLabel] = "R"
+
+
+@dataclass(frozen=True)
+class OracleMetadata:
+    """Latent task information reserved for evaluation and oracle paths.
+
+    This record deliberately contains no model-ready token encoding.  In
+    particular, :func:`apc.core.data.encode_example` consumes only
+    ``input_tokens`` and ``target_tokens``.  Future learned routing and
+    novelty code must derive their inputs from the task itself; only explicit
+    oracle experiments may consume this metadata.
+    """
+
+    label: OracleLabel
+    primitive_operations: tuple[str, ...]
+    recurrence_operation: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return JSON-serializable oracle metadata for evaluation logs."""
+        return {
+            "label": self.label,
+            "primitive_operations": list(self.primitive_operations),
+            "recurrence_operation": self.recurrence_operation,
+        }
 
 
 def _derive_seed(seed: int, label: str) -> int:
@@ -60,6 +90,7 @@ class Example:
     category: str  # "known" | "novel_composition" | "novel_operation"
     split: str
     vocab_size: int
+    oracle_metadata: OracleMetadata | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -70,6 +101,9 @@ class Example:
             "category": self.category,
             "split": self.split,
             "vocab_size": self.vocab_size,
+            "oracle_metadata": (
+                None if self.oracle_metadata is None else self.oracle_metadata.to_dict()
+            ),
         }
 
 
@@ -159,7 +193,10 @@ class TaskGenerator:
 
     Calling `generate(n, split)` twice with the same `seed`, config, and
     `split` reproduces byte-identical examples, independent of call order
-    or of any other split having been generated first.
+    or of any other split having been generated first.  The historical
+    method serves fixed-dataset diagnostics.  Phase A.1 scientific paths use
+    :meth:`generate_online`, which samples a fresh batch deterministically
+    from ``(seed, step, split)`` without retaining a finite train set.
     """
 
     def __init__(
@@ -221,10 +258,38 @@ class TaskGenerator:
             return self._novel_operation_pool, self._novel_operation_lengths, "novel_operation"
         raise ValueError(f"Unknown split: {split!r}")
 
-    def generate(self, n: int, split: str) -> list[Example]:
-        """Generate `n` examples for `split`, deterministic given `seed`."""
+    def _resolve_oracle_label(
+        self, category: str, oracle_label: OracleLabel | None
+    ) -> OracleLabel:
+        inferred: dict[str, OracleLabel] = {
+            "known": ORACLE_LABEL_KNOWN,
+            "novel_composition": ORACLE_LABEL_NOVEL_COMPOSITION,
+            "novel_operation": ORACLE_LABEL_NOVEL_OPERATION,
+        }
+        expected = inferred[category]
+        if oracle_label is None:
+            return expected
+        if oracle_label == expected:
+            return oracle_label
+        if category == "novel_operation" and oracle_label == ORACLE_LABEL_RECURRENCE:
+            return oracle_label
+        raise ValueError(
+            f"oracle_label {oracle_label!r} is incompatible with category {category!r}"
+        )
+
+    def _generate(
+        self,
+        n: int,
+        split: str,
+        *,
+        rng_label: str,
+        oracle_label: OracleLabel | None = None,
+    ) -> list[Example]:
+        if n < 1:
+            raise ValueError(f"n must be >= 1, got {n}")
         pool, lengths_by_chain, category = self._pool_lengths_and_category(split)
-        rng = random.Random(_derive_seed(self.seed, f"generate:{split}"))
+        resolved_label = self._resolve_oracle_label(category, oracle_label)
+        rng = random.Random(_derive_seed(self.seed, rng_label))
 
         examples: list[Example] = []
         for _ in range(n):
@@ -252,6 +317,45 @@ class TaskGenerator:
                     category=category,
                     split=split,
                     vocab_size=self.vocab_size,
+                    oracle_metadata=OracleMetadata(
+                        label=resolved_label,
+                        primitive_operations=program.operation_sequence,
+                        recurrence_operation=(
+                            program.operation_sequence[0]
+                            if resolved_label == ORACLE_LABEL_RECURRENCE
+                            else None
+                        ),
+                    ),
                 )
             )
         return examples
+
+    def generate(self, n: int, split: str) -> list[Example]:
+        """Generate a fixed deterministic collection for Phase A diagnostics."""
+        return self._generate(n, split, rng_label=f"generate:{split}")
+
+    def generate_online(
+        self,
+        n: int,
+        *,
+        step: int,
+        split: str,
+        oracle_label: OracleLabel | None = None,
+    ) -> list[Example]:
+        """Generate one fresh procedural batch for a numbered online step.
+
+        The result is a pure function of the generator configuration and
+        ``(seed, step, split)``.  It stores no growing dataset, so callers can
+        request arbitrarily many training batches while replaying any exact
+        batch later by passing the same arguments.  ``R`` is allowed only for
+        a ``novel_operation`` split, where it denotes fresh-content recurrence
+        of that operation.
+        """
+        if step < 0:
+            raise ValueError(f"step must be >= 0, got {step}")
+        return self._generate(
+            n,
+            split,
+            rng_label=f"online:{step}:{split}",
+            oracle_label=oracle_label,
+        )

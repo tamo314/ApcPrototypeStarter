@@ -8,6 +8,10 @@ from apc.environments.generator import (
     KNOWN_SPLITS,
     NOVEL_COMPOSITION_SPLIT,
     NOVEL_OPERATION_SPLIT,
+    ORACLE_LABEL_KNOWN,
+    ORACLE_LABEL_NOVEL_COMPOSITION,
+    ORACLE_LABEL_NOVEL_OPERATION,
+    ORACLE_LABEL_RECURRENCE,
     CompositionSpace,
     TaskGenerator,
     enumerate_compositions,
@@ -136,6 +140,88 @@ def test_generated_examples_match_independent_interpreter_replay() -> None:
         replay = run_program(example.program, example.input_tokens, example.vocab_size)
         assert replay.output_tokens == example.target_tokens
         assert replay.graph.to_dict() == example.operation_graph.to_dict()
+
+
+# --- online procedural generation (Phase A.1 Task A1-003) -----------------
+
+
+def test_online_generation_is_reproducible_by_seed_step_and_split() -> None:
+    generator = TaskGenerator(seed=23, sequence_length_range=LENGTH_RANGE)
+    first = generator.generate_online(12, step=4, split="train")
+    second = generator.generate_online(12, step=4, split="train")
+    assert [example.to_dict() for example in first] == [example.to_dict() for example in second]
+
+
+def test_online_generation_produces_fresh_content_at_different_steps() -> None:
+    generator = TaskGenerator(seed=23, sequence_length_range=LENGTH_RANGE)
+    first = generator.generate_online(12, step=4, split="train")
+    second = generator.generate_online(12, step=5, split="train")
+    assert [example.to_dict() for example in first] != [example.to_dict() for example in second]
+
+
+@pytest.mark.parametrize(
+    ("split", "expected_label"),
+    [
+        ("train", ORACLE_LABEL_KNOWN),
+        (NOVEL_COMPOSITION_SPLIT, ORACLE_LABEL_NOVEL_COMPOSITION),
+        (NOVEL_OPERATION_SPLIT, ORACLE_LABEL_NOVEL_OPERATION),
+    ],
+)
+def test_online_generation_attaches_oracle_labels_and_decomposition(
+    split: str, expected_label: str
+) -> None:
+    generator = TaskGenerator(
+        seed=5,
+        sequence_length_range=LENGTH_RANGE,
+        novel_operation_names=NOVEL_OPERATION_NAMES,
+    )
+    for example in generator.generate_online(5, step=1, split=split):
+        assert example.oracle_metadata is not None
+        assert example.oracle_metadata.label == expected_label
+        assert example.oracle_metadata.primitive_operations == example.program.operation_sequence
+
+
+def test_online_recurrence_is_fresh_novel_operation_content_with_r_label() -> None:
+    generator = TaskGenerator(
+        seed=5,
+        sequence_length_range=LENGTH_RANGE,
+        novel_operation_names=("SORT",),
+    )
+    examples = generator.generate_online(
+        5,
+        step=2,
+        split=NOVEL_OPERATION_SPLIT,
+        oracle_label=ORACLE_LABEL_RECURRENCE,
+    )
+    assert all(example.oracle_metadata is not None for example in examples)
+    assert all(example.oracle_metadata.label == ORACLE_LABEL_RECURRENCE for example in examples)
+    assert all(example.oracle_metadata.recurrence_operation == "SORT" for example in examples)
+
+
+def test_online_examples_preserve_interpreter_truth() -> None:
+    generator = TaskGenerator(
+        seed=29,
+        sequence_length_range=LENGTH_RANGE,
+        novel_operation_names=NOVEL_OPERATION_NAMES,
+    )
+    for split in ("train", NOVEL_COMPOSITION_SPLIT, NOVEL_OPERATION_SPLIT):
+        for example in generator.generate_online(8, step=7, split=split):
+            replay = run_program(example.program, example.input_tokens, example.vocab_size)
+            assert replay.output_tokens == example.target_tokens
+            assert replay.graph == example.operation_graph
+
+
+def test_online_generation_rejects_invalid_step_and_label_category_pair() -> None:
+    generator = TaskGenerator(seed=0, sequence_length_range=LENGTH_RANGE)
+    with pytest.raises(ValueError, match="step"):
+        generator.generate_online(1, step=-1, split="train")
+    with pytest.raises(ValueError, match="incompatible"):
+        generator.generate_online(
+            1,
+            step=0,
+            split="train",
+            oracle_label=ORACLE_LABEL_RECURRENCE,
+        )
 
 
 def test_composition_space_known_and_novel_are_disjoint() -> None:

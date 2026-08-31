@@ -53,6 +53,31 @@ PyTorch 2.7 introduced Blackwell support with CUDA 12.8. PyTorch 2.12 deprecated
 
 Always verify the current installation selector before installing because package matrices change.
 
+### Verified local WSL environment
+
+On the Windows target machine, the repository's verified development and
+test environment is the WSL virtual environment at `.venv-wsl` (Python
+3.12.14). Use its interpreter for repository verification rather than a
+Windows-host Python installation that does not satisfy the Python 3.12
+requirement:
+
+```bash
+cd /mnt/c/Work/ApcPrototypeStarter
+.venv-wsl/bin/python -m pytest -q
+.venv-wsl/bin/python -m ruff check .
+.venv-wsl/bin/python -m mypy src/apc
+```
+
+From Windows PowerShell, the equivalent invocation is:
+
+```powershell
+wsl.exe -e bash -lc "cd /mnt/c/Work/ApcPrototypeStarter && .venv-wsl/bin/python -m pytest -q"
+```
+
+This keeps the runtime used for tests aligned with `pyproject.toml`'s
+`requires-python = ">=3.12"`. Recreate `.venv-wsl` with Python 3.12 and
+install `-e ".[dev,plots]"` if its dependencies are absent or stale.
+
 Minimum verification script:
 
 ```python

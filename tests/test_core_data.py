@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 import torch
 
 from apc.core.data import IGNORE_INDEX, collate_batch, encode_example
 from apc.core.tokens import build_special_tokens
-from apc.environments.generator import Example
+from apc.environments.generator import ORACLE_LABEL_KNOWN, Example, OracleMetadata
 from apc.environments.interpreter import OperationGraph
 from apc.environments.program import Program
 
@@ -27,6 +29,20 @@ def test_encode_example_structure() -> None:
     example = _example((1, 2, 3), (4, 5))
     encoded = encode_example(example, specials)
     assert encoded == (specials.bos, 1, 2, 3, specials.sep, 4, 5, specials.eos)
+
+
+def test_encode_example_excludes_oracle_metadata_from_model_input() -> None:
+    """Oracle K/C/N/R labels and decompositions cannot become an input shortcut."""
+    specials = build_special_tokens(6)
+    plain = _example((1, 2, 3), (4, 5))
+    oracle_annotated = replace(
+        plain,
+        oracle_metadata=OracleMetadata(
+            label=ORACLE_LABEL_KNOWN,
+            primitive_operations=("COPY",),
+        ),
+    )
+    assert encode_example(oracle_annotated, specials) == encode_example(plain, specials)
 
 
 def test_collate_batch_rejects_empty_input() -> None:
