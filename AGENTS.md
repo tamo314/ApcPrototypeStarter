@@ -35,7 +35,7 @@ The initial prototype must NOT include:
 - Keep components independently testable.
 - Do not silently broaden scope.
 - Do not optimize before measurements show a bottleneck.
-- Use deterministic seeds wherever practical.
+- Use deterministic seeds wherever practical. This codebase shares one process-wide global `torch` RNG stream (`apc.utils.seed.set_seed`) by default. Anything that constructs several conceptually-independent RNG-consuming pieces in sequence (e.g. a runner's `__init__` building a model, then a primitive bank, then a router, ...) must not let one piece's incidental parameter count silently shift another's -- and downstream code's -- random draws. Either derive an independent local RNG for genuinely independent pieces (`apc.environments.generator`'s `_derive_seed` + `random.Random` is the existing pattern for data generation), or re-seed with the run seed immediately after a setup phase finishes and before the logic under test/measurement begins (`_SequentialBenchmarkRunner.__init__` / `_BaseRunner.__init__` do this after model/bank/router/workspace construction). See ADR-0015/ADR-0016 in `docs/DECISIONS.md` for the incident that prompted this.
 - Every architectural change requires an experiment or test that can show whether it helped.
 - Keep temporary plastic capacity separate from persistent primitive capacity in code and checkpoints.
 - Never mutate stable primitives during Phase A unless a task explicitly says to test that ablation.

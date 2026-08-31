@@ -247,6 +247,13 @@ class _BaseRunner:
         self.event_eval_examples: list[list[Example]] = []
         self.total_train_steps = 0
 
+        # Re-anchor the shared global RNG stream now that setup-phase
+        # construction (model, ...) has run -- see ADR-0016. Subclasses
+        # that construct additional RNG-consuming state after calling
+        # `super().__init__` (e.g. `B1Runner`'s bank/router) must reseed
+        # again at the end of their own `__init__` for the same reason.
+        set_seed(seq.seed)
+
     def pretrain(self) -> float:
         seq = self.config.sequential
         examples = self.main_generator.generate(seq.pretrain.num_examples, "train")
@@ -439,6 +446,7 @@ class B1Runner(_BaseRunner):
         self.bank = PrimitiveBank()
         self.router = Router(RouterConfig(d_model=self.model_config.d_model))
         ensure_null_key(self.router)
+        set_seed(config.sequential.seed)  # re-anchor after this class's own construction
 
     def evaluate(self, examples: list[Example]) -> float:
         stable_ids = stable_candidate_ids(self.bank)

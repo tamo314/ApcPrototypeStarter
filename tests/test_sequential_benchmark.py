@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+import torch
 
 from apc.consolidation.distill import ConsolidationConfig
 from apc.consolidation.shadow import ShadowValidationConfig
@@ -15,6 +16,7 @@ from apc.evaluation.sequential_benchmark import (
     SequentialBenchmarkConfig,
     SequentialBenchmarkReport,
     StreamEvent,
+    _SequentialBenchmarkRunner,
     default_task_stream,
     run_sequential_benchmark,
     sequential_config_from_dict,
@@ -116,6 +118,33 @@ def test_sequential_config_from_dict_applies_nested_overrides() -> None:
     assert config.plastic.lr == 0.5
     assert config.plastic.max_steps == PlasticTrainingConfig().max_steps  # untouched default
     assert config.consolidation.candidate_rank == 3
+
+
+# --- RNG isolation (ADR-0016) --------------------------------------------
+
+
+def test_runner_init_reanchors_rng_regardless_of_setup_phase_model_size() -> None:
+    """`_SequentialBenchmarkRunner.__init__` re-seeds after constructing its
+    model/bank/router/workspace, so a random draw made immediately after
+    construction must be identical regardless of how many parameters that
+    setup phase happened to consume -- otherwise an unrelated change to
+    model size (or anything else built during setup) would silently alter
+    every subsequent run of the event loop for reasons that have nothing
+    to do with the loop's own logic. See ADR-0016."""
+    small = SequentialBenchmarkConfig(
+        model={"d_model": 8, "n_layer": 1, "n_head": 2, "d_ff": 16, "max_seq_len": 32}
+    )
+    large = SequentialBenchmarkConfig(
+        model={"d_model": 32, "n_layer": 4, "n_head": 4, "d_ff": 64, "max_seq_len": 32}
+    )
+
+    _SequentialBenchmarkRunner(small)
+    draw_after_small = torch.randn(8)
+
+    _SequentialBenchmarkRunner(large)
+    draw_after_large = torch.randn(8)
+
+    torch.testing.assert_close(draw_after_small, draw_after_large)
 
 
 # --- sub-config validation ------------------------------------------------

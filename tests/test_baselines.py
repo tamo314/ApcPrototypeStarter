@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 import pytest
+import torch
 
 from apc.consolidation.distill import ConsolidationConfig
 from apc.consolidation.shadow import ShadowValidationConfig
@@ -66,6 +67,42 @@ def test_baseline_config_from_dict_defaults_replay_weight() -> None:
 def test_run_baseline_rejects_unknown_name() -> None:
     with pytest.raises(ValueError, match="Unknown baseline"):
         run_baseline("B9", BaselineConfig())
+
+
+# --- RNG isolation (ADR-0016) --------------------------------------------
+
+
+def _model_config(d_model: int, n_layer: int, n_head: int, d_ff: int) -> dict[str, object]:
+    return {
+        "d_model": d_model,
+        "n_layer": n_layer,
+        "n_head": n_head,
+        "d_ff": d_ff,
+        "max_seq_len": 32,
+    }
+
+
+@pytest.mark.parametrize("runner_cls", [B0Runner, B1Runner])
+def test_runner_init_reanchors_rng_regardless_of_setup_phase_model_size(runner_cls) -> None:
+    """`_BaseRunner.__init__` (and `B1Runner`'s own extra bank/router setup)
+    re-seed after construction, so a random draw made immediately after
+    must be identical regardless of how many parameters that setup phase
+    happened to consume. See ADR-0016 and the matching sequential-benchmark
+    test in `test_sequential_benchmark.py`."""
+    small = BaselineConfig(
+        sequential=SequentialBenchmarkConfig(model=_model_config(8, 1, 2, 16))
+    )
+    large = BaselineConfig(
+        sequential=SequentialBenchmarkConfig(model=_model_config(32, 4, 4, 64))
+    )
+
+    runner_cls(small)
+    draw_after_small = torch.randn(8)
+
+    runner_cls(large)
+    draw_after_large = torch.randn(8)
+
+    torch.testing.assert_close(draw_after_small, draw_after_large)
 
 
 # --- Task 013 acceptance: end-to-end runs --------------------------------

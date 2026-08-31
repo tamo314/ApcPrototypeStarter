@@ -417,6 +417,17 @@ class _SequentialBenchmarkRunner:
         self.temporary_peak_params = 0
         self.total_train_steps = 0
 
+        # Re-anchor the shared global RNG stream now that every setup-phase
+        # construction above (model, bank, router's null key, ...) has run.
+        # Those constructions are independent of each other and of the
+        # event loop below, but all draw from the same process-wide seeded
+        # generator (`apc.utils.seed.set_seed`); without this, adding or
+        # removing any parameter anywhere in that setup silently shifts
+        # every subsequent random draw the event loop makes, changing this
+        # run's exact trajectory for reasons unrelated to the loop's own
+        # logic. See ADR-0016.
+        set_seed(config.seed)
+
     # --- data ----------------------------------------------------------
 
     def _pool_for_event(self, event: StreamEvent, total_count: int) -> list[Example]:
