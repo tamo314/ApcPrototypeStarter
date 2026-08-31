@@ -140,6 +140,15 @@ def test_baseline_report_to_dict_round_trips_through_json(
     json.dumps(payload)  # must not raise
     assert payload["baseline"] == name
     assert len(payload["events"]) == 2
+    assert "persistent_parameter_count_final" not in payload
+    assert payload["resident_total_parameter_count_final"] == (
+        payload["stable_core_parameter_count"]
+        + payload["resident_primitive_parameter_count_final"]
+    )
+    for event in payload["events"]:
+        assert event["resident_total_param_count"] == (
+            payload["stable_core_parameter_count"] + event["resident_primitive_param_count"]
+        )
 
 
 def test_b0_trains_the_dense_core_every_event_and_never_adds_capacity(
@@ -149,10 +158,10 @@ def test_b0_trains_the_dense_core_every_event_and_never_adds_capacity(
     assert isinstance(report, BaselineReport)
     for event in report.events:
         assert event.train_steps > 0
-    # No primitives at all: "persistent capacity" is just the (constant)
-    # dense model parameter count, unchanged across events.
-    counts = {e.persistent_param_count for e in report.events}
-    assert counts == {report.persistent_parameter_count_final}
+    # No primitives at all: resident capacity is just the constant dense core.
+    assert {e.resident_primitive_param_count for e in report.events} == {0}
+    counts = {e.resident_total_param_count for e in report.events}
+    assert counts == {report.resident_total_parameter_count_final}
 
 
 def test_b1_bank_never_changes_after_the_one_time_seed_cycle(
@@ -164,8 +173,10 @@ def test_b1_bank_never_changes_after_the_one_time_seed_cycle(
     # whether the seed cycle happened to pass shadow validation.
     for event in report.events:
         assert event.train_steps == 0
-    counts = {e.persistent_param_count for e in report.events}
-    assert counts == {report.persistent_parameter_count_final}
+    primitive_counts = {e.resident_primitive_param_count for e in report.events}
+    assert primitive_counts == {report.resident_primitive_parameter_count_final}
+    total_counts = {e.resident_total_param_count for e in report.events}
+    assert total_counts == {report.resident_total_parameter_count_final}
 
 
 def test_b2_grows_unconditionally_every_event(
@@ -179,11 +190,11 @@ def test_b2_grows_unconditionally_every_event(
 
     for event in report.events:
         assert event.train_steps > 0
-    counts = [e.persistent_param_count for e in report.events]
+    counts = [e.resident_primitive_param_count for e in report.events]
     assert counts == [per_event_params * (i + 1) for i in range(len(counts))]
-    assert report.persistent_parameter_count_final == per_event_params * len(report.events)
+    assert report.resident_primitive_parameter_count_final == per_event_params * len(report.events)
     # Dense unconditional growth: every grown transform is always active.
-    assert report.events[-1].active_param_count == report.events[-1].persistent_param_count
+    assert report.events[-1].active_param_count == report.events[-1].resident_primitive_param_count
 
 
 def test_b3_grows_unconditionally_every_event_like_b2(
@@ -197,7 +208,7 @@ def test_b3_grows_unconditionally_every_event_like_b2(
 
     for event in report.events:
         assert event.train_steps > 0
-    counts = [e.persistent_param_count for e in report.events]
+    counts = [e.resident_primitive_param_count for e in report.events]
     assert counts == [per_event_params * (i + 1) for i in range(len(counts))]
 
 

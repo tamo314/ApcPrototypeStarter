@@ -55,16 +55,18 @@ def plot_parameter_counts_over_stream(report: SequentialBenchmarkReport, out_pat
     import matplotlib.pyplot as plt
 
     ticks = _event_ticks(report)
-    persistent = [e.persistent_param_count for e in report.events]
+    resident_total = [e.resident_total_param_count for e in report.events]
+    resident_primitive = [e.resident_primitive_param_count for e in report.events]
     temporary_peak = [e.temporary_peak_param_count for e in report.events]
     fig, ax = plt.subplots(figsize=(max(6, len(ticks) * 0.8), 4))
     x = range(len(ticks))
-    ax.plot(x, persistent, "o-", label="persistent (bank) parameters")
+    ax.plot(x, resident_total, "o-", label="resident total parameters")
+    ax.plot(x, resident_primitive, "o-", label="resident primitive parameters")
     ax.plot(x, temporary_peak, "o-", label="temporary parameters (at event end)")
     ax.set_xticks(list(x))
     ax.set_xticklabels(ticks, rotation=45, ha="right")
     ax.set_ylabel("parameter count")
-    ax.set_title("Persistent vs. temporary parameter count over time")
+    ax.set_title("Resident and temporary parameter counts over time")
     ax.legend()
     fig.tight_layout()
     fig.savefig(out_path)

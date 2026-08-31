@@ -42,8 +42,12 @@ Recommended baseline:
 - Ubuntu 24.04 LTS (native Linux or WSL2 if the host is Windows);
 - recent NVIDIA driver;
 - Python 3.12;
-- PyTorch 2.12 or newer stable;
+- PyTorch `>=2.12,<2.14`, matching the repository's currently verified dependency window;
 - CUDA 13.0-compatible PyTorch wheel for Blackwell.
+
+Do not widen the PyTorch window without running the complete repository verification suite and
+recording the tested Python, PyTorch, CUDA, and driver versions. This upper bound prevents a new
+minor release from silently changing scientific results or test behavior.
 
 PyTorch 2.7 introduced Blackwell support with CUDA 12.8. PyTorch 2.12 deprecated its standard CUDA 12.8 wheel and recommends CUDA 13.0+ for newer GPUs such as Blackwell. The PyTorch 2.12 release notes state minimum driver versions for CUDA 13.0 of 580.65.06 on Linux and 580.88 on Windows.
 

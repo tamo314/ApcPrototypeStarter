@@ -143,3 +143,14 @@ A task is done only when:
 - relevant docs/configs are updated;
 - no unrelated refactor is bundled in;
 - measured claims are backed by saved run artifacts.
+
+## Active research phase
+
+Phase A is closed with a negative scientific verdict but a mechanically working closed loop.
+The active plan is `docs/exec-plans/active/PHASE_A1.md`.
+
+Before implementing any Phase A.1 task, also read:
+- `docs/AGENTS_PHASE_A1_ADDENDUM.md`
+- `docs/CODEX_TASKS_PHASE_A1.md`
+- `docs/design-docs/PHASE_A1_ARCHITECTURE_DELTA.md`
+- `docs/EXPERIMENT_PLAN_PHASE_A1.md`

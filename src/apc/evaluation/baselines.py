@@ -179,7 +179,8 @@ class BaselineEventReport:
     pre_exact_match: float
     post_exact_match: float
     train_steps: int
-    persistent_param_count: int
+    resident_total_param_count: int
+    resident_primitive_param_count: int
     active_param_count: int
 
 
@@ -205,7 +206,9 @@ class BaselineReport:
     retention: tuple[BaselineRetentionSample, ...]
     max_forgetting: float
     mean_backward_transfer: float
-    persistent_parameter_count_final: int
+    stable_core_parameter_count: int
+    resident_total_parameter_count_final: int
+    resident_primitive_parameter_count_final: int
     total_train_steps: int
     wall_clock_seconds: float
 
@@ -290,8 +293,11 @@ class _BaseRunner:
     def process_event(self, event: StreamEvent, index: int) -> BaselineEventReport:
         raise NotImplementedError
 
-    def persistent_param_count(self) -> int:
+    def resident_primitive_param_count(self) -> int:
         raise NotImplementedError
+
+    def resident_total_param_count(self) -> int:
+        return self.model.num_parameters() + self.resident_primitive_param_count()
 
     def active_param_count(self) -> int:
         raise NotImplementedError
@@ -335,7 +341,9 @@ class _BaseRunner:
             mean_backward_transfer=(sum(backward_transfer) / len(backward_transfer))
             if backward_transfer
             else 0.0,
-            persistent_parameter_count_final=self.persistent_param_count(),
+            stable_core_parameter_count=self.model.num_parameters(),
+            resident_total_parameter_count_final=self.resident_total_param_count(),
+            resident_primitive_parameter_count_final=self.resident_primitive_param_count(),
             total_train_steps=self.total_train_steps,
             wall_clock_seconds=time.perf_counter() - start,
         )
@@ -366,8 +374,8 @@ class B0Runner(_BaseRunner):
         exact_match, _ = evaluate_exact_match(self.model, examples, self.specials)
         return exact_match
 
-    def persistent_param_count(self) -> int:
-        return self.model.num_parameters()
+    def resident_primitive_param_count(self) -> int:
+        return 0
 
     def active_param_count(self) -> int:
         return self.model.num_parameters()
@@ -406,7 +414,8 @@ class B0Runner(_BaseRunner):
             pre_exact_match=pre,
             post_exact_match=post,
             train_steps=steps,
-            persistent_param_count=self.persistent_param_count(),
+            resident_total_param_count=self.resident_total_param_count(),
+            resident_primitive_param_count=self.resident_primitive_param_count(),
             active_param_count=self.active_param_count(),
         )
 
@@ -430,7 +439,7 @@ class B1Runner(_BaseRunner):
         )
         return exact_match
 
-    def persistent_param_count(self) -> int:
+    def resident_primitive_param_count(self) -> int:
         return self.bank.persistent_parameter_count()
 
     def active_param_count(self) -> int:
@@ -536,7 +545,8 @@ class B1Runner(_BaseRunner):
             pre_exact_match=exact_match,
             post_exact_match=exact_match,
             train_steps=0,
-            persistent_param_count=self.persistent_param_count(),
+            resident_total_param_count=self.resident_total_param_count(),
+            resident_primitive_param_count=self.resident_primitive_param_count(),
             active_param_count=self.active_param_count(),
         )
 
@@ -613,13 +623,13 @@ class _GrowRunner(_BaseRunner):
                 correct += 1
         return correct / len(examples)
 
-    def persistent_param_count(self) -> int:
+    def resident_primitive_param_count(self) -> int:
         return sum(t.num_parameters() for t in self.grown)
 
     def active_param_count(self) -> int:
         # Every grown transform is summed unconditionally into every
         # forward pass (no routing) -- see module docstring.
-        return self.persistent_param_count()
+        return self.resident_primitive_param_count()
 
     def _replay_batch(self) -> Batch | None:
         if not self.replay_buffer:
@@ -682,7 +692,8 @@ class _GrowRunner(_BaseRunner):
             pre_exact_match=pre,
             post_exact_match=post,
             train_steps=steps,
-            persistent_param_count=self.persistent_param_count(),
+            resident_total_param_count=self.resident_total_param_count(),
+            resident_primitive_param_count=self.resident_primitive_param_count(),
             active_param_count=self.active_param_count(),
         )
 

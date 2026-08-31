@@ -24,9 +24,30 @@ The first goal is **not** to build a competitive LLM. The first goal is to estab
 
 ## Project status
 
-Current milestone: **Phase A — Synthetic closed-loop proof of concept**.
+Phase A is complete with a negative scientific verdict and remains preserved as
+historical evidence in `docs/exec-plans/completed/PHASE_A_RESULT.md`.
 
-Read `docs/exec-plans/active/PHASE_A.md` before implementing features.
+Current milestone: **Phase A.1 — Hypothesis Isolation and Oracle Ladder**.
+
+Read `docs/exec-plans/active/PHASE_A1.md` and the linked Phase A.1 addendum,
+architecture delta, experiment plan, and task queue before implementing features.
+
+## Development environment
+
+The package requires Python 3.12. PyTorch is constrained to the tested minor-version
+window `>=2.12,<2.14` so a new install cannot silently cross into an unverified release.
+
+Create and install an editable development environment with Python 3.12:
+
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev,plots]"
+```
+
+On Windows PowerShell, create the environment with `py -3.12 -m venv .venv` and
+activate it with `.venv\\Scripts\\Activate.ps1`.
 
 ## Phase A success question
 

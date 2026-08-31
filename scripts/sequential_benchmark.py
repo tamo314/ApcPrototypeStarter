@@ -60,7 +60,11 @@ def main() -> None:
         "num_reused_without_new_cycle": report.num_reused_without_new_cycle,
         "max_forgetting": report.max_forgetting,
         "mean_backward_transfer": report.mean_backward_transfer,
-        "persistent_parameter_count_final": report.persistent_parameter_count_final,
+        "stable_core_parameter_count": report.stable_core_parameter_count,
+        "resident_total_parameter_count_final": report.resident_total_parameter_count_final,
+        "resident_primitive_parameter_count_final": (
+            report.resident_primitive_parameter_count_final
+        ),
         "temporary_peak_parameter_count": report.temporary_peak_parameter_count,
         "generalization_gap_known_vs_composition": report.generalization_gap_known_vs_composition,
         "novelty_gap_composition_vs_operation": report.novelty_gap_composition_vs_operation,

@@ -31,8 +31,12 @@ def _summarize(name: str, report: object) -> dict[str, object]:
         "pretrain_exact_match": report.pretrain_exact_match,  # type: ignore[attr-defined]
         "max_forgetting": report.max_forgetting,  # type: ignore[attr-defined]
         "mean_backward_transfer": report.mean_backward_transfer,  # type: ignore[attr-defined]
-        "persistent_parameter_count_final": (
-            report.persistent_parameter_count_final  # type: ignore[attr-defined]
+        "stable_core_parameter_count": report.stable_core_parameter_count,  # type: ignore[attr-defined]
+        "resident_total_parameter_count_final": (
+            report.resident_total_parameter_count_final  # type: ignore[attr-defined]
+        ),
+        "resident_primitive_parameter_count_final": (
+            report.resident_primitive_parameter_count_final  # type: ignore[attr-defined]
         ),
         "total_train_steps": report.total_train_steps,  # type: ignore[attr-defined]
         "wall_clock_seconds": report.wall_clock_seconds,  # type: ignore[attr-defined]

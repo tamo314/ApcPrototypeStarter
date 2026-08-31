@@ -328,7 +328,8 @@ class EventReport:
     shadow: ShadowValidationReport | None
     candidate_primitive_id: int | None
     post_exact_match: float
-    persistent_param_count: int
+    resident_total_param_count: int
+    resident_primitive_param_count: int
     temporary_peak_param_count: int
     active_param_count: int
 
@@ -357,7 +358,9 @@ class SequentialBenchmarkReport:
     retention: tuple[RetentionSample, ...]
     max_forgetting: float
     mean_backward_transfer: float
-    persistent_parameter_count_final: int
+    stable_core_parameter_count: int
+    resident_total_parameter_count_final: int
+    resident_primitive_parameter_count_final: int
     temporary_peak_parameter_count: int
     total_train_steps: int
     generalization_gap_known_vs_composition: float | None
@@ -769,7 +772,10 @@ class _SequentialBenchmarkRunner:
             shadow=shadow_report,
             candidate_primitive_id=candidate_id,
             post_exact_match=post_exact_match,
-            persistent_param_count=self.bank.persistent_parameter_count(),
+            resident_total_param_count=(
+                self.model.num_parameters() + self.bank.persistent_parameter_count()
+            ),
+            resident_primitive_param_count=self.bank.persistent_parameter_count(),
             temporary_peak_param_count=self.workspace.total_parameter_count(),
             active_param_count=self.bank.active_parameter_count(stable_ids),
         )
@@ -846,7 +852,11 @@ class _SequentialBenchmarkRunner:
             mean_backward_transfer=sum(backward_transfer) / len(backward_transfer)
             if backward_transfer
             else 0.0,
-            persistent_parameter_count_final=self.bank.persistent_parameter_count(),
+            stable_core_parameter_count=self.model.num_parameters(),
+            resident_total_parameter_count_final=(
+                self.model.num_parameters() + self.bank.persistent_parameter_count()
+            ),
+            resident_primitive_parameter_count_final=self.bank.persistent_parameter_count(),
             temporary_peak_parameter_count=self.temporary_peak_params,
             total_train_steps=self.total_train_steps,
             generalization_gap_known_vs_composition=generalization_gap,

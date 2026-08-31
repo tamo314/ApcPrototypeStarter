@@ -11,7 +11,7 @@ Consumes the `dict[str, BaselineReport | SequentialBenchmarkReport]`
 `apc.evaluation.baselines.run_all_baselines` returns -- `SequentialBenchmarkReport`
 (B4) and `BaselineReport` (B0-B3) expose different per-event report types
 (`EventReport` vs `BaselineEventReport`), so each plot reads only the
-fields both share (`persistent_param_count`/`train_steps`-equivalents),
+fields both share (`resident_total_param_count`/`train_steps`-equivalents),
 duck-typed rather than requiring a common base class neither report
 otherwise needs.
 """
@@ -74,11 +74,18 @@ def plot_persistent_growth_comparison(results: dict[str, Any], out_path: Path) -
 
     ordered = _ordered(results)
     names = [name for name, _ in ordered]
-    counts = [report.persistent_parameter_count_final for _, report in ordered]
+    total_counts = [report.resident_total_parameter_count_final for _, report in ordered]
+    primitive_counts = [report.resident_primitive_parameter_count_final for _, report in ordered]
+    core_counts = [
+        total - primitive
+        for total, primitive in zip(total_counts, primitive_counts, strict=True)
+    ]
     fig, ax = plt.subplots(figsize=(5, 4))
-    ax.bar(names, counts)
-    ax.set_ylabel("persistent parameter count (final)")
-    ax.set_title("Final persistent capacity by baseline")
+    ax.bar(names, core_counts, label="stable core")
+    ax.bar(names, primitive_counts, bottom=core_counts, label="persistent primitives")
+    ax.set_ylabel("resident parameter count (final)")
+    ax.set_title("Final resident capacity by baseline")
+    ax.legend()
     fig.tight_layout()
     fig.savefig(out_path)
     plt.close(fig)

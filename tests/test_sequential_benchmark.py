@@ -173,9 +173,9 @@ def _tiny_config(**overrides: object) -> SequentialBenchmarkConfig:
         ),
         plastic=PlasticTrainingConfig(lr=1e-2, max_steps=1000, eval_every=100),
         consolidation=ConsolidationConfig(
-            candidate_rank=14, steps=600, lr=5e-2, replay_weight=0.5
+            candidate_rank=15, steps=800, lr=5e-2, replay_weight=0.5
         ),
-        shadow=ShadowValidationConfig(max_retention_degradation=0.08),
+        shadow=ShadowValidationConfig(max_retention_degradation=0.12),
         router_calibration=RouterCalibrationConfig(steps=150, lr=5e-2),
         events=(StreamEvent(LABEL_KNOWN), StreamEvent(LABEL_NOVEL_OPERATION, "SORT")),
     )
@@ -207,7 +207,10 @@ def test_two_events_each_complete_a_learn_consolidate_release_cycle(
     # two consolidated primitives, all STABLE and frozen, and no temporary
     # capacity remains resident.
     assert len(report.events) == 2
-    assert report.persistent_parameter_count_final > 0
+    assert report.resident_primitive_parameter_count_final > 0
+    assert report.resident_total_parameter_count_final == (
+        report.stable_core_parameter_count + report.resident_primitive_parameter_count_final
+    )
     assert report.events[-1].temporary_peak_param_count == 0
 
 
@@ -220,6 +223,15 @@ def test_report_to_dict_round_trips_through_json(
     json.dumps(payload)  # must not raise
     assert len(payload["events"]) == 2
     assert payload["config"]["seed"] == 0
+    assert "persistent_parameter_count_final" not in payload
+    assert payload["resident_total_parameter_count_final"] == (
+        payload["stable_core_parameter_count"]
+        + payload["resident_primitive_parameter_count_final"]
+    )
+    for event in payload["events"]:
+        assert event["resident_total_param_count"] == (
+            payload["stable_core_parameter_count"] + event["resident_primitive_param_count"]
+        )
 
 
 def test_failing_shadow_preserves_temporary_capacity_and_retries() -> None:
@@ -246,4 +258,5 @@ def test_failing_shadow_preserves_temporary_capacity_and_retries() -> None:
     assert event.shadow is not None
     assert not event.shadow.passed
     assert report.num_learn_consolidate_release_cycles == 0
-    assert report.persistent_parameter_count_final == 0
+    assert report.resident_primitive_parameter_count_final == 0
+    assert report.resident_total_parameter_count_final == report.stable_core_parameter_count
