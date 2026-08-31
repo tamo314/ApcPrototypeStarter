@@ -102,6 +102,17 @@ def apply_bank(
     Always executed under `torch.no_grad()` (see module docstring); the
     returned hidden state is safe to feed into a trainable module (e.g.
     `apply_workspace`) afterwards.
+
+    Not currently sparse in compute (Task 014 review finding): every
+    enabled primitive in `ids` has its delta computed unconditionally --
+    the router's top-k selection only zeroes out the *weight* of
+    non-selected primitives in the sum below, it does not skip computing
+    them. `stable_candidate_ids(bank)`-sized routing cost is paid every
+    forward pass regardless of `router.config.top_k`. This means a
+    caller-side "active parameters per inference step" figure derived from
+    `stable_ids` (as `apc.evaluation.sequential_benchmark.EventReport`
+    currently does) is not distinguishable from persistent parameter
+    count -- see `docs/exec-plans/completed/PHASE_A_RESULT.md` section 3.2.
     """
     ensure_null_key(router)
     ids = list(stable_ids) if stable_ids is not None else stable_candidate_ids(bank)
