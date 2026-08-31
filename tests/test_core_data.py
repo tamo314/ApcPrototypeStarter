@@ -9,6 +9,7 @@ from apc.core.data import IGNORE_INDEX, collate_batch, encode_example
 from apc.core.tokens import build_special_tokens
 from apc.environments.generator import ORACLE_LABEL_KNOWN, Example, OracleMetadata
 from apc.environments.interpreter import OperationGraph
+from apc.environments.permutation import SymbolPermutation
 from apc.environments.program import Program
 
 
@@ -43,6 +44,19 @@ def test_encode_example_excludes_oracle_metadata_from_model_input() -> None:
         ),
     )
     assert encode_example(oracle_annotated, specials) == encode_example(plain, specials)
+
+
+def test_encode_example_excludes_symbol_permutation_from_model_input() -> None:
+    """The permutation mapping/inverse cannot become an input shortcut: only
+    the already-permuted `input_tokens`/`target_tokens` may reach the model
+    (Phase A.1 Task A1-004)."""
+    specials = build_special_tokens(6)
+    plain = _example((1, 2, 3), (4, 5))
+    permuted_annotated = replace(
+        plain,
+        symbol_permutation=SymbolPermutation(forward=(2, 0, 1, 4, 5, 3)),
+    )
+    assert encode_example(permuted_annotated, specials) == encode_example(plain, specials)
 
 
 def test_collate_batch_rejects_empty_input() -> None:

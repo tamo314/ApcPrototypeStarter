@@ -18,6 +18,7 @@ from apc.environments.generator import (
 )
 from apc.environments.interpreter import run_program
 from apc.environments.operations import KNOWN_OPERATION_NAMES, NOVEL_OPERATION_NAMES
+from apc.environments.permutation import SymbolPermutation
 
 LENGTH_RANGE = (6, 10)
 
@@ -275,3 +276,96 @@ def test_enumerate_compositions_rejects_non_positive_depth() -> None:
 def test_enumerate_compositions_includes_every_known_operation_alone() -> None:
     entries = enumerate_compositions(KNOWN_OPERATION_NAMES, max_depth=1, length_range=LENGTH_RANGE)
     assert set(entries.keys()) == {(name,) for name in KNOWN_OPERATION_NAMES}
+
+
+# --- symbol permutation anti-shortcut control (Phase A.1 Task A1-004) ------
+
+
+def test_permute_symbols_off_by_default() -> None:
+    generator = TaskGenerator(seed=6, sequence_length_range=LENGTH_RANGE)
+    for example in generator.generate(10, "train"):
+        assert example.symbol_permutation is None
+    for example in generator.generate_online(10, step=0, split="train"):
+        assert example.symbol_permutation is None
+
+
+def test_permute_symbols_attaches_a_bijective_mapping_per_example() -> None:
+    generator = TaskGenerator(
+        seed=6, sequence_length_range=LENGTH_RANGE, permute_symbols=True
+    )
+    for example in generator.generate_online(15, step=0, split="train"):
+        assert isinstance(example.symbol_permutation, SymbolPermutation)
+        assert example.symbol_permutation.vocab_size == example.vocab_size
+        assert sorted(example.symbol_permutation.forward) == list(range(example.vocab_size))
+
+
+def test_permute_symbols_changes_at_least_some_presented_token_mappings() -> None:
+    """A fixed seed should not, by construction, always land on the identity
+    mapping -- otherwise permutation would be a no-op in practice."""
+    generator = TaskGenerator(
+        seed=6, sequence_length_range=LENGTH_RANGE, permute_symbols=True
+    )
+    examples = generator.generate_online(20, step=0, split="train")
+    identity = tuple(range(generator.vocab_size))
+    assert any(example.symbol_permutation.forward != identity for example in examples)
+
+
+def test_permute_symbols_is_reproducible_by_seed_step_and_split() -> None:
+    kwargs = dict(seed=17, sequence_length_range=LENGTH_RANGE, permute_symbols=True)
+    first = TaskGenerator(**kwargs).generate_online(12, step=3, split="train")
+    second = TaskGenerator(**kwargs).generate_online(12, step=3, split="train")
+    assert [example.to_dict() for example in first] == [example.to_dict() for example in second]
+
+
+def test_permute_symbols_to_dict_logs_permutation_identity() -> None:
+    generator = TaskGenerator(
+        seed=6, sequence_length_range=LENGTH_RANGE, permute_symbols=True
+    )
+    for example in generator.generate_online(5, step=0, split="train"):
+        payload = example.to_dict()["symbol_permutation"]
+        assert payload == {"forward": list(example.symbol_permutation.forward)}
+
+
+def test_permute_symbols_preserves_interpreter_truth_after_decoding() -> None:
+    """Decoding the presented (permuted) tokens back through the attached
+    mapping must reproduce exactly what the unmodified interpreter computes
+    on the canonical input -- operation semantics are untouched by
+    permutation, only the presented token identities change."""
+    generator = TaskGenerator(
+        seed=41,
+        sequence_length_range=LENGTH_RANGE,
+        novel_operation_names=NOVEL_OPERATION_NAMES,
+        permute_symbols=True,
+    )
+    for split in ("train", NOVEL_COMPOSITION_SPLIT, NOVEL_OPERATION_SPLIT):
+        for example in generator.generate_online(8, step=2, split=split):
+            permutation = example.symbol_permutation
+            assert permutation is not None
+            canonical_input = permutation.invert(example.input_tokens)
+            canonical_target = permutation.invert(example.target_tokens)
+            replay = run_program(example.program, canonical_input, example.vocab_size)
+            assert replay.output_tokens == canonical_target
+            assert replay.graph == example.operation_graph
+
+
+def test_permute_symbols_does_not_perturb_unpermuted_generation() -> None:
+    """Enabling the flag must not change any non-permutation-related draw
+    (operation choice, length, params): with permutation inverted back out,
+    output must match the unpermuted generator byte for byte. Together with
+    `test_permute_symbols_preserves_interpreter_truth_after_decoding`, this
+    shows the same abstract task (same program, same canonical content)
+    reaches the model under a different token mapping without its
+    interpreter-truth semantics changing."""
+    plain = TaskGenerator(seed=9, sequence_length_range=LENGTH_RANGE).generate_online(
+        10, step=1, split="train"
+    )
+    permuted = TaskGenerator(
+        seed=9, sequence_length_range=LENGTH_RANGE, permute_symbols=True
+    ).generate_online(10, step=1, split="train")
+
+    for plain_example, permuted_example in zip(plain, permuted, strict=True):
+        permutation = permuted_example.symbol_permutation
+        assert permutation is not None
+        assert permutation.invert(permuted_example.input_tokens) == plain_example.input_tokens
+        assert permutation.invert(permuted_example.target_tokens) == plain_example.target_tokens
+        assert permuted_example.program == plain_example.program

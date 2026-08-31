@@ -17,6 +17,12 @@ Splits:
   be produced by any known-operation composition regardless of depth. Only
   available when `TaskGenerator` is constructed with a non-empty
   `novel_operation_names`.
+
+Symbol permutation (Task A1-004, `permute_symbols=True`): each example gets
+its own fresh `apc.environments.permutation.SymbolPermutation` relabeling
+canonical tokens before they are stored, so a stable token id (e.g. a
+relation token) cannot become a memorizable proxy for a fixed semantic
+role. See `Example.symbol_permutation`.
 """
 
 from __future__ import annotations
@@ -29,6 +35,7 @@ from typing import Any, Final, Literal
 
 from apc.environments.interpreter import OperationGraph, run_program
 from apc.environments.operations import KNOWN_OPERATION_NAMES, get_operation
+from apc.environments.permutation import SymbolPermutation, sample_permutation
 from apc.environments.program import Program, ProgramStep
 from apc.environments.vocab import DEFAULT_VOCAB_SIZE
 
@@ -81,7 +88,15 @@ def _derive_seed(seed: int, label: str) -> int:
 
 @dataclass(frozen=True)
 class Example:
-    """One generated task instance with its ground-truth operation graph."""
+    """One generated task instance with its ground-truth operation graph.
+
+    `program` and `operation_graph` always describe the operation semantics
+    in the canonical vocabulary that `apc.environments.interpreter.run_program`
+    actually executed. When `symbol_permutation` is set, `input_tokens` and
+    `target_tokens` are the *presented* (permuted) ids the model sees;
+    `symbol_permutation.invert(...)` recovers the canonical tokens that
+    `program`/`operation_graph` refer to (Task A1-004).
+    """
 
     input_tokens: tuple[int, ...]
     target_tokens: tuple[int, ...]
@@ -91,6 +106,7 @@ class Example:
     split: str
     vocab_size: int
     oracle_metadata: OracleMetadata | None = None
+    symbol_permutation: SymbolPermutation | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -103,6 +119,9 @@ class Example:
             "vocab_size": self.vocab_size,
             "oracle_metadata": (
                 None if self.oracle_metadata is None else self.oracle_metadata.to_dict()
+            ),
+            "symbol_permutation": (
+                None if self.symbol_permutation is None else self.symbol_permutation.to_dict()
             ),
         }
 
@@ -197,6 +216,14 @@ class TaskGenerator:
     method serves fixed-dataset diagnostics.  Phase A.1 scientific paths use
     :meth:`generate_online`, which samples a fresh batch deterministically
     from ``(seed, step, split)`` without retaining a finite train set.
+
+    When `permute_symbols` is `True` (Task A1-004), every example additionally
+    gets its own fresh, deterministic-by-seed `SymbolPermutation`: operation
+    semantics are still computed by the interpreter on canonical tokens, but
+    `input_tokens`/`target_tokens` are relabeled through that permutation
+    before being stored, so no token id is a stable proxy for a fixed role
+    (e.g. a relation token) across examples. Off by default so `generate`'s
+    existing fixed-dataset consumers see unchanged output.
     """
 
     def __init__(
@@ -208,12 +235,14 @@ class TaskGenerator:
         max_depth: int = 2,
         novel_composition_fraction: float = 0.3,
         novel_operation_names: tuple[str, ...] = (),
+        permute_symbols: bool = False,
     ) -> None:
         self.seed = seed
         self.operation_names = operation_names
         self.vocab_size = vocab_size
         self.sequence_length_range = sequence_length_range
         self.novel_operation_names = novel_operation_names
+        self.permute_symbols = permute_symbols
         self.composition_space = CompositionSpace(
             operation_names=operation_names,
             max_depth=max_depth,
@@ -292,7 +321,7 @@ class TaskGenerator:
         rng = random.Random(_derive_seed(self.seed, rng_label))
 
         examples: list[Example] = []
-        for _ in range(n):
+        for index in range(n):
             operation_sequence = pool[rng.randrange(len(pool))]
             lengths = lengths_by_chain[operation_sequence]
             length = lengths[rng.randrange(len(lengths))]
@@ -308,10 +337,25 @@ class TaskGenerator:
 
             program = Program(steps=tuple(steps))
             result = run_program(program, input_tokens, self.vocab_size)
+
+            permutation: SymbolPermutation | None = None
+            presented_input = input_tokens
+            presented_target = result.output_tokens
+            if self.permute_symbols:
+                # Drawn from its own rng stream, independent of `rng` above,
+                # so enabling/disabling permutation never perturbs which
+                # canonical operation/length/content gets generated.
+                permutation_rng = random.Random(
+                    _derive_seed(self.seed, f"{rng_label}:permutation:{index}")
+                )
+                permutation = sample_permutation(permutation_rng, self.vocab_size)
+                presented_input = permutation.apply(input_tokens)
+                presented_target = permutation.apply(result.output_tokens)
+
             examples.append(
                 Example(
-                    input_tokens=input_tokens,
-                    target_tokens=result.output_tokens,
+                    input_tokens=presented_input,
+                    target_tokens=presented_target,
                     program=program,
                     operation_graph=result.graph,
                     category=category,
@@ -326,6 +370,7 @@ class TaskGenerator:
                             else None
                         ),
                     ),
+                    symbol_permutation=permutation,
                 )
             )
         return examples
