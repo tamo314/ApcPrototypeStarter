@@ -1,0 +1,71 @@
+# Phase A Milestone A9 sequential benchmark (Task 012): a dev-tier run of
+# the K/C/N/R task stream driving at least two learn/consolidate/release
+# cycles. See docs/DECISIONS.md ADR-0006..0009 for the design choices baked
+# into these defaults (in particular: the core does not generalize to fresh
+# token content at these scales, so novelty/PLASTIC/shadow are all
+# evaluated against the same fixed per-event example set, not a held-out
+# split).
+seed: 0
+vocab_size: 10
+sequence_length_range: [6, 10]
+max_depth: 2
+novel_composition_fraction: 0.3
+novel_operation_names: ["SORT", "REVERSE"]
+
+model:
+  d_model: 64
+  n_layer: 2
+  n_head: 2
+  d_ff: 128
+  max_seq_len: 32
+  dropout: 0.0
+
+pretrain:
+  steps: 300
+  lr: 0.01
+  weight_decay: 0.01
+  grad_clip: 1.0
+  num_examples: 32
+
+num_examples: 16
+allocator_preset: small
+
+controller:
+  enter_search_threshold: 0.5
+  exit_search_threshold: 0.3
+  max_search_steps: 2
+  plastic_plateau_patience: 3
+  plastic_min_accuracy: 0.9
+
+novelty:
+  alpha: 1.0
+  gamma: 0.5
+
+plastic:
+  lr: 0.01
+  max_steps: 1200
+  eval_every: 100
+  grad_clip: 1.0
+  improvement_margin: 0.01
+
+consolidation:
+  candidate_rank: 14
+  activity_threshold: 1
+  steps: 600
+  lr: 0.05
+  weight_decay: 0.0
+  current_task_weight: 1.0
+  replay_weight: 0.5
+
+shadow:
+  task_score_ratio_threshold: 0.95
+  max_retention_degradation: 0.08
+  max_size_ratio: 1.0
+  correctness_tolerance: 0.1
+
+router_calibration:
+  steps: 150
+  lr: 0.05
+
+replay_buffer_max_events: 6
+max_shadow_retries: 3

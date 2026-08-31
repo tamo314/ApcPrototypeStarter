@@ -109,6 +109,17 @@ class Router(nn.Module):
         self._keys[key] = nn.Parameter(vector)
         self.usage_count.setdefault(primitive_id, 0)
 
+    def key_parameter(self, primitive_id: int) -> nn.Parameter:
+        """The learned key vector for `primitive_id`, for callers that need
+        to build a targeted optimizer over specific keys (e.g. a router
+        calibration step run only over newly-registered ids)."""
+        key = str(primitive_id)
+        if key not in self._keys:
+            raise KeyError(f"No router key registered for primitive id {primitive_id}")
+        param = self._keys[key]
+        assert isinstance(param, nn.Parameter)
+        return param
+
     def remove_primitive_key(self, primitive_id: int) -> None:
         key = str(primitive_id)
         if key not in self._keys:

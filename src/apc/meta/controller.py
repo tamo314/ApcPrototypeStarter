@@ -269,6 +269,21 @@ class Controller:
             return (ControllerState.STABLE, "shadow_passed", {"shadow_passed": True})
         return (ControllerState.PLASTIC, "shadow_failed", {"shadow_passed": False})
 
+    def force_state(self, state: ControllerState) -> None:
+        """Force the controller into `state` without recording a `Transition`.
+
+        An escape hatch for callers that must recover from a situation the
+        finite-state machine has no signal-driven path out of (e.g. Task
+        012's bounded shadow-validation retry budget being exhausted,
+        `apc.evaluation.sequential_benchmark`): resets the per-state step
+        counters the same way a normal transition would, but intentionally
+        leaves no `transition_log` entry since no controller signal
+        actually caused this change -- callers should log the override
+        themselves if it needs to be visible in a report.
+        """
+        self.state = state
+        self._reset_counters()
+
     def _update_counters_without_transition(self, signals: ControllerSignals) -> None:
         if self.state == ControllerState.SEARCH:
             self._search_steps += 1

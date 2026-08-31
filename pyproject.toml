@@ -19,6 +19,9 @@ dev = [
     "ruff>=0.6",
     "mypy>=1.10",
 ]
+plots = [
+    "matplotlib>=3.8",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]

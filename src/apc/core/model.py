@@ -133,8 +133,18 @@ class DecoderOnlyTransformer(nn.Module):
             params = (p for p in params if p.requires_grad)
         return sum(p.numel() for p in params)
 
-    def forward(self, input_ids: torch.Tensor) -> torch.Tensor:
-        """`input_ids`: `[batch, seq_len]`. Returns logits `[batch, seq_len, vocab_size]`."""
+    def encode(self, input_ids: torch.Tensor) -> torch.Tensor:
+        """`input_ids`: `[batch, seq_len]`. Returns the final hidden state
+        `[batch, seq_len, d_model]`, i.e. everything up to (not including)
+        the output head.
+
+        This is the "insertion point for primitive transforms" that
+        `docs/design-docs/ARCHITECTURE.md` section 3 asks the stable core to
+        expose: `apc.core.execution` (Task 012) reads this hidden state,
+        adds primitive-bank/plastic-workspace residual deltas to it, and
+        passes the result to `decode` -- the core itself stays unaware that
+        primitives exist.
+        """
         batch, seq_len = input_ids.shape
         if seq_len > self.config.max_seq_len:
             raise ValueError(
@@ -147,5 +157,13 @@ class DecoderOnlyTransformer(nn.Module):
         for block in self.blocks:
             x = block(x)
         x = self.ln_f(x)
-        logits: torch.Tensor = self.head(x)
+        return x
+
+    def decode(self, hidden: torch.Tensor) -> torch.Tensor:
+        """Project a final hidden state `[..., d_model]` to vocabulary logits."""
+        logits: torch.Tensor = self.head(hidden)
         return logits
+
+    def forward(self, input_ids: torch.Tensor) -> torch.Tensor:
+        """`input_ids`: `[batch, seq_len]`. Returns logits `[batch, seq_len, vocab_size]`."""
+        return self.decode(self.encode(input_ids))

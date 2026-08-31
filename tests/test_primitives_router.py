@@ -30,6 +30,19 @@ def test_remove_primitive_key_unknown_id_raises() -> None:
         router.remove_primitive_key(99)
 
 
+def test_key_parameter_returns_the_registered_parameter() -> None:
+    router, ids = _make_router(2)
+    param = router.key_parameter(ids[0])
+    assert isinstance(param, torch.nn.Parameter)
+    assert param.shape == (router.config.resolved_score_dim,)
+
+
+def test_key_parameter_unknown_id_raises() -> None:
+    router, _ = _make_router(1)
+    with pytest.raises(KeyError):
+        router.key_parameter(99)
+
+
 def test_forward_unknown_candidate_id_raises() -> None:
     router, ids = _make_router(2)
     h = torch.randn(4, router.config.d_model)

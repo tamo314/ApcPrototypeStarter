@@ -16,6 +16,7 @@ from apc.environments.operations import (
     CountOp,
     NegateOp,
     Operation,
+    ReverseOp,
     SelectOp,
     ShiftOp,
     SortOp,
@@ -254,8 +255,8 @@ def test_sort_sample_params_is_empty() -> None:
     assert op.sample_params(rng, (3, 1, 2), VOCAB_SIZE) == {}
 
 
-def test_novel_operation_names_is_sort_and_disjoint_from_known() -> None:
-    assert NOVEL_OPERATION_NAMES == ("SORT",)
+def test_novel_operation_names_is_sort_and_reverse_disjoint_from_known() -> None:
+    assert NOVEL_OPERATION_NAMES == ("SORT", "REVERSE")
     assert set(NOVEL_OPERATION_NAMES).isdisjoint(KNOWN_OPERATION_NAMES)
 
 
@@ -263,6 +264,32 @@ def test_sort_is_registered_but_not_a_known_operation() -> None:
     assert get_operation("SORT").name == "SORT"
     assert "SORT" in registered_operation_names()
     assert "SORT" not in KNOWN_OPERATION_NAMES
+
+
+# --- REVERSE (Task 012 second novel operation) ------------------------------
+
+
+def test_reverse_reverses_sequence() -> None:
+    op = ReverseOp()
+    seq = (4, 1, 3, 1, 9, 0)
+    assert op.apply(seq, VOCAB_SIZE, {}) == (0, 9, 1, 3, 1, 4)
+
+
+def test_reverse_preserves_length() -> None:
+    op = ReverseOp()
+    assert op.output_length(7) == 7
+
+
+def test_reverse_sample_params_is_empty() -> None:
+    op = ReverseOp()
+    rng = random.Random(0)
+    assert op.sample_params(rng, (3, 1, 2), VOCAB_SIZE) == {}
+
+
+def test_reverse_is_registered_but_not_a_known_operation() -> None:
+    assert get_operation("REVERSE").name == "REVERSE"
+    assert "REVERSE" in registered_operation_names()
+    assert "REVERSE" not in KNOWN_OPERATION_NAMES
 
 
 # --- shared Operation contract ---------------------------------------------

@@ -272,6 +272,24 @@ def test_shadow_failure_then_retry_reaches_stable() -> None:
 # --- Config validation ------------------------------------------------------
 
 
+def test_force_state_sets_state_without_logging_a_transition() -> None:
+    controller = Controller(DEFAULT_CONFIG)
+    controller.step(ControllerSignals(novelty=0.7))  # -> SEARCH
+    controller.force_state(ControllerState.STABLE)
+    assert controller.state == ControllerState.STABLE
+    assert len(controller.transition_log) == 1  # only the earlier real transition
+
+
+def test_force_state_resets_counters() -> None:
+    controller = Controller(DEFAULT_CONFIG)
+    controller.step(ControllerSignals(novelty=0.7))  # -> SEARCH
+    controller.step(ControllerSignals(novelty=0.5))  # ambiguous, bumps _search_steps
+    controller.force_state(ControllerState.SEARCH)
+    # Counter must have been reset; escalation still needs a fresh full bound.
+    transition = _drive_search_to_plastic(controller)
+    assert transition.metrics["search_steps"] == DEFAULT_CONFIG.max_search_steps
+
+
 def test_config_rejects_exit_above_enter_threshold() -> None:
     with pytest.raises(ValueError, match="exit_search_threshold"):
         ControllerConfig(enter_search_threshold=0.3, exit_search_threshold=0.5)

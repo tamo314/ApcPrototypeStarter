@@ -77,6 +77,7 @@ python -m mypy src/apc
 python scripts/smoke_train.py --config configs/phase_a_smoke.yaml
 python scripts/composition_benchmark.py --run-dir runs/phase_a_smoke
 python scripts/novel_operation_benchmark.py --run-dir runs/phase_a_smoke
+python scripts/sequential_benchmark.py --config configs/phase_a_sequential.yaml --run-dir runs/phase_a_sequential
 ```
 
 `composition_benchmark.py` evaluates a trained checkpoint on known-operation
@@ -92,6 +93,19 @@ directory (Task 009). The checkpoint's training data never included the
 novel operation, so `novelty_gap` (`C` minus `N` exact match) measures
 whether a static composition baseline fails on `N` materially more than on
 `C`.
+
+`sequential_benchmark.py` runs the full closed loop end to end (pretraining
+included) over the K/C/N/R task stream from `docs/exec-plans/active/
+PHASE_A.md` Milestone A9 -- at least two learn/consolidate/release cycles,
+one per novel operation (`SORT`, `REVERSE`) -- and writes `report.json` plus
+`plots/` (requires the `plots` optional dependency group, `pip install
+-e .[plots]`; pass `--no-plots` to skip it) into the run directory (Task
+012). See `docs/DECISIONS.md` ADR-0006 through ADR-0009 for load-bearing
+design choices and measured limitations behind this benchmark's defaults,
+in particular that the current dense core does not generalize known-op
+execution to unseen token content, so novelty/PLASTIC/shadow are all
+evaluated against the same fixed per-event example set rather than a
+held-out split.
 
 If a tool is not yet configured, add it as part of the repository-bootstrap task rather than silently skipping verification.
 

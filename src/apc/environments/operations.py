@@ -290,6 +290,36 @@ class SortOp(Operation):
         return tuple(sorted(sequence))
 
 
+class ReverseOp(Operation):
+    """Reverse the whole sequence end to end.
+
+    Deliberately outside the Phase A known curriculum (Task 012, alongside
+    `SortOp`): SHIFT only rotates cyclically and SELECT only subsets
+    without reordering, so neither -- nor any bounded-depth composition of
+    them with the rest of `KNOWN_OPERATION_NAMES` -- can produce a full
+    order reversal. A second genuinely novel operation is needed so
+    `apc.evaluation.sequential_benchmark` (Task 012) can drive at least two
+    independent learn/consolidate/release cycles in one task stream, per
+    `docs/exec-plans/active/PHASE_A.md` Milestone A9's "X" and "Y".
+    """
+
+    name = "REVERSE"
+    min_input_length = 1
+
+    def output_length(self, input_length: int) -> int:
+        return input_length
+
+    def sample_params(
+        self, rng: random.Random, sequence: tuple[int, ...], vocab_size: int
+    ) -> dict[str, Any]:
+        return {}
+
+    def apply(
+        self, sequence: tuple[int, ...], vocab_size: int, params: dict[str, Any]
+    ) -> tuple[int, ...]:
+        return tuple(reversed(sequence))
+
+
 _REGISTRY: dict[str, Operation] = {}
 
 
@@ -340,4 +370,5 @@ KNOWN_OPERATION_NAMES: tuple[str, ...] = tuple(_REGISTRY.keys())
 # tasks"). `apc.environments.generator.TaskGenerator` uses this tuple to
 # build the dedicated `novel_operation` split, oracle-labeled `N`.
 register_operation(SortOp())
-NOVEL_OPERATION_NAMES: tuple[str, ...] = ("SORT",)
+register_operation(ReverseOp())
+NOVEL_OPERATION_NAMES: tuple[str, ...] = ("SORT", "REVERSE")
