@@ -1,0 +1,44 @@
+# Phase A.1 Task A1-006 (STOP GATE): Stable Core systematic-generalization
+# gate, PRIMARY variant. Trains a plain dense Stable Core (no primitive
+# bank/router/plastic/consolidation) separately on each of the four
+# deterministic known operations (apc.environments.operations.
+# DETERMINISTIC_OPERATION_NAMES -- see docs/DECISIONS.md ADR-0017 for why
+# SELECT/COUNT/SHIFT/BIND are excluded, and ADR-0020 for why they are never
+# pooled together in one model) on online-generated examples and evaluates
+# exact match on a large held-out batch of unseen content.
+#
+# permute_symbols is left at its default (false): online generation alone
+# already removes finite-set memorization, and symbol permutation makes
+# value/order-dependent operations (NEGATE, COMPARE, ACCUMULATE) provably
+# unrecoverable on held-out content regardless of training duration --
+# measured directly while building this gate (docs/DECISIONS.md ADR-0019).
+# The permutation-enabled variant is
+# configs/phase_a1_stable_core_gate_permuted_copy_only.yaml.
+#
+# Acceptance (docs/CODEX_TASKS_PHASE_A1.md A1-006): mean unseen-content
+# exact match >= 0.95 across >= 5 seeds, reported per operation and overall.
+seeds: [0, 1, 2, 3, 4]
+
+vocab_size: 10
+sequence_length_range: [6, 10]
+operation_names: [COPY, NEGATE, COMPARE, ACCUMULATE]
+
+model:
+  d_model: 192
+  n_layer: 4
+  n_head: 4
+  d_ff: 768
+  max_seq_len: 32
+  dropout: 0.0
+
+train:
+  steps: 12000
+  batch_size: 128
+  lr: 0.0003
+  weight_decay: 0.01
+  grad_clip: 1.0
+  eval_every: 1000
+  progress_eval_examples: 128
+  device: auto
+
+num_unseen_eval_examples: 1024

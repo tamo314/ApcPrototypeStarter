@@ -100,6 +100,8 @@ python scripts/composition_benchmark.py --run-dir runs/phase_a_smoke
 python scripts/novel_operation_benchmark.py --run-dir runs/phase_a_smoke
 python scripts/sequential_benchmark.py --config configs/phase_a_sequential.yaml --run-dir runs/phase_a_sequential
 python scripts/baseline_benchmark.py --config configs/phase_a_sequential.yaml --run-dir runs/phase_a_baselines
+python scripts/stable_core_generalization_gate.py --config configs/phase_a1_stable_core_gate.yaml --run-dir runs/phase_a1_stable_core_gate
+python scripts/stable_core_generalization_gate.py --config configs/phase_a1_stable_core_gate_permuted_copy_only.yaml --run-dir runs/phase_a1_stable_core_gate_permuted_copy_only
 ```
 
 `composition_benchmark.py` evaluates a trained checkpoint on known-operation
@@ -139,6 +141,29 @@ subdirectory of the run directory, a combined `summary.json`, and (unless
 `docs/DECISIONS.md` ADR-0010 through ADR-0012 for how the B1 fixed bank is
 populated, why B2/B3 bypass the primitive bank/router entirely, and why B3
 has its own replay-weight config key instead of reusing consolidation's.
+
+`stable_core_generalization_gate.py` runs Phase A.1 Task A1-006, the Stable
+Core systematic-generalization gate (H1 in `docs/EXPERIMENT_PLAN_PHASE_A1.md`,
+a **STOP GATE**): trains a fresh Stable Core per `(operation, seed)` pair on
+online-generated examples of one deterministic known operation at a time --
+never a mixed pool, see `docs/DECISIONS.md` ADR-0020 -- with no primitive
+bank, router, plastic workspace, or consolidation involved, then evaluates
+exact match on a large held-out batch of unseen content. Writes one
+`<operation>/seed_<n>/metrics.jsonl` per pair plus a combined
+`report.json`/`summary.json` (Task A1-006's acceptance: mean unseen-content
+exact match >= 0.95 across >= 5 seeds, all seeds reported, aggregated over
+the whole operation x seed grid). Two config variants are shipped:
+`configs/phase_a1_stable_core_gate.yaml` (primary: all four deterministic
+operations -- `apc.environments.operations.DETERMINISTIC_OPERATION_NAMES`,
+i.e. `COPY`/`NEGATE`/`COMPARE`/`ACCUMULATE`; see ADR-0017 for why
+`SELECT`/`COUNT`/`SHIFT`/`BIND` are excluded -- with symbol permutation
+off) and `configs/phase_a1_stable_core_gate_permuted_copy_only.yaml`
+(secondary: `COPY` only, with symbol permutation on). See ADR-0019 for why
+symbol permutation is opt-in here rather than the default: it makes
+value/order-dependent operations (`NEGATE`/`COMPARE`/`ACCUMULATE`) provably
+unrecoverable on held-out content regardless of training duration, so only
+the primary (unpermuted) variant is a meaningful test of H1 across the full
+operation set.
 
 If a tool is not yet configured, add it as part of the repository-bootstrap task rather than silently skipping verification.
 

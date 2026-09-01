@@ -364,6 +364,21 @@ for _op in (
 # be appended to this tuple.
 KNOWN_OPERATION_NAMES: tuple[str, ...] = tuple(_REGISTRY.keys())
 
+# Task A1-006: the subset of `KNOWN_OPERATION_NAMES` whose `sample_params`
+# always returns `{}` -- i.e. `apply` is a pure function of `(sequence,
+# vocab_size)` alone, with no hidden per-instance parameter. SELECT/COUNT/
+# SHIFT/BIND instead sample a hidden parameter (indices/target/amount/
+# query_key) that is never included in `Example.input_tokens` (see
+# `apc.environments.generator`: only `program`/`operation_graph` -- oracle-
+# only metadata -- carry it), so for those four operations the presented
+# input does not determine a unique target: no learner, however capable,
+# can recover which of several equally-valid outputs a given unseen input
+# maps to. `apc.evaluation.stable_core_generalization` (the Stable Core
+# systematic-generalization gate) trains and evaluates only this
+# deterministic subset for exactly that reason. See `docs/DECISIONS.md`
+# ADR-0017.
+DETERMINISTIC_OPERATION_NAMES: tuple[str, ...] = ("COPY", "NEGATE", "COMPARE", "ACCUMULATE")
+
 # Registered strictly after KNOWN_OPERATION_NAMES is captured, so it can
 # never be silently absorbed into the known-composition budget (Task 009,
 # PHASE_A.md Milestone A6/ARCHITECTURE.md section 13 "Novel operation

@@ -348,6 +348,28 @@ def test_permute_symbols_preserves_interpreter_truth_after_decoding() -> None:
             assert replay.graph == example.operation_graph
 
 
+def test_permute_symbols_is_shared_across_every_example_in_one_call() -> None:
+    """Task A1-006 finding (docs/DECISIONS.md ADR-0018): permutation must be
+    shared per batch/episode, not drawn fresh per example -- an independent
+    per-example relabeling leaves no value/order relationship a learner
+    could exploit across examples, making arithmetic/order-dependent
+    operations unlearnable regardless of training."""
+    generator = TaskGenerator(seed=6, sequence_length_range=LENGTH_RANGE, permute_symbols=True)
+    examples = generator.generate_online(25, step=0, split="train")
+    first = examples[0].symbol_permutation
+    assert first is not None
+    assert all(example.symbol_permutation == first for example in examples)
+
+
+def test_permute_symbols_changes_across_different_generate_calls() -> None:
+    """A shared-per-call permutation must still change across calls (steps),
+    otherwise the anti-shortcut property A1-004 exists for would be lost."""
+    generator = TaskGenerator(seed=6, sequence_length_range=LENGTH_RANGE, permute_symbols=True)
+    step_0 = generator.generate_online(5, step=0, split="train")[0].symbol_permutation
+    step_1 = generator.generate_online(5, step=1, split="train")[0].symbol_permutation
+    assert step_0 != step_1
+
+
 def test_permute_symbols_does_not_perturb_unpermuted_generation() -> None:
     """Enabling the flag must not change any non-permutation-related draw
     (operation choice, length, params): with permutation inverted back out,

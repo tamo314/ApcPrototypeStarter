@@ -1,0 +1,35 @@
+# Phase A.1 Task A1-006 (STOP GATE): Stable Core systematic-generalization
+# gate, SECONDARY variant. Same setup as phase_a1_stable_core_gate.yaml but
+# with permute_symbols=true (docs/AGENTS_PHASE_A1_ADDENDUM.md's literal
+# "must use ... token/symbol permutation" instruction), restricted to COPY
+# -- the only deterministic known operation whose semantics are value-blind
+# (position-only) and therefore actually learnable under permutation; see
+# docs/DECISIONS.md ADR-0019 for why NEGATE/COMPARE/ACCUMULATE are
+# structurally unreachable under permutation regardless of training
+# duration, so they are not included in this variant.
+seeds: [0, 1, 2, 3, 4]
+
+vocab_size: 10
+sequence_length_range: [6, 10]
+operation_names: [COPY]
+permute_symbols: true
+
+model:
+  d_model: 192
+  n_layer: 4
+  n_head: 4
+  d_ff: 768
+  max_seq_len: 32
+  dropout: 0.0
+
+train:
+  steps: 8000
+  batch_size: 128
+  lr: 0.0003
+  weight_decay: 0.01
+  grad_clip: 1.0
+  eval_every: 1000
+  progress_eval_examples: 128
+  device: auto
+
+num_unseen_eval_examples: 1024

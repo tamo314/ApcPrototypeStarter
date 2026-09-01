@@ -7,6 +7,7 @@ import random
 import pytest
 
 from apc.environments.operations import (
+    DETERMINISTIC_OPERATION_NAMES,
     KNOWN_OPERATION_NAMES,
     NOVEL_OPERATION_NAMES,
     AccumulateOp,
@@ -309,3 +310,38 @@ def test_every_novel_operation_is_registered_and_typed(name: str) -> None:
     assert isinstance(op, Operation)
     assert op.name == name
     assert op.min_input_length >= 1
+
+
+# --- DETERMINISTIC_OPERATION_NAMES (Task A1-006) ----------------------------
+
+
+def test_deterministic_operation_names_is_subset_of_known() -> None:
+    assert set(DETERMINISTIC_OPERATION_NAMES) == {"COPY", "NEGATE", "COMPARE", "ACCUMULATE"}
+    assert set(DETERMINISTIC_OPERATION_NAMES) <= set(KNOWN_OPERATION_NAMES)
+
+
+@pytest.mark.parametrize("name", DETERMINISTIC_OPERATION_NAMES)
+def test_deterministic_operations_sample_params_is_always_empty(name: str) -> None:
+    """These operations must have no hidden per-instance parameter: `apply`
+    is a pure function of `(sequence, vocab_size)` alone, so the presented
+    input fully determines the target (see `DETERMINISTIC_OPERATION_NAMES`'s
+    docstring and `docs/DECISIONS.md` ADR-0017)."""
+    op = get_operation(name)
+    rng = random.Random(0)
+    for length in (1, 2, 5, 8):
+        seq = tuple(range(length % VOCAB_SIZE, length % VOCAB_SIZE + length))
+        if not op.is_valid_for_length(len(seq)):
+            continue
+        assert op.sample_params(rng, seq, VOCAB_SIZE) == {}
+
+
+@pytest.mark.parametrize("name", set(KNOWN_OPERATION_NAMES) - set(DETERMINISTIC_OPERATION_NAMES))
+def test_non_deterministic_known_operations_do_sample_a_hidden_parameter(name: str) -> None:
+    """Regression guard: if SELECT/COUNT/SHIFT/BIND's params were ever made
+    empty (or a new parameterized op were added without updating
+    `DETERMINISTIC_OPERATION_NAMES`), the exclusion above would silently
+    become stale."""
+    op = get_operation(name)
+    rng = random.Random(0)
+    seq = (1, 2, 3, 4, 5, 6)
+    assert op.sample_params(rng, seq, VOCAB_SIZE) != {}

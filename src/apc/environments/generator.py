@@ -18,11 +18,18 @@ Splits:
   available when `TaskGenerator` is constructed with a non-empty
   `novel_operation_names`.
 
-Symbol permutation (Task A1-004, `permute_symbols=True`): each example gets
-its own fresh `apc.environments.permutation.SymbolPermutation` relabeling
-canonical tokens before they are stored, so a stable token id (e.g. a
-relation token) cannot become a memorizable proxy for a fixed semantic
-role. See `Example.symbol_permutation`.
+Symbol permutation (Task A1-004, `permute_symbols=True`): every `generate`/
+`generate_online` call draws one fresh `apc.environments.permutation.
+SymbolPermutation` shared by every example in that call (i.e. per batch/
+episode -- a `generate_online` call is exactly one training step's batch)
+and uses it to relabel canonical tokens before they are stored, so a stable
+token id (e.g. a relation token) cannot become a memorizable proxy for a
+fixed semantic role across the *whole run*. It is deliberately not one
+permutation per example: that would leave presented token ids with no
+value/order relationship a learner could exploit *across* examples at all,
+making arithmetic/order-dependent operations (e.g. NEGATE, COMPARE,
+ACCUMULATE) unlearnable regardless of training -- see `docs/DECISIONS.md`
+ADR-0018. See `Example.symbol_permutation`.
 """
 
 from __future__ import annotations
@@ -320,8 +327,26 @@ class TaskGenerator:
         resolved_label = self._resolve_oracle_label(category, oracle_label)
         rng = random.Random(_derive_seed(self.seed, rng_label))
 
+        # One shared permutation for this whole call (i.e. per batch/episode
+        # -- a `generate_online` call is exactly one training step's batch),
+        # not one per example. Drawn from its own rng stream, independent of
+        # `rng` above, so enabling/disabling permutation never perturbs which
+        # canonical operation/length/content gets generated. See
+        # docs/design-docs/PHASE_A1_ARCHITECTURE_DELTA.md section 3
+        # ("per-batch or per-episode symbol permutation") and
+        # docs/DECISIONS.md ADR-0018: a *fresh* permutation on every single
+        # example would destroy any value/order relationship a learner could
+        # exploit *across* examples, making arithmetic/order-dependent
+        # operations (e.g. NEGATE, COMPARE, ACCUMULATE) unlearnable as a
+        # function of presented input -- only position-based ("value-blind")
+        # operations commute with an independent per-example relabeling.
+        permutation: SymbolPermutation | None = None
+        if self.permute_symbols:
+            permutation_rng = random.Random(_derive_seed(self.seed, f"{rng_label}:permutation"))
+            permutation = sample_permutation(permutation_rng, self.vocab_size)
+
         examples: list[Example] = []
-        for index in range(n):
+        for _ in range(n):
             operation_sequence = pool[rng.randrange(len(pool))]
             lengths = lengths_by_chain[operation_sequence]
             length = lengths[rng.randrange(len(lengths))]
@@ -338,17 +363,9 @@ class TaskGenerator:
             program = Program(steps=tuple(steps))
             result = run_program(program, input_tokens, self.vocab_size)
 
-            permutation: SymbolPermutation | None = None
             presented_input = input_tokens
             presented_target = result.output_tokens
-            if self.permute_symbols:
-                # Drawn from its own rng stream, independent of `rng` above,
-                # so enabling/disabling permutation never perturbs which
-                # canonical operation/length/content gets generated.
-                permutation_rng = random.Random(
-                    _derive_seed(self.seed, f"{rng_label}:permutation:{index}")
-                )
-                permutation = sample_permutation(permutation_rng, self.vocab_size)
+            if permutation is not None:
                 presented_input = permutation.apply(input_tokens)
                 presented_target = permutation.apply(result.output_tokens)
 
