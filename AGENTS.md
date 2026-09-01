@@ -1,58 +1,528 @@
 # AGENTS.md
 
 ## Purpose
-This repository prototypes **APC (Adaptive Primitive Consolidation)**: a continual-learning architecture that alternates between a sparse stable execution system and a temporary high-plasticity learning system, then consolidates reusable computation into a persistent primitive bank.
 
-Treat this file as a map, not an encyclopedia. Read the linked documents before changing architecture-level behavior.
+This repository prototypes **APC (Adaptive Primitive Consolidation)**: a continual-learning architecture intended to separate:
+
+- a sparse, stable execution system,
+- reusable primitive computation,
+- temporary high-plasticity learning capacity,
+- consolidation of newly learned computation into persistent primitives,
+- and later reuse without repeated full adaptation.
+
+Treat this file as the **current navigation and execution authority for coding agents**. It is a map, not an encyclopedia. Detailed architecture, experiment, and acceptance criteria live in the active documents listed below.
+
+Historical Phase A and earlier Phase A.1 documents remain valuable evidence, but they are **not the active implementation plan** unless an active document explicitly refers back to them.
+
+---
+
+## Active research phase
+
+The active phase is:
+
+**Phase A.1 — Post-Correction Redesign**
+
+The current scientific question is:
+
+> Can operation-specific computation be made causally dependent on sparse reusable primitives, rather than being solved directly inside the Stable Core?
+
+The active task sequence uses IDs:
+
+`A1-R001` through `A1-R022`
+
+from:
+
+`docs/CODEX_TASKS_PHASE_A1_POST_CORRECTION.md`
+
+Implement **only the currently requested A1-Rxxx task** unless the user explicitly asks to change scope.
+
+Do not continue automatically to the next task after completing one.
+
+If a STOP GATE fails, stop dependent work and report the failure.
+
+---
 
 ## Read first
-1. `README.md` — project goals, non-goals, commands, milestone order.
-2. `docs/design-docs/ARCHITECTURE.md` — source of truth for modules and state transitions.
-3. `docs/exec-plans/active/PHASE_A.md` — current implementation plan and acceptance criteria.
-4. `docs/EXPERIMENT_PLAN.md` — baselines, metrics, ablations, reproducibility rules.
-5. `docs/HARDWARE_ENVIRONMENT.md` — single-GPU constraints and environment assumptions.
-6. `docs/research/REFERENCES.md` — research context; do not treat speculative claims as established facts.
 
-## Current scope
-Implement **Phase A only** unless the user explicitly asks to advance the milestone.
+Before changing architecture-level behavior, read these documents in order:
 
-Phase A tests whether the following loop can work in a synthetic compositional environment:
+1. `docs/exec-plans/active/PHASE_A1_POST_CORRECTION.md`
+   - current milestone order and scientific gates.
 
-`STABLE -> SEARCH -> PLASTIC -> CONSOLIDATE -> SHADOW -> STABLE`
+2. `docs/CODEX_TASKS_PHASE_A1_POST_CORRECTION.md`
+   - current implementation tasks and acceptance criteria.
 
-The initial prototype must NOT include:
-- pretrained language models;
-- RL-based meta-control;
-- distributed training;
-- custom CUDA/Triton kernels;
-- semantic or vector databases;
-- mechanistic-interpretability tooling;
-- internet-dependent training pipelines;
-- automatic architecture search.
+3. `docs/design-docs/CAUSAL_PRIMITIVE_EXECUTION.md`
+   - source of truth for task-blind content encoding and causal primitive execution.
+
+4. `docs/EXPERIMENT_PLAN_PHASE_A1_POST_CORRECTION.md`
+   - current hypotheses, controls, thresholds, baselines, and stop conditions.
+
+5. `docs/AGENTS_PHASE_A1_POST_CORRECTION_ADDENDUM.md`
+   - current phase-specific agent rules.
+
+6. `docs/design-docs/PARAMETERIZED_PRIMITIVE_CALLS.md`
+   - primitive family / argument separation.
+
+7. `docs/design-docs/PHASE_A1_ARCHITECTURE_DELTA.md`
+   - earlier Phase A.1 architecture changes that remain relevant unless superseded.
+
+8. `docs/HARDWARE_ENVIRONMENT.md`
+   - target workstation and compute constraints.
+
+9. `docs/DECISIONS.md`
+   - ADRs containing measured findings and architecture decisions.
+
+10. `README.md`
+    - repository setup, commands, and general project context.
+
+### Historical reference only
+
+The following documents remain part of the research record but must not override the active documents above:
+
+- `docs/exec-plans/active/PHASE_A.md`
+- `docs/EXPERIMENT_PLAN.md`
+- `docs/CODEX_TASKS_PHASE_A1.md`
+- `docs/exec-plans/active/PHASE_A1.md`
+- `docs/EXPERIMENT_PLAN_PHASE_A1.md`
+- `docs/AGENTS_PHASE_A1_ADDENDUM.md`
+- `docs/exec-plans/active/PHASE_A1_CORRECTION.md`
+- `docs/EXPERIMENT_PLAN_PHASE_A1_CORRECTION.md`
+- `docs/AGENTS_PHASE_A1_CORRECTION_ADDENDUM.md`
+- `docs/CODEX_TASKS_PHASE_A1_CORRECTION.md`
+
+These documents explain how the project reached the current design. Do not delete or rewrite their historical conclusions.
+
+---
+
+## Current architectural invariant
+
+The causal primitive path must conceptually follow:
+
+```text
+task specification
+        |
+        v
+   Task Encoder
+        |
+      z_task
+        |
+ router / oracle
+        |
+ PrimitiveCall
+        |
+        +----------------------+
+                               |
+content                        v
+   |                     selected primitive
+   v                           |
+Content Encoder                |
+   |                           |
+h_content ---------------------+
+              |
+              v
+       transformed state
+              |
+              v
+           decoder
+```
+
+The load-bearing invariant is:
+
+`h_content = f(content)`
+
+not:
+
+`h_content = f(task, content)`.
+
+The task identity and primitive arguments must not leak into the primitive input state through the causal content path.
+
+---
+
+## Scientific priority
+
+The project is currently testing **causal modularity**, not general language capability and not benchmark scale.
+
+The immediate sequence is:
+
+1. task-blind content representation,
+2. decoder leakage control,
+3. parameter-free primitive causality,
+4. parameterized primitive causality,
+5. primitive composition,
+6. oracle novelty,
+7. residual plastic learning,
+8. functional consolidation,
+9. recurrence reuse,
+10. retrieval routing,
+11. learned routing,
+12. learned novelty,
+13. sparse-compute scaling,
+14. full closed-loop evaluation.
+
+Do not skip a failed earlier mechanism by adding complexity downstream.
+
+---
+
+## Oracle-before-learned rule
+
+A learned mechanism may not be credited until the corresponding oracle or deterministic control succeeds.
+
+Examples:
+
+- oracle primitive execution before learned routing,
+- oracle composition before learned composition search,
+- oracle novelty before learned novelty,
+- oracle recurrence before retrieval or learned recurrence routing.
+
+If an oracle version fails, investigate that mechanism.
+
+Do not compensate by increasing model size, adding RL, or broadening architecture.
+
+---
+
+## Causal primitive evidence rule
+
+High accuracy with a primitive present is not sufficient evidence that the primitive performs the computation.
+
+Every causal primitive benchmark must compare at least:
+
+1. **Correct**
+   - correct primitive family and correct arguments.
+
+2. **Wrong**
+   - incorrect primitive family.
+
+3. **None**
+   - identity / no primitive transformation.
+
+For parameterized primitives also test:
+
+4. **Wrong argument**
+   - correct primitive family with an incorrect argument.
+
+A primitive is considered causally supported only when performance strongly depends on the Correct condition according to the active experiment thresholds.
+
+If Correct, Wrong, and None are all high, suspect Stable Core or decoder leakage.
+
+If all are low, suspect content representation, decoder, or primitive capacity.
+
+---
+
+## Stable Core role
+
+In the current causal path, the Stable Core may provide:
+
+- task encoding,
+- task-independent content encoding,
+- representation transport,
+- decoding infrastructure.
+
+It must not be allowed to perform the operation-specific transformation before primitive execution.
+
+During primitive-causality tests, freeze Stable Core parameters unless the active task explicitly requires otherwise.
+
+Preserve the earlier high-performing shared-core solver from A1-C004 as a **baseline**, not as the causal primitive path.
+
+---
+
+## Task/content separation
+
+For identical content under different task specifications, the primitive input representation must remain invariant within the tolerance declared by the active experiment.
+
+Prefer a structurally task-blind content path over merely testing leakage with probes.
+
+`z_task` may contain:
+
+- operation identity,
+- operation arguments,
+- routing information.
+
+`h_content` should represent the content/state being transformed.
+
+---
+
+## Parameterized primitives
+
+Primitive identity and primitive arguments are separate concepts.
+
+Prefer:
+
+- `SHIFT(amount)`
+- `SELECT(indices)`
+- `COUNT(target)`
+- `BIND(query_key)`
+
+over creating a new persistent primitive for every argument value.
+
+Neural primitive execution must actually consume `PrimitiveCall.arguments`.
+
+Arguments that are stored or logged but ignored by the neural transform do not count as parameterized execution.
+
+Do not introduce hypernetworks or unnecessarily general function signatures unless a later task explicitly requires them.
+
+---
+
+## Composition
+
+Composition must operate through ordered primitive execution:
+
+```text
+h0 = ContentEncoder(content)
+h1 = P_a(h0, args_a)
+h2 = P_b(h1, args_b)
+...
+```
+
+Do not re-run a task-conditioned Stable Core between primitive steps.
+
+A new composition of known primitives is not, by itself, a new primitive.
+
+Keep:
+
+- `PrimitiveBank`
+- `CompositionLibrary`
+
+conceptually and operationally distinct.
+
+---
+
+## Plastic Workspace
+
+Plastic capacity is temporary.
+
+For novel operations, prefer residual learning:
+
+```text
+best existing primitive/recipe
+        +
+temporary residual computation
+```
+
+rather than relearning the entire task from scratch.
+
+During controlled plastic-learning tests:
+
+- Stable Core stays frozen,
+- stable primitives stay frozen unless an explicit ablation says otherwise,
+- temporary parameters are clearly separable from persistent parameters.
+
+---
+
+## Consolidation
+
+Consolidation is a **functional compression** problem.
+
+Do not define success merely as deleting parameters.
+
+Measure:
+
+- held-out functional agreement,
+- task-score retention,
+- minimum candidate rank/capacity satisfying thresholds,
+- candidate / temporary compression ratio.
+
+For compressibility-controlled experiments, ground-truth compact structure may be used for evaluation but must not leak into learner/controller inputs.
+
+Consolidation must produce a candidate primitive separate from the temporary solution.
+
+Temporary capacity may be released only after shadow validation passes.
+
+---
+
+## Recurrence and reuse
+
+When a learned operation reappears:
+
+1. try the installed primitive / recipe first,
+2. measure whether new adaptation is required,
+3. only expand if the existing bank is demonstrably insufficient.
+
+If oracle recurrence fails, do not attribute the failure to routing.
+
+If oracle recurrence passes but retrieval fails, isolate retrieval.
+
+If retrieval passes but learned routing fails, isolate learned routing.
+
+---
+
+## Learned routing
+
+The learned router consumes `z_task`.
+
+Oracle metadata may be used only for supervision or evaluation, never as inference input.
+
+Track:
+
+- top-k inclusion of oracle-required primitive,
+- recurrence reuse,
+- behavior as the bank grows,
+- selected primitive IDs,
+- routing confidence / entropy where relevant.
+
+Only selected primitives may actually execute.
+
+---
+
+## Novelty
+
+Novelty should approximate:
+
+> "Does the existing computational library fail to explain the required computation?"
+
+not simply:
+
+> "Is this input unusual?"
+
+Preferred signals include:
+
+- residual loss after the best existing recipe,
+- retrieval confidence,
+- task-key distance,
+- optional gradient/subspace residual when justified by evidence.
+
+Do not add expensive gradient novelty if simpler residual signals already pass the declared gate.
+
+---
+
+## Sparse execution
+
+Top-k selection must restrict **actual primitive computation**.
+
+This does not count as sparse execution:
+
+```text
+compute every primitive
+-> zero out unselected outputs
+```
+
+This does count:
+
+```text
+select IDs
+-> gather selected primitives
+-> execute only selected primitives
+```
+
+Track separately:
+
+- resident total parameters,
+- resident primitive parameters,
+- active total parameters,
+- active primitive parameters,
+- temporary peak parameters,
+- primitive forward-call count,
+- estimated or measured FLOPs when relevant.
+
+Do not conflate resident capacity with active compute.
+
+---
+
+## Experimental discipline
+
+Do not describe a result as supporting APC unless it is backed by the controls and baselines defined in:
+
+`docs/EXPERIMENT_PLAN_PHASE_A1_POST_CORRECTION.md`
+
+For every meaningful run, record at least:
+
+- git commit,
+- config,
+- seed,
+- wall-clock time,
+- GPU / system information,
+- peak VRAM if CUDA is used,
+- resident total parameters,
+- resident primitive parameters,
+- active total parameters,
+- active primitive parameters,
+- temporary peak parameters,
+- task accuracy / loss,
+- relevant causal-control scores,
+- retention / forgetting when sequential,
+- compression ratio when consolidation is involved,
+- training examples / steps or other compute-budget proxy.
+
+Never compare runs with materially different data or compute budgets without stating the difference.
+
+Milestone claims must use the seed count required by the active experiment plan.
+
+---
+
+## STOP GATE discipline
+
+Tasks marked STOP GATE are hard scientific boundaries.
+
+On failure:
+
+1. save the run artifacts,
+2. report the failed acceptance criterion,
+3. add or update an ADR,
+4. stop dependent work,
+5. investigate only the failing mechanism.
+
+Do not silently continue.
+
+Do not hide negative results by:
+
+- increasing model size prematurely,
+- expanding data without a specific hypothesis,
+- adding a larger router,
+- adding RL,
+- adding unrelated memory systems,
+- moving to an LLM.
+
+Negative results are valid project outputs.
+
+---
+
+## Historical integrity
+
+Never rewrite old Phase A or Phase A.1 runs to make current conclusions cleaner.
+
+When newer experiments reveal that an older result was confounded:
+
+- preserve the old measurement,
+- add a retrospective interpretation,
+- record the new evidence in `docs/DECISIONS.md`,
+- clearly distinguish historical result from current interpretation.
+
+Do not delete superseded task documents merely because they are no longer active.
+
+---
 
 ## Engineering principles
+
 - Prefer the smallest implementation that can falsify the current hypothesis.
 - Keep components independently testable.
+- One task should isolate one mechanism whenever practical.
 - Do not silently broaden scope.
 - Do not optimize before measurements show a bottleneck.
-- Use deterministic seeds wherever practical. This codebase shares one process-wide global `torch` RNG stream (`apc.utils.seed.set_seed`) by default. Anything that constructs several conceptually-independent RNG-consuming pieces in sequence (e.g. a runner's `__init__` building a model, then a primitive bank, then a router, ...) must not let one piece's incidental parameter count silently shift another's -- and downstream code's -- random draws. Either derive an independent local RNG for genuinely independent pieces (`apc.environments.generator`'s `_derive_seed` + `random.Random` is the existing pattern for data generation), or re-seed with the run seed immediately after a setup phase finishes and before the logic under test/measurement begins (`_SequentialBenchmarkRunner.__init__` / `_BaseRunner.__init__` do this after model/bank/router/workspace construction). See ADR-0015/ADR-0016 in `docs/DECISIONS.md` for the incident that prompted this.
-- Every architectural change requires an experiment or test that can show whether it helped.
-- Keep temporary plastic capacity separate from persistent primitive capacity in code and checkpoints.
-- Never mutate stable primitives during Phase A unless a task explicitly says to test that ablation.
-- Consolidation must produce a new candidate primitive; it must not overwrite the temporary solution in place.
-- Resource release is allowed only after shadow validation passes.
-
-## Python and style
-- Target Python 3.12.
-- Use PyTorch as the only required deep-learning framework.
-- Prefer typed Python (`typing`, dataclasses where useful).
-- Public functions/classes need concise docstrings.
+- Use deterministic seeds wherever practical.
+- Every architectural change requires a test or experiment capable of showing whether it helped.
+- Avoid unrelated refactors during experimental tasks.
+- Preserve CPU-testable logic even when milestone runs use CUDA.
 - Keep research code readable over clever.
-- Avoid global mutable state.
+- Avoid hidden global state.
 - Configuration must be explicit and serializable.
-- All reported metrics must include the seed and experiment configuration.
+
+---
+
+## Python and framework
+
+- Target Python 3.12.
+- Use the PyTorch version constraints declared in `pyproject.toml`.
+- PyTorch is the only required deep-learning framework unless an active task explicitly changes that.
+- Prefer typed Python and dataclasses where useful.
+- Public functions and classes need concise docstrings.
+- Use `ruff` and `mypy` according to repository configuration.
+
+Do not change Python or PyTorch compatibility constraints casually. If compatibility must change, record why.
+
+---
 
 ## Repository conventions
+
 Expected package layout:
 
 ```text
@@ -65,92 +535,158 @@ src/apc/
   environments/
   evaluation/
   utils/
+
 tests/
 configs/
 scripts/
 runs/            # gitignored outputs
+docs/
 ```
 
-Do not create alternate top-level package layouts without updating `docs/design-docs/ARCHITECTURE.md` first.
+Do not create an alternate top-level package layout without an architecture decision and corresponding documentation update.
+
+---
 
 ## Tests
+
 For every implementation task:
-1. Add or update unit tests.
-2. Run the smallest relevant test set while iterating.
-3. Before declaring completion, run the repository verification command documented in `README.md`.
-4. If GPU-specific code is added, provide a CPU fallback test for logic that does not intrinsically require CUDA.
 
-Tests should cover invariants, not only happy paths. Important invariants include:
-- top-k routing selects no more than k primitives;
-- disabled/frozen primitives receive no parameter updates;
-- temporary parameters are distinguishable from persistent parameters;
-- consolidation cannot delete temporary capacity before shadow validation;
-- capacity accounting matches actual trainable/persistent parameters;
-- deterministic tasks reproduce with the same seed.
+1. add or update focused unit tests,
+2. run the smallest relevant tests while iterating,
+3. run the repository verification commands before declaring completion,
+4. provide CPU fallback coverage for logic that does not intrinsically require CUDA.
 
-## Experiment discipline
-Do not describe a result as supporting APC unless it beats or clearly differs from the relevant baseline defined in `docs/EXPERIMENT_PLAN.md`.
+Tests should emphasize invariants.
 
-For each run, record at least:
-- git commit;
-- config;
-- seed;
-- wall-clock time;
-- peak VRAM if CUDA is used;
-- persistent parameter count;
-- temporary peak parameter count;
-- active parameter count per step or its measured proxy;
-- task accuracy/loss;
-- retention on prior tasks;
-- consolidation compression ratio.
+Important current invariants include:
 
-Never compare runs with materially different data budgets without saying so.
+- task-blind content state does not change with task specification,
+- task information does not bypass primitive execution in causal mode,
+- non-selected primitives receive zero forward calls,
+- top-k never executes more than selected primitives,
+- parameterized primitive families do not multiply with argument values,
+- disabled/frozen primitives receive no updates,
+- Stable Core is frozen in experiments that require it,
+- temporary and persistent parameters remain distinguishable,
+- consolidation does not release temporary capacity before shadow validation,
+- resident/active accounting matches actual execution,
+- deterministic generators reproduce under identical seeds.
 
-## workflow
-Work in issue-sized changes. Prefer one milestone task or a few hundred lines of focused code per change.
+Before completion, run the repository's standard verification commands, typically:
+
+```bash
+python -m pytest -q
+python -m ruff check .
+python -m mypy src/apc
+```
+
+If the repository documentation declares a newer canonical command, use that instead.
+
+---
+
+## Codex workflow
+
+Work in issue-sized changes.
 
 Before editing:
-- identify the relevant acceptance criteria in `docs/exec-plans/active/PHASE_A.md`;
-- inspect adjacent code and tests;
-- state any assumption that changes architecture behavior in the implementation notes or commit message.
 
-After editing:
-- summarize files changed;
-- report exact tests/commands run;
-- report known limitations;
-- do not claim benchmark success without actual recorded results.
+1. identify the exact current task in:
+   `docs/CODEX_TASKS_PHASE_A1_POST_CORRECTION.md`
+
+2. read its corresponding scientific gate in:
+   `docs/EXPERIMENT_PLAN_PHASE_A1_POST_CORRECTION.md`
+
+3. inspect the architecture requirements in:
+   `docs/design-docs/CAUSAL_PRIMITIVE_EXECUTION.md`
+
+4. inspect adjacent code and tests.
+
+5. check `docs/DECISIONS.md` for relevant prior findings.
+
+Do not implement the next task in the queue unless explicitly requested.
+
+After editing, report:
+
+1. files changed,
+2. tests run,
+3. experiment commands run,
+4. acceptance criteria with explicit PASS / FAIL,
+5. run artifact paths,
+6. assumptions or deviations,
+7. known limitations,
+8. ADRs added or required.
+
+Do not claim benchmark or hypothesis success without recorded results.
+
+---
 
 ## Decision log
-If implementation reveals that an architecture assumption is wrong or impractical, do not hide the deviation. Add a short entry to `docs/DECISIONS.md` with:
-- date;
-- decision;
-- evidence/reason;
-- consequences;
-- whether the architecture document must change.
 
-## Safety rails for compute
-This project is designed for one RTX 5060 Ti 16GB and 64GB system RAM.
-- Default experiments must fit in 16GB VRAM.
-- Do not add a default config expected to OOM on the target machine.
-- Prefer gradient accumulation, mixed precision, activation checkpointing, and small synthetic batches over CPU offload during Phase A.
-- Treat multi-hour sweeps as explicit experiments, not default tests.
-- Unit tests must stay lightweight and should run on CPU unless CUDA behavior is specifically under test.
+If implementation or experiments reveal that an architecture assumption is wrong, underspecified, or impractical, add a concise ADR to:
+
+`docs/DECISIONS.md`
+
+Include:
+
+- date,
+- decision,
+- evidence / reason,
+- consequences,
+- which active document is affected,
+- whether downstream tasks are blocked.
+
+Measured evidence should drive architecture changes.
+
+---
+
+## Hardware and compute safety rails
+
+Target workstation:
+
+- Ryzen 7 9800X3D,
+- GeForce RTX 5060 Ti 16 GB,
+- 64 GB system RAM,
+- single GPU.
+
+Default experiments must fit within the target machine.
+
+- Do not add default configurations expected to OOM on 16 GB VRAM.
+- Prefer mixed precision, gradient accumulation, activation checkpointing, and smaller synthetic batches before CPU offload.
+- Multi-hour sweeps must be explicit milestone experiments, not default tests.
+- Unit tests should remain lightweight and CPU-friendly unless CUDA behavior itself is under test.
+- Do not introduce distributed training in Phase A.1.
+
+---
+
+## Out of scope for the active phase
+
+Unless the user explicitly changes scope, do not add:
+
+- pretrained language-model integration,
+- RL meta-controller,
+- semantic/vector database,
+- distributed training,
+- custom CUDA/Triton kernels,
+- automatic architecture search,
+- dense-teacher mechanistic circuit extraction,
+- neuromorphic hardware work.
+
+These belong to later phases.
+
+---
 
 ## Definition of done
+
 A task is done only when:
-- acceptance criteria are satisfied;
-- tests pass;
-- relevant docs/configs are updated;
-- no unrelated refactor is bundled in;
-- measured claims are backed by saved run artifacts.
 
-## Active research phase
+- the exact requested A1-R task is implemented,
+- its acceptance criteria are explicitly evaluated,
+- required tests pass,
+- relevant run artifacts are saved,
+- metrics use the current accounting definitions,
+- relevant docs/configs are updated,
+- no unrelated refactor is bundled in,
+- failed STOP GATEs halt dependent work,
+- measured claims are backed by actual results.
 
-Phase A is closed with a negative scientific verdict but a mechanically working closed loop.
-The active plan is `docs/exec-plans/active/PHASE_A1.md`.
-
-Before implementing any Phase A.1 task, also read:
-- `docs/AGENTS_PHASE_A1_ADDENDUM.md`
-- `docs/CODEX_TASKS_PHASE_A1.md`
-- `docs/design-docs/PHASE_A1_ARCHITECTURE_DELTA.md`
-- `docs/EXPERIMENT_PLAN_PHASE_A1.md`
+Completion of one task does not authorize beginning the next task.
