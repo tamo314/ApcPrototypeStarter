@@ -39,8 +39,25 @@ operation parameter (`SELECT`'s `indices`, `COUNT`'s `target`, `SHIFT`'s
 `amount`, `BIND`'s `query_key` -- see `docs/DECISIONS.md` ADR-0017). Unlike
 `program`/`operation_graph`/`oracle_metadata`, which this module documents
 as latent/oracle-only, `task_spec` is intended for a future model-facing
-input encoding (Task A1-C002/A1-C003); `apc.core.data.encode_example` does
-not yet consume it.
+input encoding (Task A1-C003); `apc.core.data.encode_example` does not yet
+consume it.
+
+Mixed-operation online generator (Phase A.1 Correction Task A1-C002,
+`build_mixed_operation_generator`): a named, tested construction of "one
+identifiable mixed-operation training stream" -- a single `TaskGenerator`
+whose known pool spans every operation in `operation_names` (all eight of
+`KNOWN_OPERATION_NAMES` by default, including the four ADR-0017
+hidden-parameter operations) at a pinned `max_depth=1`, so every generated
+example is a single known operation applied to fresh content, with its
+operation identity and arguments fully recoverable from `task_spec`. Before
+A1-C001, pooling multiple operations in one `TaskGenerator` produced a
+mixed stream that was *not* identifiable this way -- `docs/DECISIONS.md`
+ADR-0020 measured a ~0.25-0.35 exact-match ceiling from exactly this
+non-identifiability, which is why `apc.evaluation.stable_core_generalization`
+still trains one operation at a time. `task_spec` (once wired into a
+model-facing encoding, Task A1-C003) is the fix; `build_mixed_operation_generator`
+is the corresponding generator-side building block for Task A1-C004's
+shared-core gate.
 """
 
 from __future__ import annotations
@@ -442,3 +459,55 @@ class TaskGenerator:
             rng_label=f"online:{step}:{split}",
             oracle_label=oracle_label,
         )
+
+
+MIXED_OPERATION_MAX_DEPTH: Final[int] = 1
+"""Composition depth pinned by `build_mixed_operation_generator` (Task A1-C002).
+
+Not exposed as a parameter: mixing depth>1 chains into the mixed-operation
+stream would confound operation-identifiability (what A1-C002/A1-C004 test)
+with composition generalization, which is A1-008's separate concern. Mirrors
+`apc.evaluation.stable_core_generalization`'s own "Composition depth is
+fixed at 1, not exposed as a config field" choice for the same reason.
+"""
+
+
+def build_mixed_operation_generator(
+    seed: int,
+    *,
+    operation_names: tuple[str, ...] = KNOWN_OPERATION_NAMES,
+    vocab_size: int = DEFAULT_VOCAB_SIZE,
+    sequence_length_range: tuple[int, int] = (6, 10),
+    permute_symbols: bool = False,
+) -> TaskGenerator:
+    """Build "one identifiable mixed-operation training stream" (Task A1-C002).
+
+    A single `TaskGenerator` whose known pool is exactly one depth-1
+    application of each entry in `operation_names` -- every generated
+    example applies exactly one known operation to fresh content, and that
+    operation's identity plus every argument is fully recoverable from
+    `Example.task_spec` (Task A1-C001), so the same content correctly pairs
+    with different operations (and different arguments of the same
+    operation) without any hidden control variable.
+
+    `operation_names` defaults to all of `KNOWN_OPERATION_NAMES` -- all
+    eight known operations, including `SELECT`/`COUNT`/`SHIFT`/`BIND` (the
+    four `docs/DECISIONS.md` ADR-0017 operations `apc.evaluation.
+    stable_core_generalization.DETERMINISTIC_OPERATION_NAMES` excludes).
+    Those four are safe to pool here specifically because `task_spec`
+    already carries their previously-hidden parameter; `DETERMINISTIC_OPERATION_NAMES`
+    predates `task_spec` and is scoped for a model that never sees it.
+
+    `permute_symbols` defaults to `False`, matching Task A1-C002's primary
+    run; see `docs/DECISIONS.md` ADR-0019 before enabling it for anything
+    beyond a value-blind operation subset.
+    """
+    return TaskGenerator(
+        seed=seed,
+        operation_names=operation_names,
+        vocab_size=vocab_size,
+        sequence_length_range=sequence_length_range,
+        max_depth=MIXED_OPERATION_MAX_DEPTH,
+        novel_operation_names=(),
+        permute_symbols=permute_symbols,
+    )

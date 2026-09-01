@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import random
+
 import pytest
 
 from apc.environments.generator import (
     KNOWN_SPLITS,
+    MIXED_OPERATION_MAX_DEPTH,
     NOVEL_COMPOSITION_SPLIT,
     NOVEL_OPERATION_SPLIT,
     ORACLE_LABEL_KNOWN,
@@ -14,12 +17,17 @@ from apc.environments.generator import (
     ORACLE_LABEL_RECURRENCE,
     CompositionSpace,
     TaskGenerator,
+    build_mixed_operation_generator,
     enumerate_compositions,
 )
 from apc.environments.interpreter import run_program
-from apc.environments.operations import KNOWN_OPERATION_NAMES, NOVEL_OPERATION_NAMES
+from apc.environments.operations import (
+    KNOWN_OPERATION_NAMES,
+    NOVEL_OPERATION_NAMES,
+    get_operation,
+)
 from apc.environments.permutation import SymbolPermutation
-from apc.environments.task_spec import TaskSpec
+from apc.environments.task_spec import TaskSpec, TaskStepSpec
 
 LENGTH_RANGE = (6, 10)
 
@@ -448,3 +456,96 @@ def test_permute_symbols_does_not_perturb_unpermuted_generation() -> None:
         assert permutation.invert(permuted_example.input_tokens) == plain_example.input_tokens
         assert permutation.invert(permuted_example.target_tokens) == plain_example.target_tokens
         assert permuted_example.program == plain_example.program
+
+
+# --- mixed-operation online generator (Phase A.1 Correction Task A1-C002) --
+
+
+def test_build_mixed_operation_generator_defaults_to_all_known_operations_at_depth_one() -> None:
+    generator = build_mixed_operation_generator(seed=1, sequence_length_range=LENGTH_RANGE)
+    assert generator.operation_names == KNOWN_OPERATION_NAMES
+    assert MIXED_OPERATION_MAX_DEPTH == 1
+    known = generator.composition_space.known_compositions
+    assert set(known) == {(name,) for name in KNOWN_OPERATION_NAMES}
+    assert generator.composition_space.novel_compositions == ()
+
+
+def test_build_mixed_operation_generator_respects_a_custom_operation_subset() -> None:
+    subset = ("SHIFT", "BIND", "COUNT")
+    generator = build_mixed_operation_generator(
+        seed=1, operation_names=subset, sequence_length_range=LENGTH_RANGE
+    )
+    assert set(generator.composition_space.known_compositions) == {(name,) for name in subset}
+
+
+def test_build_mixed_operation_generator_defaults_permute_symbols_to_false() -> None:
+    generator = build_mixed_operation_generator(seed=1, sequence_length_range=LENGTH_RANGE)
+    for example in generator.generate_online(10, step=0, split="train"):
+        assert example.symbol_permutation is None
+
+
+def test_mixed_operation_stream_is_deterministic_by_seed_step_and_split() -> None:
+    kwargs = dict(seed=17, sequence_length_range=LENGTH_RANGE)
+    first = build_mixed_operation_generator(**kwargs).generate_online(32, step=3, split="train")
+    second = build_mixed_operation_generator(**kwargs).generate_online(32, step=3, split="train")
+    assert [example.to_dict() for example in first] == [example.to_dict() for example in second]
+
+
+def test_mixed_operation_stream_produces_fresh_content_at_different_steps() -> None:
+    generator = build_mixed_operation_generator(seed=17, sequence_length_range=LENGTH_RANGE)
+    first = generator.generate_online(32, step=3, split="train")
+    second = generator.generate_online(32, step=4, split="train")
+    assert [example.to_dict() for example in first] != [example.to_dict() for example in second]
+
+
+def test_mixed_operation_stream_surfaces_every_known_operation() -> None:
+    """Acceptance: all included operations appear in one stream."""
+    generator = build_mixed_operation_generator(seed=2, sequence_length_range=LENGTH_RANGE)
+    seen_operations: set[str] = set()
+    for step in range(40):
+        for example in generator.generate_online(64, step=step, split="train"):
+            assert len(example.task_spec.steps) == 1  # depth pinned to 1
+            seen_operations.add(example.task_spec.operation_sequence[0])
+        if seen_operations == set(KNOWN_OPERATION_NAMES):
+            break
+    assert seen_operations == set(KNOWN_OPERATION_NAMES)
+
+
+def test_mixed_operation_stream_examples_carry_task_spec_and_replay_to_presented_target() -> None:
+    """Acceptance: outputs remain deterministic from visible task spec + content."""
+    generator = build_mixed_operation_generator(seed=3, sequence_length_range=LENGTH_RANGE)
+    for split in ("train", "val", "test"):
+        for example in generator.generate_online(48, step=5, split=split):
+            assert isinstance(example.task_spec, TaskSpec)
+            replay = run_program(
+                example.task_spec.to_program(), example.input_tokens, example.vocab_size
+            )
+            assert replay.output_tokens == example.target_tokens
+
+
+def test_same_content_pairs_with_every_known_operation_via_mixed_stream_task_spec() -> None:
+    """Acceptance: same content can be paired with multiple operations.
+
+    Directly demonstrates the property `build_mixed_operation_generator`
+    relies on: the generator's content sampling is independent of which
+    operation is chosen, so any one content sequence can correctly be
+    routed through any operation in the mixed pool -- with the operation
+    identity (not the content) determining the output.
+    """
+    generator = build_mixed_operation_generator(seed=4, sequence_length_range=LENGTH_RANGE)
+    content = generator.generate_online(1, step=0, split="train")[0].input_tokens
+    vocab_size = generator.vocab_size
+
+    outputs = {}
+    for name in KNOWN_OPERATION_NAMES:
+        operation = get_operation(name)
+        if not operation.is_valid_for_length(len(content)):
+            continue
+        rng = random.Random(0)
+        params = operation.sample_params(rng, content, vocab_size)
+        task_spec = TaskSpec(steps=(TaskStepSpec(operation=name, arguments=params),))
+        replay = run_program(task_spec.to_program(), content, vocab_size)
+        outputs[name] = replay.output_tokens
+
+    assert len(outputs) >= 6  # most of the 8 known operations accept this content's length
+    assert len(set(outputs.values())) == len(outputs)  # every operation yields a distinct output
