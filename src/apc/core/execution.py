@@ -134,6 +134,28 @@ AGENTS.md workflow rather than hidden):
   through `evaluate_exact_match_no_primitive`, checking that decoder-only
   performance stays materially below the future primitive-causality Correct
   target (0.95) rather than already solving the task through some bypass.
+
+- **Trainable oracle-forced primitive execution (Phase A.1 Post-Correction
+  Task A1-R003).** `apply_bank_with_oracle_calls_trainable`/
+  `forward_logits_with_oracle_calls_trainable` are gradient-enabled siblings
+  of A1-C007's `apply_bank_with_oracle_calls`/`forward_logits_with_
+  oracle_calls`: identical oracle-forced per-example routing (now factored
+  into a shared `_route_and_apply_oracle_calls` helper), but not wrapped in
+  `torch.no_grad()`, so a task loss can actually train the oracle-selected
+  primitives' `a_proj`/`b_proj` weights. The no-grad originals stay exactly
+  as A1-C007 left them (same public signature, same behavior) -- they are
+  the evaluation-time entry points for a bank whose primitives are already
+  trained; the new `_trainable` siblings exist because A1-R003 is the first
+  task that needs to *train* a primitive via oracle routing rather than only
+  evaluate one. `apc.evaluation.parameter_free_primitive_gate` (the A1-R003
+  STOP GATE) freezes a pretrained, task-blind `DecoderOnlyTransformer`
+  (`apc.evaluation.shared_core_generalization.train_shared_core`,
+  `include_task_spec=False`, restricted to `apc.environments.operations.
+  DETERMINISTIC_OPERATION_NAMES`), registers one `Primitive` per operation
+  family, and trains those primitives with the frozen core's `encode`
+  output as input -- gradient reaches only the oracle-selected primitive
+  for each example, never the frozen core (whose output already carries no
+  grad of its own) and never an unselected primitive family.
 """
 
 from __future__ import annotations
@@ -493,27 +515,31 @@ class OracleRoutingOutput:
     executed_primitive_ids: tuple[int, ...]
 
 
-def apply_bank_with_oracle_calls(
+def _route_and_apply_oracle_calls(
     hidden: torch.Tensor,
     bank: PrimitiveBank,
     calls: Sequence[PrimitiveCall],
 ) -> tuple[torch.Tensor, OracleRoutingOutput]:
-    """`apply_bank`'s oracle-routed sibling (Task A1-C007): force exactly
-    one bank primitive per batch item -- `calls[b].primitive_id` -- instead
-    of scoring candidates through a `Router`. Applied unconditionally
+    """Shared implementation behind `apply_bank_with_oracle_calls` (no-grad,
+    evaluation/inference -- Task A1-C007) and `apply_bank_with_oracle_calls_
+    trainable` (gradient-enabled, primitive training -- Task A1-R003): force
+    exactly one bank primitive per batch item -- `calls[b].primitive_id` --
+    instead of scoring candidates through a `Router`. Applied unconditionally
     (`gate=1.0`; there is no competing candidate to softmax against, unlike
     the learned router's permanent null candidate) at every non-batch
     position of that batch item.
+
+    This function itself does not decide whether gradient is tracked --
+    every op here is an ordinary differentiable tensor op (`Tensor.
+    index_add`, not the in-place `index_add_`, specifically so this same
+    implementation is safe to reuse from a gradient-enabled call site); each
+    public wrapper below chooses via `torch.no_grad()` or not.
 
     `hidden`: `[batch, ..., d_model]`; `len(calls)` must equal `hidden`'s
     batch dimension (`hidden.shape[0]`) -- one oracle call per example, not
     per position, matching the current online generator's depth-1 "one
     operation for the whole sequence" semantics (multi-step recipes are
     Task A1-008's Composition Library, see module docstring).
-
-    Always executed under `torch.no_grad()`, matching `apply_bank`: the
-    returned hidden state is an ordinary (non-leaf but ungraphed) tensor,
-    safe to feed into a trainable module (e.g. `apply_workspace`) afterwards.
 
     Raises:
         ValueError: `len(calls) != hidden.shape[0]`, or a call names a bank
@@ -543,32 +569,82 @@ def apply_bank_with_oracle_calls(
                 f"(operation {call.operation!r}); a disabled family cannot be oracle-executed"
             )
 
-    with torch.no_grad():
-        id_tensor = torch.tensor(primitive_ids, dtype=torch.long, device=hidden.device)
-        broadcast_shape = (batch,) + (1,) * (hidden.dim() - 2)
-        flat_ids = id_tensor.view(broadcast_shape).expand(hidden.shape[:-1]).reshape(-1)
+    id_tensor = torch.tensor(primitive_ids, dtype=torch.long, device=hidden.device)
+    broadcast_shape = (batch,) + (1,) * (hidden.dim() - 2)
+    flat_ids = id_tensor.view(broadcast_shape).expand(hidden.shape[:-1]).reshape(-1)
 
-        flat_hidden = hidden.reshape(-1, hidden.shape[-1])
-        flat_delta = torch.zeros_like(flat_hidden)
-        executed_ids: list[int] = []
-        for primitive_id in sorted(set(primitive_ids)):
-            primitive = bank.get(primitive_id)
-            positions = (flat_ids == primitive_id).nonzero(as_tuple=False).squeeze(-1)
-            selected_hidden = flat_hidden.index_select(0, positions)
-            # Call Primitive.forward (not its projections directly) so
-            # execution instrumentation reflects actual oracle-forced work,
-            # matching apply_bank's A1-002 sparse-execution convention.
-            delta = primitive(selected_hidden) - selected_hidden
-            flat_delta.index_add_(0, positions, delta)
-            executed_ids.append(primitive_id)
+    flat_hidden = hidden.reshape(-1, hidden.shape[-1])
+    flat_delta = torch.zeros_like(flat_hidden)
+    executed_ids: list[int] = []
+    for primitive_id in sorted(set(primitive_ids)):
+        primitive = bank.get(primitive_id)
+        positions = (flat_ids == primitive_id).nonzero(as_tuple=False).squeeze(-1)
+        selected_hidden = flat_hidden.index_select(0, positions)
+        # Call Primitive.forward (not its projections directly) so
+        # execution instrumentation reflects actual oracle-forced work,
+        # matching apply_bank's A1-002 sparse-execution convention.
+        delta = primitive(selected_hidden) - selected_hidden
+        flat_delta = flat_delta.index_add(0, positions, delta)
+        executed_ids.append(primitive_id)
 
-        result = hidden + flat_delta.reshape_as(hidden)
+    result = hidden + flat_delta.reshape_as(hidden)
 
     return result, OracleRoutingOutput(
         calls=tuple(calls),
         selected_ids=tuple(primitive_ids),
         executed_primitive_ids=tuple(sorted(executed_ids)),
     )
+
+
+def apply_bank_with_oracle_calls(
+    hidden: torch.Tensor,
+    bank: PrimitiveBank,
+    calls: Sequence[PrimitiveCall],
+) -> tuple[torch.Tensor, OracleRoutingOutput]:
+    """`apply_bank`'s oracle-routed sibling (Task A1-C007) -- see
+    `_route_and_apply_oracle_calls` for the shared routing/execution logic.
+
+    Always executed under `torch.no_grad()`, matching `apply_bank`: the
+    returned hidden state is an ordinary (non-leaf but ungraphed) tensor,
+    safe to feed into a trainable module (e.g. `apply_workspace`) afterwards.
+    This is the evaluation/inference entry point -- a bank whose primitives
+    are already trained (e.g. `apply_bank_with_oracle_calls_trainable`'s
+    result, Task A1-R003). To train primitive parameters via oracle-forced
+    routing, use `apply_bank_with_oracle_calls_trainable` instead.
+
+    Raises: see `_route_and_apply_oracle_calls`.
+    """
+    with torch.no_grad():
+        return _route_and_apply_oracle_calls(hidden, bank, calls)
+
+
+def apply_bank_with_oracle_calls_trainable(
+    hidden: torch.Tensor,
+    bank: PrimitiveBank,
+    calls: Sequence[PrimitiveCall],
+) -> tuple[torch.Tensor, OracleRoutingOutput]:
+    """`apply_bank_with_oracle_calls`'s gradient-enabled sibling (Task
+    A1-R003, "train primitives"): identical oracle-forced routing/execution
+    (`_route_and_apply_oracle_calls`), but *not* wrapped in `torch.
+    no_grad()` -- the returned hidden state carries a gradient path back
+    into whichever selected primitives' `a_proj`/`b_proj` weights require
+    grad, so a task loss computed on top of it can train those primitives
+    directly (mirroring `apply_workspace`'s gradient-enabled role for
+    PLASTIC training, but with oracle-forced per-example selection instead
+    of one shared `active_ids` set for the whole batch).
+
+    Intended call pattern (Task A1-R003's parameter-free oracle primitive
+    benchmark): freeze a pretrained `DecoderOnlyTransformer`'s parameters,
+    register one `Primitive` per operation family in `bank`, and train via
+    `forward_logits_with_oracle_calls_trainable` + a token-level
+    cross-entropy loss -- gradient reaches only the oracle-selected
+    primitive's own parameters for each example, never the frozen Stable
+    Core (whose `hidden` input carries no grad of its own) and never any
+    primitive family not selected by that example's oracle call.
+
+    Raises: see `_route_and_apply_oracle_calls`.
+    """
+    return _route_and_apply_oracle_calls(hidden, bank, calls)
 
 
 def forward_logits_with_oracle_calls(
@@ -592,6 +668,38 @@ def forward_logits_with_oracle_calls(
     `use_split_state` flag to thread through here.
     """
     content, routing_out = apply_bank_with_oracle_calls(model.encode(input_ids), bank, calls)
+    if workspace is not None:
+        content = apply_workspace(content, workspace, workspace_ids)
+    return model.decode(content), routing_out
+
+
+def forward_logits_with_oracle_calls_trainable(
+    model: DecoderOnlyTransformer,
+    input_ids: torch.Tensor,
+    bank: PrimitiveBank,
+    calls: Sequence[PrimitiveCall],
+    *,
+    workspace: PlasticWorkspace | None = None,
+    workspace_ids: Sequence[int] | None = None,
+) -> tuple[torch.Tensor, OracleRoutingOutput]:
+    """`forward_logits_with_oracle_calls`'s gradient-enabled sibling (Task
+    A1-R003): identical composition (`encode` -> oracle-forced bank ->
+    optional workspace -> `decode`), but routes through
+    `apply_bank_with_oracle_calls_trainable` instead of the no-grad
+    evaluation entry point, so the returned logits carry a gradient path
+    into the oracle-selected primitives.
+
+    `model.encode(input_ids)` is called with no explicit `torch.no_grad()`
+    here: the intended caller (Task A1-R003's primitive-training loop) has
+    already frozen every `model` parameter (`requires_grad=False`), so the
+    encode forward produces a plain, gradient-free `hidden` tensor either
+    way -- explicit `no_grad()` would only be an optimization, not a
+    correctness requirement -- and leaving it out keeps this function usable
+    if a future caller ever wants gradient to reach the Stable Core too.
+    """
+    content, routing_out = apply_bank_with_oracle_calls_trainable(
+        model.encode(input_ids), bank, calls
+    )
     if workspace is not None:
         content = apply_workspace(content, workspace, workspace_ids)
     return model.decode(content), routing_out

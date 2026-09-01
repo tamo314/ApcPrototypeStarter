@@ -25,8 +25,10 @@ import torch
 
 from apc.core.execution import (
     apply_bank_with_oracle_calls,
+    apply_bank_with_oracle_calls_trainable,
     evaluate_exact_match_with_oracle_calls,
     forward_logits_with_oracle_calls,
+    forward_logits_with_oracle_calls_trainable,
     generate_greedy_with_oracle_call,
 )
 from apc.core.generation import evaluate_exact_match, generate_greedy
@@ -163,7 +165,9 @@ def _bank_with_primitives_at(ids: list[int], *, perturb: bool = True) -> Primiti
     "func",
     [
         apply_bank_with_oracle_calls,
+        apply_bank_with_oracle_calls_trainable,
         forward_logits_with_oracle_calls,
+        forward_logits_with_oracle_calls_trainable,
         generate_greedy_with_oracle_call,
         evaluate_exact_match_with_oracle_calls,
     ],
@@ -236,6 +240,79 @@ def test_apply_bank_with_oracle_calls_raises_value_error_for_disabled_primitive(
         apply_bank_with_oracle_calls(h, bank, [PrimitiveCall(operation="COPY")])
 
 
+# --- apply_bank_with_oracle_calls_trainable (Task A1-R003) -------------------
+
+
+def test_apply_bank_with_oracle_calls_trainable_matches_no_grad_sibling_numerically() -> None:
+    """Same routing/execution logic, only the grad-tracking differs."""
+    shift_id, count_id = operation_id("SHIFT"), operation_id("COUNT")
+    bank = _bank_with_primitives_at([shift_id, count_id])
+    calls = [
+        PrimitiveCall(operation="SHIFT", arguments={"amount": 1}),
+        PrimitiveCall(operation="COUNT", arguments={"target": 2}),
+    ]
+    hidden = torch.randn(2, 3, D_MODEL)
+
+    with torch.no_grad():
+        expected, expected_routing = apply_bank_with_oracle_calls(hidden, bank, calls)
+    actual, actual_routing = apply_bank_with_oracle_calls_trainable(hidden, bank, calls)
+
+    torch.testing.assert_close(actual, expected)
+    assert actual_routing.selected_ids == expected_routing.selected_ids
+    assert actual_routing.executed_primitive_ids == expected_routing.executed_primitive_ids
+
+
+def test_apply_bank_with_oracle_calls_trainable_gradient_reaches_only_the_selected_primitive() -> (
+    None
+):
+    """The whole point of the `_trainable` sibling: gradient must flow into
+    the oracle-selected primitive's own weights, and never into a primitive
+    family a given example's call did not select."""
+    shift_id, count_id, bind_id = (
+        operation_id("SHIFT"),
+        operation_id("COUNT"),
+        operation_id("BIND"),
+    )
+    bank = _bank_with_primitives_at([shift_id, count_id, bind_id])
+    for p in bank.parameters():
+        p.requires_grad_(True)
+    calls = [
+        PrimitiveCall(operation="SHIFT", arguments={"amount": 1}),
+        PrimitiveCall(operation="COUNT", arguments={"target": 2}),
+    ]
+    hidden = torch.randn(2, 3, D_MODEL)
+
+    result, _ = apply_bank_with_oracle_calls_trainable(hidden, bank, calls)
+    assert result.requires_grad
+    result.sum().backward()
+
+    assert bank.get(shift_id).a_proj.weight.grad is not None
+    assert bank.get(count_id).a_proj.weight.grad is not None
+    assert bank.get(bind_id).a_proj.weight.grad is None
+
+
+def test_apply_bank_with_oracle_calls_trainable_executes_only_the_forced_primitives() -> None:
+    shift_id, count_id, bind_id = (
+        operation_id("SHIFT"),
+        operation_id("COUNT"),
+        operation_id("BIND"),
+    )
+    bank = _bank_with_primitives_at([shift_id, count_id, bind_id])
+    calls = [
+        PrimitiveCall(operation="SHIFT", arguments={"amount": 1}),
+        PrimitiveCall(operation="COUNT", arguments={"target": 2}),
+    ]
+    hidden = torch.randn(2, 3, D_MODEL)
+
+    _, routing_out = apply_bank_with_oracle_calls_trainable(hidden, bank, calls)
+
+    assert routing_out.selected_ids == (shift_id, count_id)
+    assert routing_out.executed_primitive_ids == tuple(sorted({shift_id, count_id}))
+    assert bank.get(shift_id).forward_call_count == 1
+    assert bank.get(count_id).forward_call_count == 1
+    assert bank.get(bind_id).forward_call_count == 0
+
+
 # --- forward_logits_with_oracle_calls ----------------------------------------
 
 
@@ -265,6 +342,31 @@ def test_forward_logits_with_oracle_calls_matches_manual_apply_bank_plus_decode(
         actual, _ = forward_logits_with_oracle_calls(model, input_ids, bank, calls)
 
     torch.testing.assert_close(actual, expected)
+
+
+def test_forward_logits_with_oracle_calls_trainable_gradient_reaches_primitive_through_decode() -> (
+    None
+):
+    """End-to-end grad check for the A1-R003 training call pattern: freeze
+    the model, leave the bank trainable, and confirm a loss on the logits
+    backpropagates into the selected primitive."""
+    model = _model()
+    for p in model.parameters():
+        p.requires_grad_(False)
+    pid = operation_id("NEGATE")
+    bank = _bank_with_primitives_at([pid])
+    for p in bank.parameters():
+        p.requires_grad_(True)
+    input_ids = torch.randint(0, MODEL_VOCAB_SIZE, (1, 4))
+    calls = [PrimitiveCall(operation="NEGATE")]
+
+    logits, routing_out = forward_logits_with_oracle_calls_trainable(model, input_ids, bank, calls)
+    assert logits.requires_grad
+    assert routing_out.executed_primitive_ids == (pid,)
+
+    logits.sum().backward()
+    assert bank.get(pid).a_proj.weight.grad is not None
+    assert model.token_emb.weight.grad is None
 
 
 # --- generate_greedy_with_oracle_call ----------------------------------------

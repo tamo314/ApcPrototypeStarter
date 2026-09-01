@@ -1,0 +1,76 @@
+# Phase A.1 Post-Correction Task A1-R003 (STOP GATE, H2b): Parameter-free
+# oracle primitive benchmark. Per seed:
+#   1. pretrain ONE shared Stable Core, task-blind (no task-specification
+#      token ever visible, apc.evaluation.shared_core_generalization.
+#      train_shared_core with include_task_spec=False), restricted to
+#      apc.environments.operations.DETERMINISTIC_OPERATION_NAMES (COPY,
+#      NEGATE, COMPARE, ACCUMULATE -- the four operations with no hidden
+#      per-instance parameter, docs/DECISIONS.md ADR-0017);
+#   2. freeze every Stable Core parameter;
+#   3. register one neural primitive (rank `primitive_rank`) per operation,
+#      keyed at apc.environments.task_spec.operation_id(name);
+#   4. train those primitives (only) via oracle-forced routing through the
+#      frozen core (apc.core.execution.forward_logits_with_oracle_calls_
+#      trainable, Task A1-R003's addition to that module);
+#   5. evaluate the causal ablation matrix's three arms on a large unseen
+#      batch: Correct (oracle-forced correct family), Wrong (oracle-forced
+#      incorrect family, a fixed derangement over operation_names), None
+#      (apc.core.execution.evaluate_exact_match_no_primitive, A1-R002's own
+#      "None" arm).
+#
+# Acceptance (docs/CODEX_TASKS_PHASE_A1_POST_CORRECTION.md A1-R003 /
+# docs/EXPERIMENT_PLAN_PHASE_A1_POST_CORRECTION.md H2b), against the
+# cross-seed mean of each arm:
+#   - Correct >= 0.95
+#   - Wrong <= 0.30
+#   - None <= 0.30
+#   - Correct - max(Wrong, None) >= 0.50
+#   - selected-only execution (structurally guaranteed by
+#     apply_bank_with_oracle_calls[_trainable]; see
+#     tests/test_oracle_routing.py)
+#
+# STOP GATE.
+seeds: [0, 1, 2, 3, 4]
+
+vocab_size: 10
+sequence_length_range: [6, 10]
+operation_names: [COPY, NEGATE, COMPARE, ACCUMULATE]
+
+model:
+  d_model: 192
+  n_layer: 4
+  n_head: 4
+  d_ff: 768
+  max_seq_len: 48
+  dropout: 0.0
+
+# Stable Core pretraining budget -- identical to configs/
+# phase_a1_decoder_leakage_gate.yaml's own no-task-spec training, so the
+# frozen backbone this gate builds on is drawn from the same experimental
+# family as that already-measured "None" arm.
+core_train:
+  steps: 30000
+  batch_size: 128
+  lr: 0.0003
+  weight_decay: 0.01
+  grad_clip: 1.0
+  eval_every: 2000
+  progress_eval_examples: 256
+  device: auto
+
+primitive_rank: 8
+
+# Primitive-training budget. Cheaper per step than core_train (no backward
+# pass through the frozen Stable Core, see apc.core.execution's module
+# docstring "Trainable oracle-forced primitive execution").
+primitive_train:
+  steps: 10000
+  batch_size: 128
+  lr: 0.0003
+  weight_decay: 0.01
+  grad_clip: 1.0
+  eval_every: 1000
+  progress_eval_examples: 256
+
+num_unseen_eval_examples: 4096
+min_examples_per_operation: 400
