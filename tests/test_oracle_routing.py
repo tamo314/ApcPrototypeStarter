@@ -45,6 +45,7 @@ from apc.environments.primitive_call import PrimitiveCall
 from apc.environments.task_spec import operation_id
 from apc.environments.vocab import DEFAULT_VOCAB_SIZE
 from apc.primitives.bank import PrimitiveBank
+from apc.primitives.conditioning import build_conditioned_primitive
 from apc.primitives.primitive import Primitive, PrimitiveConfig, PrimitiveStatus
 from apc.utils.seed import set_seed
 
@@ -457,3 +458,148 @@ def test_evaluate_exact_match_with_oracle_calls_uses_the_injected_provider() -> 
     )
 
     assert calls_used == [fixed_call, fixed_call]
+
+
+# --- ConditionedPrimitive dispatch (Task A1-R005) ----------------------------
+
+
+def _conditioned_bank(operations: list[str], *, perturb: bool = True) -> PrimitiveBank:
+    bank = PrimitiveBank()
+    for operation in operations:
+        primitive = build_conditioned_primitive(
+            operation_id(operation),
+            operation,
+            PrimitiveConfig(d_model=D_MODEL, rank=4),
+            vocab_size=ENV_VOCAB_SIZE,
+            max_sequence_length=16,
+            arg_dim=6,
+        )
+        bank.add_primitive(primitive)
+        if perturb:
+            with torch.no_grad():
+                primitive.b_proj.weight.add_(1.0)
+                primitive.c_proj.weight.add_(1.0)
+    return bank
+
+
+def test_apply_bank_with_oracle_calls_dispatches_conditioned_primitive_via_forward_from_calls() -> (
+    None
+):
+    """A `ConditionedPrimitive` cannot be called as `primitive(selected_hidden)`
+    (`argument_values` is keyword-only, no default -- see
+    `apc.primitives.conditioning`); `_route_and_apply_oracle_calls` must
+    instead route it through `forward_from_calls`, reconstructing each
+    gathered row's own `PrimitiveCall` from its originating batch item."""
+    bank = _conditioned_bank(["SHIFT"])
+    shift_id = operation_id("SHIFT")
+    calls = [
+        PrimitiveCall(operation="SHIFT", arguments={"amount": 1}),
+        PrimitiveCall(operation="SHIFT", arguments={"amount": 2}),
+    ]
+    hidden = torch.randn(2, 3, D_MODEL)
+
+    result, routing_out = apply_bank_with_oracle_calls(hidden, bank, calls)
+
+    assert routing_out.executed_primitive_ids == (shift_id,)
+    primitive = bank.get(shift_id)
+    expected = hidden.clone()
+    expected[0] = primitive(hidden[0], argument_values=[1, 1, 1])
+    expected[1] = primitive(hidden[1], argument_values=[2, 2, 2])
+    torch.testing.assert_close(result, expected)
+
+
+def test_apply_bank_with_oracle_calls_gives_each_batch_item_its_own_argument() -> None:
+    """Regression guard for the `batch_index_tensor` fix: two batch items
+    with *identical* content but *different* forced arguments, routed
+    through the same `ConditionedPrimitive` family, must not collapse to the
+    same output -- a bug that mixed up which row's argument belongs to which
+    row would silently do exactly that."""
+    bank = _conditioned_bank(["SHIFT"])
+    content = torch.randn(1, D_MODEL)
+    hidden = content.repeat(2, 1)
+    calls = [
+        PrimitiveCall(operation="SHIFT", arguments={"amount": 1}),
+        PrimitiveCall(operation="SHIFT", arguments={"amount": 2}),
+    ]
+
+    result, _ = apply_bank_with_oracle_calls(hidden, bank, calls)
+
+    assert not torch.equal(result[0], result[1])
+
+
+def test_apply_bank_with_oracle_calls_mixes_conditioned_and_plain_primitives() -> None:
+    """The dispatch inside one `_route_and_apply_oracle_calls` call must
+    correctly distinguish a plain `Primitive` from a `ConditionedPrimitive`
+    per selected id, not just when only one kind is present in the bank."""
+    bank = PrimitiveBank()
+    copy_primitive = Primitive(
+        operation_id("COPY"),
+        PrimitiveConfig(d_model=D_MODEL, rank=4),
+        status=PrimitiveStatus.STABLE,
+    )
+    with torch.no_grad():
+        copy_primitive.b_proj.weight.add_(1.0)
+    bank.add_primitive(copy_primitive)
+    shift_primitive = build_conditioned_primitive(
+        operation_id("SHIFT"),
+        "SHIFT",
+        PrimitiveConfig(d_model=D_MODEL, rank=4),
+        vocab_size=ENV_VOCAB_SIZE,
+        max_sequence_length=16,
+        arg_dim=6,
+    )
+    with torch.no_grad():
+        shift_primitive.b_proj.weight.add_(1.0)
+        shift_primitive.c_proj.weight.add_(1.0)
+    bank.add_primitive(shift_primitive)
+
+    calls = [
+        PrimitiveCall(operation="COPY"),
+        PrimitiveCall(operation="SHIFT", arguments={"amount": 5}),
+    ]
+    hidden = torch.randn(2, 3, D_MODEL)
+
+    result, routing_out = apply_bank_with_oracle_calls(hidden, bank, calls)
+
+    assert routing_out.executed_primitive_ids == tuple(
+        sorted({operation_id("COPY"), operation_id("SHIFT")})
+    )
+    expected = hidden.clone()
+    expected[0] = copy_primitive(hidden[0])
+    expected[1] = shift_primitive(hidden[1], argument_values=[5, 5, 5])
+    torch.testing.assert_close(result, expected)
+
+
+def test_oracle_calls_trainable_gradient_reaches_conditioned_primitive_argument_encoder() -> None:
+    """The whole point of wiring `PrimitiveCall.arguments` through: gradient
+    must reach not only `a_proj`/`b_proj` but also `c_proj` and the argument
+    encoder's embedding table, or the argument is present in the call but
+    not actually trainable through this path."""
+    bank = _conditioned_bank(["SHIFT"])
+    for p in bank.parameters():
+        p.requires_grad_(True)
+    calls = [PrimitiveCall(operation="SHIFT", arguments={"amount": 3})]
+    hidden = torch.randn(1, 4, D_MODEL)
+
+    result, _ = apply_bank_with_oracle_calls_trainable(hidden, bank, calls)
+    assert result.requires_grad
+    result.sum().backward()
+
+    primitive = bank.get(operation_id("SHIFT"))
+    assert primitive.a_proj.weight.grad is not None
+    assert primitive.c_proj.weight.grad is not None
+    assert primitive.argument_encoder.embedding.weight.grad is not None  # type: ignore[attr-defined]
+
+
+def test_forward_logits_with_oracle_calls_dispatches_conditioned_primitive_end_to_end() -> None:
+    model = _model()
+    bank = _conditioned_bank(["SHIFT"])
+    input_ids = torch.randint(0, MODEL_VOCAB_SIZE, (1, 4))
+    calls = [PrimitiveCall(operation="SHIFT", arguments={"amount": 2})]
+
+    with torch.no_grad():
+        content, _ = apply_bank_with_oracle_calls(model.encode(input_ids), bank, calls)
+        expected = model.decode(content)
+        actual, _ = forward_logits_with_oracle_calls(model, input_ids, bank, calls)
+
+    torch.testing.assert_close(actual, expected)

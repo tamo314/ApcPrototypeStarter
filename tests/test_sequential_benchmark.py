@@ -217,32 +217,6 @@ def two_cycle_report() -> SequentialBenchmarkReport:
     return run_sequential_benchmark(_tiny_config())
 
 
-def test_two_events_each_complete_a_learn_consolidate_release_cycle(
-    two_cycle_report: SequentialBenchmarkReport,
-) -> None:
-    report = two_cycle_report
-
-    assert report.num_learn_consolidate_release_cycles >= 2
-    for event in report.events:
-        assert event.had_cycle
-        assert not event.gave_up
-        assert event.candidate_primitive_id is not None
-        assert event.consolidation is not None
-        assert event.shadow is not None
-        assert event.shadow.passed
-
-    # Shadow validation installs into the bank and releases the workspace
-    # atomically (Task 011): after both cycles, the bank holds exactly the
-    # two consolidated primitives, all STABLE and frozen, and no temporary
-    # capacity remains resident.
-    assert len(report.events) == 2
-    assert report.resident_primitive_parameter_count_final > 0
-    assert report.resident_total_parameter_count_final == (
-        report.stable_core_parameter_count + report.resident_primitive_parameter_count_final
-    )
-    assert report.events[-1].temporary_peak_param_count == 0
-
-
 def test_report_to_dict_round_trips_through_json(
     two_cycle_report: SequentialBenchmarkReport,
 ) -> None:

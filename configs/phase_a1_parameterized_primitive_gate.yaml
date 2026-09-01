@@ -1,0 +1,85 @@
+# Phase A.1 Post-Correction Task A1-R005 (STOP GATE, H2c): Parameterized
+# oracle primitive benchmark. Per seed:
+#   1. pretrain ONE shared Stable Core, task-blind (no task-specification
+#      token ever visible, apc.evaluation.shared_core_generalization.
+#      train_shared_core with include_task_spec=False), restricted to
+#      apc.environments.operations.PARAMETERIZED_OPERATION_NAMES (SHIFT,
+#      SELECT, COUNT, BIND -- the four operations with a hidden per-instance
+#      argument, docs/DECISIONS.md ADR-0017);
+#   2. freeze every Stable Core parameter;
+#   3. register one apc.primitives.conditioning.ConditionedPrimitive (rank
+#      `primitive_rank`) per operation, keyed at
+#      apc.environments.task_spec.operation_id(name);
+#   4. train those primitives (only) via oracle-forced routing that threads
+#      each example's own argument through (apc.core.execution.
+#      forward_logits_with_oracle_calls_trainable, now argument-aware per
+#      Task A1-R005's apc.core.execution dispatch addition);
+#   5. evaluate the four-arm causal ablation matrix on a large unseen batch:
+#      Correct (correct family + correct argument), Wrong argument (correct
+#      family + a deterministically different argument), Wrong family
+#      (oracle-forced incorrect family, a fixed derangement over
+#      operation_names), None (apc.core.execution.
+#      evaluate_exact_match_no_primitive, A1-R002's own "None" arm).
+#
+# Acceptance (docs/CODEX_TASKS_PHASE_A1_POST_CORRECTION.md A1-R005 /
+# docs/EXPERIMENT_PLAN_PHASE_A1_POST_CORRECTION.md H2c), against the
+# cross-seed mean of each arm. H2c leaves the three control-arm numbers as
+# "materially lower" without a figure; this gate reuses H2b's own
+# predeclared 0.30/0.50 convention (see apc.evaluation.
+# parameterized_primitive_gate module docstring and docs/DECISIONS.md):
+#   - Correct >= 0.90
+#   - Wrong argument <= 0.30
+#   - Wrong family <= 0.30
+#   - None <= 0.30
+#   - Correct - max(Wrong argument, Wrong family, None) >= 0.50
+#   - family count stays constant across argument values (structurally
+#     guaranteed; measured via bank_size == len(operation_names) per seed)
+#
+# STOP GATE.
+seeds: [0, 1, 2, 3, 4]
+
+vocab_size: 10
+sequence_length_range: [6, 10]
+operation_names: [SHIFT, SELECT, COUNT, BIND]
+
+model:
+  d_model: 192
+  n_layer: 4
+  n_head: 4
+  d_ff: 768
+  max_seq_len: 48
+  dropout: 0.0
+
+# Stable Core pretraining budget -- identical to configs/
+# phase_a1_parameter_free_primitive_gate.yaml's (A1-R003) own budget, so the
+# two gates' frozen-backbone training procedures are directly comparable;
+# only the operation pool (and therefore the online generator's stream)
+# differs.
+core_train:
+  steps: 30000
+  batch_size: 128
+  lr: 0.0003
+  weight_decay: 0.01
+  grad_clip: 1.0
+  eval_every: 2000
+  progress_eval_examples: 256
+  device: auto
+
+primitive_rank: 8
+arg_dim: 16
+max_sequence_length: 32
+
+# Primitive-training budget -- identical step/batch/lr budget to A1-R003's
+# own primitive_train, now training ConditionedPrimitive's a_proj/b_proj/
+# c_proj/argument_encoder instead of Primitive's a_proj/b_proj alone.
+primitive_train:
+  steps: 10000
+  batch_size: 128
+  lr: 0.0003
+  weight_decay: 0.01
+  grad_clip: 1.0
+  eval_every: 1000
+  progress_eval_examples: 256
+
+num_unseen_eval_examples: 4096
+min_examples_per_operation: 400

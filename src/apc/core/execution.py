@@ -156,6 +156,35 @@ AGENTS.md workflow rather than hidden):
   output as input -- gradient reaches only the oracle-selected primitive
   for each example, never the frozen core (whose output already carries no
   grad of its own) and never an unselected primitive family.
+
+- **Argument-aware oracle routing (Phase A.1 Post-Correction Task A1-R005).**
+  `_route_and_apply_oracle_calls` now dispatches per selected primitive: a
+  plain `apc.primitives.primitive.Primitive` is still called as
+  `primitive(selected_hidden)` (byte-for-byte the A1-C007/A1-R003 behavior,
+  so every existing parameter-free caller is unaffected), but an
+  `apc.primitives.conditioning.ConditionedPrimitive` (Task A1-R004) is
+  instead called through its own `forward_from_calls(selected_hidden,
+  selected_calls)`, so `PrimitiveCall.arguments` actually reaches the
+  primitive's argument-conditioning path rather than raising `TypeError`
+  (`ConditionedPrimitive.forward`'s `argument_values` is keyword-only with
+  no default, precisely so the old argument-blind call pattern could not
+  silently succeed -- see that module's docstring). `selected_calls` is
+  reconstructed per gathered position from a `batch_index_tensor` built with
+  the same per-example broadcast as `flat_ids` (one oracle call per batch
+  item, broadcast across every non-batch position of that item, matching
+  `PrimitiveCall`'s one-call-per-example semantics), so a
+  `ConditionedPrimitive` gathered from several batch items at once still
+  receives each gathered row's own argument value rather than a single
+  batch-wide one. This is the wiring `apc.primitives.conditioning`'s module
+  docstring explicitly left to this task ("Explicitly out of scope here
+  (A1-R005's job)"); `apc.evaluation.parameterized_primitive_gate` (the
+  A1-R005 STOP GATE) is the first caller that actually exercises it, driving
+  the four-arm causal ablation matrix (Correct / Wrong argument / Wrong
+  family / None) for `SHIFT`/`SELECT`/`COUNT`/`BIND` through the same
+  `apply_bank_with_oracle_calls[_trainable]`/`forward_logits_with_oracle_
+  calls[_trainable]`/`evaluate_exact_match_with_oracle_calls` entry points
+  A1-R003 already uses for the parameter-free operations -- no new public
+  function was needed for this task, only this one shared helper's dispatch.
 """
 
 from __future__ import annotations
@@ -171,6 +200,7 @@ from apc.environments.generator import Example, oracle_call_for_example
 from apc.environments.primitive_call import PrimitiveCall
 from apc.plastic.workspace import PlasticWorkspace
 from apc.primitives.bank import PrimitiveBank
+from apc.primitives.conditioning import ConditionedPrimitive
 from apc.primitives.primitive import Primitive, PrimitiveStatus
 from apc.primitives.router import Router, RouterOutput
 
@@ -572,6 +602,17 @@ def _route_and_apply_oracle_calls(
     id_tensor = torch.tensor(primitive_ids, dtype=torch.long, device=hidden.device)
     broadcast_shape = (batch,) + (1,) * (hidden.dim() - 2)
     flat_ids = id_tensor.view(broadcast_shape).expand(hidden.shape[:-1]).reshape(-1)
+    # Same per-example broadcast as flat_ids, but carrying each flattened
+    # position's originating batch index rather than its forced primitive id
+    # -- Task A1-R005 needs this to look back up a ConditionedPrimitive's own
+    # PrimitiveCall (and therefore its argument) for a position gathered
+    # below, since a call is per batch item, not per flattened position.
+    batch_index_tensor = (
+        torch.arange(batch, device=hidden.device)
+        .view(broadcast_shape)
+        .expand(hidden.shape[:-1])
+        .reshape(-1)
+    )
 
     flat_hidden = hidden.reshape(-1, hidden.shape[-1])
     flat_delta = torch.zeros_like(flat_hidden)
@@ -580,10 +621,22 @@ def _route_and_apply_oracle_calls(
         primitive = bank.get(primitive_id)
         positions = (flat_ids == primitive_id).nonzero(as_tuple=False).squeeze(-1)
         selected_hidden = flat_hidden.index_select(0, positions)
-        # Call Primitive.forward (not its projections directly) so
-        # execution instrumentation reflects actual oracle-forced work,
-        # matching apply_bank's A1-002 sparse-execution convention.
-        delta = primitive(selected_hidden) - selected_hidden
+        if isinstance(primitive, ConditionedPrimitive):
+            # Task A1-R005: an argument-conditioned family cannot be called
+            # as primitive(selected_hidden) (ConditionedPrimitive.forward's
+            # argument_values is keyword-only with no default, by design --
+            # see apc.primitives.conditioning). Reconstruct, per gathered
+            # row, the PrimitiveCall that forced it, so this family's own
+            # argument actually reaches the transform.
+            batch_indices = batch_index_tensor.index_select(0, positions).tolist()
+            selected_calls = [calls[b] for b in batch_indices]
+            output = primitive.forward_from_calls(selected_hidden, selected_calls)
+        else:
+            # Call Primitive.forward (not its projections directly) so
+            # execution instrumentation reflects actual oracle-forced work,
+            # matching apply_bank's A1-002 sparse-execution convention.
+            output = primitive(selected_hidden)
+        delta = output - selected_hidden
         flat_delta = flat_delta.index_add(0, positions, delta)
         executed_ids.append(primitive_id)
 
