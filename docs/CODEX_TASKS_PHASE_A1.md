@@ -70,6 +70,11 @@ If a task contains **STOP GATE**, do not start later dependent tasks when it fai
 
 ---
 
+Before Task A1-007, complete every mandatory task in
+`docs/CODEX_TASKS_PHASE_A1_CORRECTION.md`.
+
+---
+
 ## A1-007 — Oracle primitive routing
 
 **Goal:** verify primitive execution independently of learned routing.

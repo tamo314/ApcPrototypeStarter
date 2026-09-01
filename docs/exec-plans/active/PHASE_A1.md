@@ -41,6 +41,12 @@ Train only known operations with online randomized data.
 
 Gate: unseen-content K exact match >=0.95 across >=5 seeds. **STOP if failed.**
 
+> Correction after A1-006:
+> Before A1-007 / A1-M4, execute the corrective gates defined in
+> `docs/exec-plans/active/PHASE_A1_CORRECTION.md`.
+> A1-006 is retained as H1a (per-operation systematic generalization).
+> A1-006b is H1b (shared-core conditional systematic generalization).
+
 ### A1-M4 — Oracle primitive execution and composition
 
 Use environment-supplied primitive IDs/recipes. Add a Composition Library and small-bank composition search.

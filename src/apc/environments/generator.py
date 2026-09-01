@@ -30,6 +30,17 @@ value/order relationship a learner could exploit *across* examples at all,
 making arithmetic/order-dependent operations (e.g. NEGATE, COMPARE,
 ACCUMULATE) unlearnable regardless of training -- see `docs/DECISIONS.md`
 ADR-0018. See `Example.symbol_permutation`.
+
+Explicit task specification (Phase A.1 Correction Task A1-C001,
+`Example.task_spec`): every example also carries an
+`apc.environments.task_spec.TaskSpec`, a model-visible projection of
+`program` that exposes operation identity and every previously hidden
+operation parameter (`SELECT`'s `indices`, `COUNT`'s `target`, `SHIFT`'s
+`amount`, `BIND`'s `query_key` -- see `docs/DECISIONS.md` ADR-0017). Unlike
+`program`/`operation_graph`/`oracle_metadata`, which this module documents
+as latent/oracle-only, `task_spec` is intended for a future model-facing
+input encoding (Task A1-C002/A1-C003); `apc.core.data.encode_example` does
+not yet consume it.
 """
 
 from __future__ import annotations
@@ -44,6 +55,7 @@ from apc.environments.interpreter import OperationGraph, run_program
 from apc.environments.operations import KNOWN_OPERATION_NAMES, get_operation
 from apc.environments.permutation import SymbolPermutation, sample_permutation
 from apc.environments.program import Program, ProgramStep
+from apc.environments.task_spec import TaskSpec
 from apc.environments.vocab import DEFAULT_VOCAB_SIZE
 
 KNOWN_SPLITS: tuple[str, ...] = ("train", "val", "test")
@@ -103,6 +115,12 @@ class Example:
     `target_tokens` are the *presented* (permuted) ids the model sees;
     `symbol_permutation.invert(...)` recovers the canonical tokens that
     `program`/`operation_graph` refer to (Task A1-004).
+
+    `task_spec` is the model-visible counterpart of `program` (Task
+    A1-C001): the same operation identity and arguments, but carried in a
+    type distinct from the latent `program`/`operation_graph`/
+    `oracle_metadata` fields so a future model-facing input encoding has an
+    unambiguous field to read from.
     """
 
     input_tokens: tuple[int, ...]
@@ -112,6 +130,7 @@ class Example:
     category: str  # "known" | "novel_composition" | "novel_operation"
     split: str
     vocab_size: int
+    task_spec: TaskSpec | None = None
     oracle_metadata: OracleMetadata | None = None
     symbol_permutation: SymbolPermutation | None = None
 
@@ -124,6 +143,7 @@ class Example:
             "category": self.category,
             "split": self.split,
             "vocab_size": self.vocab_size,
+            "task_spec": (None if self.task_spec is None else self.task_spec.to_dict()),
             "oracle_metadata": (
                 None if self.oracle_metadata is None else self.oracle_metadata.to_dict()
             ),
@@ -378,6 +398,7 @@ class TaskGenerator:
                     category=category,
                     split=split,
                     vocab_size=self.vocab_size,
+                    task_spec=TaskSpec.from_program(program),
                     oracle_metadata=OracleMetadata(
                         label=resolved_label,
                         primitive_operations=program.operation_sequence,

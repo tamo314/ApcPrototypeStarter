@@ -19,6 +19,7 @@ from apc.environments.generator import (
 from apc.environments.interpreter import run_program
 from apc.environments.operations import KNOWN_OPERATION_NAMES, NOVEL_OPERATION_NAMES
 from apc.environments.permutation import SymbolPermutation
+from apc.environments.task_spec import TaskSpec
 
 LENGTH_RANGE = (6, 10)
 
@@ -58,6 +59,62 @@ def test_examples_include_latent_operation_graph_metadata(split: str) -> None:
         payload = example.to_dict()
         assert isinstance(payload["operation_graph"]["nodes"], list)
         assert isinstance(payload["program"]["steps"], list)
+
+
+# --- explicit task specification (Phase A.1 Correction Task A1-C001) -------
+
+
+@pytest.mark.parametrize("split", [*KNOWN_SPLITS, NOVEL_COMPOSITION_SPLIT])
+def test_examples_carry_task_spec_matching_program(split: str) -> None:
+    examples = TaskGenerator(seed=3, sequence_length_range=LENGTH_RANGE).generate(5, split)
+    for example in examples:
+        assert isinstance(example.task_spec, TaskSpec)
+        assert example.task_spec.operation_sequence == example.program.operation_sequence
+        assert example.task_spec.to_program() == example.program
+
+
+def test_task_spec_reconstructed_program_reproduces_target_for_generated_examples() -> None:
+    """Acceptance: task specification fully determines all previously hidden
+    operation parameters -- replaying only the `TaskSpec`-reconstructed
+    program (not the original `Program` object) on the presented input must
+    reproduce the presented target exactly, for every known operation
+    including the four ADR-0017 previously-hidden-parameter ones."""
+    generator = TaskGenerator(seed=13, sequence_length_range=LENGTH_RANGE, max_depth=1)
+    for example in generator.generate(60, "train"):
+        assert example.task_spec is not None
+        program = example.task_spec.to_program()
+        replay = run_program(program, example.input_tokens, example.vocab_size)
+        assert replay.output_tokens == example.target_tokens
+
+
+def test_online_examples_carry_task_spec_matching_program() -> None:
+    generator = TaskGenerator(
+        seed=29,
+        sequence_length_range=LENGTH_RANGE,
+        novel_operation_names=NOVEL_OPERATION_NAMES,
+    )
+    for split in ("train", NOVEL_COMPOSITION_SPLIT, NOVEL_OPERATION_SPLIT):
+        for example in generator.generate_online(8, step=7, split=split):
+            assert isinstance(example.task_spec, TaskSpec)
+            assert example.task_spec.to_program() == example.program
+
+
+def test_task_spec_survives_symbol_permutation_and_still_determines_canonical_target() -> None:
+    """`task_spec` always describes the canonical `Program`, unaffected by
+    `permute_symbols`; decoding the presented tokens back to canonical ids
+    (as evaluation code must) and replaying the `task_spec`-reconstructed
+    program must still reproduce the canonical target."""
+    generator = TaskGenerator(
+        seed=41, sequence_length_range=LENGTH_RANGE, permute_symbols=True
+    )
+    for example in generator.generate_online(15, step=2, split="train"):
+        permutation = example.symbol_permutation
+        assert permutation is not None
+        assert example.task_spec is not None
+        canonical_input = permutation.invert(example.input_tokens)
+        canonical_target = permutation.invert(example.target_tokens)
+        replay = run_program(example.task_spec.to_program(), canonical_input, example.vocab_size)
+        assert replay.output_tokens == canonical_target
 
 
 def test_known_splits_are_labeled_known_category() -> None:
