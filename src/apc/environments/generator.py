@@ -58,6 +58,26 @@ still trains one operation at a time. `task_spec` (once wired into a
 model-facing encoding, Task A1-C003) is the fix; `build_mixed_operation_generator`
 is the corresponding generator-side building block for Task A1-C004's
 shared-core gate.
+
+Oracle `PrimitiveCall` conversion (Phase A.1 Correction Task A1-C007,
+`oracle_calls_for_example`/`oracle_call_for_example`): converts an
+`Example`'s latent, oracle-only `program` into `apc.environments.
+primitive_call.PrimitiveCall`s -- the *complete* executable call (operation
+plus arguments) A1-007's oracle routing needs, not merely the operation
+identity/`primitive_id`. Per `docs/design-docs/PARAMETERIZED_PRIMITIVE_CALLS.md`
+section 8 and `docs/CODEX_TASKS_PHASE_A1_CORRECTION.md` A1-C007, this
+matters because an oracle that revealed only `primitive_id` for one of the
+four ADR-0017 hidden-parameter operations (`SELECT`/`COUNT`/`SHIFT`/`BIND`)
+would reproduce exactly A1-006's non-identifiability one level into oracle
+routing: knowing *that* `SHIFT` applies is not enough to know *which*
+`amount`. These two functions stay in this module (rather than
+`apc.evaluation`, where the rest of this codebase's oracle-*consuming*
+benchmark code lives) because they are pure data conversion, symmetric to
+`TaskSpec.from_program`/`PrimitiveCall.from_program_step` above -- the
+oracle-only/model-visible boundary this codebase enforces is a matter of
+*who calls* these functions (only `apc.core.execution`'s oracle-routing
+functions and `apc.evaluation` benchmarks may; `apc.core.data.encode_example`
+never does), not where the conversion code itself lives.
 """
 
 from __future__ import annotations
@@ -71,6 +91,7 @@ from typing import Any, Final, Literal
 from apc.environments.interpreter import OperationGraph, run_program
 from apc.environments.operations import KNOWN_OPERATION_NAMES, get_operation
 from apc.environments.permutation import SymbolPermutation, sample_permutation
+from apc.environments.primitive_call import PrimitiveCall
 from apc.environments.program import Program, ProgramStep
 from apc.environments.task_spec import TaskSpec
 from apc.environments.vocab import DEFAULT_VOCAB_SIZE
@@ -168,6 +189,49 @@ class Example:
                 None if self.symbol_permutation is None else self.symbol_permutation.to_dict()
             ),
         }
+
+
+def oracle_calls_for_example(example: Example) -> tuple[PrimitiveCall, ...]:
+    """Convert `example.program`'s ordered steps into the `PrimitiveCall`
+    chain that produced `example.target_tokens` from `example.input_tokens`
+    (Task A1-C007; see module docstring's "Oracle `PrimitiveCall`
+    conversion"). Each call carries both `operation` and its full
+    `arguments`, so -- unlike a bare `primitive_id`/operation-name oracle --
+    it fully determines the step's output for every known operation,
+    including the four ADR-0017 hidden-parameter ones.
+
+    Length matches `len(example.program.steps)`: 1 for every current
+    `known`/`novel_operation` example (`TaskGenerator`'s depth-1 pools,
+    including `build_mixed_operation_generator`'s mixed stream), >1 for a
+    `novel_composition` chain. Chained oracle *execution* of a >1 call
+    result is Task A1-008's Composition Library, out of scope here --
+    `apc.environments.primitive_call`'s own module docstring flags
+    multi-call composition as out of scope for `PrimitiveCall` itself.
+    """
+    return tuple(PrimitiveCall.from_program_step(step) for step in example.program.steps)
+
+
+def oracle_call_for_example(example: Example) -> PrimitiveCall:
+    """`oracle_calls_for_example`, narrowed to the single-step case.
+
+    The default oracle call provider for `apc.core.execution`'s oracle
+    routing functions (Task A1-C007): every current `known`/`novel_operation`
+    example is depth-1, so this always succeeds for them. Raises
+    `ValueError` on a `novel_composition` (or any other depth>1) example
+    rather than silently returning only the first step, since executing
+    just one step of a multi-step chain would not reproduce
+    `example.target_tokens` and A1-007's own scope (`docs/CODEX_TASKS_PHASE_A1.md`,
+    "oracle-routed K") is single-operation routing.
+    """
+    calls = oracle_calls_for_example(example)
+    if len(calls) != 1:
+        raise ValueError(
+            "oracle_call_for_example requires an example with exactly one "
+            f"program step, got {len(calls)} (operation_sequence="
+            f"{example.program.operation_sequence!r}); use "
+            "oracle_calls_for_example for multi-step compositions"
+        )
+    return calls[0]
 
 
 def _valid_lengths_for_chain(

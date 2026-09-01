@@ -63,17 +63,43 @@ AGENTS.md workflow rather than hidden):
   A1-007 oracle routing or A1-015 learned routing), not bundled here. See
   ADR-0015 for why `task_state` itself is a parameter-free view rather
   than a learned projection.
+
+- **Oracle `PrimitiveCall` routing adapter (Phase A.1 Correction Task
+  A1-C007).** `apply_bank_with_oracle_calls`/`forward_logits_with_oracle_calls`/
+  `generate_greedy_with_oracle_call`/`evaluate_exact_match_with_oracle_calls`
+  below are `apply_bank`/`forward_logits`/`generate_greedy_with_capacity`/
+  `evaluate_exact_match_with_capacity`'s oracle-routed siblings: instead of
+  scoring `stable_ids` through a `Router`, they force exactly the bank
+  primitive each caller-supplied `apc.environments.primitive_call.
+  PrimitiveCall` names (`call.primitive_id`, one call per batch item) and
+  apply it unconditionally (`gate=1.0`) -- "environment supplies oracle
+  primitive IDs ... learned router fully bypassed" (`docs/
+  CODEX_TASKS_PHASE_A1.md` A1-007). None of these four functions accepts a
+  `Router` -- the learned routing path is not merely unused at runtime, it
+  is structurally unreachable from here (A1-C007 Work item 2). Using a full
+  `PrimitiveCall` rather than a bare `primitive_id` (A1-C007 Work item 1,
+  via `apc.environments.generator.oracle_call_for_example`) is what stops
+  ADR-0017's hidden-parameter non-identifiability from recurring one level
+  into oracle routing: knowing *that* `SHIFT` is the right family is not
+  enough to know *which* `amount` -- see `docs/design-docs/
+  PARAMETERIZED_PRIMITIVE_CALLS.md` section 8. Multi-step oracle recipes
+  (`apc.environments.generator.oracle_calls_for_example` returning more
+  than one call) are Task A1-008's Composition Library; these four
+  functions accept only one call per batch item and are the scope A1-007's
+  own "oracle-routed K" targets, not A1-008's "oracle C".
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 
 import torch
 
 from apc.core.model import DecoderOnlyTransformer
 from apc.core.tokens import SpecialTokens
-from apc.environments.generator import Example
+from apc.environments.generator import Example, oracle_call_for_example
+from apc.environments.primitive_call import PrimitiveCall
 from apc.plastic.workspace import PlasticWorkspace
 from apc.primitives.bank import PrimitiveBank
 from apc.primitives.primitive import Primitive, PrimitiveStatus
@@ -313,3 +339,224 @@ def evaluate_exact_match_with_capacity(
         if prediction == example.target_tokens:
             correct += 1
     return correct / len(examples), predictions
+
+
+@dataclass
+class OracleRoutingOutput:
+    """Result of one `apply_bank_with_oracle_calls` call: the oracle
+    `PrimitiveCall`s that forced this batch's routing, the primitive id each
+    named (`selected_ids`, one per batch item, always exactly
+    `tuple(call.primitive_id for call in calls)` -- A1-007's "selected IDs
+    exactly match metadata" holds by construction here, not by measurement),
+    and which of those ids actually had a bank entry to execute
+    (`executed_primitive_ids`, unique and sorted, mirroring `RouterOutput.
+    executed_primitive_ids`'s execution-instrumentation role for the
+    learned path)."""
+
+    calls: tuple[PrimitiveCall, ...]
+    selected_ids: tuple[int, ...]
+    executed_primitive_ids: tuple[int, ...]
+
+
+def apply_bank_with_oracle_calls(
+    hidden: torch.Tensor,
+    bank: PrimitiveBank,
+    calls: Sequence[PrimitiveCall],
+) -> tuple[torch.Tensor, OracleRoutingOutput]:
+    """`apply_bank`'s oracle-routed sibling (Task A1-C007): force exactly
+    one bank primitive per batch item -- `calls[b].primitive_id` -- instead
+    of scoring candidates through a `Router`. Applied unconditionally
+    (`gate=1.0`; there is no competing candidate to softmax against, unlike
+    the learned router's permanent null candidate) at every non-batch
+    position of that batch item.
+
+    `hidden`: `[batch, ..., d_model]`; `len(calls)` must equal `hidden`'s
+    batch dimension (`hidden.shape[0]`) -- one oracle call per example, not
+    per position, matching the current online generator's depth-1 "one
+    operation for the whole sequence" semantics (multi-step recipes are
+    Task A1-008's Composition Library, see module docstring).
+
+    Always executed under `torch.no_grad()`, matching `apply_bank`: the
+    returned hidden state is an ordinary (non-leaf but ungraphed) tensor,
+    safe to feed into a trainable module (e.g. `apply_workspace`) afterwards.
+
+    Raises:
+        ValueError: `len(calls) != hidden.shape[0]`, or a call names a bank
+            primitive that exists but is disabled.
+        KeyError: a call names a primitive id absent from `bank` entirely
+            (via `PrimitiveBank.get`) -- e.g. no bank primitive has yet been
+            assigned that operation's family id.
+    """
+    if hidden.dim() < 2:
+        raise ValueError(
+            f"hidden must have at least 2 dims (batch, ..., d_model), got shape "
+            f"{tuple(hidden.shape)}"
+        )
+    batch = hidden.shape[0]
+    if len(calls) != batch:
+        raise ValueError(
+            f"len(calls) ({len(calls)}) must equal hidden's batch dimension ({batch}) -- "
+            "apply_bank_with_oracle_calls forces exactly one oracle PrimitiveCall per batch item"
+        )
+
+    primitive_ids = [call.primitive_id for call in calls]
+    for call, primitive_id in zip(calls, primitive_ids, strict=True):
+        primitive = bank.get(primitive_id)
+        if not primitive.enabled:
+            raise ValueError(
+                f"Oracle call selected disabled primitive id {primitive_id} "
+                f"(operation {call.operation!r}); a disabled family cannot be oracle-executed"
+            )
+
+    with torch.no_grad():
+        id_tensor = torch.tensor(primitive_ids, dtype=torch.long, device=hidden.device)
+        broadcast_shape = (batch,) + (1,) * (hidden.dim() - 2)
+        flat_ids = id_tensor.view(broadcast_shape).expand(hidden.shape[:-1]).reshape(-1)
+
+        flat_hidden = hidden.reshape(-1, hidden.shape[-1])
+        flat_delta = torch.zeros_like(flat_hidden)
+        executed_ids: list[int] = []
+        for primitive_id in sorted(set(primitive_ids)):
+            primitive = bank.get(primitive_id)
+            positions = (flat_ids == primitive_id).nonzero(as_tuple=False).squeeze(-1)
+            selected_hidden = flat_hidden.index_select(0, positions)
+            # Call Primitive.forward (not its projections directly) so
+            # execution instrumentation reflects actual oracle-forced work,
+            # matching apply_bank's A1-002 sparse-execution convention.
+            delta = primitive(selected_hidden) - selected_hidden
+            flat_delta.index_add_(0, positions, delta)
+            executed_ids.append(primitive_id)
+
+        result = hidden + flat_delta.reshape_as(hidden)
+
+    return result, OracleRoutingOutput(
+        calls=tuple(calls),
+        selected_ids=tuple(primitive_ids),
+        executed_primitive_ids=tuple(sorted(executed_ids)),
+    )
+
+
+def forward_logits_with_oracle_calls(
+    model: DecoderOnlyTransformer,
+    input_ids: torch.Tensor,
+    bank: PrimitiveBank,
+    calls: Sequence[PrimitiveCall],
+    *,
+    workspace: PlasticWorkspace | None = None,
+    workspace_ids: Sequence[int] | None = None,
+) -> tuple[torch.Tensor, OracleRoutingOutput]:
+    """`forward_logits`'s oracle-routed sibling (Task A1-C007): `input_ids
+    -> logits`, executed through the stable core, the persistent bank
+    (oracle-forced via `apply_bank_with_oracle_calls`, always applied), and
+    the plastic workspace (applied only when `workspace` is given).
+
+    `model.encode(input_ids)` is used directly (not `encode_split`):
+    `apc.core.model.DecoderOnlyTransformer.encode_split`'s `content_state`
+    is documented as exactly `encode`'s output, and oracle routing needs no
+    `route_state` at all (selection is forced, not scored), so there is no
+    `use_split_state` flag to thread through here.
+    """
+    content, routing_out = apply_bank_with_oracle_calls(model.encode(input_ids), bank, calls)
+    if workspace is not None:
+        content = apply_workspace(content, workspace, workspace_ids)
+    return model.decode(content), routing_out
+
+
+@torch.no_grad()
+def generate_greedy_with_oracle_call(
+    model: DecoderOnlyTransformer,
+    bank: PrimitiveBank,
+    call: PrimitiveCall,
+    prompt_ids: torch.Tensor,
+    eos_id: int,
+    max_new_tokens: int,
+    *,
+    workspace: PlasticWorkspace | None = None,
+    workspace_ids: Sequence[int] | None = None,
+) -> tuple[int, ...]:
+    """`generate_greedy_with_capacity`'s oracle-routed sibling (Task
+    A1-C007): `prompt_ids` must be a single (`batch == 1`) prompt -- `call`
+    is the one oracle `PrimitiveCall` forced at every generation step for
+    that whole example."""
+    if prompt_ids.shape[0] != 1:
+        raise ValueError(
+            f"generate_greedy_with_oracle_call takes one prompt at a time (batch == 1), "
+            f"got batch {prompt_ids.shape[0]}"
+        )
+    model.eval()
+    generated = prompt_ids
+    new_tokens: list[int] = []
+    for _ in range(max_new_tokens):
+        logits, _ = forward_logits_with_oracle_calls(
+            model, generated, bank, (call,), workspace=workspace, workspace_ids=workspace_ids
+        )
+        next_id = int(logits[0, -1, :].argmax(dim=-1).item())
+        new_tokens.append(next_id)
+        if next_id == eos_id:
+            break
+        generated = torch.cat(
+            [generated, torch.tensor([[next_id]], dtype=torch.long, device=generated.device)],
+            dim=1,
+        )
+    if new_tokens and new_tokens[-1] == eos_id:
+        new_tokens = new_tokens[:-1]
+    return tuple(new_tokens)
+
+
+def evaluate_exact_match_with_oracle_calls(
+    model: DecoderOnlyTransformer,
+    examples: Sequence[Example],
+    specials: SpecialTokens,
+    bank: PrimitiveBank,
+    oracle_call_provider: Callable[[Example], PrimitiveCall] = oracle_call_for_example,
+    *,
+    workspace: PlasticWorkspace | None = None,
+    workspace_ids: Sequence[int] | None = None,
+    device: torch.device | str = "cpu",
+    max_extra_tokens: int = 2,
+) -> tuple[float, list[tuple[int, ...]], list[PrimitiveCall]]:
+    """`evaluate_exact_match_with_capacity`'s oracle-routed sibling: the
+    A1-007 evaluation API entry point Task A1-C007 prepares (`docs/
+    CODEX_TASKS_PHASE_A1_CORRECTION.md` A1-C007 Work item 3, "Update A1-007
+    evaluation API to accept an oracle call provider").
+
+    `oracle_call_provider` converts each `Example` to the single oracle
+    `PrimitiveCall` that forces this example's routing -- defaults to
+    `apc.environments.generator.oracle_call_for_example` (Work item 1,
+    "Convert environment oracle metadata into PrimitiveCall"), but any
+    `Callable[[Example], PrimitiveCall]` may be substituted (e.g. a future
+    A1-007 benchmark that also validates against `Example.oracle_metadata`).
+    `Router` never appears anywhere in this call graph: the learned routing
+    path is not merely unused at runtime here, it is structurally
+    unreachable (Work item 2, "the learned path never receives oracle
+    calls").
+
+    Returns `(exact_match, predictions, calls_used)` -- `calls_used[i]` is
+    the oracle call `oracle_call_provider` produced for `examples[i]`, so a
+    caller can check "selected IDs exactly match metadata" (A1-007 Accept)
+    via `[c.primitive_id for c in calls_used]` against the examples' own
+    ground truth.
+    """
+    predictions: list[tuple[int, ...]] = []
+    calls_used: list[PrimitiveCall] = []
+    correct = 0
+    for example in examples:
+        call = oracle_call_provider(example)
+        calls_used.append(call)
+        prompt = (specials.bos,) + example.input_tokens + (specials.sep,)
+        prompt_ids = torch.tensor([prompt], dtype=torch.long, device=device)
+        max_new_tokens = len(example.target_tokens) + max_extra_tokens
+        prediction = generate_greedy_with_oracle_call(
+            model,
+            bank,
+            call,
+            prompt_ids,
+            specials.eos,
+            max_new_tokens,
+            workspace=workspace,
+            workspace_ids=workspace_ids,
+        )
+        predictions.append(prediction)
+        if prediction == example.target_tokens:
+            correct += 1
+    return correct / len(examples), predictions, calls_used
