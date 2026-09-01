@@ -1,0 +1,69 @@
+# Phase A.1 Correction Task A1-C005 (STOP GATE): Task/content representation
+# probes (H1c). Freezes one shared Stable Core -- trained exactly the same
+# way as configs/phase_a1_shared_core_gate.yaml's explicit-task variant
+# (Task A1-C004, ADR-0021's H1b PASS) -- and fits lightweight linear probes
+# on its apc.core.model.DecoderOnlyTransformer.encode_split output:
+#
+#   - operation identity from z_task (task_state) at the [TASK_END] position,
+#   - operation argument from z_task where applicable (SHIFT/COUNT/BIND as a
+#     single-value classification probe; SELECT.indices as a masked
+#     multi-hot/set-membership probe -- see apc.evaluation.
+#     task_content_probes module docstring for why [TASK_END] is causally
+#     content-blind by construction),
+#   - per-position content-token identity from h_content (content_state) at
+#     each content position,
+#   - two optional, non-gating leakage probes (operation from content_state
+#     at [TASK_END]; content from task_state at content positions).
+#
+# Unlike A1-C004/A1-006, docs/CODEX_TASKS_PHASE_A1_CORRECTION.md A1-C005
+# states no minimum seed count. 3 seeds is used here for a modest robustness
+# check beyond a single run, without the cost of a full 5-seed sweep (each
+# seed retrains a fresh shared core from scratch, ~6-7 minutes on an RTX
+# 5060 Ti per docs/DECISIONS.md ADR-0021's measured per-seed wall-clock for
+# the identical training loop).
+#
+# Acceptance (docs/CODEX_TASKS_PHASE_A1_CORRECTION.md A1-C005):
+#   - operation-from-z_task >= 0.95,
+#   - applicable argument decoding >= 0.90 (every parameterized operation),
+#   - content probe sufficient to support the operation family (predeclared
+#     as >= 0.98 per-position token accuracy -- see module docstring).
+#
+# STOP GATE: if z_task does not contain reliable task information, do not
+# begin learned routing work (A1-007+).
+seeds: [0, 1, 2]
+
+shared_core:
+  vocab_size: 10
+  sequence_length_range: [6, 10]
+  operation_names: [COPY, SELECT, COMPARE, COUNT, SHIFT, BIND, NEGATE, ACCUMULATE]
+  include_task_spec: true
+
+  model:
+    d_model: 192
+    n_layer: 4
+    n_head: 4
+    d_ff: 768
+    max_seq_len: 48
+    dropout: 0.0
+
+  train:
+    steps: 30000
+    batch_size: 128
+    lr: 0.0003
+    weight_decay: 0.01
+    grad_clip: 1.0
+    eval_every: 2000
+    progress_eval_examples: 256
+    device: auto
+
+  num_unseen_eval_examples: 4096
+  min_examples_per_operation: 200
+
+probe_train:
+  steps: 800
+  lr: 0.03
+  weight_decay: 0.0
+
+num_probe_train_examples: 4096
+num_probe_eval_examples: 2048
+min_examples_per_operation: 100

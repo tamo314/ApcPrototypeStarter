@@ -93,7 +93,7 @@ from apc.core.generation import evaluate_exact_match
 from apc.core.model import DecoderOnlyTransformer, TransformerConfig
 from apc.core.tokens import SharedCoreTokens, build_shared_core_tokens
 from apc.core.train import resolve_device
-from apc.environments.generator import Example, build_mixed_operation_generator
+from apc.environments.generator import Example, TaskGenerator, build_mixed_operation_generator
 from apc.environments.operations import KNOWN_OPERATION_NAMES
 from apc.environments.task_spec import default_argument_value_span, num_registered_operations
 from apc.environments.vocab import DEFAULT_VOCAB_SIZE
@@ -109,6 +109,8 @@ __all__ = [
     "SharedCoreGateTrainConfig",
     "SharedCoreGateConfig",
     "shared_core_gate_config_from_dict",
+    "TrainedSharedCore",
+    "train_shared_core",
     "SharedCoreGateReport",
     "SharedCoreGateMultiSeedReport",
     "SharedCoreGateH1bReport",
@@ -333,28 +335,42 @@ class SharedCoreGateReport:
         return json.loads(json.dumps(raw, default=str))
 
 
-def run_shared_core_gate(
+@dataclass(frozen=True)
+class TrainedSharedCore:
+    """A trained shared Stable Core plus everything needed to keep drawing
+    data comparable to what it was trained on.
+
+    Returned by `train_shared_core` and consumed by both `run_shared_core_gate`
+    (which evaluates it immediately and discards it) and `apc.evaluation.
+    task_content_probes` (Task A1-C005, which freezes it -- `model.eval()` and
+    every parameter's `requires_grad` left as trained, read-only from here on
+    -- and fits linear probes on its `encode_split` output instead of
+    retraining a second, possibly-inconsistent copy of this training loop).
+    """
+
+    model: DecoderOnlyTransformer
+    tokens: SharedCoreTokens
+    generator: TaskGenerator
+    final_train_loss: float
+    device: torch.device
+
+
+def train_shared_core(
     config: SharedCoreGateConfig, metrics_path: str | Path | None = None
-) -> SharedCoreGateReport:
+) -> TrainedSharedCore:
     """Train one fresh `DecoderOnlyTransformer` from scratch on
     `build_mixed_operation_generator(operation_names=config.operation_names,
-    ...)`'s online-generated mixed stream, then evaluate overall and
-    per-operation exact match on a large, independently-drawn `"test"`-split
-    batch. No primitive bank, router, plastic workspace, or consolidation is
-    constructed anywhere in this function.
-
-    `config.include_task_spec` selects the explicit-task (`True`) or
-    negative-control (`False`) variant; both otherwise share every other
-    field, including the `SharedCoreTokens` vocabulary/model architecture
-    (see `_build_tokens`), so the two variants differ only in whether the
-    task segment is part of the model input.
+    ...)`'s online-generated mixed stream. No primitive bank, router, plastic
+    workspace, or consolidation is constructed anywhere in this function, and
+    no post-training evaluation is performed -- see `run_shared_core_gate`
+    for the gate's own unseen-content exact-match evaluation built on top of
+    this.
 
     If `metrics_path` is given, periodic `{"step", "loss",
     "progress_overall_exact_match"}` lines are appended to it as training
     proceeds, matching `apc.evaluation.stable_core_generalization.
     run_stable_core_gate`'s convention.
     """
-    start = time.perf_counter()
     set_seed(config.seed)
     device = resolve_device(config.train.device)
 
@@ -435,6 +451,39 @@ def run_shared_core_gate(
         if metrics_file is not None:
             metrics_file.close()
 
+    return TrainedSharedCore(
+        model=model,
+        tokens=tokens,
+        generator=generator,
+        final_train_loss=final_loss,
+        device=device,
+    )
+
+
+def run_shared_core_gate(
+    config: SharedCoreGateConfig, metrics_path: str | Path | None = None
+) -> SharedCoreGateReport:
+    """Train one fresh `DecoderOnlyTransformer` (via `train_shared_core`),
+    then evaluate overall and per-operation exact match on a large,
+    independently-drawn `"test"`-split batch. No primitive bank, router,
+    plastic workspace, or consolidation is constructed anywhere in this
+    function.
+
+    `config.include_task_spec` selects the explicit-task (`True`) or
+    negative-control (`False`) variant; both otherwise share every other
+    field, including the `SharedCoreTokens` vocabulary/model architecture
+    (see `_build_tokens`), so the two variants differ only in whether the
+    task segment is part of the model input.
+    """
+    start = time.perf_counter()
+    trained = train_shared_core(config, metrics_path=metrics_path)
+    model, tokens, generator, device = (
+        trained.model,
+        trained.tokens,
+        trained.generator,
+        trained.device,
+    )
+
     unseen_examples = generator.generate_online(
         config.num_unseen_eval_examples, step=0, split="test"
     )
@@ -449,7 +498,7 @@ def run_shared_core_gate(
         config=config,
         steps_trained=config.train.steps,
         examples_seen=config.train.steps * config.train.batch_size,
-        final_train_loss=final_loss,
+        final_train_loss=trained.final_train_loss,
         overall_exact_match=overall_exact_match,
         per_operation_exact_match=per_operation_exact_match,
         per_operation_eval_counts=per_operation_counts,

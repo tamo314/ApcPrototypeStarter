@@ -103,6 +103,7 @@ python scripts/baseline_benchmark.py --config configs/phase_a_sequential.yaml --
 python scripts/stable_core_generalization_gate.py --config configs/phase_a1_stable_core_gate.yaml --run-dir runs/phase_a1_stable_core_gate
 python scripts/stable_core_generalization_gate.py --config configs/phase_a1_stable_core_gate_permuted_copy_only.yaml --run-dir runs/phase_a1_stable_core_gate_permuted_copy_only
 python scripts/shared_core_generalization_gate.py --config configs/phase_a1_shared_core_gate.yaml --run-dir runs/phase_a1_shared_core_gate
+python scripts/task_content_probes_gate.py --config configs/phase_a1_task_content_probes.yaml --run-dir runs/phase_a1_task_content_probes
 ```
 
 `composition_benchmark.py` evaluates a trained checkpoint on known-operation
@@ -189,6 +190,33 @@ across >= 5 seeds, with the negative control materially underperforming the
 explicit-task model). `configs/phase_a1_shared_core_gate.yaml` is the sole
 shipped config; symbol permutation is left at its default (off), for the
 same ADR-0019 reason as `configs/phase_a1_stable_core_gate.yaml`.
+
+`task_content_probes_gate.py` runs Phase A.1 Correction Task A1-C005, the
+Task/Content representation-probe gate (H1c in `docs/
+EXPERIMENT_PLAN_PHASE_A1_CORRECTION.md`, a **STOP GATE**): freezes one
+shared Stable Core per seed -- trained exactly like Task A1-C004's
+explicit-task variant (`apc.evaluation.shared_core_generalization.
+train_shared_core`, refactored out of that gate so both share one training
+implementation) -- and fits small linear probes directly on its
+`DecoderOnlyTransformer.encode_split` output: operation identity from
+`z_task` (`task_state`) at the `[TASK_END]` position, operation arguments
+from `z_task` where applicable (SHIFT/COUNT/BIND as single-value
+classification, SELECT's `indices` as a masked multi-hot/set-membership
+probe), and per-position content-token identity from `h_content`
+(`content_state`) at each content position. Also fits two optional,
+non-gating leakage probes (operation from `content_state` at `[TASK_END]`;
+content from `task_state` at content positions) -- see `apc.evaluation.
+task_content_probes`'s module docstring for why `[TASK_END]` is causally
+content-blind by construction (a structural, not merely empirical,
+task/content read point) and why both leakage probes are expected to
+succeed without contradicting a useful factorization. Writes one
+`seed_<n>/metrics.jsonl` (the frozen core's own training progress) per seed
+plus a combined `report.json`/`summary.json` (Task A1-C005's acceptance:
+operation identity >= 0.95, every applicable-argument probe >= 0.90, content
+probe >= 0.98 predeclared per-position token accuracy -- see the module for
+the predeclaration rationale). `configs/phase_a1_task_content_probes.yaml`
+is the sole shipped config, using 3 seeds (A1-C005 states no minimum seed
+count, unlike A1-C004/A1-006's >=5).
 
 If a tool is not yet configured, add it as part of the repository-bootstrap task rather than silently skipping verification.
 
