@@ -1,0 +1,34 @@
+# Phase A.1 Post-Correction Task A1-R001 (STOP GATE): Task-blind content
+# encoder path gate (H2a). Builds a freshly-initialized shared-core model
+# per seed -- see apc.evaluation.task_blind_content_gate's module docstring
+# for why training is unnecessary to test this architectural invariant --
+# and checks that content_state (the future primitive input state) is
+# invariant to task specification for identical content, across all eight
+# known operations, with no task token ever present in the content-encoder
+# input.
+#
+# Acceptance (docs/CODEX_TASKS_PHASE_A1_POST_CORRECTION.md A1-R001):
+#   - same content + different task specs => invariant primitive input state,
+#   - all 8 operation families covered,
+#   - no task token in content-encoder input.
+#
+# STOP GATE: if content_state depends on task specification, do not begin
+# primitive-causality work (A1-R003 onward).
+seeds: [0, 1, 2, 3, 4]
+
+vocab_size: 10
+sequence_length_range: [6, 10]
+operation_names: [COPY, SELECT, COMPARE, COUNT, SHIFT, BIND, NEGATE, ACCUMULATE]
+
+model:
+  d_model: 192
+  n_layer: 4
+  n_head: 4
+  d_ff: 768
+  max_seq_len: 48
+  dropout: 0.0
+
+num_contents_per_operation: 16
+min_alternate_task_specs_per_content: 2
+atol: 1.0e-5
+device: auto

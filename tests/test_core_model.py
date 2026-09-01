@@ -6,6 +6,7 @@ import torch
 from apc.core.model import (
     DecoderOnlyTransformer,
     EncodedState,
+    TaskContentEncoding,
     TransformerConfig,
     register_encode_split_probe,
 )
@@ -148,6 +149,70 @@ def test_encode_split_task_state_gradient_reaches_trunk() -> None:
     encoded = model.encode_split(input_ids)
     encoded.task_state.pow(2).sum().backward()
     assert model.token_emb.weight.grad is not None
+
+
+# --- encode_task_content_split (Phase A.1 Post-Correction Task A1-R001) ----
+
+
+def test_encode_task_content_split_returns_task_content_encoding() -> None:
+    model = DecoderOnlyTransformer(_tiny_config())
+    task_ids = torch.randint(0, 14, (3, 4))
+    content_ids = torch.randint(0, 14, (3, 7))
+    encoded = model.encode_task_content_split(task_ids, content_ids)
+    assert isinstance(encoded, TaskContentEncoding)
+    assert encoded.task_state.shape == (3, 4, 16)
+    assert encoded.content_state.shape == (3, 7, 16)
+
+
+def test_encode_task_content_split_allows_independent_leading_shapes() -> None:
+    """Unlike `EncodedState`, `task_state`/`content_state` here come from
+    two independently-shaped sequences -- different batch composition and
+    sequence length are both fine, since each is its own forward pass."""
+    model = DecoderOnlyTransformer(_tiny_config())
+    task_ids = torch.randint(0, 14, (5, 3))
+    content_ids = torch.randint(0, 14, (5, 9))
+    encoded = model.encode_task_content_split(task_ids, content_ids)
+    assert encoded.task_state.shape[1] != encoded.content_state.shape[1]
+
+
+def test_encode_task_content_split_content_state_matches_plain_encode() -> None:
+    """`content_state` must be byte-for-byte `encode(content_ids)` -- no
+    extra transformation, no dependency on `task_ids` at all."""
+    set_seed(0)
+    model = DecoderOnlyTransformer(_tiny_config())
+    task_ids = torch.randint(0, 14, (2, 3))
+    content_ids = torch.randint(0, 14, (2, 6))
+    with torch.no_grad():
+        expected = model.encode(content_ids)
+        encoded = model.encode_task_content_split(task_ids, content_ids)
+    torch.testing.assert_close(encoded.content_state, expected)
+
+
+def test_encode_task_content_split_content_state_is_invariant_to_task_ids() -> None:
+    """The core A1-R001 structural guarantee: changing `task_ids` (a
+    different batch of task-only sequences) while holding `content_ids`
+    fixed cannot change `content_state` at all -- there is no computational
+    path between the two forward passes."""
+    set_seed(0)
+    model = DecoderOnlyTransformer(_tiny_config())
+    content_ids = torch.randint(0, 14, (2, 6))
+    task_ids_a = torch.randint(0, 14, (2, 3))
+    task_ids_b = torch.randint(0, 14, (2, 5))  # different values AND shape
+    with torch.no_grad():
+        encoded_a = model.encode_task_content_split(task_ids_a, content_ids)
+        encoded_b = model.encode_task_content_split(task_ids_b, content_ids)
+    torch.testing.assert_close(encoded_a.content_state, encoded_b.content_state)
+
+
+def test_encode_task_content_split_task_state_matches_plain_encode() -> None:
+    set_seed(0)
+    model = DecoderOnlyTransformer(_tiny_config())
+    task_ids = torch.randint(0, 14, (2, 3))
+    content_ids = torch.randint(0, 14, (2, 6))
+    with torch.no_grad():
+        expected = model.encode(task_ids)
+        encoded = model.encode_task_content_split(task_ids, content_ids)
+    torch.testing.assert_close(encoded.task_state, expected)
 
 
 # --- register_encode_split_probe (Phase A.1 Correction Task A1-C003) --------

@@ -220,6 +220,20 @@ class DecoderOnlyTransformer(nn.Module):
         task_state = self.task_head(content_state)
         return EncodedState(task_state=task_state, content_state=content_state)
 
+    def encode_task_content_split(
+        self, task_ids: torch.Tensor, content_ids: torch.Tensor
+    ) -> TaskContentEncoding:
+        """Task A1-R001's structurally task-blind factorization: `encode`
+        run twice through the same shared weights, once over a task-only
+        sequence and once over a content-only sequence -- see
+        `TaskContentEncoding`. `task_ids` and `content_ids` may differ in
+        `seq_len`/batch composition; each is encoded independently, so
+        neither forward pass observes the other's tokens.
+        """
+        return TaskContentEncoding(
+            task_state=self.encode(task_ids), content_state=self.encode(content_ids)
+        )
+
     def decode(self, hidden: torch.Tensor) -> torch.Tensor:
         """Project a final hidden state `[..., d_model]` to vocabulary logits."""
         logits: torch.Tensor = self.head(hidden)
@@ -228,6 +242,37 @@ class DecoderOnlyTransformer(nn.Module):
     def forward(self, input_ids: torch.Tensor) -> torch.Tensor:
         """`input_ids`: `[batch, seq_len]`. Returns logits `[batch, seq_len, vocab_size]`."""
         return self.decode(self.encode(input_ids))
+
+
+@dataclass(frozen=True)
+class TaskContentEncoding:
+    """Structurally task-blind factorized encoding (Phase A.1
+    Post-Correction Task A1-R001).
+
+    Unlike `EncodedState`/`encode_split` (Task A1-005), whose `task_state`
+    and `content_state` are two readouts of *one* causal forward pass over a
+    combined `[task segment][content]` sequence -- meaning a content
+    position's hidden state has, by construction, already attended over
+    every task token preceding it (see `docs/DECISIONS.md` ADR-0022) --
+    `task_state` and `content_state` here come from two *independent*
+    forward passes (`DecoderOnlyTransformer.encode_task_content_split`),
+    each over its own token-only sequence (`apc.core.data.
+    build_task_only_tokens`/`build_content_only_tokens`). `content_state`
+    therefore cannot depend on task specification for any input at all,
+    regardless of training: there is no computational path from a task
+    token to `content_state`, because no task token is ever part of the
+    sequence `content_state` is computed from. This is the "shared weights,
+    called twice" factorization `docs/design-docs/
+    CAUSAL_PRIMITIVE_EXECUTION.md` section 3 describes.
+
+    `task_state` and `content_state` are not required to share a leading
+    (batch/seq_len) shape -- they come from different-length sequences and,
+    unlike `EncodedState`'s two fields, are not interchangeable drop-ins for
+    one another's positions.
+    """
+
+    task_state: torch.Tensor
+    content_state: torch.Tensor
 
 
 def register_encode_split_probe(

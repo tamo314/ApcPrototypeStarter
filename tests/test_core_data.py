@@ -7,10 +7,15 @@ import torch
 
 from apc.core.data import (
     IGNORE_INDEX,
+    build_content_only_tokens,
     build_prompt_tokens,
+    build_task_only_tokens,
     collate_batch,
+    collate_content_only_batch,
+    collate_task_only_batch,
     encode_example,
     encode_task_spec,
+    pad_token_sequences,
 )
 from apc.core.tokens import build_shared_core_tokens, build_special_tokens
 from apc.environments.generator import ORACLE_LABEL_KNOWN, Example, OracleMetadata
@@ -290,6 +295,83 @@ def test_build_prompt_tokens_is_encode_example_prefix() -> None:
     full = encode_example(example, tokens, include_task_spec=True)
     assert full[: len(prompt)] == prompt
     assert full[len(prompt) :] == example.target_tokens + (tokens.eos,)
+
+
+# --- Task-blind encoding paths (Phase A.1 Post-Correction Task A1-R001) ----
+
+
+def test_build_task_only_tokens_has_no_content() -> None:
+    tokens = _shared_tokens()
+    spec = TaskSpec(steps=(TaskStepSpec(operation="SHIFT", arguments={"amount": 2}),))
+    assert build_task_only_tokens(spec, tokens) == (
+        tokens.bos,
+        tokens.task_start,
+        tokens.operation_token(operation_id("SHIFT")),
+        tokens.argument_value_token(2),
+        tokens.task_end,
+    )
+
+
+def test_build_content_only_tokens_has_no_task_segment() -> None:
+    tokens = _shared_tokens()
+    spec = TaskSpec(steps=(TaskStepSpec(operation="SHIFT", arguments={"amount": 2}),))
+    example = _example((1, 2, 3), (4, 5), task_spec=spec)
+    assert build_content_only_tokens(example, tokens) == (tokens.bos, 1, 2, 3, tokens.sep)
+
+
+def test_build_content_only_tokens_is_invariant_to_task_spec() -> None:
+    """The literal A1-R001 acceptance criterion at the token level: swapping
+    which task spec is attached to identical content must not change the
+    content-only token sequence -- true here because the function has no
+    `TaskSpec` parameter to read from at all."""
+    tokens = _shared_tokens()
+    spec_a = TaskSpec(steps=(TaskStepSpec(operation="SHIFT", arguments={"amount": 1}),))
+    spec_b = TaskSpec(steps=(TaskStepSpec(operation="COUNT", arguments={"target": 3}),))
+    example_a = _example((1, 2, 3), (2, 3, 1), task_spec=spec_a)
+    example_b = replace(example_a, task_spec=spec_b)
+    assert build_content_only_tokens(example_a, tokens) == build_content_only_tokens(
+        example_b, tokens
+    )
+
+
+def test_build_content_only_tokens_never_contains_a_task_token_id() -> None:
+    tokens = _shared_tokens()
+    task_token_ids = {tokens.task_start, tokens.task_end}
+    task_token_ids.update(tokens.operation_token(i) for i in range(tokens.num_operations))
+    task_token_ids.update(tokens.argument_value_token(v) for v in range(tokens.arg_span))
+
+    spec = TaskSpec(steps=(TaskStepSpec(operation="BIND", arguments={"query_key": 1}),))
+    example = _example((1, 2, 3, 4), (5,), task_spec=spec)
+    content_ids = build_content_only_tokens(example, tokens)
+    assert task_token_ids.isdisjoint(content_ids)
+
+
+def test_pad_token_sequences_rejects_empty_input() -> None:
+    with pytest.raises(ValueError, match="non-empty"):
+        pad_token_sequences([], pad_id=0)
+
+
+def test_pad_token_sequences_right_pads_to_max_length() -> None:
+    padded = pad_token_sequences([(1, 2, 3), (4, 5)], pad_id=9)
+    assert torch.equal(padded, torch.tensor([[1, 2, 3], [4, 5, 9]]))
+
+
+def test_collate_task_only_batch_shape_and_padding() -> None:
+    tokens = _shared_tokens()
+    spec_short = TaskSpec(steps=(TaskStepSpec(operation="COPY", arguments={}),))
+    spec_long = TaskSpec(steps=(TaskStepSpec(operation="SHIFT", arguments={"amount": 2}),))
+    batch = collate_task_only_batch([spec_short, spec_long], tokens)
+    assert batch.shape == (2, len(build_task_only_tokens(spec_long, tokens)))
+    assert batch[0, -1].item() == tokens.pad
+
+
+def test_collate_content_only_batch_shape_and_padding() -> None:
+    tokens = _shared_tokens()
+    short = _example((1, 2), (3,))
+    long = _example((1, 2, 3, 4), (5,))
+    batch = collate_content_only_batch([short, long], tokens)
+    assert batch.shape == (2, len(build_content_only_tokens(long, tokens)))
+    assert batch[0, -1].item() == tokens.pad
 
 
 def test_collate_batch_include_task_spec_accounts_for_task_segment_in_prompt_length() -> None:

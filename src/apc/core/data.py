@@ -23,6 +23,7 @@ producing the exact same token sequence it always has.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -127,6 +128,76 @@ class Batch:
     labels: torch.Tensor
     prompt_lengths: tuple[int, ...]
     sequence_lengths: tuple[int, ...]
+
+
+def build_task_only_tokens(task_spec: TaskSpec, tokens: SharedCoreTokens) -> tuple[int, ...]:
+    """`[BOS] [TASK_START] op arg... [TASK_END]` -- the task specification
+    alone, with no content token anywhere in the sequence (Phase A.1
+    Post-Correction Task A1-R001's task-only encoding path; see
+    `apc.core.model.DecoderOnlyTransformer.encode_task_content_split`).
+
+    Unlike `build_prompt_tokens(..., include_task_spec=True)`, which renders
+    the task segment as a *prefix* to the content input within one combined
+    sequence, this never includes `example.input_tokens` at all: there is no
+    content for a later causal position to attend back to, so a `z_task`
+    read from this sequence has no computational path to content, by
+    construction rather than by measurement (`docs/design-docs/
+    CAUSAL_PRIMITIVE_EXECUTION.md` section 3).
+    """
+    return (tokens.bos,) + encode_task_spec(task_spec, tokens)
+
+
+def build_content_only_tokens(example: Example, specials: SpecialTokens) -> tuple[int, ...]:
+    """`[BOS] input... [SEP]` -- the content alone, with no task-segment
+    token anywhere in the sequence (Task A1-R001's content-only encoding
+    path).
+
+    Exactly `build_prompt_tokens(example, specials, include_task_spec=False)`
+    -- given its own name here because Task A1-R001 callers care
+    specifically that the result is task-blind, not merely that it happens
+    to share a shape with the pre-A1-C003 prompt. Its signature (no
+    `TaskSpec`/task-spec parameter at all) makes "content-only encoding
+    cannot depend on which task was requested" a property of the type
+    system rather than something a test has to catch after the fact.
+    """
+    return build_prompt_tokens(example, specials, include_task_spec=False)
+
+
+def pad_token_sequences(
+    sequences: Sequence[tuple[int, ...]], pad_id: int, device: torch.device | str = "cpu"
+) -> torch.Tensor:
+    """Right-pad a list of token-id tuples to their shared max length.
+
+    Plain encoding-only padding (no labels/prompt-length bookkeeping, unlike
+    `collate_batch`'s `Batch`) for callers that only need a batched
+    `input_ids`-shaped tensor to run through `DecoderOnlyTransformer.encode`
+    -- see `collate_task_only_batch`/`collate_content_only_batch` below.
+    """
+    if not sequences:
+        raise ValueError("sequences must be non-empty")
+    max_len = max(len(seq) for seq in sequences)
+    padded = torch.full((len(sequences), max_len), pad_id, dtype=torch.long)
+    for row, seq in enumerate(sequences):
+        padded[row, : len(seq)] = torch.tensor(seq, dtype=torch.long)
+    return padded.to(device)
+
+
+def collate_task_only_batch(
+    task_specs: Sequence[TaskSpec], tokens: SharedCoreTokens, device: torch.device | str = "cpu"
+) -> torch.Tensor:
+    """Batch `build_task_only_tokens` over `task_specs`, right-padded to the
+    batch's max length (Task A1-R001)."""
+    sequences = [build_task_only_tokens(spec, tokens) for spec in task_specs]
+    return pad_token_sequences(sequences, tokens.pad, device)
+
+
+def collate_content_only_batch(
+    examples: Sequence[Example], specials: SpecialTokens, device: torch.device | str = "cpu"
+) -> torch.Tensor:
+    """Batch `build_content_only_tokens` over `examples`, right-padded to the
+    batch's max length (Task A1-R001)."""
+    sequences = [build_content_only_tokens(example, specials) for example in examples]
+    return pad_token_sequences(sequences, specials.pad, device)
 
 
 def collate_batch(
