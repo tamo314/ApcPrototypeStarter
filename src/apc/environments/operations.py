@@ -392,6 +392,15 @@ KNOWN_OPERATION_NAMES: tuple[str, ...] = tuple(_REGISTRY.keys())
 # ADR-0017.
 DETERMINISTIC_OPERATION_NAMES: tuple[str, ...] = ("COPY", "NEGATE", "COMPARE", "ACCUMULATE")
 
+# Task A1-R004: the complement of DETERMINISTIC_OPERATION_NAMES within
+# KNOWN_OPERATION_NAMES -- derived from `required_argument_names` rather than
+# hardcoded, so a future operation with a hidden per-instance parameter is
+# picked up automatically. `apc.primitives.conditioning` registers one
+# argument-conditioned neural primitive family per entry.
+PARAMETERIZED_OPERATION_NAMES: tuple[str, ...] = tuple(
+    name for name in KNOWN_OPERATION_NAMES if _REGISTRY[name].required_argument_names
+)
+
 # Registered strictly after KNOWN_OPERATION_NAMES is captured, so it can
 # never be silently absorbed into the known-composition budget (Task 009,
 # PHASE_A.md Milestone A6/ARCHITECTURE.md section 13 "Novel operation
