@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import torch
 
+from apc.core.data import build_prompt_tokens
 from apc.core.model import DecoderOnlyTransformer
 from apc.core.tokens import SpecialTokens
 from apc.environments.generator import Example
@@ -50,14 +51,22 @@ def evaluate_exact_match(
     specials: SpecialTokens,
     device: torch.device | str = "cpu",
     max_extra_tokens: int = 2,
+    *,
+    include_task_spec: bool = False,
 ) -> tuple[float, list[tuple[int, ...]]]:
     """Greedily decode each example's target from its prompt and compute the
     fraction of examples reproduced exactly. Returns `(exact_match, predictions)`.
+
+    `include_task_spec` mirrors `apc.core.data.encode_example`/`collate_batch`
+    (Task A1-C003): when set, the prompt also carries each example's
+    `TaskSpec` segment, and `specials` must be a `apc.core.tokens.
+    SharedCoreTokens`. Off by default, so existing callers (Task A1-006's
+    per-operation gate) see unchanged behavior.
     """
     predictions: list[tuple[int, ...]] = []
     correct = 0
     for example in examples:
-        prompt = (specials.bos,) + example.input_tokens + (specials.sep,)
+        prompt = build_prompt_tokens(example, specials, include_task_spec=include_task_spec)
         prompt_ids = torch.tensor([prompt], dtype=torch.long, device=device)
         max_new_tokens = len(example.target_tokens) + max_extra_tokens
         prediction = generate_greedy(model, prompt_ids, specials.eos, max_new_tokens)

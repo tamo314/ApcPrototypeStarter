@@ -15,11 +15,13 @@ later Phase A milestones (primitive bank, plastic workspace).
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import torch
 import torch.nn.functional as F
 from torch import nn
+from torch.utils.hooks import RemovableHandle
 
 
 @dataclass(frozen=True)
@@ -226,3 +228,33 @@ class DecoderOnlyTransformer(nn.Module):
     def forward(self, input_ids: torch.Tensor) -> torch.Tensor:
         """`input_ids`: `[batch, seq_len]`. Returns logits `[batch, seq_len, vocab_size]`."""
         return self.decode(self.encode(input_ids))
+
+
+def register_encode_split_probe(
+    model: DecoderOnlyTransformer, callback: Callable[[EncodedState], None]
+) -> RemovableHandle:
+    """Attach a forward hook that calls `callback` with the `EncodedState`
+    (`task_state`/`z_task`, `content_state`/`h_content`) produced by every
+    subsequent `encode_split` call (Task A1-C003's "logging/probe hooks").
+
+    Implemented as a forward hook on `model.task_head`, the one submodule
+    `encode_split` routes through (`task_state = self.task_head
+    (content_state)`): a hook there observes both halves of the split in one
+    callback, since its `inputs[0]` is exactly `content_state` and its
+    `output` is exactly `task_state`. This lets a training/evaluation loop
+    (and later, Task A1-C005's frozen-model representation probes) tap
+    `z_task`/`h_content` for logging without threading a new return value
+    through every `encode_split` call site. Never fires for plain `encode`
+    calls, which do not touch `task_head`.
+
+    Returns the hook handle; call `.remove()` to stop observing.
+    """
+
+    def _hook(
+        module: nn.Module, inputs: tuple[torch.Tensor, ...], output: torch.Tensor
+    ) -> None:
+        del module
+        callback(EncodedState(task_state=output, content_state=inputs[0]))
+
+    handle: RemovableHandle = model.task_head.register_forward_hook(_hook)
+    return handle

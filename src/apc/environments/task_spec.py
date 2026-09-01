@@ -22,10 +22,11 @@ example's own `Program` -- so, together with the presented content,
 `apc.environments.interpreter.run_program` reproduces exactly what generated
 the example; see `tests/test_task_spec.py`).
 
-`TaskSpec` is *not yet* threaded into `apc.core.data.encode_example` -- that
-is Task A1-C002 (mixed-operation online generator) / A1-C003 (shared-core
-input encoding)'s job, not this one. This module only defines the
-representation and wires it onto generated examples.
+`TaskSpec` is threaded into `apc.core.data.encode_example` by
+`apc.core.data.encode_task_spec` (Task A1-C003, shared-core input encoding,
+opt-in via `include_task_spec=True` and `apc.core.tokens.SharedCoreTokens`)
+-- this module itself only defines the representation and wires it onto
+generated examples (Task A1-C001); it stays free of any `apc.core` import.
 
 Deliberately excluded from `TaskSpec`: everything `apc.environments.
 generator.OracleMetadata` carries (the K/C/N/R evaluation label and
@@ -77,6 +78,31 @@ def operation_id(name: str) -> int:
         return _OPERATION_INDEX[name]
     except KeyError:
         raise KeyError(f"'{name}' is not a registered operation") from None
+
+
+def num_registered_operations() -> int:
+    """`len(registered_operation_names())`: sizes the operation-identity
+    token range `apc.core.tokens.SharedCoreTokens.op_base` reserves (Task
+    A1-C003) -- every `operation_id()` this process can return is `<`
+    this value, by construction of `_OPERATION_INDEX` above."""
+    return len(_OPERATION_INDEX)
+
+
+def default_argument_value_span(vocab_size: int, sequence_length_range: tuple[int, int]) -> int:
+    """Default size of the shared argument-value token span (Task A1-C003,
+    `apc.core.tokens.SharedCoreTokens.arg_span`).
+
+    Every current parameterized operation's argument is a plain
+    non-negative integer bounded by one of two domains: a vocabulary value
+    (`CountOp.target`, `BindOp.query_key`, sampled from `[0, vocab_size)`)
+    or a content-length-bounded position/offset (`ShiftOp.amount`,
+    `SelectOp.indices` entries, sampled from `[0, len(sequence))`, and
+    `len(sequence)` is always within `sequence_length_range`). Taking the
+    max of the two domains' upper bounds covers every value either family
+    can actually sample; see `apc.environments.operations` for each
+    operation's `sample_params`.
+    """
+    return max(vocab_size, sequence_length_range[1])
 
 
 @dataclass(frozen=True)

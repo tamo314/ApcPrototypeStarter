@@ -3,7 +3,12 @@ from __future__ import annotations
 import pytest
 import torch
 
-from apc.core.model import DecoderOnlyTransformer, EncodedState, TransformerConfig
+from apc.core.model import (
+    DecoderOnlyTransformer,
+    EncodedState,
+    TransformerConfig,
+    register_encode_split_probe,
+)
 from apc.utils.seed import set_seed
 
 
@@ -143,3 +148,58 @@ def test_encode_split_task_state_gradient_reaches_trunk() -> None:
     encoded = model.encode_split(input_ids)
     encoded.task_state.pow(2).sum().backward()
     assert model.token_emb.weight.grad is not None
+
+
+# --- register_encode_split_probe (Phase A.1 Correction Task A1-C003) --------
+
+
+def test_register_encode_split_probe_receives_encode_split_outputs() -> None:
+    model = DecoderOnlyTransformer(_tiny_config())
+    input_ids = torch.randint(0, 14, (2, 5))
+    observed: list[EncodedState] = []
+    register_encode_split_probe(model, observed.append)
+
+    with torch.no_grad():
+        encoded = model.encode_split(input_ids)
+
+    assert len(observed) == 1
+    torch.testing.assert_close(observed[0].task_state, encoded.task_state)
+    torch.testing.assert_close(observed[0].content_state, encoded.content_state)
+
+
+def test_register_encode_split_probe_does_not_fire_for_plain_encode() -> None:
+    model = DecoderOnlyTransformer(_tiny_config())
+    input_ids = torch.randint(0, 14, (2, 5))
+    observed: list[EncodedState] = []
+    register_encode_split_probe(model, observed.append)
+
+    with torch.no_grad():
+        model.encode(input_ids)
+
+    assert observed == []
+
+
+def test_register_encode_split_probe_handle_removes_hook() -> None:
+    model = DecoderOnlyTransformer(_tiny_config())
+    input_ids = torch.randint(0, 14, (2, 5))
+    observed: list[EncodedState] = []
+    handle = register_encode_split_probe(model, observed.append)
+    handle.remove()
+
+    with torch.no_grad():
+        model.encode_split(input_ids)
+
+    assert observed == []
+
+
+def test_register_encode_split_probe_fires_once_per_call() -> None:
+    model = DecoderOnlyTransformer(_tiny_config())
+    input_ids = torch.randint(0, 14, (2, 5))
+    observed: list[EncodedState] = []
+    register_encode_split_probe(model, observed.append)
+
+    with torch.no_grad():
+        model.encode_split(input_ids)
+        model.encode_split(input_ids)
+
+    assert len(observed) == 2
