@@ -1,8 +1,8 @@
-# APC Phase A.1 Delta Pack
+# APC Phase A.1 Correction Delta
 
-- `PHASE_A1_PATCH_GUIDE.md`
-- `docs/AGENTS_PHASE_A1_ADDENDUM.md`
-- `docs/exec-plans/active/PHASE_A1.md`
-- `docs/design-docs/PHASE_A1_ARCHITECTURE_DELTA.md`
-- `docs/EXPERIMENT_PLAN_PHASE_A1.md`
-- `docs/CODEX_TASKS_PHASE_A1.md`
+- `PHASE_A1_CORRECTION_PATCH_GUIDE.md`
+- `docs/AGENTS_PHASE_A1_CORRECTION_ADDENDUM.md`
+- `docs/design-docs/PARAMETERIZED_PRIMITIVE_CALLS.md`
+- `docs/EXPERIMENT_PLAN_PHASE_A1_CORRECTION.md`
+- `docs/exec-plans/active/PHASE_A1_CORRECTION.md`
+- `docs/CODEX_TASKS_PHASE_A1_CORRECTION.md`
