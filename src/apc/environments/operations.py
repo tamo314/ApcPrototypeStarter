@@ -30,6 +30,15 @@ class Operation(ABC):
 
     name: str
     min_input_length: int
+    # Argument keys `sample_params` always includes for this operation --
+    # i.e. exactly the keys `apply`'s `params` must supply for a call to be
+    # well-formed. Empty by default (parameter-free: COPY/NEGATE/COMPARE/
+    # ACCUMULATE/SORT/REVERSE); the four operations ADR-0017 identified as
+    # having a hidden per-instance parameter override this. Authoritative
+    # source for `apc.environments.primitive_call.PrimitiveCall`'s argument
+    # validation (Task A1-C006) so the requirement is declared once, next to
+    # each operation's own `sample_params`/`apply`, rather than duplicated.
+    required_argument_names: frozenset[str] = frozenset()
 
     def is_valid_for_length(self, input_length: int) -> bool:
         """Whether this operation can execute on a sequence of this length.
@@ -109,6 +118,7 @@ class NegateOp(Operation):
 class ShiftOp(Operation):
     name = "SHIFT"
     min_input_length = 1
+    required_argument_names = frozenset({"amount"})
 
     def output_length(self, input_length: int) -> int:
         return input_length
@@ -136,6 +146,7 @@ class SelectOp(Operation):
 
     name = "SELECT"
     min_input_length = 1
+    required_argument_names = frozenset({"indices"})
 
     def output_length(self, input_length: int) -> int:
         return max(1, input_length // 2)
@@ -187,6 +198,7 @@ class CountOp(Operation):
 
     name = "COUNT"
     min_input_length = 1
+    required_argument_names = frozenset({"target"})
 
     def output_length(self, input_length: int) -> int:
         return 1
@@ -214,6 +226,7 @@ class BindOp(Operation):
 
     name = "BIND"
     min_input_length = 2
+    required_argument_names = frozenset({"query_key"})
 
     def is_valid_for_length(self, input_length: int) -> bool:
         return input_length >= self.min_input_length and input_length % 2 == 0

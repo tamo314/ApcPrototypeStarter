@@ -45,9 +45,11 @@ index), because that is the real hidden parameter that determines its
 output. `TaskStepSpec.arguments` mirrors `ProgramStep.params` exactly (key
 for key) rather than the design doc's simplified illustration, so it
 actually satisfies "task specification fully determines all previously
-hidden operation parameters." Task A1-C006 (parameterized `PrimitiveCall`
-abstraction) should resolve this naming/shape gap when it decides how
-`SELECT` is exposed as a reusable primitive family; it is out of scope here.
+hidden operation parameters." Resolved by Task A1-C006:
+`apc.environments.primitive_call.PrimitiveCall` keeps `indices` (not a
+single `index`) for the same reason and converts losslessly to/from
+`TaskStepSpec` -- see that module's docstring and `docs/DECISIONS.md`
+ADR-0023.
 """
 
 from __future__ import annotations
