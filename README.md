@@ -102,6 +102,7 @@ python scripts/sequential_benchmark.py --config configs/phase_a_sequential.yaml 
 python scripts/baseline_benchmark.py --config configs/phase_a_sequential.yaml --run-dir runs/phase_a_baselines
 python scripts/stable_core_generalization_gate.py --config configs/phase_a1_stable_core_gate.yaml --run-dir runs/phase_a1_stable_core_gate
 python scripts/stable_core_generalization_gate.py --config configs/phase_a1_stable_core_gate_permuted_copy_only.yaml --run-dir runs/phase_a1_stable_core_gate_permuted_copy_only
+python scripts/shared_core_generalization_gate.py --config configs/phase_a1_shared_core_gate.yaml --run-dir runs/phase_a1_shared_core_gate
 ```
 
 `composition_benchmark.py` evaluates a trained checkpoint on known-operation
@@ -164,6 +165,30 @@ value/order-dependent operations (`NEGATE`/`COMPARE`/`ACCUMULATE`) provably
 unrecoverable on held-out content regardless of training duration, so only
 the primary (unpermuted) variant is a meaningful test of H1 across the full
 operation set.
+
+`shared_core_generalization_gate.py` runs Phase A.1 Correction Task A1-C004,
+the Shared-Core systematic-generalization gate (H1b in `docs/
+EXPERIMENT_PLAN_PHASE_A1.md`/`docs/exec-plans/active/PHASE_A1_CORRECTION.md`
+A1-CM3, a **STOP GATE**): trains **one shared** Stable Core per seed on
+`apc.environments.generator.build_mixed_operation_generator`'s online mixed
+stream over all eight `KNOWN_OPERATION_NAMES` -- including
+`SELECT`/`COUNT`/`SHIFT`/`BIND`, whose previously hidden per-instance
+parameter (ADR-0017) is now part of the model-visible task-specification
+segment (Task A1-C003) -- with no primitive bank, router, plastic workspace,
+or consolidation involved, then evaluates overall and per-operation exact
+match on a large held-out batch of unseen content. Also runs a
+negative-control variant (`include_task_spec=False`) over the identical
+mixed stream and model architecture, with the task segment stripped from the
+model input, to verify any gap is attributable to that segment specifically
+rather than to "one shared model, mixed data, online generation" alone (see
+ADR-0020's ~0.25-0.35 pooled-operation ceiling with no task signal). Writes
+one `{explicit,negative_control}/seed_<n>/metrics.jsonl` per variant/seed
+plus a combined `report.json`/`summary.json` (Task A1-C004's acceptance:
+overall mean unseen exact match >= 0.95, every operation's mean >= 0.90,
+across >= 5 seeds, with the negative control materially underperforming the
+explicit-task model). `configs/phase_a1_shared_core_gate.yaml` is the sole
+shipped config; symbol permutation is left at its default (off), for the
+same ADR-0019 reason as `configs/phase_a1_stable_core_gate.yaml`.
 
 If a tool is not yet configured, add it as part of the repository-bootstrap task rather than silently skipping verification.
 

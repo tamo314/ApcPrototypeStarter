@@ -1,0 +1,55 @@
+# Phase A.1 Correction Task A1-C004 (STOP GATE, H1b): Shared-Core
+# systematic-generalization gate. Trains ONE shared Stable Core (no
+# primitive bank/router/plastic/consolidation) on
+# apc.environments.generator.build_mixed_operation_generator's online mixed
+# stream over all eight apc.environments.operations.KNOWN_OPERATION_NAMES --
+# including SELECT/COUNT/SHIFT/BIND, whose previously hidden per-instance
+# parameter (docs/DECISIONS.md ADR-0017) is now part of the model-visible
+# task-specification segment (Task A1-C003) -- and evaluates overall and
+# per-operation exact match on a large held-out batch of unseen content.
+#
+# scripts/shared_core_generalization_gate.py runs this config twice per
+# seed: once with the task segment included (the explicit-task variant this
+# config's `include_task_spec` value seeds) and once with it stripped
+# (negative control, ADR-0017/ADR-0020's non-identifiability ceiling),
+# always overriding include_task_spec for each variant regardless of what is
+# set here.
+#
+# permute_symbols is left at its default (false), for the same reason as
+# configs/phase_a1_stable_core_gate.yaml: online generation alone already
+# removes finite-set memorization, and permutation makes value/order-
+# dependent operations (NEGATE, COMPARE, ACCUMULATE) provably unrecoverable
+# on held-out content regardless of training duration (docs/DECISIONS.md
+# ADR-0019).
+#
+# Acceptance (docs/CODEX_TASKS_PHASE_A1_CORRECTION.md A1-C004): overall mean
+# exact match >= 0.95 and every operation's mean >= 0.90, across >= 5 seeds,
+# with the negative control materially underperforming the explicit-task
+# model.
+seeds: [0, 1, 2, 3, 4]
+
+vocab_size: 10
+sequence_length_range: [6, 10]
+operation_names: [COPY, SELECT, COMPARE, COUNT, SHIFT, BIND, NEGATE, ACCUMULATE]
+include_task_spec: true
+
+model:
+  d_model: 192
+  n_layer: 4
+  n_head: 4
+  d_ff: 768
+  max_seq_len: 48
+  dropout: 0.0
+
+train:
+  steps: 30000
+  batch_size: 128
+  lr: 0.0003
+  weight_decay: 0.01
+  grad_clip: 1.0
+  eval_every: 2000
+  progress_eval_examples: 256
+  device: auto
+
+num_unseen_eval_examples: 4096
+min_examples_per_operation: 200
