@@ -103,6 +103,7 @@ import torch
 from apc.core.data import build_content_only_tokens, build_task_only_tokens, pad_token_sequences
 from apc.core.model import DecoderOnlyTransformer, TransformerConfig
 from apc.core.tokens import SharedCoreTokens, build_shared_core_tokens
+from apc.core.tokens import task_token_id_set as _task_token_id_set
 from apc.core.train import resolve_device
 from apc.environments.generator import Example, build_mixed_operation_generator
 from apc.environments.operations import KNOWN_OPERATION_NAMES, get_operation
@@ -219,16 +220,6 @@ def _build_tokens(config: TaskBlindContentGateConfig) -> SharedCoreTokens:
         num_operations=num_registered_operations(),
         arg_span=default_argument_value_span(config.vocab_size, config.sequence_length_range),
     )
-
-
-def _task_token_id_set(tokens: SharedCoreTokens) -> frozenset[int]:
-    """Every id in `SharedCoreTokens`' task-segment/operation/argument
-    ranges -- the full complement of what a task-blind content-encoder
-    input must never contain."""
-    ids = {tokens.task_start, tokens.task_end}
-    ids.update(tokens.operation_token(i) for i in range(tokens.num_operations))
-    ids.update(tokens.argument_value_token(v) for v in range(tokens.arg_span))
-    return frozenset(ids)
 
 
 @dataclass(frozen=True)

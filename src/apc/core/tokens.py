@@ -105,6 +105,18 @@ class SharedCoreTokens(SpecialTokens):
         return self.arg_base + value
 
 
+def task_token_id_set(tokens: SharedCoreTokens) -> frozenset[int]:
+    """Every id in `tokens`' task-segment/operation/argument ranges -- the
+    full complement of ids a task-blind or causal-mode decoder input must
+    never contain (Phase A.1 Post-Correction Task A1-R001's content-encoder
+    leak check, promoted here in Task A1-R002 so the decoder-leakage audit
+    can reuse the exact same id set without duplicating this logic)."""
+    ids = {tokens.task_start, tokens.task_end}
+    ids.update(tokens.operation_token(i) for i in range(tokens.num_operations))
+    ids.update(tokens.argument_value_token(v) for v in range(tokens.arg_span))
+    return frozenset(ids)
+
+
 def build_shared_core_tokens(
     env_vocab_size: int, *, num_operations: int, arg_span: int
 ) -> SharedCoreTokens:

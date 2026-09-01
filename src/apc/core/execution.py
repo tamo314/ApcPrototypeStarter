@@ -87,6 +87,53 @@ AGENTS.md workflow rather than hidden):
   than one call) are Task A1-008's Composition Library; these four
   functions accept only one call per batch item and are the scope A1-007's
   own "oracle-routed K" targets, not A1-008's "oracle C".
+
+- **Decoder-input audit and no-primitive/identity mode (Phase A.1
+  Post-Correction Task A1-R002).** Work item 1 ("audit decoder inputs"):
+  every decode entry point in this module builds its prompt as exactly
+  `(specials.bos,) + example.input_tokens + (specials.sep,)` -- never
+  `apc.core.data.build_prompt_tokens`/`encode_example` with
+  `include_task_spec=True`, and never `example.task_spec` at all -- so no
+  task-specification token (`apc.core.tokens.SharedCoreTokens`' task-start/
+  task-end/operation/argument-value ranges) ever reaches `model.encode`
+  through `forward_logits`, `generate_greedy_with_capacity`,
+  `evaluate_exact_match_with_capacity`, or any of the oracle-routed or
+  no-primitive functions below (`tests/test_decoder_leakage.py::
+  test_causal_mode_functions_never_feed_task_tokens_to_encode` audits this
+  directly, over the bank-routed, oracle-routed, and no-primitive functions,
+  by capturing the actual ids passed to `model.encode`). Only
+  BOS/SEP/EOS/PAD (`apc.core.tokens.SpecialTokens`, formatting-only
+  sequence-boundary markers, never
+  operation-specific) and the example's own content tokens appear. The one
+  latent risk this audit found (Work item 2, "remove task-conditioned
+  bypasses in causal mode"): `forward_logits(..., use_split_state=True)`
+  computes `content_state` via `model.encode_split(input_ids)` -- a *single*
+  causal pass whose `content_state` is literally `encode(input_ids)`, so if
+  a caller ever passed a task-spec-carrying `input_ids` through this branch,
+  `content_state` would have already attended over the task tokens (exactly
+  ADR-0022's finding for `encode_split`, and exactly what Task A1-R001's
+  `encode_task_content_split` two-pass factorization exists to avoid). No
+  current caller does this (`use_split_state=True` is exercised only by
+  Task A1-005's own unit tests, always with content-only `input_ids`), so
+  there is no live bypass to remove; the fix recorded here is a documented
+  restriction rather than a code deletion, since `encode_split`/
+  `use_split_state` remain valid for A1-005's original task_state-routing
+  purpose on content-only input. The causal *primitive* path (this module's
+  bank/workspace/oracle-routed functions) must never source `content_state`
+  from `encode_split`; only `encode` (on content-only ids) or, once wired,
+  `encode_task_content_split`'s `content_state` is safe. Work items 3-4
+  ("add no-primitive/identity mode", "evaluate decoder-only task
+  performance"): `forward_logits_no_primitive`/`generate_greedy_no_primitive`/
+  `evaluate_exact_match_no_primitive` below are the causal ablation matrix's
+  "None" arm (`docs/design-docs/CAUSAL_PRIMITIVE_EXECUTION.md` section 8) --
+  no bank, router, or workspace parameter exists on any of them, so
+  primitive execution is structurally unreachable, not merely unused. The
+  A1-R002 STOP GATE (`apc.evaluation.decoder_leakage_gate`) trains a shared
+  core with no task segment ever visible (mirroring Task A1-C004's
+  `include_task_spec=False` negative control, ADR-0021) and evaluates it
+  through `evaluate_exact_match_no_primitive`, checking that decoder-only
+  performance stays materially below the future primitive-causality Correct
+  target (0.95) rather than already solving the task through some bypass.
 """
 
 from __future__ import annotations
@@ -334,6 +381,94 @@ def evaluate_exact_match_with_capacity(
             stable_ids=stable_ids,
             workspace=workspace,
             workspace_ids=workspace_ids,
+        )
+        predictions.append(prediction)
+        if prediction == example.target_tokens:
+            correct += 1
+    return correct / len(examples), predictions
+
+
+def forward_logits_no_primitive(
+    model: DecoderOnlyTransformer, input_ids: torch.Tensor
+) -> torch.Tensor:
+    """`input_ids -> logits` with no bank, router, or workspace involved at
+    all (Task A1-R002): the causal ablation matrix's "None"/identity arm
+    (`docs/design-docs/CAUSAL_PRIMITIVE_EXECUTION.md` section 8, `AGENTS.md`'s
+    causal primitive evidence rule) -- `model.decode(model.encode(input_ids))`,
+    i.e. exactly `model.forward`, given a name and a place in this module so
+    future causal-primitive gates (A1-R003 onward) can call "Correct"
+    (`forward_logits_with_oracle_calls`), "Wrong" (the same function with a
+    deliberately incorrect call), and "None" (this function) through one
+    consistent `apc.core.execution` surface instead of reaching into
+    `apc.core.generation` for the third arm alone.
+
+    There is no `stable_ids`/`bank`/`router`/`workspace` parameter to accept
+    here -- unlike `forward_logits`, which always applies the bank -- so a
+    caller cannot smuggle primitive execution back in through this entry
+    point (`tests/test_decoder_leakage.py::
+    test_no_primitive_functions_never_accept_bank_router_or_workspace`).
+    """
+    return model.decode(model.encode(input_ids))
+
+
+@torch.no_grad()
+def generate_greedy_no_primitive(
+    model: DecoderOnlyTransformer,
+    prompt_ids: torch.Tensor,
+    eos_id: int,
+    max_new_tokens: int,
+) -> tuple[int, ...]:
+    """`generate_greedy_with_capacity`'s no-primitive sibling (Task A1-R002):
+    greedy decoding through `forward_logits_no_primitive` alone."""
+    model.eval()
+    generated = prompt_ids
+    new_tokens: list[int] = []
+    for _ in range(max_new_tokens):
+        logits = forward_logits_no_primitive(model, generated)
+        next_id = int(logits[0, -1, :].argmax(dim=-1).item())
+        new_tokens.append(next_id)
+        if next_id == eos_id:
+            break
+        generated = torch.cat(
+            [generated, torch.tensor([[next_id]], dtype=torch.long, device=generated.device)],
+            dim=1,
+        )
+    if new_tokens and new_tokens[-1] == eos_id:
+        new_tokens = new_tokens[:-1]
+    return tuple(new_tokens)
+
+
+def evaluate_exact_match_no_primitive(
+    model: DecoderOnlyTransformer,
+    examples: Sequence[Example],
+    specials: SpecialTokens,
+    *,
+    device: torch.device | str = "cpu",
+    max_extra_tokens: int = 2,
+) -> tuple[float, list[tuple[int, ...]]]:
+    """`evaluate_exact_match_with_capacity`'s no-primitive sibling (Task
+    A1-R002): decodes every example's target from a content-only prompt
+    (`bos + input_tokens + sep`, matching every other function in this
+    module -- never `example.task_spec`, never rendered through
+    `apc.core.data.encode_task_spec`/`build_prompt_tokens(include_task_spec=
+    True)`) with no bank, router, or workspace anywhere in the call graph.
+    This is the A1-R002 STOP GATE's "no-primitive path" acceptance measure
+    (`apc.evaluation.decoder_leakage_gate`); numerically identical to
+    `apc.core.generation.evaluate_exact_match(..., include_task_spec=False)`
+    given the same model/examples (`tests/test_decoder_leakage.py::
+    test_evaluate_exact_match_no_primitive_matches_plain_generation`), kept
+    as a distinct entry point in this module rather than re-exported from
+    `apc.core.generation` so a future Correct/Wrong/None benchmark can call
+    all three arms through one consistent `apc.core.execution` surface.
+    """
+    predictions: list[tuple[int, ...]] = []
+    correct = 0
+    for example in examples:
+        prompt = (specials.bos,) + example.input_tokens + (specials.sep,)
+        prompt_ids = torch.tensor([prompt], dtype=torch.long, device=device)
+        max_new_tokens = len(example.target_tokens) + max_extra_tokens
+        prediction = generate_greedy_no_primitive(
+            model, prompt_ids, specials.eos, max_new_tokens
         )
         predictions.append(prediction)
         if prediction == example.target_tokens:

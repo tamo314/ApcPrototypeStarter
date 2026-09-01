@@ -1,0 +1,56 @@
+# Phase A.1 Post-Correction Task A1-R002 (conditional STOP GATE): Decoder
+# leakage control gate. Trains ONE shared Stable Core with no task
+# specification token ever visible (apc.evaluation.shared_core_
+# generalization.train_shared_core, include_task_spec forced False by
+# apc.evaluation.decoder_leakage_gate.decoder_leakage_gate_config_from_dict
+# regardless of what is set here) on apc.environments.generator.
+# build_mixed_operation_generator's online mixed stream over all eight
+# apc.environments.operations.KNOWN_OPERATION_NAMES, then evaluates overall
+# and per-operation exact match through apc.core.execution.
+# evaluate_exact_match_no_primitive -- the causal ablation matrix's "None"
+# arm, with no bank/router/workspace anywhere in the call graph.
+#
+# Deliberately identical model/data/training hyperparameters to
+# configs/phase_a1_shared_core_gate.yaml's explicit-task variant, so this
+# gate's own "future Correct target" (0.95) is a fair, same-experimental-
+# family comparison rather than an arbitrary import from a differently
+# configured run -- the only variable this config isolates is
+# include_task_spec.
+#
+# Acceptance (docs/CODEX_TASKS_PHASE_A1_POST_CORRECTION.md A1-R002):
+#   - no-primitive path materially below future Correct target
+#     (apc.evaluation.decoder_leakage_gate.NO_PRIMITIVE_MATERIAL_CEILING,
+#     reusing H2b/H2c's own predeclared "None <= 0.30" floor -- see that
+#     module's docstring),
+#   - tests prove task-spec tensors are absent except documented
+#     formatting-only info (tests/test_decoder_leakage.py, structural, not
+#     re-run by this script).
+#
+# STOP GATE if no-primitive stays near full accuracy.
+seeds: [0, 1, 2, 3, 4]
+
+vocab_size: 10
+sequence_length_range: [6, 10]
+operation_names: [COPY, SELECT, COMPARE, COUNT, SHIFT, BIND, NEGATE, ACCUMULATE]
+include_task_spec: false  # forced regardless -- see module docstring
+
+model:
+  d_model: 192
+  n_layer: 4
+  n_head: 4
+  d_ff: 768
+  max_seq_len: 48
+  dropout: 0.0
+
+train:
+  steps: 30000
+  batch_size: 128
+  lr: 0.0003
+  weight_decay: 0.01
+  grad_clip: 1.0
+  eval_every: 2000
+  progress_eval_examples: 256
+  device: auto
+
+num_unseen_eval_examples: 4096
+min_examples_per_operation: 200
