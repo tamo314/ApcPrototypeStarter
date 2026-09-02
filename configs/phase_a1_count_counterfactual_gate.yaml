@@ -1,0 +1,84 @@
+# Phase A.1 Post-Correction Task A1-R005D-004 (STOP GATE): Counterfactual
+# COUNT gate. Per seed:
+#   1. pretrain ONE Stable Core, task-blind (no task-specification token
+#      ever visible, apc.evaluation.shared_core_generalization.
+#      train_shared_core with include_task_spec=False), on ordinary i.i.d.
+#      COUNT examples only (operation_names=("COUNT",));
+#   2. freeze every Stable Core parameter;
+#   3. register exactly one apc.primitives.conditioning.ConditionedPrimitive
+#      (rank `primitive_rank`) for COUNT, keyed at
+#      apc.environments.task_spec.operation_id("COUNT");
+#   4. train that primitive (only) on counterfactual groups -- the SAME
+#      content paired with several distinct COUNT.target values whose
+#      outputs are pairwise distinct (apc.evaluation.
+#      count_counterfactual_gate.generate_count_counterfactual_groups),
+#      flattened so every group's members land in the same training batch;
+#   5. evaluate a three-arm causal ablation on a large unseen batch of
+#      counterfactual groups: Correct (correct target), effectful Wrong
+#      argument (a different group member's target -- effectful by
+#      construction, not incidentally), None (apc.core.execution.
+#      evaluate_exact_match_no_primitive).
+#
+# There is no "Wrong family" arm: this gate registers exactly one primitive
+# family (module docstring, "Why there is no 'Wrong family' arm").
+#
+# Acceptance (docs/CODEX_TASKS_A1_R005_RETRY.md A1-R005D-004), against the
+# cross-seed mean of each arm:
+#   - Correct >= 0.90
+#   - effectful Wrong argument <= 0.30
+#   - Correct - max(effectful Wrong argument, None) >= 0.50
+#   - None <= 0.30 (not restated by A1-R005D-004's own acceptance list;
+#     filled in from H2b/H2c's standing "materially low" convention -- see
+#     apc.evaluation.count_counterfactual_gate module docstring and
+#     docs/DECISIONS.md)
+#   - family count stays constant across argument values (structurally
+#     guaranteed; measured via bank_size == 1 per seed)
+#
+# "Work: ... baseline rank/steps first" -- core_train/primitive_train/
+# primitive_rank below are IDENTICAL to configs/
+# phase_a1_parameterized_primitive_gate.yaml's own A1-R005 baseline, so the
+# counterfactual-training-data change (this task's own hypothesis, F4) is
+# the only variable relative to that earlier, failed run.
+#
+# STOP GATE.
+seeds: [0, 1, 2, 3, 4]
+
+vocab_size: 10
+sequence_length_range: [6, 10]
+group_size: 3
+
+model:
+  d_model: 192
+  n_layer: 4
+  n_head: 4
+  d_ff: 768
+  max_seq_len: 48
+  dropout: 0.0
+
+core_train:
+  steps: 30000
+  batch_size: 128
+  lr: 0.0003
+  weight_decay: 0.01
+  grad_clip: 1.0
+  eval_every: 2000
+  progress_eval_examples: 256
+  device: auto
+
+primitive_rank: 8
+arg_dim: 16
+max_sequence_length: 32
+
+primitive_train:
+  steps: 10000
+  batch_size: 128
+  lr: 0.0003
+  weight_decay: 0.01
+  grad_clip: 1.0
+  eval_every: 1000
+  progress_eval_examples: 256
+
+# ~1400 groups x ~3 members/group averages to roughly the same eval scale as
+# configs/phase_a1_parameterized_primitive_gate.yaml's num_unseen_eval_examples: 4096.
+num_unseen_eval_groups: 1400
+min_unseen_eval_examples: 3000

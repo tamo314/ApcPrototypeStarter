@@ -1,0 +1,63 @@
+# Phase A.1 Post-Correction Task A1-R005D-005: Minimal capacity/training
+# sweep gate. This file is A1-R005D-004's own baseline
+# (configs/phase_a1_count_counterfactual_gate.yaml), BYTE-IDENTICAL except
+# for this header comment and this task's own filename -- every field below
+# is the single fixed starting point apc.evaluation.count_capacity_sweep_gate
+# .capacity_sweep_stage_configs multiplies/replaces exactly one knob of, per
+# stage ("Staged sweep: one variable at a time" in that module's docstring):
+#
+#   1. steps_x2:    primitive_train.steps x2  (10000 -> 20000)
+#   2. steps_x4:    primitive_train.steps x4  (10000 -> 40000, only if
+#                    steps_x2 fails)
+#   3. rank_16:     primitive_rank -> 16      (only if steps_x4 fails)
+#   4. arg_dim_x2:  arg_dim x2                (16 -> 32, only if rank_16
+#                    fails)
+#
+# scripts/count_capacity_sweep_gate.py runs these in order and stops at the
+# first stage whose full 5-seed gate passes A1-R005D-004's own acceptance
+# thresholds (Correct >= 0.90, effectful Wrong argument <= 0.30, causal gap
+# >= 0.50, None <= 0.30) -- "select smallest robust passing configuration."
+# If none pass, "continue to D-006" (not implemented by this task).
+#
+# STOP GATE is not a phrase A1-R005D-005 uses for itself (unlike D-004); its
+# own "Acceptance" is the stage-selection rule above, not a single pass/fail
+# threshold on this file's own (unmodified) baseline config.
+seeds: [0, 1, 2, 3, 4]
+
+vocab_size: 10
+sequence_length_range: [6, 10]
+group_size: 3
+
+model:
+  d_model: 192
+  n_layer: 4
+  n_head: 4
+  d_ff: 768
+  max_seq_len: 48
+  dropout: 0.0
+
+core_train:
+  steps: 30000
+  batch_size: 128
+  lr: 0.0003
+  weight_decay: 0.01
+  grad_clip: 1.0
+  eval_every: 2000
+  progress_eval_examples: 256
+  device: auto
+
+primitive_rank: 8
+arg_dim: 16
+max_sequence_length: 32
+
+primitive_train:
+  steps: 10000
+  batch_size: 128
+  lr: 0.0003
+  weight_decay: 0.01
+  grad_clip: 1.0
+  eval_every: 1000
+  progress_eval_examples: 256
+
+num_unseen_eval_groups: 1400
+min_unseen_eval_examples: 3000

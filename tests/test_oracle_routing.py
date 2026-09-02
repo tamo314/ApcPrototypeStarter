@@ -45,7 +45,11 @@ from apc.environments.primitive_call import PrimitiveCall
 from apc.environments.task_spec import operation_id
 from apc.environments.vocab import DEFAULT_VOCAB_SIZE
 from apc.primitives.bank import PrimitiveBank
-from apc.primitives.conditioning import build_conditioned_primitive
+from apc.primitives.conditioning import (
+    ConditioningVariant,
+    build_argument_conditioned_primitive,
+    build_conditioned_primitive,
+)
 from apc.primitives.primitive import Primitive, PrimitiveConfig, PrimitiveStatus
 from apc.utils.seed import set_seed
 
@@ -603,3 +607,69 @@ def test_forward_logits_with_oracle_calls_dispatches_conditioned_primitive_end_t
         actual, _ = forward_logits_with_oracle_calls(model, input_ids, bank, calls)
 
     torch.testing.assert_close(actual, expected)
+
+
+# --- ArgumentConditionedPrimitive dispatch generalization (Task A1-R005D-006) -
+
+
+def _film_bank(operations: list[str], *, perturb: bool = True) -> PrimitiveBank:
+    bank = PrimitiveBank()
+    for operation in operations:
+        primitive = build_argument_conditioned_primitive(
+            operation_id(operation),
+            operation,
+            PrimitiveConfig(d_model=D_MODEL, rank=4),
+            ConditioningVariant.FILM,
+            vocab_size=ENV_VOCAB_SIZE,
+            max_sequence_length=16,
+            arg_dim=6,
+        )
+        bank.add_primitive(primitive)
+        if perturb:
+            with torch.no_grad():
+                primitive.b_proj.weight.add_(1.0)  # type: ignore[attr-defined]
+                primitive.film_proj.weight.add_(1.0)  # type: ignore[attr-defined]
+    return bank
+
+
+def test_apply_bank_with_oracle_calls_dispatches_film_primitive_via_forward_from_calls() -> None:
+    """`_route_and_apply_oracle_calls`'s dispatch check was generalized from
+    `isinstance(primitive, ConditionedPrimitive)` to `isinstance(primitive,
+    ArgumentConditionedPrimitive)` (Task A1-R005D-006) precisely so a
+    non-`ConditionedPrimitive` argument-conditioned family (here,
+    `FiLMConditionedPrimitive`) still routes through `forward_from_calls`
+    rather than raising `TypeError` from the old argument-blind call
+    pattern."""
+    bank = _film_bank(["SHIFT"])
+    shift_id = operation_id("SHIFT")
+    calls = [
+        PrimitiveCall(operation="SHIFT", arguments={"amount": 1}),
+        PrimitiveCall(operation="SHIFT", arguments={"amount": 2}),
+    ]
+    hidden = torch.randn(2, 3, D_MODEL)
+
+    result, routing_out = apply_bank_with_oracle_calls(hidden, bank, calls)
+
+    assert routing_out.executed_primitive_ids == (shift_id,)
+    primitive = bank.get(shift_id)
+    expected = hidden.clone()
+    expected[0] = primitive(hidden[0], argument_values=[1, 1, 1])
+    expected[1] = primitive(hidden[1], argument_values=[2, 2, 2])
+    torch.testing.assert_close(result, expected)
+
+
+def test_oracle_calls_trainable_gradient_reaches_film_primitive_film_proj() -> None:
+    bank = _film_bank(["SHIFT"])
+    for p in bank.parameters():
+        p.requires_grad_(True)
+    calls = [PrimitiveCall(operation="SHIFT", arguments={"amount": 3})]
+    hidden = torch.randn(1, 4, D_MODEL)
+
+    result, _ = apply_bank_with_oracle_calls_trainable(hidden, bank, calls)
+    assert result.requires_grad
+    result.sum().backward()
+
+    primitive = bank.get(operation_id("SHIFT"))
+    assert primitive.a_proj.weight.grad is not None  # type: ignore[attr-defined]
+    assert primitive.film_proj.weight.grad is not None  # type: ignore[attr-defined]
+    assert primitive.argument_encoder.embedding.weight.grad is not None  # type: ignore[attr-defined]

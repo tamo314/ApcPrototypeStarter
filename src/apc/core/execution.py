@@ -185,6 +185,18 @@ AGENTS.md workflow rather than hidden):
   calls[_trainable]`/`evaluate_exact_match_with_oracle_calls` entry points
   A1-R003 already uses for the parameter-free operations -- no new public
   function was needed for this task, only this one shared helper's dispatch.
+
+- **Update (Phase A.1 Post-Correction Task A1-R005D-006).**
+  `_route_and_apply_oracle_calls`'s dispatch check is generalized from
+  `isinstance(primitive, ConditionedPrimitive)` to `isinstance(primitive,
+  apc.primitives.conditioning.ArgumentConditionedPrimitive)` -- a strict
+  widening, since `ConditionedPrimitive` is itself one such subclass, so
+  every existing call site's behavior is unchanged. This lets A1-R005D-006's
+  alternative conditioning formulas (`FiLMConditionedPrimitive`,
+  `BasisModulatedConditionedPrimitive` -- see that module's own "Update"
+  section) route through `forward_from_calls` the same way
+  `ConditionedPrimitive` already does, with no further change to this
+  module.
 """
 
 from __future__ import annotations
@@ -200,7 +212,7 @@ from apc.environments.generator import Example, oracle_call_for_example
 from apc.environments.primitive_call import PrimitiveCall
 from apc.plastic.workspace import PlasticWorkspace
 from apc.primitives.bank import PrimitiveBank
-from apc.primitives.conditioning import ConditionedPrimitive
+from apc.primitives.conditioning import ArgumentConditionedPrimitive
 from apc.primitives.primitive import Primitive, PrimitiveStatus
 from apc.primitives.router import Router, RouterOutput
 
@@ -621,12 +633,14 @@ def _route_and_apply_oracle_calls(
         primitive = bank.get(primitive_id)
         positions = (flat_ids == primitive_id).nonzero(as_tuple=False).squeeze(-1)
         selected_hidden = flat_hidden.index_select(0, positions)
-        if isinstance(primitive, ConditionedPrimitive):
-            # Task A1-R005: an argument-conditioned family cannot be called
-            # as primitive(selected_hidden) (ConditionedPrimitive.forward's
-            # argument_values is keyword-only with no default, by design --
-            # see apc.primitives.conditioning). Reconstruct, per gathered
-            # row, the PrimitiveCall that forced it, so this family's own
+        if isinstance(primitive, ArgumentConditionedPrimitive):
+            # Task A1-R005 (generalized in A1-R005D-006 from ConditionedPrimitive
+            # specifically to the shared ArgumentConditionedPrimitive base):
+            # an argument-conditioned family cannot be called as
+            # primitive(selected_hidden) (forward's argument_values is
+            # keyword-only with no default, by design -- see
+            # apc.primitives.conditioning). Reconstruct, per gathered row,
+            # the PrimitiveCall that forced it, so this family's own
             # argument actually reaches the transform.
             batch_indices = batch_index_tensor.index_select(0, positions).tolist()
             selected_calls = [calls[b] for b in batch_indices]

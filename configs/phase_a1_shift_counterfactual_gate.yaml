@@ -1,0 +1,83 @@
+# Phase A.1 Post-Correction Task A1-R005D-008: SHIFT sequence counterfactual
+# gate. Per seed:
+#   1. pretrain ONE Stable Core, task-blind (no task-specification token
+#      ever visible, apc.evaluation.shared_core_generalization.
+#      train_shared_core with include_task_spec=False), on ordinary i.i.d.
+#      SHIFT examples only (operation_names=("SHIFT",));
+#   2. freeze every Stable Core parameter;
+#   3. register exactly one apc.primitives.conditioning.ConditionedPrimitive
+#      (V0/additive -- "the selected low-rank conditioned architecture",
+#      rank `primitive_rank`) for SHIFT, keyed at
+#      apc.environments.task_spec.operation_id("SHIFT");
+#   4. train that primitive (only) on counterfactual groups -- the SAME
+#      content paired with several distinct SHIFT.amount values whose
+#      outputs (rotations) are pairwise distinct (apc.evaluation.
+#      sequence_counterfactual_gate.generate_sequence_counterfactual_groups),
+#      flattened so every group's members land in the same training batch;
+#   5. evaluate Correct / effectful Wrong argument / None, each by exact
+#      match and token accuracy, plus Correct's own length-stratified
+#      breakdown, on a large unseen batch of counterfactual groups.
+#
+# There is no "Wrong family" arm: this gate registers exactly one primitive
+# family (apc.evaluation.sequence_counterfactual_gate module docstring).
+#
+# Acceptance (docs/CODEX_TASKS_A1_R005_RETRY.md A1-R005D-008), against the
+# cross-seed mean of each arm:
+#   - token accuracy (Correct) >= 0.95
+#   - exact match (Correct) >= 0.85
+#   - effectful Wrong-argument performance materially lower -- filled in as
+#     exact-match causal gap (Correct - max(effectful Wrong argument, None))
+#     >= 0.50, this retry sequence's own standing convention (see
+#     apc.evaluation.sequence_counterfactual_gate module docstring and
+#     docs/DECISIONS.md)
+#   - None <= 0.30 (also filled in, A1-R005D-004's own precedent)
+#   - one persistent SHIFT family (structurally guaranteed; measured via
+#     bank_size == 1 per seed)
+#
+# Same baseline architecture/budget as configs/
+# phase_a1_count_counterfactual_gate.yaml (A1-R005D-004)/
+# phase_a1_bind_counterfactual_gate.yaml (A1-R005D-007).
+operation: SHIFT
+seeds: [0, 1, 2, 3, 4]
+
+vocab_size: 10
+sequence_length_range: [6, 10]
+group_size: 3
+
+model:
+  d_model: 192
+  n_layer: 4
+  n_head: 4
+  d_ff: 768
+  max_seq_len: 48
+  dropout: 0.0
+
+core_train:
+  steps: 30000
+  batch_size: 128
+  lr: 0.0003
+  weight_decay: 0.01
+  grad_clip: 1.0
+  eval_every: 2000
+  progress_eval_examples: 256
+  device: auto
+
+primitive_rank: 8
+arg_dim: 16
+max_sequence_length: 32
+
+primitive_train:
+  steps: 10000
+  batch_size: 128
+  lr: 0.0003
+  weight_decay: 0.01
+  grad_clip: 1.0
+  eval_every: 1000
+  progress_eval_examples: 256
+
+# SHIFT's candidate pool per group is range(length) (up to 10 distinct
+# rotation amounts) -- close to full group_size=3 realized almost always,
+# similar order of magnitude to configs/phase_a1_count_counterfactual_gate
+# .yaml's own realized ratio.
+num_unseen_eval_groups: 1400
+min_unseen_eval_examples: 3000

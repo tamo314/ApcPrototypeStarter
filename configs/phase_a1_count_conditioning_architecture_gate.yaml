@@ -1,0 +1,72 @@
+# Phase A.1 Post-Correction Task A1-R005D-006 (STOP GATE): Conditioning
+# architecture comparison. Byte-identical baseline fields to configs/
+# phase_a1_count_counterfactual_gate.yaml (A1-R005D-004's own baseline,
+# reused unchanged by A1-R005D-005 too) -- "Keep Stable Core and data
+# fixed" means this run's only variable relative to A1-R005D-004 is which
+# apc.primitives.conditioning.ArgumentConditionedPrimitive subclass is
+# trained, not any capacity/training-budget change.
+#
+# Runs all three variants unconditionally (no early stopping, unlike
+# A1-R005D-005's staged sweep):
+#   - V0 additive (apc.primitives.conditioning.ConditionedPrimitive) --
+#     re-run here (not spliced in from A1-R005D-004's own report) so every
+#     variant sits in the same self-consistent artifact layout;
+#   - V1 FiLM/gated multiplicative (FiLMConditionedPrimitive);
+#   - V2 basis modulation (BasisModulatedConditionedPrimitive, the task
+#     text's own "optional" variant).
+#
+# Acceptance (docs/CODEX_TASKS_A1_R005_RETRY.md A1-R005D-006):
+#   - choose by causal gap (apc.evaluation.count_conditioning_architecture_gate
+#     module docstring, "Selection rule"),
+#   - report parameter counts (primitive_param_count per variant),
+#   - do not choose a model that raises Correct and Wrong together
+#     (disqualification rule, same module),
+#   - STOP if controlled COUNT still cannot pass -- i.e. A1-R006 remains
+#     blocked unless at least one variant passes A1-R005D-004's own
+#     acceptance thresholds (Correct >= 0.90, effectful Wrong argument
+#     <= 0.30, causal gap >= 0.50, None <= 0.30).
+#
+# STOP GATE.
+seeds: [0, 1, 2, 3, 4]
+
+vocab_size: 10
+sequence_length_range: [6, 10]
+group_size: 3
+
+model:
+  d_model: 192
+  n_layer: 4
+  n_head: 4
+  d_ff: 768
+  max_seq_len: 48
+  dropout: 0.0
+
+core_train:
+  steps: 30000
+  batch_size: 128
+  lr: 0.0003
+  weight_decay: 0.01
+  grad_clip: 1.0
+  eval_every: 2000
+  progress_eval_examples: 256
+  device: auto
+
+primitive_rank: 8
+arg_dim: 16
+max_sequence_length: 32
+
+primitive_train:
+  steps: 10000
+  batch_size: 128
+  lr: 0.0003
+  weight_decay: 0.01
+  grad_clip: 1.0
+  eval_every: 1000
+  progress_eval_examples: 256
+
+num_unseen_eval_groups: 1400
+min_unseen_eval_examples: 3000
+
+# V2 (basis modulation)'s basis-dictionary size; apc.primitives.conditioning.
+# DEFAULT_NUM_BASIS_VECTORS. Not used by V0/V1.
+num_basis: 8

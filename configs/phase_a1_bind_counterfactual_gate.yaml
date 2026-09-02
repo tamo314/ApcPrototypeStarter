@@ -1,0 +1,84 @@
+# Phase A.1 Post-Correction Task A1-R005D-007: Counterfactual BIND gate.
+# Per seed:
+#   1. pretrain ONE Stable Core, task-blind (no task-specification token
+#      ever visible, apc.evaluation.shared_core_generalization.
+#      train_shared_core with include_task_spec=False), on ordinary i.i.d.
+#      BIND examples only (operation_names=("BIND",));
+#   2. freeze every Stable Core parameter;
+#   3. register exactly one apc.primitives.conditioning.ConditionedPrimitive
+#      (V0/additive, rank `primitive_rank`) for BIND, keyed at
+#      apc.environments.task_spec.operation_id("BIND");
+#   4. train that primitive (only) on counterfactual groups -- the SAME
+#      content (read as key/value pairs) paired with several distinct
+#      BIND.query_key values -- each drawn from a key actually present in
+#      the content -- whose outputs are pairwise distinct (apc.evaluation.
+#      bind_counterfactual_gate.generate_bind_counterfactual_groups),
+#      flattened so every group's members land in the same training batch;
+#   5. evaluate a three-arm causal ablation on a large unseen batch of
+#      counterfactual groups: Correct (correct key), effectful Wrong
+#      argument (a different group member's key -- effectful by
+#      construction, not incidentally), None (apc.core.execution.
+#      evaluate_exact_match_no_primitive).
+#
+# There is no "Wrong family" arm: this gate registers exactly one primitive
+# family (module docstring, "Why there is no 'Wrong family' arm").
+#
+# Acceptance (docs/CODEX_TASKS_A1_R005_RETRY.md A1-R005D-007), against the
+# cross-seed mean of each arm:
+#   - Correct >= 0.90
+#   - effectful Wrong argument <= 0.30
+#   - Correct - max(effectful Wrong argument, None) >= 0.50
+#   - None <= 0.30 (not restated by A1-R005D-007's own acceptance list;
+#     filled in from A1-R005D-004's own precedent -- see apc.evaluation.
+#     bind_counterfactual_gate module docstring and docs/DECISIONS.md)
+#   - one persistent BIND family across keys (structurally guaranteed;
+#     measured via bank_size == 1 per seed)
+#
+# Same baseline architecture/budget as configs/
+# phase_a1_count_counterfactual_gate.yaml (A1-R005D-004) -- this task does
+# not repeat A1-R005D-006's conditioning-architecture comparison for BIND
+# (module docstring).
+seeds: [0, 1, 2, 3, 4]
+
+vocab_size: 10
+sequence_length_range: [6, 10]
+group_size: 3
+
+model:
+  d_model: 192
+  n_layer: 4
+  n_head: 4
+  d_ff: 768
+  max_seq_len: 48
+  dropout: 0.0
+
+core_train:
+  steps: 30000
+  batch_size: 128
+  lr: 0.0003
+  weight_decay: 0.01
+  grad_clip: 1.0
+  eval_every: 2000
+  progress_eval_examples: 256
+  device: auto
+
+primitive_rank: 8
+arg_dim: 16
+max_sequence_length: 32
+
+primitive_train:
+  steps: 10000
+  batch_size: 128
+  lr: 0.0003
+  weight_decay: 0.01
+  grad_clip: 1.0
+  eval_every: 1000
+  progress_eval_examples: 256
+
+# BIND's candidate pool per group is the content's own distinct present
+# keys (at most floor(length/2) <= 5 for sequence_length_range [6, 10]),
+# smaller than COUNT's full-vocabulary candidate pool -- realized group
+# size is expected to run somewhat below COUNT's own, so the eval-example
+# floor is set more conservatively relative to num_unseen_eval_groups.
+num_unseen_eval_groups: 1400
+min_unseen_eval_examples: 2500

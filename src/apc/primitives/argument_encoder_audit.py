@@ -34,6 +34,19 @@ unchanged is A1-R005D-003's own "skip only if D-002 proves current
 representation sufficient" decision point, which this audit resolves as
 "not sufficient").
 
+### Update (Task A1-R005D-003)
+
+`default_argument_encoder("SELECT", ...)` no longer returns
+`IndexSetArgumentEncoder`; it returns `apc.primitives.conditioning.
+OrderPreservingIndexSetArgumentEncoder` (`docs/DECISIONS.md` ADR-0032),
+which passes `require_order_preserving_select_encoder`. The narrative above
+describes the state this module found and gated at the time D-002 landed;
+`audit_phase_a1_default_argument_encoders` itself now audits the *current*
+default encoder (order-preserving), so re-running it reports no SELECT
+collision -- `IndexSetArgumentEncoder` remains available, unchanged, as a
+standalone class for direct construction/comparison, just not reachable
+through the default factory any more.
+
 The second half of this module audits the two `IntBucketArgumentEncoder`
 instances `default_argument_encoder` mints for `SHIFT`/`COUNT`/`BIND`
 against each operation's real legal argument domain (`apc.environments.
@@ -68,8 +81,8 @@ from apc.primitives.conditioning import (
     DEFAULT_ARG_DIM,
     DEFAULT_MAX_SEQUENCE_LENGTH,
     ArgumentEncoder,
-    IndexSetArgumentEncoder,
     IntBucketArgumentEncoder,
+    OrderPreservingIndexSetArgumentEncoder,
     default_argument_encoder,
 )
 
@@ -289,15 +302,18 @@ _DEFAULT_DISTINCT_PAIRS: tuple[tuple[tuple[int, ...], tuple[int, ...]], ...] = (
 
 
 def audit_select_order_sensitivity(
-    encoder: IndexSetArgumentEncoder,
+    encoder: ArgumentEncoder,
     *,
     permutation_pairs: Sequence[tuple[Sequence[int], Sequence[int]]] = _DEFAULT_PERMUTATION_PAIRS,
     distinct_pairs: Sequence[tuple[Sequence[int], Sequence[int]]] = _DEFAULT_DISTINCT_PAIRS,
     atol: float = 1e-6,
 ) -> SelectOrderAudit:
-    """Run `encoder` over `permutation_pairs` (each pair a reordering of the
-    same index multiset) and `distinct_pairs` (each pair genuinely distinct
-    index sets of the same length), reporting which pairs collided."""
+    """Run `encoder` (any `SELECT.indices`-shaped `ArgumentEncoder` --
+    `IndexSetArgumentEncoder` or `apc.primitives.conditioning.
+    OrderPreservingIndexSetArgumentEncoder`, Task A1-R005D-003) over
+    `permutation_pairs` (each pair a reordering of the same index multiset)
+    and `distinct_pairs` (each pair genuinely distinct index sets of the
+    same length), reporting which pairs collided."""
 
     def _collisions(
         pairs: Sequence[tuple[Sequence[int], Sequence[int]]],
@@ -378,10 +394,13 @@ def audit_phase_a1_default_argument_encoders(
 
     `SELECT` is audited across `select_seeds` independently constructed
     encoders (`torch.manual_seed` before each), since `audit_select_order_
-    sensitivity`'s distinct-pair check is an empirical property of the
-    embedding weights, not a structural guarantee -- unlike the permutation
-    check, which is expected to collide identically in every seed by
-    construction of mean pooling.
+    sensitivity`'s collision checks are now (Task A1-R005D-003: `default_
+    argument_encoder("SELECT", ...)` returns `apc.primitives.conditioning.
+    OrderPreservingIndexSetArgumentEncoder`, not the mean-pooled
+    `IndexSetArgumentEncoder` this module originally audited under ADR-0031)
+    an empirical property of the encoder's random self-attention weights
+    rather than a structural guarantee either way -- multiple seeds sample
+    that variation instead of asserting from a single draw.
     """
     position_domain = tuple(range(sequence_length_range[1]))
     vocab_domain = tuple(range(vocab_size))
@@ -413,7 +432,7 @@ def audit_phase_a1_default_argument_encoders(
             max_sequence_length=max_sequence_length,
             arg_dim=arg_dim,
         )
-        assert isinstance(encoder, IndexSetArgumentEncoder)
+        assert isinstance(encoder, OrderPreservingIndexSetArgumentEncoder)
         select_audits.append(audit_select_order_sensitivity(encoder))
 
     return ArgumentEncoderAuditReport(

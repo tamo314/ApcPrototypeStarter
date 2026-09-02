@@ -8,7 +8,14 @@ forced to collide, `SHIFT`/`COUNT`/`BIND` are confirmed injective on their
 real legal domains under Phase A.1's defaults, out-of-domain wraparound is
 confirmed reachable (intentional aliasing, `docs/DECISIONS.md` ADR-0028), a
 deliberately undersized bucket table *is* caught by the audit (regression
-safety net), and the STOP GATE guard raises for the current SELECT encoder.
+safety net), and the STOP GATE guard raises for the (still directly
+constructible, but no longer default) mean-pooled `IndexSetArgumentEncoder`.
+
+Update (Task A1-R005D-003): `default_argument_encoder("SELECT", ...)` now
+returns `apc.primitives.conditioning.OrderPreservingIndexSetArgumentEncoder`
+(`docs/DECISIONS.md` ADR-0032), which passes the STOP GATE guard -- covered
+by the tests at the bottom of this file re-auditing/re-gating the current
+default rather than the superseded mean-pooled one.
 """
 
 from __future__ import annotations
@@ -26,6 +33,7 @@ from apc.primitives.argument_encoder_audit import (
 from apc.primitives.conditioning import (
     IndexSetArgumentEncoder,
     IntBucketArgumentEncoder,
+    OrderPreservingIndexSetArgumentEncoder,
     default_argument_encoder,
 )
 
@@ -166,10 +174,17 @@ def test_phase_a1_audit_shift_count_bind_are_injective_on_their_real_domains() -
         assert audit.out_of_domain_probe.max_absolute_difference == 0.0
 
 
-def test_phase_a1_audit_select_collides_in_every_checked_seed() -> None:
+def test_phase_a1_audit_select_no_longer_collides_after_d003() -> None:
+    """Task A1-R005D-003 replaced `default_argument_encoder("SELECT", ...)`'s
+    mean-pooled `IndexSetArgumentEncoder` (ADR-0031's finding, which this
+    test originally asserted as `select_collision_present_in_every_seed`)
+    with the order-preserving encoder audited here as no longer colliding --
+    the intended, documented consequence of D-003 landing, not a regression."""
     report = audit_phase_a1_default_argument_encoders(select_seeds=(0, 1, 2))
-    assert report.select_collision_present_in_every_seed
-    assert report.structural_collisions_found
+    assert not report.select_collision_present_in_every_seed
+    for audit in report.select_audits:
+        assert audit.permutation_collisions == ()
+    assert not report.structural_collisions_found
 
 
 def test_phase_a1_default_sequence_length_range_matches_the_generators_own_default() -> None:
@@ -197,10 +212,20 @@ def test_phase_a1_audit_domains_match_operations_own_sample_params_ranges() -> N
     assert count_domain == tuple(range(DEFAULT_VOCAB_SIZE))
 
 
-def test_default_argument_encoder_select_still_produces_an_index_set_encoder() -> None:
-    """Sanity check that this audit is exercising the actual production
-    encoder, not a stand-in -- if A1-R005D-003 ever replaces
-    `IndexSetArgumentEncoder`, this test (and the audit's own findings)
-    should start failing/changing rather than silently testing stale code."""
+def test_default_argument_encoder_select_now_produces_an_order_preserving_encoder() -> None:
+    """A1-R005D-003 landed: `default_argument_encoder("SELECT", ...)` now
+    returns `OrderPreservingIndexSetArgumentEncoder`, not the mean-pooled
+    `IndexSetArgumentEncoder` this audit found non-injective (ADR-0031).
+    `IndexSetArgumentEncoder` itself is unchanged and still directly
+    constructible (see the tests above using it), just no longer reachable
+    through the default factory."""
     encoder = default_argument_encoder("SELECT")
-    assert isinstance(encoder, IndexSetArgumentEncoder)
+    assert isinstance(encoder, OrderPreservingIndexSetArgumentEncoder)
+    assert not isinstance(encoder, IndexSetArgumentEncoder)
+
+
+def test_default_argument_encoder_select_now_passes_the_stop_gate_guard() -> None:
+    """The STOP GATE `require_order_preserving_select_encoder` introduced by
+    A1-R005D-002 to refuse a known-non-injective SELECT encoder must not
+    raise for the production default any more."""
+    require_order_preserving_select_encoder(default_argument_encoder("SELECT"))
