@@ -1,6 +1,8 @@
 # A1-R005 Diagnostic and Retry Plan
 
-**Status:** active while A1-R005 STOP GATE is unresolved.
+**Status:** closed — negative diagnostic result after D-001 through D-008.
+D-009 was not run because preceding diagnostics produced no justified
+configuration for a meaningful final retry.
 
 ## Objective
 

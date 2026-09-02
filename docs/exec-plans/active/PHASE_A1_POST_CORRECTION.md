@@ -2,6 +2,9 @@
 
 **Starts after:** A1-C007 / correction audit.
 
+> A1-R006 remains blocked.
+> Active work is `docs/exec-plans/active/A1_R005E_DIAGNOSTIC.md`.
+
 ## Objective
 
 The correction phase proved shared-core conditional generalization, model-visible arguments, usable `z_task`, `PrimitiveCall`, and oracle routing plumbing.

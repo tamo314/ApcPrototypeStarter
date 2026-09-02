@@ -4,6 +4,13 @@ Execute exactly one task at a time.
 
 A1-R006 remains blocked until A1-R005D-009 passes.
 
+> A1-R005D-009 is intentionally skipped/superseded after D-001 through D-008
+> produced convergent negative evidence. Do not run the same final four-operation
+> retry without a new mechanistic hypothesis.
+>
+> Close the retry via A1-R005E-001 and continue with
+> `docs/CODEX_TASKS_A1_R005E_DIAGNOSTIC.md`.
+
 ---
 
 ## A1-R005D-001 — Re-analyze existing R005 artifacts
