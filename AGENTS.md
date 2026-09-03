@@ -85,7 +85,12 @@ Before changing architecture-level behavior, read these documents in order:
    - target workstation and compute constraints.
 
 9. `docs/DECISIONS.md`
-   - ADRs containing measured findings and architecture decisions.
+   - index of every ADR (measured findings and architecture decisions), split by
+     research phase into `docs/DECISIONS_PHASE_A.md`, `docs/DECISIONS_PHASE_A1.md`,
+     `docs/DECISIONS_PHASE_A1_CORRECTION.md`, `docs/DECISIONS_PHASE_A1_POST_CORRECTION.md`,
+     and `docs/DECISIONS_A1_R005E_DIAGNOSTIC.md` (active). ADR numbers are a single
+     global sequence and are never renumbered; append a new ADR to the active
+     phase's file and add one row to the index.
 
 10. `README.md`
     - repository setup, commands, and general project context.
@@ -636,9 +641,7 @@ Do not claim benchmark or hypothesis success without recorded results.
 
 ## Decision log
 
-If implementation or experiments reveal that an architecture assumption is wrong, underspecified, or impractical, add a concise ADR to:
-
-`docs/DECISIONS.md`
+If implementation or experiments reveal that an architecture assumption is wrong, underspecified, or impractical, add a concise ADR to the current active phase's file (see `docs/DECISIONS.md`'s index for which file that is, and the next unused `ADR-NNNN` number), then add one row to the index in `docs/DECISIONS.md` itself.
 
 Include:
 

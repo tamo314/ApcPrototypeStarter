@@ -126,7 +126,7 @@ PHASE_A.md` Milestone A9 -- at least two learn/consolidate/release cycles,
 one per novel operation (`SORT`, `REVERSE`) -- and writes `report.json` plus
 `plots/` (requires the `plots` optional dependency group, `pip install
 -e .[plots]`; pass `--no-plots` to skip it) into the run directory (Task
-012). See `docs/DECISIONS.md` ADR-0006 through ADR-0009 for load-bearing
+012). See `docs/DECISIONS_PHASE_A.md` ADR-0006 through ADR-0009 for load-bearing
 design choices and measured limitations behind this benchmark's defaults,
 in particular that the current dense core does not generalize known-op
 execution to unseen token content, so novelty/PLASTIC/shadow are all
@@ -140,7 +140,7 @@ per-event data, model size, and PLASTIC-equivalent training budget for
 every baseline -- writing each one's `report.json` under its own
 subdirectory of the run directory, a combined `summary.json`, and (unless
 `--no-plots`) cross-baseline comparison plots in `plots/` (Task 013). See
-`docs/DECISIONS.md` ADR-0010 through ADR-0012 for how the B1 fixed bank is
+`docs/DECISIONS_PHASE_A.md` ADR-0010 through ADR-0012 for how the B1 fixed bank is
 populated, why B2/B3 bypass the primitive bank/router entirely, and why B3
 has its own replay-weight config key instead of reusing consolidation's.
 
@@ -148,7 +148,7 @@ has its own replay-weight config key instead of reusing consolidation's.
 Core systematic-generalization gate (H1 in `docs/EXPERIMENT_PLAN_PHASE_A1.md`,
 a **STOP GATE**): trains a fresh Stable Core per `(operation, seed)` pair on
 online-generated examples of one deterministic known operation at a time --
-never a mixed pool, see `docs/DECISIONS.md` ADR-0020 -- with no primitive
+never a mixed pool, see `docs/DECISIONS_PHASE_A1.md` ADR-0020 -- with no primitive
 bank, router, plastic workspace, or consolidation involved, then evaluates
 exact match on a large held-out batch of unseen content. Writes one
 `<operation>/seed_<n>/metrics.jsonl` per pair plus a combined
@@ -242,5 +242,5 @@ checkpoint/
 - `docs/EXPERIMENT_PLAN.md` — experimental design and baselines.
 - `docs/HARDWARE_ENVIRONMENT.md` — target machine constraints.
 - `docs/TASKS.md` — issue-sized task queue.
-- `docs/DECISIONS.md` — architecture decision log.
+- `docs/DECISIONS.md` — architecture decision log index (split by research phase into `docs/DECISIONS_PHASE_A.md`, `docs/DECISIONS_PHASE_A1.md`, `docs/DECISIONS_PHASE_A1_CORRECTION.md`, `docs/DECISIONS_PHASE_A1_POST_CORRECTION.md`, `docs/DECISIONS_A1_R005E_DIAGNOSTIC.md`; ADR numbers are one global sequence across all of them).
 - `docs/research/REFERENCES.md` — existing research relevant to APC.
