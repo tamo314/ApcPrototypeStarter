@@ -1,0 +1,72 @@
+# Phase A.1 diagnostic Task A1-R005E-006A (docs/CODEX_TASKS_A1_R005E_E006_PLUS.md):
+# Joint task-blind representation + compact operator probe. Per seed, per
+# operation in operation_names (default SELECT/COUNT/SHIFT/BIND):
+#   1. construct ONE fresh, unfrozen, task-blind Stable Core (apc.evaluation.
+#      joint_representation_compact_operator_probe._build_joint_core) --
+#      IDENTICAL model architecture to A1-R005E-002/003/004/005's own frozen
+#      core, but never frozen and never separately pretrained;
+#   2. jointly train that core with one dedicated apc.evaluation.
+#      compact_cross_position_operator_probe.CompactCrossPositionOperator
+#      (A1-R005E-005's own compact operator class and dimensions, unchanged)
+#      on counterfactual argument groups -- the operator's own downstream
+#      loss is the encoder's only training signal;
+#   3. evaluate Correct / effectful Wrong argument / None on a large unseen
+#      batch of counterfactual groups, derive the causal gap, and compute
+#      R_access against A1-R005E-004's/005's own saved summary.json files.
+#
+# Reused acceptance targets (same convention A1-R005E-005 used, reusing
+# A1-R005E-004's): Correct exact match >= 0.90; SHIFT/SELECT token accuracy
+# >= 0.98; effectful Wrong argument exact match <= 0.30; causal gap >= 0.50.
+# This task states no separate numeric targets of its own -- its own
+# "positive evidence" is the qualitative R_access diagnostic, computed by
+# this run against docs/DECISIONS.md's ADR-0041/ADR-0042 measured values,
+# not gated by strict pass/fail here.
+#
+# joint_train.steps=38000 is the SUM of A1-R005E-005's own two-phase budget
+# (core_train.steps=30000 + operator_train.steps=8000) -- see
+# src/apc/evaluation/joint_representation_compact_operator_probe.py's module
+# docstring for why there is no separate core-pretraining phase here and why
+# the combined budget is reused rather than shrunk.
+#
+# 5 seeds x 4 operations, each jointly training a fresh encoder + compact
+# operator for 38000 steps -- an explicit milestone experiment (AGENTS.md
+# "Multi-hour sweeps must be explicit milestone experiments"), not a default
+# test.
+seeds: [0, 1, 2, 3, 4]
+
+vocab_size: 10
+sequence_length_range: [6, 10]
+operation_names: [SHIFT, SELECT, COUNT, BIND]
+group_size: 3
+
+model:
+  d_model: 192
+  n_layer: 4
+  n_head: 4
+  d_ff: 768
+  max_seq_len: 48
+  dropout: 0.0
+
+device: auto
+
+# CompactCrossPositionOperator architecture: identical to
+# configs/phase_a1_compact_cross_position_operator_probe.yaml (A1-R005E-006A's
+# own "Critical control": "Reuse the same compact operator class and
+# dimensions as E-005. Do not make the operator stronger.").
+d_operator: 32
+n_operator_head: 4
+d_operator_ff: 64
+arg_dim: 16
+max_sequence_length: 32
+
+joint_train:
+  steps: 38000
+  batch_size: 128
+  lr: 0.0003
+  weight_decay: 0.01
+  grad_clip: 1.0
+  eval_every: 2000
+  progress_eval_examples: 128
+
+num_unseen_eval_groups: 1400
+min_unseen_eval_examples: 1024

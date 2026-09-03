@@ -4,6 +4,9 @@ Execute exactly one task at a time.
 
 A1-R006 remains blocked.
 
+> After A1-R005E-005, use `docs/CODEX_TASKS_A1_R005E_E006_PLUS.md`.
+> The older E-006/E-007/E-008 definitions are superseded but remain historical.
+
 ---
 
 ## A1-R005E-001 — Close the R005 retry

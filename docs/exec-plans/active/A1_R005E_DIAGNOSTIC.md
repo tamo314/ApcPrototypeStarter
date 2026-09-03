@@ -2,6 +2,9 @@
 
 **Status:** active after closing A1-R005 Retry D-001 through D-008 as a negative diagnostic result.
 
+> E-006 onward was revised after ADR-0042.
+> Continue with `docs/exec-plans/active/A1_R005E_E006_PLUS.md`.
+
 ## Objective
 
 Determine whether the next architecture phase should focus on:

@@ -35,15 +35,24 @@ from:
 `docs/CODEX_TASKS_PHASE_A1_POST_CORRECTION.md`
 
 > **A1-R006 remains blocked.** A1-R005 and its retry (D-001 through D-008)
-> produced a negative diagnostic result. Before any A1-R006+ work, read and
-> follow the active diagnostic queue/plan:
+> produced a negative diagnostic result, and A1-R005E-001 through A1-R005E-005
+> produced a mixed result (ADR-0042). E-006 onward was revised after
+> ADR-0042 -- before any A1-R006+ work, read and follow the active revised
+> diagnostic queue/plan:
 >
-> 1. `docs/exec-plans/active/A1_R005E_DIAGNOSTIC.md`
-> 2. `docs/CODEX_TASKS_A1_R005E_DIAGNOSTIC.md`
-> 3. `docs/EXPERIMENT_PLAN_A1_R005E_DIAGNOSTIC.md`
-> 4. `docs/design-docs/REPRESENTATION_OPERATOR_ISOLATION.md`
-> 5. `docs/design-docs/NEXT_PHASE_DECISION_MATRIX.md`
-> 6. `docs/AGENTS_A1_R005E_DIAGNOSTIC_ADDENDUM.md`
+> 1. `docs/exec-plans/active/A1_R005E_E006_PLUS.md`
+> 2. `docs/CODEX_TASKS_A1_R005E_E006_PLUS.md`
+> 3. `docs/EXPERIMENT_PLAN_A1_R005E_E006_PLUS.md`
+> 4. `docs/design-docs/REPRESENTATION_OPERATOR_FACTORIAL.md`
+> 5. `docs/AGENTS_A1_R005E_E006_PLUS_ADDENDUM.md`
+>
+> The earlier `docs/exec-plans/active/A1_R005E_DIAGNOSTIC.md` /
+> `docs/CODEX_TASKS_A1_R005E_DIAGNOSTIC.md` /
+> `docs/EXPERIMENT_PLAN_A1_R005E_DIAGNOSTIC.md` /
+> `docs/design-docs/REPRESENTATION_OPERATOR_ISOLATION.md` /
+> `docs/design-docs/NEXT_PHASE_DECISION_MATRIX.md` /
+> `docs/AGENTS_A1_R005E_DIAGNOSTIC_ADDENDUM.md` set (A1-R005E-001 through
+> A1-R005E-005) remains historical reference -- do not delete or rewrite it.
 >
 > Do not begin A1-R006 until the user approves a branch from the final
 > diagnostic decision report.
