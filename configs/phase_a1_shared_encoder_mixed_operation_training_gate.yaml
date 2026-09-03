@@ -1,0 +1,69 @@
+# Phase A.1 diagnostic Task A1-R005E-S002
+# (docs/CODEX_TASKS_A1_R005E_SHARED_ENCODER_GATE.md): Balanced mixed-operation
+# training gate. Per seed: build the A1-R005E-S001 shared-encoder
+# architecture (one fresh, unfrozen, task-blind content encoder plus one
+# dedicated CompactCrossPositionOperator per operation), then jointly train
+# the WHOLE architecture with one optimizer over a single interleaved
+# training loop: each step draws a counterfactual-group batch for one
+# operation (balanced 25/25/25/25 by default, exactly realized via
+# operation_sample_weights) and backprops through the shared encoder plus
+# that step's own selected operator.
+#
+# joint_train.steps=152000 = 4 operations x A1-R005E-006A's own per-operator
+# 38000-step budget, so each operator here ends up with the SAME number of
+# its own update steps as its A1-R005E-006A counterpart (see
+# src/apc/evaluation/shared_encoder_mixed_operation_training_gate.py's module
+# docstring, "Why joint_train.steps defaults to 152000"). Total gradient
+# steps across 5 seeds (5 x 152000 = 760000) matches A1-R005E-006A's own
+# total (5 seeds x 4 operations x 38000 steps = 760000), so wall-clock is
+# expected to be close to A1-R005E-006A's own measured ~3h29m on the same
+# RTX 5060 Ti (docs/DECISIONS_A1_R005E_DIAGNOSTIC.md ADR-0043) -- an explicit
+# milestone experiment (AGENTS.md "Multi-hour sweeps must be explicit
+# milestone experiments"), not a default test.
+seeds: [0, 1, 2, 3, 4]
+
+vocab_size: 10
+sequence_length_range: [6, 10]
+operation_names: [SHIFT, SELECT, COUNT, BIND]
+group_size: 3
+
+model:
+  d_model: 192
+  n_layer: 4
+  n_head: 4
+  d_ff: 768
+  max_seq_len: 48
+  dropout: 0.0
+
+device: auto
+
+# CompactCrossPositionOperator architecture: identical to
+# configs/phase_a1_shared_encoder_architecture_gate.yaml /
+# configs/phase_a1_joint_representation_compact_operator_probe.yaml (this
+# task trains A1-R005E-S001's own architecture unchanged, it does not
+# redesign it).
+d_operator: 32
+n_operator_head: 4
+d_operator_ff: 64
+arg_dim: 16
+max_sequence_length: 32
+
+# Balanced 25/25/25/25 default (docs/EXPERIMENT_PLAN_A1_R005E_SHARED_ENCODER_
+# GATE.md section 3) realized exactly via equal integer weights.
+operation_sample_weights:
+  SHIFT: 1
+  SELECT: 1
+  COUNT: 1
+  BIND: 1
+
+joint_train:
+  steps: 152000
+  batch_size: 128
+  lr: 0.0003
+  weight_decay: 0.01
+  grad_clip: 1.0
+  eval_every: 8000
+  progress_eval_examples: 128
+
+num_unseen_eval_groups: 1400
+min_unseen_eval_examples: 1024
