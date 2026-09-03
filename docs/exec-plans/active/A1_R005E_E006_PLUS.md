@@ -2,6 +2,10 @@
 
 **Starts after:** A1-R005E-005 / ADR-0042.
 
+> ADR-0043 strongly supports representation accessibility, but
+> operation-specific encoder weights remain a confound.
+> Continue with `docs/exec-plans/active/A1_R005E_SHARED_ENCODER_GATE.md`.
+
 ## Objective
 
 Resolve the mixed E-005 result by isolating representation accessibility from compact operator expressivity.

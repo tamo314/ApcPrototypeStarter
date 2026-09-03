@@ -46,6 +46,16 @@ from:
 > 4. `docs/design-docs/REPRESENTATION_OPERATOR_FACTORIAL.md`
 > 5. `docs/AGENTS_A1_R005E_E006_PLUS_ADDENDUM.md`
 >
+> After A1-R005E-006A / ADR-0043, before E-006B or any Branch-B commitment,
+> also read the active shared queryable representation gate (temporary
+> read-first pointers pending completion of that gate):
+>
+> 6. `docs/exec-plans/active/A1_R005E_SHARED_ENCODER_GATE.md`
+> 7. `docs/CODEX_TASKS_A1_R005E_SHARED_ENCODER_GATE.md`
+> 8. `docs/EXPERIMENT_PLAN_A1_R005E_SHARED_ENCODER_GATE.md`
+> 9. `docs/design-docs/SHARED_QUERYABLE_REPRESENTATION.md`
+> 10. `docs/AGENTS_A1_R005E_SHARED_ENCODER_ADDENDUM.md`
+>
 > The earlier `docs/exec-plans/active/A1_R005E_DIAGNOSTIC.md` /
 > `docs/CODEX_TASKS_A1_R005E_DIAGNOSTIC.md` /
 > `docs/EXPERIMENT_PLAN_A1_R005E_DIAGNOSTIC.md` /

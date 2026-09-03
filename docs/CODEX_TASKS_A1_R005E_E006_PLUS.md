@@ -4,6 +4,9 @@ Execute exactly one task at a time.
 
 A1-R006 remains blocked.
 
+> Before E-006B or a Branch-B commitment, execute
+> `docs/CODEX_TASKS_A1_R005E_SHARED_ENCODER_GATE.md`.
+
 ---
 
 ## A1-R005E-006A — Joint task-blind representation + unchanged compact operator

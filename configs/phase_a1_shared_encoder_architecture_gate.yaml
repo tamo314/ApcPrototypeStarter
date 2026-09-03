@@ -1,0 +1,44 @@
+# Phase A.1 diagnostic Task A1-R005E-S001
+# (docs/CODEX_TASKS_A1_R005E_SHARED_ENCODER_GATE.md): Shared queryable
+# representation architecture wiring gate. Per seed: construct exactly ONE
+# fresh, unfrozen, task-blind content encoder (same architecture every
+# module in this diagnostic chain has used) plus one dedicated
+# apc.evaluation.compact_cross_position_operator_probe.CompactCrossPositionOperator
+# per operation (SHIFT/SELECT/COUNT/BIND, A1-R005E-005/006A's own class and
+# dimensions, unchanged), all reading from that one shared encoder, then
+# check the architecture invariants the task's own "Tests" section names.
+#
+# No milestone benchmark is run here (task Acceptance: "No milestone
+# benchmark yet") -- this is a fast structural gate, not a training run. The
+# balanced mixed-operation training gate that actually trains this
+# architecture is A1-R005E-S002, not this task.
+seeds: [0, 1, 2, 3, 4]
+
+vocab_size: 10
+sequence_length_range: [6, 10]
+operation_names: [SHIFT, SELECT, COUNT, BIND]
+group_size: 3
+
+model:
+  d_model: 192
+  n_layer: 4
+  n_head: 4
+  d_ff: 768
+  max_seq_len: 48
+  dropout: 0.0
+
+device: auto
+
+# CompactCrossPositionOperator architecture: identical to
+# configs/phase_a1_compact_cross_position_operator_probe.yaml /
+# configs/phase_a1_joint_representation_compact_operator_probe.yaml (Work
+# item 1: "Reuse E-006A compact operator architecture unchanged").
+d_operator: 32
+n_operator_head: 4
+d_operator_ff: 64
+arg_dim: 16
+max_sequence_length: 32
+
+num_probe_groups: 32
+min_probe_examples: 48
+atol: 1.0e-5
