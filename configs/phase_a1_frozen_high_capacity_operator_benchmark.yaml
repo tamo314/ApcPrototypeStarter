@@ -1,0 +1,74 @@
+# Phase A.1 diagnostic Task A1-R005E-004 (docs/CODEX_TASKS_A1_R005E_DIAGNOSTIC.md):
+# Frozen high-capacity operator upper bound. Per seed, per operation in
+# operation_names (default SELECT/COUNT/SHIFT/BIND):
+#   1. pretrain and freeze ONE dedicated, task-blind, single-operation Stable
+#      Core (apc.evaluation.shared_core_generalization.train_shared_core,
+#      include_task_spec=False) -- IDENTICAL model/core_train budget to
+#      configs/phase_a1_representation_audit.yaml /
+#      phase_a1_oracle_latent_operator_benchmark.yaml, so this tests the
+#      same frozen h_content that phase is auditing;
+#   2. train one dedicated apc.evaluation.frozen_high_capacity_operator_
+#      benchmark.HighCapacityOperator (2-4 self-attention blocks, argument
+#      enters the operator only) on counterfactual argument groups;
+#   3. evaluate Correct / effectful Wrong argument / None on a large unseen
+#      batch of counterfactual groups, and derive the causal gap.
+#
+# Acceptance targets (docs/CODEX_TASKS_A1_R005E_DIAGNOSTIC.md A1-R005E-004):
+# Correct exact match >= 0.90; SHIFT/SELECT token accuracy >= 0.98;
+# effectful Wrong argument exact match <= 0.30; causal gap >= 0.50.
+# apc.evaluation.frozen_high_capacity_operator_benchmark computes
+# per-operation and overall PASS/FAIL verdicts on the cross-seed mean,
+# matching every other Phase A.1 primitive gate's own convention.
+#
+# 5 seeds x 4 operations, each pretraining a fresh 30000-step Stable Core
+# plus an 8000-step operator -- an explicit milestone experiment (AGENTS.md
+# "Multi-hour sweeps must be explicit milestone experiments"), not a default
+# test.
+seeds: [0, 1, 2, 3, 4]
+
+vocab_size: 10
+sequence_length_range: [6, 10]
+operation_names: [SHIFT, SELECT, COUNT, BIND]
+group_size: 3
+
+model:
+  d_model: 192
+  n_layer: 4
+  n_head: 4
+  d_ff: 768
+  max_seq_len: 48
+  dropout: 0.0
+
+core_train:
+  steps: 30000
+  batch_size: 128
+  lr: 0.0003
+  weight_decay: 0.01
+  grad_clip: 1.0
+  eval_every: 2000
+  progress_eval_examples: 256
+  device: auto
+
+# HighCapacityOperator architecture: "2-4 attention/Transformer blocks,
+# sufficient width" (docs/CODEX_TASKS_A1_R005E_DIAGNOSTIC.md A1-R005E-004's
+# own "Suggested"), wider than the d_model=192 core -- diagnostic upper
+# bound only, no primitive-scale parameter limit applies (docs/
+# AGENTS_A1_R005E_DIAGNOSTIC_ADDENDUM.md "Diagnostic-only rule").
+d_operator: 256
+n_operator_layers: 3
+n_operator_head: 4
+d_operator_ff: 1024
+arg_dim: 16
+max_sequence_length: 32
+
+operator_train:
+  steps: 8000
+  batch_size: 128
+  lr: 0.0003
+  weight_decay: 0.01
+  grad_clip: 1.0
+  eval_every: 1000
+  progress_eval_examples: 128
+
+num_unseen_eval_groups: 1400
+min_unseen_eval_examples: 1024
