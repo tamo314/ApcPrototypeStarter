@@ -1,0 +1,56 @@
+# Phase A.1 diagnostic Task A1-R005E-003 (docs/CODEX_TASKS_A1_R005E_DIAGNOSTIC.md):
+# Oracle latent operator benchmark. Per seed, per operation in
+# operation_names (default SELECT/COUNT/SHIFT/BIND):
+#   1. pretrain and freeze ONE dedicated, task-blind, single-operation Stable
+#      Core (apc.evaluation.shared_core_generalization.train_shared_core,
+#      include_task_spec=False) -- IDENTICAL model/core_train budget to
+#      configs/phase_a1_representation_audit.yaml /
+#      phase_a1_count_counterfactual_gate.yaml / phase_a1_bind_
+#      counterfactual_gate.yaml / phase_a1_shift_counterfactual_gate.yaml /
+#      phase_a1_select_counterfactual_gate.yaml, so this reproduces the
+#      retry's own frozen checkpoints exactly (module docstring, "Four
+#      checkpoints, not one");
+#   2. for SHIFT/SELECT/BIND: zero-training oracle-addressed re-routing of
+#      the frozen core's own pretrained decode head (module docstring, "Zero
+#      new training for SHIFT/SELECT/BIND");
+#   3. for COUNT: a small trained diagnostic linear readout over oracle-
+#      located matched-position hidden states (module docstring, "COUNT is
+#      different in kind").
+#
+# Acceptance targets (docs/CODEX_TASKS_A1_R005E_DIAGNOSTIC.md A1-R005E-003):
+# SHIFT/SELECT/BIND exact match >= 0.90 and token accuracy >= 0.98; COUNT
+# exact match >= 0.90. apc.evaluation.oracle_latent_operator_benchmark
+# computes per-operation and overall PASS/FAIL verdicts on the cross-seed
+# mean, matching every other Phase A.1 primitive gate's own convention.
+seeds: [0, 1, 2]
+
+vocab_size: 10
+sequence_length_range: [6, 10]
+operation_names: [SHIFT, SELECT, COUNT, BIND]
+
+model:
+  d_model: 192
+  n_layer: 4
+  n_head: 4
+  d_ff: 768
+  max_seq_len: 48
+  dropout: 0.0
+
+core_train:
+  steps: 30000
+  batch_size: 128
+  lr: 0.0003
+  weight_decay: 0.01
+  grad_clip: 1.0
+  eval_every: 2000
+  progress_eval_examples: 256
+  device: auto
+
+num_eval_examples: 2048
+
+count_readout_train:
+  steps: 800
+  lr: 0.03
+  weight_decay: 0.0
+
+num_count_readout_train_examples: 4096
