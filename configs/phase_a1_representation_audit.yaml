@@ -1,0 +1,53 @@
+# Phase A.1 diagnostic Task A1-R005E-002 (docs/CODEX_TASKS_A1_R005E_DIAGNOSTIC.md):
+# Frozen h_content information audit. Per seed, per operation in
+# operation_names (default SHIFT/SELECT/COUNT/BIND):
+#   1. pretrain and freeze ONE dedicated, task-blind, single-operation Stable
+#      Core (apc.evaluation.shared_core_generalization.train_shared_core,
+#      include_task_spec=False) -- IDENTICAL model/core_train budget to
+#      configs/phase_a1_count_counterfactual_gate.yaml /
+#      phase_a1_bind_counterfactual_gate.yaml /
+#      phase_a1_shift_counterfactual_gate.yaml / phase_a1_select_
+#      counterfactual_gate.yaml, so this reproduces the retry's own frozen
+#      checkpoints exactly (module docstring, "Four checkpoints, not one");
+#   2. draw fresh probe-train/probe-eval batches from that core's own
+#      generator;
+#   3. fit small linear probes on the frozen h_content: token identity,
+#      absolute position, full content-sequence reconstruction (from the
+#      [SEP]-position summary state), and -- BIND only -- key/value role and
+#      key/paired-value adjacency.
+#
+# Diagnostic only (docs/EXPERIMENT_PLAN_A1_R005E_DIAGNOSTIC.md D-E1): no
+# STOP GATE verdict. *_DESIRABLE_THRESHOLD constants in apc.evaluation.
+# representation_audit are surfaced as informational *_meets_threshold
+# booleans per report.
+seeds: [0, 1, 2]
+
+vocab_size: 10
+sequence_length_range: [6, 10]
+operation_names: [SHIFT, SELECT, COUNT, BIND]
+
+model:
+  d_model: 192
+  n_layer: 4
+  n_head: 4
+  d_ff: 768
+  max_seq_len: 48
+  dropout: 0.0
+
+core_train:
+  steps: 30000
+  batch_size: 128
+  lr: 0.0003
+  weight_decay: 0.01
+  grad_clip: 1.0
+  eval_every: 2000
+  progress_eval_examples: 256
+  device: auto
+
+probe_train:
+  steps: 800
+  lr: 0.03
+  weight_decay: 0.0
+
+num_probe_train_examples: 4096
+num_probe_eval_examples: 2048
