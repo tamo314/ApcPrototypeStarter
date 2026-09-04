@@ -1,0 +1,31 @@
+# Task A1-B007X-002: Novel-Task and Capacity-Ladder Harness Configuration
+seed: 0
+vocab_size: 10
+sequence_length_range:
+  - 6
+  - 10
+group_size: 3
+device: auto
+
+novel_operations:
+  - SWAP_PAIRS
+  - INVERT_HALF
+  - ROTATE_TRIPLETS
+
+tiers_to_audit:
+  - T0_compact
+  - T1_medium
+  - T2_overcomplete
+  - T3_extra_large
+
+novelty_em_threshold: 0.20
+min_compression_ratio: 4.0
+
+num_eval_examples: 200
+num_trial_train_examples: 400
+trial_train_steps: 200
+batch_size: 32
+
+core_train_steps: 6000
+bank_train_steps: 6000
+shared_encoder_checkpoint: runs/phase_a1_consolidation_benchmark/seed_0/shared_encoder.pt

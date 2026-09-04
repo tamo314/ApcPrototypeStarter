@@ -469,3 +469,38 @@ register_operation(SwapPairsOp())
 register_operation(InvertHalfOp())
 BRANCH_B_NOVEL_OPERATION_NAMES: tuple[str, ...] = ("SWAP_PAIRS", "INVERT_HALF")
 
+
+class RotateTripletsOp(Operation):
+    """Rotate elements within 3-token chunks cyclically: (x0, x1, x2) -> (x1, x2, x0).
+
+    Discovery compression novel operation (Task A1-B007X-002): exercises local
+    chunk permutation unsolvable by global SHIFT, REVERSE, or pointwise operations.
+    """
+
+    name = "ROTATE_TRIPLETS"
+    min_input_length = 3
+
+    def output_length(self, input_length: int) -> int:
+        return input_length
+
+    def sample_params(
+        self, rng: random.Random, sequence: tuple[int, ...], vocab_size: int
+    ) -> dict[str, Any]:
+        return {}
+
+    def apply(
+        self, sequence: tuple[int, ...], vocab_size: int, params: dict[str, Any]
+    ) -> tuple[int, ...]:
+        res = list(sequence)
+        for i in range(0, len(res) - 2, 3):
+            res[i], res[i + 1], res[i + 2] = res[i + 1], res[i + 2], res[i]
+        return tuple(res)
+
+
+register_operation(RotateTripletsOp())
+DISCOVERY_COMPRESSION_NOVEL_OPERATION_NAMES: tuple[str, ...] = (
+    "SWAP_PAIRS",
+    "INVERT_HALF",
+    "ROTATE_TRIPLETS",
+)
+

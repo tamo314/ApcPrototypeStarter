@@ -653,3 +653,71 @@ Before evaluating hypothesis $C_{\text{discover}} > C_{\text{represent}}$ in the
 - Successfully satisfies Task A1-B007X-001.
 - Authorizes Task A1-B007X-002 (Novel-task and capacity-ladder harness).
 - Decision artifacts: `runs/phase_a1_consolidation_shadow_audit/` (`report.json`, `summary.json`, `system.json`, `config.yaml`, `seed_<0-4>/`). New modules: `src/apc/evaluation/consolidation_shadow_audit.py`, `scripts/consolidation_shadow_audit.py`, `configs/phase_a1_consolidation_shadow_audit.yaml`, `tests/test_consolidation_shadow_audit.py`.
+
+---
+
+## ADR-0054: Novel-Task Calibration Verifies Zero Bank/Composition Recovery and Matched-Topology Capacity Ladder Establishes Discovery Protocol
+
+**Date:** 2026-09-04
+**Status:** Accepted (Task A1-B007X-002 Passed)
+
+**Decision:**
+Approve Task A1-B007X-002 (Novel-task and capacity-ladder harness).
+1. Define and register 3 deterministic novel operations:
+   - `SWAP_PAIRS`: pairwise adjacent token transposition $(x_0, x_1, x_2, x_3, \dots) \to (x_1, x_0, x_3, x_2, \dots)$.
+   - `INVERT_HALF`: modular negation of first sequence half, preserving second half.
+   - `ROTATE_TRIPLETS`: cyclic rotation within 3-token chunks $(x_0, x_1, x_2, x_3, x_4, x_5, \dots) \to (x_1, x_2, x_0, x_4, x_5, x_3, \dots)$.
+2. Empirically verify that existing frozen bank primitives (all 8 canonical operations) and depth-2 composition search fail completely on all 3 novel operations:
+   - `SWAP_PAIRS`: Best bank EM = 0.0000, Best composition EM = 0.0000 (threshold < 0.2000).
+   - `INVERT_HALF`: Best bank EM = 0.0000, Best composition EM = 0.0000 (threshold < 0.2000).
+   - `ROTATE_TRIPLETS`: Best bank EM = 0.0000, Best composition EM = 0.0000 (threshold < 0.2000).
+3. Implement and audit a matched-topology temporary capacity ladder via pure width scaling of a single-layer Cross-Position Attention + FFN operator (`CrossPositionPrimitive`), eliminating structural topology confounds:
+   - **T0 (Compact Control):** $d_{\text{op}}=32, d_{\text{ff}}=64, n_{\text{head}}=4 \implies \mathbf{17,098}$ parameters ($1.000\times$, candidate budget $\le 25\text{k}$).
+   - **T1 (Medium):** $d_{\text{op}}=64, d_{\text{ff}}=256, n_{\text{head}}=4 \implies \mathbf{67,082}$ parameters ($3.923\times$).
+   - **T2 (Overcomplete):** $d_{\text{op}}=96, d_{\text{ff}}=384, n_{\text{head}}=6 \implies \mathbf{137,482}$ parameters ($8.041\times$, satisfying $\ge 4.0\times$ overcomplete requirement).
+   - **T3 (Extra-Large, optional):** $d_{\text{op}}=128, d_{\text{ff}}=512, n_{\text{head}}=8 \implies \mathbf{232,458}$ parameters ($13.596\times$).
+4. Mathematically verify no oracle leakage: content representation $h_{\text{content}} = f(\text{content})$ is invariant across tasks ($L_{\infty} \le 10^{-6}$), and inference uses no oracle metadata.
+5. Validate the common data generation, training loop, early stopping, and multi-metric accounting infrastructure via trial training: T2 reaches 0.95 EM in 100 steps (50% of T0's 200 steps).
+6. Authorize Task A1-B007X-003 (Temporary discovery capacity sweep across $\ge 5$ seeds).
+
+**Context:**
+To test the APC central hypothesis $\mathcal{C}_{\text{discover}} > \mathcal{C}_{\text{represent}}$ (whether computation discovery benefits from substantially larger temporary capacity than persistent candidate capacity), Task A1-B007X-002 establishes the controlled harness:
+- Candidate tasks must be genuinely unrepresented by existing bank primitives or compositions.
+- Capacity scaling must isolate capacity from topology (preventing depth or attention mechanism variations from confounding discovery speed).
+- Data splits, optimizers, and stopping rules must be strictly matched across tiers.
+
+**Measured Evidence (Seed 0; RTX 5060 Ti 16 GB; `runs/phase_a1_discovery_capacity_harness/`):**
+
+### 1. Novelty Calibration (X2 Calibration)
+
+| Novel Operation | Best Bank Primitive | Best Bank EM | Best Composition Recipe | Best Comp EM | Combined Best EM | Threshold ($\le 0.20$) | Status |
+|---|---|---|---|---|---|---|---|
+| **SWAP_PAIRS** | `SELECT` | 0.0000 | `COPY` | 0.0000 | **0.0000** | $< 0.2000$ | **PASS** |
+| **INVERT_HALF** | `SELECT` | 0.0000 | `COPY` | 0.0000 | **0.0000** | $< 0.2000$ | **PASS** |
+| **ROTATE_TRIPLETS** | `SELECT` | 0.0000 | `COPY` | 0.0000 | **0.0000** | $< 0.2000$ | **PASS** |
+
+### 2. Capacity Ladder Audit & Topology Specifications
+
+| Tier | Role | Dimensions ($d_{\text{op}}, d_{\text{ff}}, n_{\text{head}}$) | Expected Params | Measured Params | Ratio to T0 | Requirement | Status |
+|---|---|---|---|---|---|---|---|
+| **T0** | Compact Control | $32, 64, 4$ | 17,098 | **17,098** | $1.000\times$ | $\le 25,000$ | **PASS** |
+| **T1** | Medium | $64, 256, 4$ | 67,082 | **67,082** | $3.923\times$ | ~64k | **PASS** |
+| **T2** | Overcomplete | $96, 384, 6$ | 137,482 | **137,482** | $\mathbf{8.041\times}$ | $\ge 4.0\times$ T0 | **PASS** |
+| **T3** | Extra-Large | $128, 512, 8$ | 232,458 | **232,458** | $13.596\times$ | optional ~256k | **PASS** |
+
+### 3. Oracle Leakage & Data Protocol Verification
+- **Oracle Leakage Check:** $\max |h_{\text{copy}} - h_{\text{novel}}| = 0.0000 \le 10^{-6}$ -> **PASS**
+- **Trial Protocol Convergence:**
+  - **T0 Compact:** Final EM = 0.9500, steps to 0.95 = 200, loss = 0.0550.
+  - **T2 Overcomplete:** Final EM = 0.9600, steps to 0.95 = 100, loss = 0.0366.
+- **Overall Harness Status:** **PASS**
+
+**Reason:**
+1. **Topology Invariance:** Scaling $d_{\text{operator}}$ and $d_{\text{operator\_ff}}$ while retaining the exact single-layer Cross-Position Attention architecture guarantees that any learning advantage observed in A1-B007X-003 is purely a function of capacity width, not architectural depth or inductive bias differences.
+2. **Absolute Novelty Baseline:** Verifying $\text{EM} = 0.0000$ confirms that none of the 3 candidate operations can be bypassed by existing primitives or compositions, guaranteeing a clean discovery test bed.
+3. **Reproducible Protocol:** Standardized data generation, early stopping, and metric accounting eliminate methodological drift across experimental stages.
+
+**Consequence:**
+- Successfully satisfies Task A1-B007X-002.
+- Authorizes Task A1-B007X-003 (Temporary discovery capacity sweep).
+- Decision artifacts: `runs/phase_a1_discovery_capacity_harness/` (`report.json`, `summary.json`, `system.json`, `config.yaml`, `shared_encoder.pt`). New modules: `src/apc/evaluation/discovery_capacity_harness.py`, `scripts/discovery_capacity_harness.py`, `configs/phase_a1_discovery_capacity_harness.yaml`, `tests/test_discovery_capacity_harness.py`.
