@@ -488,3 +488,51 @@ The benchmark evaluates 5 seeds (`0, 1, 2, 3, 4`) on held-out test data across t
 - Successfully clears STOP GATE A1-B005.
 - Authorizes Task A1-B006 (Functional Consolidation & Shadow Validation).
 - Decision artifacts: `runs/phase_a1_plastic_workspace_benchmark/` (`report.json`, `summary.json`, `system.json`, `config.yaml`, `seed_<0-4>/`). New modules: `src/apc/plastic/residual.py`, `src/apc/evaluation/plastic_workspace_benchmark.py`, `scripts/plastic_workspace_benchmark.py`, `tests/test_plastic_workspace_residual.py`.
+
+---
+
+## ADR-0051: Functional Consolidation and Shadow Validation Successfully Compresses Plastic Solutions with Zero Historical Degradation and 100% Capacity Release
+
+**Date:** 2026-09-04
+**Status:** Accepted (Milestone Gate B-M6 / Task A1-B006 Passed, STOP GATE Passed)
+
+**Decision:**
+Approve Task A1-B006 (Functional Consolidation & Shadow Validation: Milestone B-M6). Temporary plastic solutions from `PlasticWorkspace` are successfully distilled into standalone compact candidate primitives (`CrossPositionPrimitive`, 17,098 parameters $\le 25\text{k}$ budget) over the single frozen task-blind Stable Core. Across 5 seeds (`0, 1, 2, 3, 4`), the consolidated candidates achieve **99.25% overall mean exact match** on held-out test data, achieving **103.16% retention of temporary plastic performance** (threshold $\ge 95.0\%$; `SWAP_PAIRS`: 100.0%, `INVERT_HALF`: 98.50%). Shadow validation verifies **zero degradation on historical canonical bank tasks (0.00% forgetting**, threshold $\le 2.0\%$). Upon validation pass, candidates are installed into the persistent `PrimitiveBank` (expanding bank size from 8 to 9 to 10), and temporary capacity is **100% released from `PlasticWorkspace` (0 parameters remaining)**. All freeze invariants hold strictly. Authorize Task A1-B007 (Recurrence and Bank Reuse).
+
+**Context:**
+Task A1-B006 evaluates the functional consolidation and shadow validation milestone (B-M6) for Phase A.1 Branch B Integration. Following `docs/CODEX_TASKS_PHASE_A1_BRANCH_B_INTEGRATION.md` and `docs/design-docs/PHASE_A1_ARCHITECTURE_DELTA.md` section 8, temporary plastic capacity is transient. Newly adapted computation must be distilled into a persistent compact primitive candidate and rigorously validated before promotion:
+1. **Retention Criterion:** Candidate primitive must achieve $\ge 95.0\%$ of the temporary plastic solution's exact match on held-out evaluation data ($M_{\text{cand}} / M_{\text{temp}} \ge 0.95$).
+2. **Historical Invariant Criterion:** Shadow evaluation against canonical bank tasks must show zero material interference ($\le 2.0\%$ forgetting).
+3. **100% Capacity Release:** Upon promotion, all temporary parameters in `PlasticWorkspace` must be completely released, transitioning the architecture back to zero active plastic overhead.
+4. **Conditional Safety:** If shadow validation were to fail, candidate promotion must be aborted and temporary capacity preserved as a fallback.
+
+**Measured Evidence (5 seeds: 0, 1, 2, 3, 4; RTX 5060 Ti 16 GB):**
+
+| Operation | Base Recipe | Temp EM | Cand EM | Retention Ratio | Bank Installed EM | Shadow Agreement | Hist. Baseline | Hist. After | Hist. Forgetting | Temp Params Released | Status |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| **SWAP_PAIRS** | `COPY` (all seeds) | 0.9980 | **1.0000** | **1.0020 (100.2%)** | **1.0000** | 0.9980 | 0.1812 | 0.1812 | **0.0000** | 17,098 -> **0 (100%)** | **PASS** |
+| **INVERT_HALF** | `COPY` (all seeds) | 0.9350 | **0.9850** | **1.0612 (106.1%)** | **0.9850** | 0.9220 | 0.1812 | 0.1812 | **0.0000** | 17,098 -> **0 (100%)** | **PASS** |
+
+**Summary Aggregates:**
+- **Overall Mean Candidate Exact Match:** **0.9925** (99.25%)
+- **Overall Mean Temporary Exact Match:** **0.9665** (96.65%)
+- **Overall Mean Retention Ratio:** **1.0316** (103.16% vs threshold $\ge 95.0\%$) -> **PASS**
+- **Per-Operation Retention Pass Rate:** 100% (`SWAP_PAIRS`: 1.0020, `INVERT_HALF`: 1.0612, min seed candidate EM: 0.9750) -> **PASS**
+- **Maximum Historical Forgetting:** **0.0000** (0.00% vs threshold $\le 2.00\%$) -> **PASS**
+- **Temporary Capacity Release:** 100% complete across all 5 seeds (0 parameters remaining in `PlasticWorkspace`, `workspace_released_completely == True`) -> **PASS**
+- **Bank Growth:** Initial bank 8 primitives (143,296 params) -> 9 primitives (160,394 params) -> 10 primitives (177,492 params) -> **PASS**
+- **Candidate Scale:** 17,098 parameters per candidate ($\le 25,000$ limit) -> **PASS**
+- **Strict Invariants:** Core and bank strictly frozen (`requires_grad == False`) throughout distillation and shadow validation -> **PASS**
+- **Seed Policy Compliance:** 5 seeds evaluated (0, 1, 2, 3, 4) -> **PASS**
+
+**Reason:**
+1. **Functional Distillation Efficacy:** The compact cross-position operator (`CrossPositionPrimitive`, 17,098 parameters) matches and slightly exceeds the temporary plastic residual's exact match (99.25% vs 96.65%), acting as an effective regularizer that filters noise while preserving the full input-output transformation.
+2. **Modular Non-Interference:** Because the shared Stable Core is strictly task-blind and frozen, and newly installed primitives are registered into `PrimitiveBank` as independent modules with disjoint parameter namespaces, functional consolidation produces **mathematically zero degradation** on existing bank operations (0.00% forgetting across all seeds).
+3. **Clean Decoupling and Lifecycle Control:** `run_shadow_validation` provides atomic, transactional promotion: candidate registration and temporary memory release occur only after validation criteria are verified. If validation fails, temporary capacity remains in workspace without corrupting persistent memory.
+4. **Deterministic Optimization:** Employing cosine learning rate scheduling (`CosineAnnealingLR`) and isolated deterministic seeding per operation and seed ensures robust, monotonic convergence across 100% of seeds on both structural permutation (`SWAP_PAIRS`) and arithmetic inversion (`INVERT_HALF`).
+
+**Consequence:**
+- Successfully clears STOP GATE A1-B006.
+- Authorizes Task A1-B007 (Recurrence and Bank Reuse).
+- Decision artifacts: `runs/phase_a1_consolidation_benchmark/` (`report.json`, `summary.json`, `system.json`, `config.yaml`, `seed_<0-4>/`). New modules: `src/apc/consolidation/compact_consolidation.py`, `src/apc/evaluation/consolidation_benchmark.py`, `scripts/consolidation_benchmark.py`, `tests/test_compact_consolidation.py`.
+
