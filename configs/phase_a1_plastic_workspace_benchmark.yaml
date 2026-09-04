@@ -1,0 +1,40 @@
+# Phase A.1 Post-Diagnostic Task A1-B005 (Milestone B-M5, STOP GATE)
+# Plastic Workspace Residual Learning Benchmark
+# Verifies that novel operations trigger temporary plastic capacity adapting
+# rapidly as a residual on top of frozen core activations without updating
+# the frozen Stable Core or persistent bank.
+
+seeds: [0, 1, 2, 3, 4]
+
+vocab_size: 10
+sequence_length_range: [6, 10]
+group_size: 4
+
+model:
+  d_model: 192
+  n_layer: 4
+  n_head: 4
+  d_ff: 768
+  max_seq_len: 48
+  dropout: 0.0
+
+device: auto
+
+d_operator: 32
+n_operator_head: 4
+d_operator_ff: 64
+max_sequence_length: 32
+
+novel_operations: [SWAP_PAIRS, INVERT_HALF]
+num_adaptation_examples: 32
+num_train_examples: 1000
+num_eval_examples: 200
+min_eval_examples: 200
+
+plastic_train_steps: 3000
+plastic_lr: 0.001
+plastic_weight_decay: 0.0001
+batch_size: 32
+
+accuracy_threshold: 0.90
+max_temporary_params: 100000

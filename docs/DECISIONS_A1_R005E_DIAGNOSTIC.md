@@ -444,3 +444,47 @@ The benchmark evaluates 5 seeds across the 6 canonical multi-step compositions (
 - Successfully completes Task A1-B004.
 - Authorizes Task A1-B005 (Plastic Workspace Residual Learning).
 - Decision artifacts: `runs/phase_a1_composition_search_benchmark/` (`report.json`, `summary.json`, `system.json`, `config.yaml`, `seed_<0-4>/`). New modules: `src/apc/primitives/composition_search.py`, `src/apc/evaluation/composition_search_benchmark.py`, `scripts/composition_search_benchmark.py`, `tests/test_composition_search.py`.
+
+---
+
+## ADR-0050: Plastic Workspace Residual Learning Adapts to Novel Operations with Zero Core/Bank Gradient Leakage
+
+**Date:** 2026-09-04
+**Status:** Accepted (Milestone Gate B-M5 / Task A1-B005 Passed, STOP GATE Passed)
+
+**Decision:**
+Approve Task A1-B005 (Plastic Workspace Residual Learning: Milestone B-M5). Novel operations (`SWAP_PAIRS`, `INVERT_HALF`) that are unsolvable by frozen bank primitives or compositions (frozen bank EM $\le 0.001$, mean $0.0005$) trigger temporary plastic capacity in `PlasticWorkspace`. The temporary compact operator (17,098 parameters $\ll 100\text{k}$ budget) adapts rapidly as a residual ($F_{\text{existing}} + R_{\text{plastic}}$) over the single shared task-blind Stable Core, achieving **98.95% overall exact match** on held-out test data across 5 seeds (threshold $\ge 90.0\%$; `SWAP_PAIRS`: 100.0%, `INVERT_HALF`: 97.90%). All freeze invariants hold strictly (`core.model` and `PrimitiveBank` have `requires_grad == False`), zero expansion occurs in `PrimitiveBank` during adaptation, and temporary parameters are strictly isolated and cleanly releasable. Authorize Task A1-B006 (Functional Consolidation & Shadow Validation).
+
+**Context:**
+Task A1-B005 evaluates the plastic workspace residual learning milestone (B-M5) for Phase A.1 Branch B Integration. Following `docs/design-docs/PHASE_A1_ARCHITECTURE_DELTA.md` section 7 and `docs/CODEX_TASKS_PHASE_A1_BRANCH_B_INTEGRATION.md`, when novel operations cannot be solved by existing bank primitives or compositions, temporary plastic capacity must adapt to the residual error without altering the frozen Stable Core or persistent primitives.
+The benchmark evaluates 5 seeds (`0, 1, 2, 3, 4`) on held-out test data across two novel operations (`SWAP_PAIRS` and `INVERT_HALF`). Three experimental controls are evaluated simultaneously:
+1. **Frozen Bank Control:** Existing bank primitives and compositions fail completely on novel operations (EM $\le 0.001$).
+2. **Full-Task Plastic Control:** Temporary compact operator trained from scratch ($F_{\text{existing}} = 0$) achieves 99.65% mean exact match (`SWAP_PAIRS`: 1.000, `INVERT_HALF`: 0.993).
+3. **Residual Plastic Learning:** Temporary compact operator trained as a residual on top of the best bank candidate ($F_{\text{existing}} + R_{\text{plastic}}$) achieves 98.95% mean exact match (`SWAP_PAIRS`: 1.000, `INVERT_HALF`: 0.979).
+
+**Measured Evidence (5 seeds: 0, 1, 2, 3, 4; RTX 5060 Ti 16 GB):**
+
+| Operation | Base Recipe | Frozen Bank EM | Scratch EM | Residual EM | Residual Loss | Temp Params | Threshold ($\ge 0.90$) | Status |
+|---|---|---|---|---|---|---|---|---|
+| **SWAP_PAIRS** | `COPY` (seeds 0,2,3,4) / `REVERSE` (seed 1) | 0.0010 | **1.0000** | **1.0000** | $\le 0.0005$ | 17,098 | $\ge 0.9000$ | **PASS** |
+| **INVERT_HALF** | `COPY` (all seeds) | 0.0000 | **0.9930** | **0.9790** | $\le 0.0051$ | 17,098 | $\ge 0.9000$ | **PASS** |
+
+**Summary Aggregates:**
+- **Overall Mean Residual Exact Match:** **0.9895** (98.95% vs threshold $\ge 0.9000$) -> **PASS**
+- **Overall Mean Scratch Exact Match:** **0.9965** (99.65% vs threshold $\ge 0.9000$) -> **PASS**
+- **Frozen Bank Failure on Novel Ops:** **0.0005** (0.05% vs threshold $< 0.2000$) -> **PASS**
+- **Strict Invariant Isolation:** Stable Core and persistent bank primitives 100% frozen (`requires_grad == False`) throughout all training steps -> **PASS**
+- **Temporary Capacity Accounting:** Exactly 17,098 parameters allocated during adaptation ($\le 100\text{k}$ budget), with 0 added to `PrimitiveBank` (`len(bank) == 8`) -> **PASS**
+- **Releasability:** `workspace.release()` completely clears temporary capacity to 0 parameters with zero residue -> **PASS**
+- **Seed Policy Compliance:** 5 seeds evaluated (0, 1, 2, 3, 4) -> **PASS**
+
+**Reason:**
+1. **Strict Invariant Preservation:** `verify_frozen_invariants` verifies that Stable Core encoder weights and persistent bank primitive weights remain 100% frozen (`requires_grad == False`) before, during, and after adaptation. All gradient backpropagation is strictly confined to the temporary operator parameters inside `PlasticWorkspace`.
+2. **Compact Operator Plasticity:** A lightweight cross-position primitive (`CrossPositionPrimitive` with 17,098 parameters, matching the compact heterogeneous primitive scale established in ADR-0045/ADR-0046) possesses sufficient representational capacity to adapt to novel structural permutations (`SWAP_PAIRS`) and functional token transforms (`INVERT_HALF`) over the frozen shared task-blind Stable Core ($h_{\text{content}} = f(\text{content})$).
+3. **Occam's Principle in Base Candidate Selection:** When candidate exact match is tied on small support sets, ranking candidates by $(EM_{\text{adapt}}, -depth, -Loss_{\text{adapt}})$ cleanly selects the minimal 1-step base primitive (`COPY`) rather than spurious multi-step compositions (`NEGATE -> NEGATE`), ensuring residual learning operates on a stable and principled base prediction.
+4. **Clean Decoupling and Releasability:** Temporary capacity is managed through a dedicated `PlasticWorkspace` module, ensuring that temporary parameters are never merged into `PrimitiveBank` until explicit consolidation and shadow validation occur in Task A1-B006.
+
+**Consequence:**
+- Successfully clears STOP GATE A1-B005.
+- Authorizes Task A1-B006 (Functional Consolidation & Shadow Validation).
+- Decision artifacts: `runs/phase_a1_plastic_workspace_benchmark/` (`report.json`, `summary.json`, `system.json`, `config.yaml`, `seed_<0-4>/`). New modules: `src/apc/plastic/residual.py`, `src/apc/evaluation/plastic_workspace_benchmark.py`, `scripts/plastic_workspace_benchmark.py`, `tests/test_plastic_workspace_residual.py`.

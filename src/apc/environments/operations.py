@@ -409,3 +409,63 @@ PARAMETERIZED_OPERATION_NAMES: tuple[str, ...] = tuple(
 register_operation(SortOp())
 register_operation(ReverseOp())
 NOVEL_OPERATION_NAMES: tuple[str, ...] = ("SORT", "REVERSE")
+
+
+class SwapPairsOp(Operation):
+    """Pairwise adjacent swap: (x0, x1, x2, x3, ...) -> (x1, x0, x3, x2, ...).
+
+    Branch B novel operation (Task A1-B005): unsolvable by existing bank primitives
+    or compositions.
+    """
+
+    name = "SWAP_PAIRS"
+    min_input_length = 2
+
+    def output_length(self, input_length: int) -> int:
+        return input_length
+
+    def sample_params(
+        self, rng: random.Random, sequence: tuple[int, ...], vocab_size: int
+    ) -> dict[str, Any]:
+        return {}
+
+    def apply(
+        self, sequence: tuple[int, ...], vocab_size: int, params: dict[str, Any]
+    ) -> tuple[int, ...]:
+        res = list(sequence)
+        for i in range(0, len(res) - 1, 2):
+            res[i], res[i + 1] = res[i + 1], res[i]
+        return tuple(res)
+
+
+class InvertHalfOp(Operation):
+    """Invert the first half of tokens modulo vocab_size, keeping the second half.
+
+    Branch B novel operation (Task A1-B005): exercises residual learning where
+    the second half is already explained by COPY and only the first half requires
+    residual adaptation.
+    """
+
+    name = "INVERT_HALF"
+    min_input_length = 2
+
+    def output_length(self, input_length: int) -> int:
+        return input_length
+
+    def sample_params(
+        self, rng: random.Random, sequence: tuple[int, ...], vocab_size: int
+    ) -> dict[str, Any]:
+        return {}
+
+    def apply(
+        self, sequence: tuple[int, ...], vocab_size: int, params: dict[str, Any]
+    ) -> tuple[int, ...]:
+        half = len(sequence) // 2
+        res = [(vocab_size - 1 - x) for x in sequence[:half]] + list(sequence[half:])
+        return tuple(res)
+
+
+register_operation(SwapPairsOp())
+register_operation(InvertHalfOp())
+BRANCH_B_NOVEL_OPERATION_NAMES: tuple[str, ...] = ("SWAP_PAIRS", "INVERT_HALF")
+

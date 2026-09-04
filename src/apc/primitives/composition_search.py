@@ -205,7 +205,7 @@ def search_composition_recipe(
     candidates_pruned = 0
 
     best_candidate: tuple[str, ...] | None = None
-    best_score: tuple[float, float, int] = (-1.0, -float("inf"), 0)
+    best_score: tuple[float, int, float] = (-1.0, 0, -float("inf"))
     best_metrics: tuple[float, float] = (0.0, float("inf"))
 
     # Beam maintains prefixes for expansion
@@ -213,7 +213,7 @@ def search_composition_recipe(
 
     with torch.no_grad():
         for d in range(1, max_depth + 1):
-            next_beam_candidates: list[tuple[tuple[float, float, int], tuple[str, ...]]] = []
+            next_beam_candidates: list[tuple[tuple[float, int, float], tuple[str, ...]]] = []
 
             for prefix in beam:
                 for op in ops:
@@ -227,7 +227,7 @@ def search_composition_recipe(
                         em, loss = _evaluate_candidate_on_adaptation(
                             core, bank, op_to_id, candidate, adaptation_examples
                         )
-                        score = (em, -loss, -d)
+                        score = (em, -d, -loss)
                         next_beam_candidates.append((score, candidate))
 
                         if score > best_score:
@@ -244,7 +244,7 @@ def search_composition_recipe(
                             candidate, adaptation_examples
                         ):
                             # Retain as prefix with default neutral score
-                            next_beam_candidates.append(((0.0, -float("inf"), -d), candidate))
+                            next_beam_candidates.append(((0.0, -d, -float("inf")), candidate))
                         else:
                             candidates_pruned += 1
 

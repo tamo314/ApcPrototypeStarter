@@ -23,18 +23,26 @@ agnostic of preset naming.
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
+import torch
 from torch import nn
 
-from apc.primitives.primitive import Primitive, PrimitiveConfig, PrimitiveStatus
+from apc.primitives.primitive import (
+    CrossPositionPrimitive,
+    CrossPositionPrimitiveConfig,
+    Primitive,
+    PrimitiveBase,
+    PrimitiveConfig,
+    PrimitiveStatus,
+)
 
 if TYPE_CHECKING:
     from apc.plastic.allocator import AllocatorPreset
 
 
 class PlasticWorkspace(nn.Module):
-    """Registry of temporary `Primitive` transforms allocated during PLASTIC.
+    """Registry of temporary `PrimitiveBase` transforms allocated during PLASTIC.
 
     Unlike `PrimitiveBank`, this registry is meant to be emptied: `allocate`
     fills it with a fresh batch of trainable transforms, and `release`
@@ -46,10 +54,17 @@ class PlasticWorkspace(nn.Module):
 
     def __init__(self) -> None:
         super().__init__()
+        self.register_buffer("_device_tracker", torch.empty(0), persistent=False)
         self._transforms = nn.ModuleDict()
         self._next_id = 0
-        self.preset: AllocatorPreset | None = None
+        self.preset: AllocatorPreset | str | None = None
         self.allocated_at_task: int | None = None
+
+    @property
+    def device(self) -> torch.device:
+        dev = self._device_tracker.device
+        assert isinstance(dev, torch.device)
+        return dev
 
     def __len__(self) -> int:
         return len(self._transforms)
@@ -61,15 +76,15 @@ class PlasticWorkspace(nn.Module):
     def ids(self) -> list[int]:
         return sorted(int(key) for key in self._transforms)
 
-    def get(self, transform_id: int) -> Primitive:
+    def get(self, transform_id: int) -> Any:
         try:
             transform = self._transforms[str(transform_id)]
         except KeyError:
             raise KeyError(f"No temporary transform with id {transform_id} in workspace") from None
-        assert isinstance(transform, Primitive)
+        assert isinstance(transform, PrimitiveBase)
         return transform
 
-    def get_many(self, ids: Iterable[int]) -> list[Primitive]:
+    def get_many(self, ids: Iterable[int]) -> list[Any]:
         return [self.get(tid) for tid in ids]
 
     def allocate(
@@ -79,6 +94,7 @@ class PlasticWorkspace(nn.Module):
         config: PrimitiveConfig,
         *,
         created_at_task: int = 0,
+        device: torch.device | str | None = None,
     ) -> list[int]:
         """Fill the (currently empty) workspace with `num_transforms` fresh
         trainable transforms built from `config`.
@@ -95,6 +111,7 @@ class PlasticWorkspace(nn.Module):
         if num_transforms < 1:
             raise ValueError(f"num_transforms must be >= 1, got {num_transforms}")
 
+        target_device = torch.device(device) if device is not None else self.device
         new_ids: list[int] = []
         for _ in range(num_transforms):
             transform = Primitive(
@@ -103,6 +120,7 @@ class PlasticWorkspace(nn.Module):
                 status=PrimitiveStatus.CANDIDATE,
                 created_at_task=created_at_task,
             )
+            transform.to(target_device)
             self._transforms[str(transform.primitive_id)] = transform
             new_ids.append(transform.primitive_id)
             self._next_id += 1
@@ -111,7 +129,59 @@ class PlasticWorkspace(nn.Module):
         self.allocated_at_task = created_at_task
         return new_ids
 
-    def release(self) -> dict[int, Primitive]:
+    def allocate_compact_operator(
+        self,
+        config: CrossPositionPrimitiveConfig,
+        *,
+        created_at_task: int = 0,
+        label: str = "compact_operator",
+        device: torch.device | str | None = None,
+    ) -> int:
+        """Allocate a single fresh trainable `CrossPositionPrimitive` in workspace.
+
+        Raises RuntimeError if the workspace already holds allocated capacity.
+        """
+        if self.is_allocated:
+            raise RuntimeError(
+                "PlasticWorkspace already has allocated capacity; call release() first"
+            )
+        pid = self._next_id
+        self._next_id += 1
+        target_device = torch.device(device) if device is not None else self.device
+        transform = CrossPositionPrimitive(
+            pid,
+            config,
+            status=PrimitiveStatus.CANDIDATE,
+            created_at_task=created_at_task,
+        )
+        transform.to(target_device)
+        self._transforms[str(pid)] = transform
+        self.preset = label
+        self.allocated_at_task = created_at_task
+        return pid
+
+    def allocate_primitive(
+        self,
+        primitive: PrimitiveBase,
+        *,
+        label: str = "custom_operator",
+        device: torch.device | str | None = None,
+    ) -> int:
+        """Register a pre-constructed `PrimitiveBase` as temporary plastic capacity."""
+        if self.is_allocated:
+            raise RuntimeError(
+                "PlasticWorkspace already has allocated capacity; call release() first"
+            )
+        target_device = torch.device(device) if device is not None else self.device
+        primitive.to(target_device)
+        pid = primitive.primitive_id
+        self._next_id = max(self._next_id, pid + 1)
+        self._transforms[str(pid)] = primitive
+        self.preset = label
+        self.allocated_at_task = primitive.created_at_task
+        return pid
+
+    def release(self) -> dict[int, Any]:
         """Drop every temporary transform and return them keyed by id.
 
         The caller (consolidation/shadow-validation code, Task 010+) is
