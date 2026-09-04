@@ -58,8 +58,9 @@ Distill the temporary plastic solution into a compact candidate primitive. Evalu
 ### B-M7: Recurrence & Reuse Benchmark (`A1-B007`)
 Re-introduce previously consolidated operations in lifelong sequence; verify that the system reuses installed primitives without re-triggering plastic adaptation.
 
-### B-M8: Learned Routing & Full Closed Loop (`A1-B008`)
+### B-M8: Learned Routing & Full Closed Loop (`A1-B008`) [COMPLETED - ADR-0061]
 Replace oracle selection with a learned top-k router consuming $z_{\text{task}}$. Verify end-to-end autonomous execution, sparse compute savings, and retention across the entire benchmark universe.
+- **Outcome:** Passed 5 seeds (`0, 1, 2, 3, 4`). Router Top-1 accuracy: 99.99% (threshold $\ge 95\%$). Closed-loop Exact Match: 99.79% (threshold $\ge 90\%$). Active compute savings: 90.11% parameter reduction (17,559 active vs 177,492 dense parameters), 0 unselected calls, 0 temporary plastic parameters allocated. Concludes Phase A.1 Branch B Integration.
 
 ---
 

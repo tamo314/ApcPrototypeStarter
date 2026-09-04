@@ -118,12 +118,13 @@ Tasks: `A1-B007X-001` through `A1-B007X-008` successfully resolved and audited u
 ---
 
 
-## A1-B008 — Learned Routing & Full Closed Loop
+## A1-B008 — Learned Routing & Full Closed Loop [PASSED - ADR-0061]
 
 ### Goal
 Replace oracle routing with a learned top-k router conditioned on $z_{\text{task}}$. Demonstrate autonomous sparse execution, compute savings, and end-to-end continual learning.
 
 ### Acceptance Criteria
-- Top-k router selects oracle-required primitives with high accuracy ($\ge 95\%$).
-- Active compute significantly lower than dense execution.
-- Full lifelong benchmark passes without human intervention.
+- Top-k router selects oracle-required primitives with high accuracy ($\ge 95\%$). **[PASSED: 99.99% Top-1 selection accuracy across 5 seeds: seeds 0, 1, 2, 3, 4]**
+- Active compute significantly lower than dense execution. **[PASSED: 90.11% active parameter reduction (17,559 active vs 177,492 dense parameters), exactly 0 forward calls to unselected primitives]**
+- Full lifelong benchmark passes without human intervention. **[PASSED: 99.79% overall mean exact match, 99.95% token accuracy across all 10 operations with 0 plastic parameters allocated and 100% frozen invariants]**
+

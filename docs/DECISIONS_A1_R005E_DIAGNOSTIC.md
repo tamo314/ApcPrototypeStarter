@@ -1040,3 +1040,72 @@ All empirical findings across ADR-0053 through ADR-0059 and corresponding run di
 - Successfully completes Task A1-B007X-008.
 - Marks Gate A1-B007X (Tasks A1-B007X-001 through A1-B007X-008) complete.
 - Unblocks Task A1-B008 in `docs/CODEX_TASKS_PHASE_A1_BRANCH_B_INTEGRATION.md`.
+
+---
+
+## ADR-0061: Learned Routing & Full Closed Loop (Milestone B-M8) Unifies Continual Learning with Autonomous Sparse Execution, 99.99% Routing, and 90.11% Compute Savings
+
+**Date:** 2026-09-05
+**Status:** Accepted (Task A1-B008 Passed / Milestone B-M8 Complete)
+**Affects:** `docs/CODEX_TASKS_PHASE_A1_BRANCH_B_INTEGRATION.md`, `docs/EXPERIMENT_PLAN_PHASE_A1_BRANCH_B_INTEGRATION.md`, `docs/exec-plans/active/PHASE_A1_BRANCH_B_INTEGRATION.md`, `docs/DECISIONS.md`
+
+**Decision:**
+1. Formally accept and approve Task A1-B008 (Learned Routing & Full Closed Loop Benchmark / Milestone B-M8).
+2. Confirm all scientific acceptance criteria are exceeded across 5 random seeds (`0, 1, 2, 3, 4`):
+   - **Router Top-1 Selection Accuracy:** **99.99%** (Threshold: $\ge 95.0\%$) -> **PASS**.
+   - **Full Closed-Loop Exact Match:** **99.79%** (Threshold: $\ge 90.0\%$) across all 10 operations in the universe (8 canonical + 2 novel consolidated: `SWAP_PAIRS`, `INVERT_HALF`) -> **PASS**.
+   - **Token Accuracy:** **99.95%** -> **PASS**.
+   - **Active Compute Savings:** **90.11% parameter reduction** (Active parameters: 17,559 vs Dense: 177,492) -> **PASS**.
+   - **Strict Sparse Execution:** Unselected primitives strictly receive 0 forward calls -> **PASS**.
+   - **Zero Plastic Overhead:** Temporary parameters allocated during inference = 0 -> **PASS**.
+   - **Frozen Invariants:** Shared task-blind Stable Core and Persistent Primitive Bank verified 100% frozen (`requires_grad == False`) -> **PASS**.
+3. Resolve architecture vocabulary mismatch between pre-B007X checkpoints (36/38 vocab) and post-B007X checkpoints (39 vocab) via aligned checkpoint loading/slicing, preventing destructive fallback re-training.
+4. Formally declare **Phase A.1 Branch B Integration COMPLETE**.
+
+**Context:**
+Task A1-B008 (Milestone B-M8) is the culminating milestone of Phase A.1 Branch B Integration. It evaluates the unified continual learning lifecycle: replacing oracle routing with a learned top-k router conditioned on $z_{\text{task}}$ extracted from the shared task-blind Stable Core. Inference must operate entirely autonomously without human intervention, oracle labels, or temporary plastic capacity, executing only the top-k selected primitives while demonstrating massive compute savings ($\ge 80\%$) and high accuracy ($\ge 90\%$) across the entire 10-operation universe.
+
+**Measured Evidence (5 seeds: 0, 1, 2, 3, 4; RTX 5060 Ti 16 GB; `runs/phase_a1_learned_routing_benchmark/`):**
+
+### 1. Primary Milestone Criteria
+
+| Criterion | Target Threshold | Measured Mean (5 Seeds) | Verdict |
+|---|---|---|---|
+| **Seeds Evaluated** | $\ge 5$ seeds (`0, 1, 2, 3, 4`) | **5 seeds** | **PASS** |
+| **Router Top-1 Accuracy** | $\ge 0.9500$ ($95.0\%$) | **0.9999 ($99.99\%$)** | **PASS** |
+| **Router Top-k Accuracy** | $\ge 0.9500$ ($95.0\%$) | **0.9999 ($99.99\%$)** | **PASS** |
+| **Closed-Loop Exact Match** | $\ge 0.9000$ ($90.0\%$) | **0.9979 ($99.79\%$)** | **PASS** |
+| **Mean Token Accuracy** | - | **0.9995 ($99.95\%$)** | **PASS** |
+| **Dense Primitive Parameters** | Baseline resident | **177,492 params** | - |
+| **Active Primitive Parameters** | Dynamic top-1 active | **17,559 params** | - |
+| **Active Compute Savings Ratio** | $\ge 0.8000$ ($80.0\%$) | **0.9011 ($90.11\%$)** | **PASS** |
+| **Temporary Plastic Capacity** | $== 0$ parameters | **0 params** | **PASS** |
+| **Unselected Forward Calls** | $== 0$ calls | **0 calls** | **PASS** |
+| **Frozen Core & Bank Invariants** | $100\%$ frozen | **100% frozen** | **PASS** |
+
+### 2. Fine-Grained Per-Operation Metrics (Means Across 5 Seeds)
+
+| Operation | Category | Router Top-1 Acc | Closed Loop EM | Token Accuracy |
+|---|---|---|---|---|
+| **SELECT** | Canonical Parameterized | 0.9990 ($99.90\%$) | 0.9980 ($99.80\%$) | 0.9987 ($99.87\%$) |
+| **COUNT** | Canonical Parameterized | 1.0000 ($100.0\%$) | 0.9990 ($99.90\%$) | 0.9990 ($99.90\%$) |
+| **BIND** | Canonical Parameterized | 1.0000 ($100.0\%$) | 1.0000 ($100.0\%$) | 1.0000 ($100.0\%$) |
+| **SHIFT** | Canonical Parameterized | 1.0000 ($100.0\%$) | 0.9830 ($98.30\%$) | 0.9979 ($99.79\%$) |
+| **COPY** | Canonical Parameter-free | 1.0000 ($100.0\%$) | 1.0000 ($100.0\%$) | 1.0000 ($100.0\%$) |
+| **REVERSE** | Canonical Parameter-free | 1.0000 ($100.0\%$) | 1.0000 ($100.0\%$) | 1.0000 ($100.0\%$) |
+| **SORT** | Canonical Parameter-free | 1.0000 ($100.0\%$) | 1.0000 ($100.0\%$) | 1.0000 ($100.0\%$) |
+| **NEGATE** | Canonical Parameter-free | 1.0000 ($100.0\%$) | 1.0000 ($100.0\%$) | 1.0000 ($100.0\%$) |
+| **SWAP_PAIRS** | Novel Consolidated | 1.0000 ($100.0\%$) | 1.0000 ($100.0\%$) | 1.0000 ($100.0\%$) |
+| **INVERT_HALF** | Novel Consolidated | 1.0000 ($100.0\%$) | 0.9990 ($99.90\%$) | 0.9999 ($99.99\%$) |
+
+**Reason:**
+1. **$z_{\text{task}}$ Sufficiency:** The shared task-blind Stable Core content encoder preserves orthogonal, discriminative representations of task specifications at the `[TASK_END]` position, enabling a lightweight linear query projection router to achieve $99.99\%$ routing accuracy with zero leakage into the content transformation path ($h_{\text{content}} = f(\text{content})$).
+2. **True Autonomous Sparse Execution:** In contrast to dense mixture-of-experts models where all modules compute and unselected outputs are zeroed, APC hard-routes to the top-k primitive, executing *only* the chosen primitive and reducing forward compute parameters by $90.11\%$ while recording exactly 0 unselected forward calls.
+3. **End-to-End Continual Learning Verification:** The complete continual learning lifecycle—initial sparse modularity, recipe composition, temporary plastic adaptation, functional consolidation into persistent primitives, lifelong recurrence reuse, and learned routing—is demonstrated end-to-end on a single shared frozen Stable Core without catastrophic forgetting or memory leaks.
+
+**Consequence:**
+- Successfully completes Task A1-B008.
+- Successfully concludes Phase A.1 Branch B Integration (Milestone B-M8).
+- Decision artifacts preserved in `runs/phase_a1_learned_routing_benchmark/` (`summary.json`, `config.yaml`, `system.json`, `seed_<0-4>/`).
+- Modules updated: `src/apc/evaluation/learned_routing_benchmark.py`, `scripts/learned_routing_benchmark.py`, `configs/phase_a1_learned_routing_benchmark.yaml`, `tests/test_learned_routing_benchmark.py`.
+

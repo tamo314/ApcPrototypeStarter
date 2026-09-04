@@ -1,0 +1,43 @@
+# Phase A.1 Post-Diagnostic Task A1-B008 (Milestone B-M8)
+# Learned Routing & Full Closed Loop Benchmark
+# Validates learned top-k router selection (>= 95%), sparse execution compute savings,
+# and full closed-loop exact match (>= 0.90) across all 10 operations in the universe.
+
+seeds: [0, 1, 2, 3, 4]
+
+vocab_size: 10
+sequence_length_range: [6, 10]
+group_size: 4
+
+model:
+  d_model: 192
+  n_layer: 4
+  n_head: 4
+  d_ff: 768
+  max_seq_len: 48
+  dropout: 0.0
+
+device: auto
+
+d_operator: 32
+n_operator_head: 4
+d_operator_ff: 64
+max_sequence_length: 32
+
+operations: [
+  SELECT, COUNT, BIND, SHIFT,
+  COPY, REVERSE, SORT, NEGATE,
+  SWAP_PAIRS, INVERT_HALF
+]
+
+top_k: 1
+router_train_examples_per_op: 64
+router_train_steps: 400
+router_lr: 0.005
+
+num_eval_examples: 200
+min_eval_examples: 200
+
+routing_threshold: 0.95
+accuracy_threshold: 0.90
+consolidation_checkpoint_dir: runs/phase_a1_consolidation_benchmark

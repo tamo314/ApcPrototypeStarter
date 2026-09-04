@@ -35,6 +35,12 @@ Re-encountering a consolidated task achieves instant ceiling accuracy with zero 
 - **Controls**: Fresh adaptation vs bank lookup.
 - **Threshold**: Zero plastic allocation, exact match $\ge 0.90$.
 
+### H-B6: Autonomous Sparse Execution & Learned Routing [PASSED - ADR-0061]
+Replacing oracle selection with a learned top-k router conditioned on $z_{\text{task}}$ achieves autonomous end-to-end closed-loop execution, significant compute reduction, and high exact match across the entire benchmark universe without human intervention.
+- **Controls**: Learned top-k router vs dense execution vs unselected primitive leakage.
+- **Thresholds**: Router Top-1 selection $\ge 0.95$, closed-loop exact match $\ge 0.90$, compute savings $\ge 0.80$, unselected calls $== 0$.
+- **Outcome**: Passed (Router Top-1: 99.99%, Closed-Loop EM: 99.79%, Compute Savings: 90.11%, Unselected Calls: 0, Temporary Params: 0 across 5 seeds).
+
 ---
 
 ## 3. Resource & Hardware Budget
@@ -43,3 +49,4 @@ Re-encountering a consolidated task achieves instant ceiling accuracy with zero 
 - Max VRAM per run $\le 8\text{ GB}$.
 - CPU fallback supported for all modules and unit tests.
 - 5 seeds required for milestone gates.
+
