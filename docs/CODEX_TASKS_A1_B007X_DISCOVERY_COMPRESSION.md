@@ -86,6 +86,15 @@ or:
 
 Preserve negative results. Do not blindly scale.
 
+### Status
+- **Status:** **COMPLETE** (Negative Result Preserved, ADR-0055)
+- **Verdict:** No temporary discovery-capacity advantage demonstrated across 5 seeds and 3 novel tasks.
+  - `SWAP_PAIRS`: T0 Compact achieves 99.80% EM (100% success) in 175.0 steps; T2 Overcomplete speedup ratio is 57.14% (> 50% threshold).
+  - `INVERT_HALF`: T2 reaches 90.00% EM (< 95% threshold); reliability gap not satisfied.
+  - `ROTATE_TRIPLETS`: T0 Compact achieves 94.20% EM (60% success), outperforming T2 Overcomplete (92.90% EM, 40% success).
+- **Run Artifacts:** `runs/phase_a1_discovery_capacity_sweep/` (`report.json`, `summary.json`, `system.json`, `config.yaml`).
+- **Authorization:** Authorizes Task A1-B007X-004 (Compact direct-learning control).
+
 ---
 
 ## A1-B007X-004 — Compact direct-learning control
