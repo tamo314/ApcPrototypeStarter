@@ -1,0 +1,26 @@
+# Task A1-B007X-006: Shadow validation, promotion, and release configuration
+seeds: [0, 1, 2, 3, 4]
+novel_operation: "SWAP_PAIRS"
+
+max_canonical_forgetting: 0.02
+max_composition_forgetting: 0.02
+max_candidate_parameters: 25000
+
+vocab_size: 10
+sequence_length_range: [6, 10]
+group_size: 3
+max_sequence_length: 32
+
+num_canonical_eval_examples: 200
+num_composition_eval_examples: 200
+num_novel_eval_examples: 200
+eval_batch_size: 128
+
+device: "auto"
+shared_encoder_checkpoint: "runs/phase_a1_discovery_capacity_harness/shared_encoder.pt"
+distill_checkpoint_pattern: "runs/phase_a1_overcomplete_distillation/checkpoints/distill_candidate_{op}_seed_{seed}.pt"
+plastic_bank_checkpoint_pattern: "runs/phase_a1_plastic_workspace_benchmark/seed_{seed}/primitive_bank.pt"
+
+core_train_steps: 6000
+bank_train_steps: 6000
+

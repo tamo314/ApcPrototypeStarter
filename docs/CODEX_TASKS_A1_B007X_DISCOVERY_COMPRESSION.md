@@ -185,6 +185,19 @@ On fail:
 - preserve fallback,
 - bank unchanged.
 
+- **Status:** **COMPLETE** (ADR-0058)
+- **Verdict:** Shadow validation passed with zero regression across all 5 decision seeds:
+  - Canonical Forgetting: 0.0000 (0.0% <= 2.0% per op across all 8 canonical tasks) -> PASS.
+  - Composition Forgetting: 0.0000 (0.0% <= 2.0% across all 6 representative compositions) -> PASS.
+  - Core Invariance: Core parameters byte-for-byte unchanged (delta == 0.0) -> PASS.
+  - Bank Invariance: Existing 8 primitives byte-for-byte unchanged (delta == 0.0) -> PASS.
+  - Promotion: Exactly one candidate installed into persistent bank (bank size transitioned 8 -> 9) -> PASS.
+  - Release: Temporary discovery teacher parameters (137,482) released to 0 (100% release) -> PASS.
+  - Abort Contract: Verified via unit test fault-injection coverage -> PASS.
+- **Run Artifacts:** `runs/phase_a1_shadow_promotion/` (`report.json`, `summary.json`, `system.json`, `config.yaml`, and 5 serialized persistent checkpoints `seed_<0-4>/promoted_bank.pt`, `op_to_id.json`).
+- **Authorization:** Authorizes Task A1-B007X-007 (Fresh-runtime recurrence after compression).
+
+
 ---
 
 ## A1-B007X-007 — Fresh-runtime recurrence after compression

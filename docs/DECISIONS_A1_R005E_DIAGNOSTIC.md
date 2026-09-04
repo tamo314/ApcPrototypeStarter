@@ -888,4 +888,69 @@ Task A1-B007X-005 tests whether an overcomplete temporary discovery solution ($T
 - Decision artifacts: `runs/phase_a1_overcomplete_distillation/` (`report.json`, `summary.json`, `distillation_result.json`, `system.json`, `config.yaml`, and 15 checkpoints in `checkpoints/`).
 - Authorizes Task A1-B007X-006 (Shadow validation and candidate promotion).
 
+---
+
+## ADR-0058: Shadow Validation Confirms Zero Degradation Across Canonical Tasks and Compositions, Authorizing Safe Candidate Promotion (Bank 8->9) and Complete Temporary Release (A1-B007X-006)
+
+**Date:** 2026-09-04
+**Status:** Accepted
+**Affects:** `docs/CODEX_TASKS_A1_B007X_DISCOVERY_COMPRESSION.md`, `docs/EXPERIMENT_PLAN_A1_B007X_DISCOVERY_COMPRESSION.md`, `docs/exec-plans/active/A1_B007X_DISCOVERY_COMPRESSION.md`
+
+**Decision:**
+1. Execute multi-seed shadow validation for Task A1-B007X-006 across 5 decision seeds (`[0, 1, 2, 3, 4]`) on novel operation `SWAP_PAIRS` using the distilled compact candidate ($T_0$, 17,098 parameters, `ShiftRelativeCrossPositionOperator`) from Task A1-B007X-005.
+2. Confirm strict compliance with all shadow validation safety acceptance criteria across all 5 seeds:
+   - **Canonical Forgetting:** Max forgetting across all 8 canonical operations (`SELECT`, `COUNT`, `SHIFT`, `BIND`, `COPY`, `REVERSE`, `SORT`, `NEGATE`) is $\mathbf{0.0000}$ ($\mathbf{0.00\%} \le 2.00\%$) -> **PASS**.
+   - **Composition Forgetting:** Max forgetting across all 6 designated compositions (`SHIFT->SELECT`, `REVERSE->COUNT`, `COPY->SORT`, `NEGATE->SELECT`, `SHIFT->BIND`, `REVERSE->SORT`) is $\mathbf{0.0000}$ ($\mathbf{0.00\%} \le 2.00\%$) -> **PASS**.
+   - **Stable Core Invariance:** Core weights are byte-for-byte identical before and after candidate installation ($\max |\Delta W_{\text{core}}| = 0.0000$) -> **PASS**.
+   - **Existing Bank Invariance:** Pre-existing 8 canonical primitives in the bank are strictly unchanged ($\max |\Delta W_{\text{bank\_existing}}| = 0.0000$) -> **PASS**.
+   - **Candidate Parameter Constraint:** Candidate has 17,098 parameters ($\le 25,000$, 68.4% of limit) with finite outputs -> **PASS**.
+   - **Candidate Novel Task EM:** Distilled candidate achieves $\mathbf{96.60\%}$ mean EM on `SWAP_PAIRS` (std 0.0162, min 0.935, max 0.975).
+3. Execute conditional promotion and release upon safety validation pass:
+   - Promote candidate primitive: `PrimitiveStatus.CANDIDATE` $\to$ `PrimitiveStatus.STABLE` with parameter freezing (`freeze()`).
+   - Install exactly one candidate into persistent bank: `PrimitiveBank` size increases from 8 to 9 ($\mathbf{8 \to 9}$, Bank +1).
+   - Release temporary discovery capacity to zero: Temporary teacher parameters (137,482) released to $\mathbf{0}$ ($\mathbf{100\%}$ release).
+   - Save persistent state checkpoints (`promoted_bank.pt`, `op_to_id.json`) for Task A1-B007X-007 fresh-runtime recurrence.
+4. Verify safety abort contract through fault-injection unit testing: intentionally corrupting Core or Bank weights correctly aborts promotion, preserves temporary capacity, and prevents bank growth.
+5. Authorize progression to Task A1-B007X-007 (Fresh-runtime recurrence after compression).
+
+**Context:**
+Task A1-B007X-006 provides the critical safety gate separating temporary discovery/distillation from persistent state modification. Before any newly discovered primitive is permitted to enter the persistent `PrimitiveBank`, it must be proven that:
+- Pre-existing skills (8 canonical operations and 6 compositions) suffer no catastrophic interference ($\le 2\text{pp}$ forgetting).
+- The shared task-blind Stable Core remains completely unmutated ($\Delta = 0.0$).
+- Existing primitives in the bank remain completely unmutated ($\Delta = 0.0$).
+- Temporary discovery capacity (137k parameters) is completely reclaimed once persistent installation succeeds.
+
+**Measured Evidence (5 Seeds: 0, 1, 2, 3, 4; RTX 5060 Ti 16 GB; `runs/phase_a1_shadow_promotion/`):**
+
+### 1. Multi-Seed Shadow Validation & Promotion Summary
+
+| Seed | Candidate Params | Novel Op EM (`SWAP_PAIRS`) | Max Canon Forgetting | Max Comp Forgetting | Core Unchanged | Existing Bank Unchanged | Promoted (Bank Size) | Temp Params Released | Status |
+|---|---|---|---|---|---|---|---|---|---|
+| **0** | 17,098 | 0.9750 | 0.0000 (0.0%) | 0.0000 (0.0%) | True | True | True ($8 \to 9$) | $137,482 \to 0$ (100%) | **PASS** |
+| **1** | 17,098 | 0.9750 | 0.0000 (0.0%) | 0.0000 (0.0%) | True | True | True ($8 \to 9$) | $137,482 \to 0$ (100%) | **PASS** |
+| **2** | 17,098 | 0.9700 | 0.0000 (0.0%) | 0.0000 (0.0%) | True | True | True ($8 \to 9$) | $137,482 \to 0$ (100%) | **PASS** |
+| **3** | 17,098 | 0.9350 | 0.0000 (0.0%) | 0.0000 (0.0%) | True | True | True ($8 \to 9$) | $137,482 \to 0$ (100%) | **PASS** |
+| **4** | 17,098 | 0.9750 | 0.0000 (0.0%) | 0.0000 (0.0%) | True | True | True ($8 \to 9$) | $137,482 \to 0$ (100%) | **PASS** |
+| **Mean** | 17,098 | **0.9660** | **0.0000** | **0.0000** | **100%** | **100%** | **8 -> 9 (+1)** | **0 remaining** | **PASS** |
+
+### 2. Acceptance Criteria Evaluation
+- **Canonical Forgetting $\le 2\text{pp}$ per op:** $\mathbf{0.0000}$ (all 8 operations show 0.0% forgetting) -> **PASS**
+- **Composition Forgetting $\le 2\text{pp}$:** $\mathbf{0.0000}$ (all 6 compositions show 0.0% forgetting) -> **PASS**
+- **Core Unchanged:** $\max |\Delta W| = 0.0000$ across all seeds -> **PASS**
+- **Existing Bank Unchanged:** $\max |\Delta W| = 0.0000$ for primitives 0..7 across all seeds -> **PASS**
+- **Install Exactly One Candidate:** Bank size transitioned from 8 to 9 -> **PASS**
+- **Release Temp to 0:** Temporary capacity released from 137,482 to 0 -> **PASS**
+- **Abort on Fail Contract:** Verified via automated fault injection in unit tests -> **PASS**
+
+**Reason:**
+1. **True Architectural Modularity:** In APC's causal execution design, new primitives occupy distinct modular slots in `PrimitiveBank`. Because content representation is strictly task-blind and the Stable Core is frozen, adding a new compact primitive produces exactly zero mathematical interference with existing primitives or multi-step compositions.
+2. **Resource Hygiene:** Complete release of the 137,482-parameter temporary discovery teacher guarantees that temporary capacity does not accumulate over continual learning cycles, preserving persistent parameter efficiency.
+3. **Traceable Persistent State:** All 5 seeds have serialized persistent state checkpoints (`promoted_bank.pt`, `op_to_id.json`) preserved in `runs/phase_a1_shadow_promotion/seed_<0-4>/`, satisfying the prerequisites for Task A1-B007X-007.
+
+**Consequence:**
+- Successfully completes Task A1-B007X-006.
+- Authorizes progression to Task A1-B007X-007 (Fresh-runtime recurrence after compression).
+- Decision artifacts: `runs/phase_a1_shadow_promotion/` (`report.json`, `summary.json`, `system.json`, `config.yaml`, and 5 seed checkpoints in `seed_<0-4>/`). New modules: `src/apc/evaluation/shadow_promotion.py`, `scripts/shadow_promotion.py`, `configs/phase_a1_shadow_promotion.yaml`, `tests/test_shadow_promotion.py`.
+
+
 
