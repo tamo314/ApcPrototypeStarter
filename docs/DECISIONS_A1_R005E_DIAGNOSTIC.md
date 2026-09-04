@@ -310,3 +310,48 @@ Every operation clears `docs/EXPERIMENT_PLAN_A1_R005E_E006_PLUS.md` section 3's 
 - The old task sequence A1-R006 through A1-R022 is recommended for deprecation in favor of Branch B production integration.
 - Final diagnostic audit report published at `docs/results/A1_R005E_DIAGNOSTIC_RESULT_FINAL.md`.
 - A1-R006 remains blocked pending user approval.
+
+---
+
+## ADR-0047 — Task A1-B002 Unified Oracle Causal Benchmark passes across all 8 canonical operations over a single frozen shared task-blind Stable Core with strict sparse execution
+
+**Status:** Accepted (STOP GATE PASS)
+
+**Prerequisite note:** Follows Branch B Integration roadmap (`docs/CODEX_TASKS_PHASE_A1_BRANCH_B_INTEGRATION.md`, Task A1-B002) and builds on the validated shared encoder (`ADR-0044`), compact inductive bias operators (`ADR-0045`), and diagnostic closure (`ADR-0046`). Evaluates all 8 canonical operations simultaneously in a heterogeneous `PrimitiveBank` over a single frozen task-blind Stable Core.
+
+**Decision:**
+1. Task A1-B002 is implemented as `apc.evaluation.unified_oracle_causal_benchmark` (`scripts/unified_oracle_causal_benchmark.py`, `configs/phase_a1_unified_oracle_causal_benchmark.yaml`) and evaluated across 5 seeds (`0, 1, 2, 3, 4`).
+2. Adopts `ReverseRelativePrimitive` (17,290 parameters) with learned modular reverse relative position bias ($\text{disp}(p, s, L) = (p - (L - 1 - s)) \pmod L$) to resolve sequence reversal under variable length $L \in [6, 10]$.
+3. Adopts canonical orthogonal operation `NEGATE` ($x_i \to V - 1 - x_i$) to replace the undefined variable-length `UNIQUE` in the parameter-free quartet (`COPY`, `REVERSE`, `SORT`, `NEGATE`).
+4. Confirms that all 8 canonical operations operate simultaneously in a heterogeneous `PrimitiveBank` (147,386 resident parameters, active parameter count per call: ~17k-18k) over a single frozen shared task-blind Stable Core (408,394 parameters) with zero forward calls to unselected primitives.
+5. Formally records Task A1-B002 as strict **PASS** (`passed=true`, clearing all acceptance criteria across all 5 seeds).
+
+`runs/phase_a1_unified_oracle_causal_benchmark/summary.json` (5 seeds, RTX 5060 Ti, native Windows):
+
+| Operation | Family | Correct EM | Correct Tok | Wrong Arg EM | Wrong Fam EM | None EM | Causal Gap | Baseline Ceiling | Status |
+|---|---|---|---|---|---|---|---|---|---|
+| **SELECT** | Parameterized | **0.9998** | 1.0000 | 0.0000 | 0.0000 | 0.0379 | **0.9620** | $\le 0.1000$ | **PASS** |
+| **COUNT** | Parameterized | **0.9982** | 0.9982 | 0.0003 | 0.1000 | 0.3220 | **0.6763** | $\le 0.4000$ | **PASS** |
+| **SHIFT** | Parameterized | **0.9788** | 0.9953 | 0.0000 | 0.0000 | 0.0316 | **0.9472** | $\le 0.2000$ | **PASS** |
+| **BIND** | Parameterized | **1.0000** | 1.0000 | 0.0000 | 0.0000 | 0.2861 | **0.7139** | $\le 0.4000$ | **PASS** |
+| **COPY** | Parameter-free | **1.0000** | 1.0000 | — | 0.0004 | 0.0000 | **0.9996** | $\le 0.0600$ | **PASS** |
+| **REVERSE** | Parameter-free | **0.9955** | 0.9994 | — | 0.0008 | 0.0000 | **0.9947** | $\le 0.0600$ | **PASS** |
+| **SORT** | Parameter-free | **0.9996** | 1.0000 | — | 0.0000 | 0.0000 | **0.9996** | $\le 0.0600$ | **PASS** |
+| **NEGATE** | Parameter-free | **1.0000** | 1.0000 | — | 0.0000 | 0.0000 | **1.0000** | $\le 0.0600$ | **PASS** |
+
+**Summary Aggregates:**
+- **Overall Mean Correct Exact Match:** **0.9965** (99.65% vs threshold $\ge 0.9000$) -> **PASS**
+- **Parameter-free Mean Correct Exact Match:** **0.9988** (99.88% vs threshold $\ge 0.9500$) -> **PASS**
+- **Parameterized Mean Correct Exact Match:** **0.9942** (99.42% vs threshold $\ge 0.9000$) -> **PASS**
+- **Task-Blind Max Absolute Difference:** **0.0000** ($\le 10^{-5}$) -> **PASS**
+- **Strict Sparse Execution:** Unselected primitives strictly receive zero forward calls (`forward_call_count == 0`) -> **PASS**
+
+**Reason:**
+1. **Unification of full canonical library over single core:** Prior diagnostic milestones proved subsets of operations in isolation (e.g. S005 for SELECT/COUNT/BIND, S006 for SHIFT). A1-B002 is the first milestone to unite all 8 canonical operations under a single frozen task-blind Core ($h_{\text{content}} = f(\text{content})$) in an active `PrimitiveBank`.
+2. **Compact heterogeneous primitives deliver near-ceiling accuracy:** Primitives remain strictly compact (~17k-18k params each), yet achieve near-perfect exact match ($\ge 97.88\%$ individually, $99.65\%$ average) with large causal gaps ($\ge 67.63\%$).
+3. **Strict sparse execution verified:** Forward calls are tracked per primitive; invoking any single primitive increments only its own call counter, ensuring that resident capacity (147,386 params) does not conflate with active compute (~18k params).
+
+**Consequence:**
+- Successfully clears STOP GATE A1-B002.
+- Authorizes Task A1-B003 (Composition Library Execution).
+- Decision artifacts: `runs/phase_a1_unified_oracle_causal_benchmark/` (`report.json`, `summary.json`, `system.json`, `config.yaml`, `seed_<0-4>/`). New modules: `src/apc/evaluation/unified_oracle_causal_benchmark.py`, `scripts/unified_oracle_causal_benchmark.py`, `tests/test_unified_oracle_causal_benchmark.py`.

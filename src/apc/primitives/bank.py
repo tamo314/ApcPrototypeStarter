@@ -19,6 +19,8 @@ from apc.primitives.primitive import (
     PrimitiveBase,
     PrimitiveConfig,
     PrimitiveStatus,
+    ReverseRelativePrimitive,
+    ReverseRelativePrimitiveConfig,
     ShiftRelativePrimitive,
     ShiftRelativePrimitiveConfig,
 )
@@ -116,6 +118,25 @@ class PrimitiveBank(nn.Module):
     ) -> ShiftRelativePrimitive:
         """Construct a ShiftRelativePrimitive with an auto-assigned id, add it, and return it."""
         primitive = ShiftRelativePrimitive(
+            self._next_id,
+            config,
+            status=status,
+            created_at_task=created_at_task,
+            metadata=metadata,
+        )
+        self.add_primitive(primitive)
+        return primitive
+
+    def new_reverse_relative_primitive(
+        self,
+        config: ReverseRelativePrimitiveConfig | None = None,
+        *,
+        status: PrimitiveStatus = PrimitiveStatus.CANDIDATE,
+        created_at_task: int = 0,
+        metadata: dict[str, Any] | None = None,
+    ) -> ReverseRelativePrimitive:
+        """Construct a ReverseRelativePrimitive with an auto-assigned id, add it, and return it."""
+        primitive = ReverseRelativePrimitive(
             self._next_id,
             config,
             status=status,

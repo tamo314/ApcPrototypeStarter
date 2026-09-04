@@ -12,6 +12,8 @@ from apc.primitives.primitive import (
     Primitive,
     PrimitiveConfig,
     PrimitiveStatus,
+    ReverseRelativePrimitive,
+    ReverseRelativePrimitiveConfig,
     ShiftRelativePrimitive,
     ShiftRelativePrimitiveConfig,
 )
@@ -49,6 +51,29 @@ def test_shift_relative_primitive_parameter_scale() -> None:
     p = ShiftRelativePrimitive(0, cfg)
     # Diagnostic exact match from ADR-0045: 18,282 params
     assert p.num_parameters() == 18282
+
+
+def test_reverse_relative_primitive_parameter_scale() -> None:
+    """Verify parameter count for ReverseRelativePrimitive matches ~17,290 target."""
+    cfg = ReverseRelativePrimitiveConfig(d_model=192, d_operator=32, n_head=4)
+    p = ReverseRelativePrimitive(0, cfg)
+    assert 17000 <= p.num_parameters() <= 17500
+
+
+def test_reverse_relative_primitive_forward() -> None:
+    """Verify forward pass with modular reverse relative position bias."""
+    cfg = ReverseRelativePrimitiveConfig(d_model=192, d_operator=32, vocab_size=64)
+    p = ReverseRelativePrimitive(0, cfg)
+
+    batch_size = 2
+    lmax = 8
+    content_features = torch.randn(batch_size, lmax, 192)
+    content_lengths = [8, 6]
+    output_lengths = [8, 6]
+
+    logits = p(content_features, content_lengths, output_lengths)
+    assert logits.shape == (batch_size, 8, 64)
+    assert p.forward_call_count == 1
 
 
 def test_cross_position_primitive_forward() -> None:

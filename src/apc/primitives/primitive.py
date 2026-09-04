@@ -34,6 +34,8 @@ __all__ = [
     "PrimitiveBase",
     "PrimitiveConfig",
     "PrimitiveStatus",
+    "ReverseRelativePrimitive",
+    "ReverseRelativePrimitiveConfig",
     "ShiftRelativePrimitive",
     "ShiftRelativePrimitiveConfig",
 ]
@@ -222,15 +224,27 @@ class CrossPositionPrimitive(PrimitiveBase):
             config.max_sequence_length, config.d_operator
         )
         self.answer_query_embedding = nn.Embedding(config.max_sequence_length, config.d_operator)
-        from apc.primitives.conditioning import default_argument_encoder
+        from apc.environments.operations import get_operation
 
-        self.arg_encoder = default_argument_encoder(
-            config.operation,
-            vocab_size=config.vocab_size,
-            max_sequence_length=config.max_sequence_length,
-            arg_dim=config.arg_dim,
-        )
-        self.arg_proj = nn.Linear(config.arg_dim, config.d_operator)
+        try:
+            op = get_operation(config.operation)
+            has_args = bool(op.required_argument_names)
+        except KeyError:
+            has_args = True
+
+        if has_args:
+            from apc.primitives.conditioning import default_argument_encoder
+
+            self.arg_encoder: nn.Module | None = default_argument_encoder(
+                config.operation,
+                vocab_size=config.vocab_size,
+                max_sequence_length=config.max_sequence_length,
+                arg_dim=config.arg_dim,
+            )
+            self.arg_proj: nn.Linear | None = nn.Linear(config.arg_dim, config.d_operator)
+        else:
+            self.arg_encoder = None
+            self.arg_proj = None
 
         self.cross_attn = nn.MultiheadAttention(
             config.d_operator, config.n_head, batch_first=True
@@ -249,7 +263,7 @@ class CrossPositionPrimitive(PrimitiveBase):
         content_features: torch.Tensor,
         content_lengths: Sequence[int],
         output_lengths: Sequence[int],
-        argument_values: Sequence[Any] | None,
+        argument_values: Sequence[Any] | None = None,
     ) -> torch.Tensor:
         """Apply cross-attention operator over content features.
 
@@ -275,7 +289,7 @@ class CrossPositionPrimitive(PrimitiveBase):
         query_ids = torch.arange(out_max, device=device).unsqueeze(0).expand(batch, out_max)
         query_slots = self.answer_query_embedding(query_ids)
 
-        if argument_values is None:
+        if argument_values is None or self.arg_encoder is None or self.arg_proj is None:
             arg_token = content_features.new_zeros(batch, 1, self.d_operator)
         else:
             arg_embedding = self.arg_encoder(argument_values)
@@ -410,6 +424,119 @@ class ShiftRelativePrimitive(PrimitiveBase):
         s_idx = torch.arange(out_max, device=device).view(1, out_max, 1)
         p_idx = torch.arange(lmax, device=device).view(1, 1, lmax)
         disp = (p_idx - s_idx - shifts) % c_lens
+        attn_bias = self.rel_pos_bias(disp).permute(0, 3, 1, 2)
+
+        pad_mask = (p_idx >= c_lens).unsqueeze(1).expand(-1, self.n_head, out_max, -1)
+        attn_mask = torch.where(
+            pad_mask,
+            torch.tensor(float("-inf"), device=device),
+            attn_bias,
+        ).reshape(batch * self.n_head, out_max, lmax)
+
+        attn_out, _ = self.cross_attn(query, kv, kv, attn_mask=attn_mask, need_weights=False)
+        hidden = self.attn_norm(query + attn_out)
+        hidden = self.ffn_norm(hidden + self.ffn(hidden))
+        return self.readout(hidden)
+
+
+# ---------------------------------------------------------------------------
+# Reverse Relative Primitive (Branch B / Inductive Bias for Sequence Reversal)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ReverseRelativePrimitiveConfig:
+    """Configuration for `ReverseRelativePrimitive`."""
+
+    d_model: int = 192
+    d_operator: int = 32
+    n_head: int = 4
+    d_operator_ff: int = 64
+    vocab_size: int = 10
+    max_sequence_length: int = DEFAULT_MAX_SEQUENCE_LENGTH
+
+    def __post_init__(self) -> None:
+        if self.d_operator % self.n_head != 0:
+            raise ValueError(
+                f"d_operator ({self.d_operator}) must be divisible by n_head ({self.n_head})"
+            )
+
+
+class ReverseRelativePrimitive(PrimitiveBase):
+    """Primitive-scale (17,290 params) REVERSE operator with modular reverse relative bias."""
+
+    def __init__(
+        self,
+        primitive_id: int,
+        config: ReverseRelativePrimitiveConfig | None = None,
+        *,
+        status: PrimitiveStatus = PrimitiveStatus.CANDIDATE,
+        created_at_task: int = 0,
+        enabled: bool = True,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(
+            primitive_id,
+            status=status,
+            created_at_task=created_at_task,
+            enabled=enabled,
+            metadata=metadata,
+        )
+        cfg = config or ReverseRelativePrimitiveConfig()
+        self.config = cfg
+        self.operation = "REVERSE"
+        self.d_operator = cfg.d_operator
+        self.n_head = cfg.n_head
+        self.max_sequence_length = cfg.max_sequence_length
+
+        self.content_in_proj = nn.Linear(cfg.d_model, cfg.d_operator)
+        self.content_position_embedding = nn.Embedding(cfg.max_sequence_length, cfg.d_operator)
+        self.answer_query_embedding = nn.Embedding(cfg.max_sequence_length, cfg.d_operator)
+
+        # Learned modular reverse relative position bias: [max_sequence_length, n_head]
+        self.rel_pos_bias = nn.Embedding(cfg.max_sequence_length, cfg.n_head)
+        nn.init.zeros_(self.rel_pos_bias.weight)
+
+        self.cross_attn = nn.MultiheadAttention(cfg.d_operator, cfg.n_head, batch_first=True)
+        self.attn_norm = nn.LayerNorm(cfg.d_operator)
+        self.ffn = nn.Sequential(
+            nn.Linear(cfg.d_operator, cfg.d_operator_ff),
+            nn.GELU(),
+            nn.Linear(cfg.d_operator_ff, cfg.d_operator),
+        )
+        self.ffn_norm = nn.LayerNorm(cfg.d_operator)
+        self.readout = nn.Linear(cfg.d_operator, cfg.vocab_size)
+
+    def forward(
+        self,
+        content_features: torch.Tensor,
+        content_lengths: Sequence[int],
+        output_lengths: Sequence[int],
+        argument_values: Sequence[Any] | None = None,
+    ) -> torch.Tensor:
+        device = content_features.device
+        batch, lmax, _ = content_features.shape
+        out_max = max(output_lengths)
+
+        if not self.enabled:
+            return content_features.new_zeros(batch, out_max, self.config.vocab_size)
+
+        self.forward_call_count += 1
+
+        content_position_ids = torch.arange(lmax, device=device).unsqueeze(0).expand(batch, lmax)
+        kv = self.content_in_proj(content_features) + self.content_position_embedding(
+            content_position_ids
+        )
+
+        query_ids = torch.arange(out_max, device=device).unsqueeze(0).expand(batch, out_max)
+        query = self.answer_query_embedding(query_ids)
+
+        # Modular reverse displacement: disp[b, s, p] = (p - (L - 1 - s)) % L
+        c_lens = torch.tensor(content_lengths, device=device).view(batch, 1, 1)
+        s_idx = torch.arange(out_max, device=device).view(1, out_max, 1)
+        p_idx = torch.arange(lmax, device=device).view(1, 1, lmax)
+        target_pos = c_lens - 1 - s_idx
+        disp = (p_idx - target_pos) % c_lens
         attn_bias = self.rel_pos_bias(disp).permute(0, 3, 1, 2)
 
         pad_mask = (p_idx >= c_lens).unsqueeze(1).expand(-1, self.n_head, out_max, -1)

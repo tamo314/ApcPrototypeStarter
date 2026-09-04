@@ -9,6 +9,8 @@ from apc.primitives.primitive import (
     PrimitiveBase,
     PrimitiveConfig,
     PrimitiveStatus,
+    ReverseRelativePrimitive,
+    ReverseRelativePrimitiveConfig,
     ShiftRelativePrimitive,
     ShiftRelativePrimitiveConfig,
 )
@@ -22,6 +24,8 @@ __all__ = [
     "PrimitiveBank",
     "PrimitiveConfig",
     "PrimitiveStatus",
+    "ReverseRelativePrimitive",
+    "ReverseRelativePrimitiveConfig",
     "ShiftRelativePrimitive",
     "ShiftRelativePrimitiveConfig",
 ]
