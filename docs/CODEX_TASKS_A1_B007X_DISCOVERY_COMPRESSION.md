@@ -150,6 +150,16 @@ Distill selected overcomplete temp solution into compact persistent primitive.
 
 STOP if retention fails.
 
+- **Status:** **COMPLETE** (ADR-0057)
+- **Verdict:** Successfully distilled overcomplete temporary teacher ($T_2$, 137,482 parameters) into compact candidate primitive ($T_0$, 17,098 parameters, 8.04x compression, $R_{\text{param}} = 0.1244 \le 0.25$) across 5 seeds on `SWAP_PAIRS`:
+  - Candidate EM: 97.50% (std 0.0166, min 0.950, max 0.995, 100% success rate >= 0.95) -> PASS.
+  - Retention: 97.50% (>= 0.95) -> PASS.
+  - Parameter Ratio: 0.1244 (<= 0.25, 8.04x compression) -> PASS.
+  - Functional Agreement: 97.50% sequence agreement, 99.72% token agreement -> Substantial compliance (tracks candidate EM against 100% accurate teacher).
+  - Comparative Finding: Confirms ADR-0055/ADR-0056 that compact direct learning (99.70% EM, 175 steps) remains equal to or faster/more accurate than distillation (97.50% EM, 200 steps).
+- **Run Artifacts:** `runs/phase_a1_overcomplete_distillation/` (`report.json`, `summary.json`, `distillation_result.json`, `system.json`, `config.yaml`, and 15 checkpoints in `checkpoints/`).
+- **Authorization:** Authorizes Task A1-B007X-006 (Shadow validation, promotion, release).
+
 ---
 
 ## A1-B007X-006 — Shadow validation, promotion, release

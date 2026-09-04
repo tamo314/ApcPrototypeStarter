@@ -1,0 +1,32 @@
+# Configuration for Task A1-B007X-005: Overcomplete-to-Compact Functional Distillation
+seeds: [0, 1, 2, 3, 4]
+novel_operations:
+  - SWAP_PAIRS
+  - INVERT_HALF
+  - ROTATE_TRIPLETS
+
+teacher_tier: T2_overcomplete
+candidate_tier: T0_compact
+max_candidate_params: 25000
+max_compression_ratio: 0.25
+
+teacher_train_steps: 400
+distill_train_steps: 400
+eval_interval: 25
+batch_size: 32
+
+lr: 0.001
+weight_decay: 0.0001
+temperature: 2.0
+distillation_alpha: 0.5
+
+vocab_size: 10
+sequence_length_range: [6, 10]
+group_size: 3
+num_eval_examples: 200
+num_train_examples: 800
+num_distill_examples: 800
+
+device: auto
+save_checkpoints: true
+shared_encoder_checkpoint: runs/phase_a1_discovery_capacity_harness/shared_encoder.pt
