@@ -97,14 +97,16 @@ Distill temporary plastic solutions into compact candidate primitives (~18k para
 
 ---
 
-## A1-B007 — Recurrence & Reuse Benchmark
+## A1-B007 — Recurrence & Reuse Benchmark [PASSED - ADR-0052]
 
 ### Goal
 Demonstrate that when previously learned operations reappear in a lifelong sequence, the system retrieves and executes the installed primitive without allocating plastic capacity.
 
 ### Acceptance Criteria
-- Recurrent task accuracy $\ge 0.90$ immediately without adaptation.
-- Temporary parameter allocation $= 0$.
+- Recurrent task accuracy $\ge 0.90$ immediately without adaptation. **[PASSED: 99.15% overall mean exact match across 5 seeds: SWAP_PAIRS 100.0%, INVERT_HALF 98.3%]**
+- Temporary parameter allocation $= 0$. **[PASSED: exactly 0 temporary parameters allocated throughout recurrence]**
+- Baseline and Control verification. **[PASSED: unconsolidated bank EM <= 0.05%, fresh adaptation requires 500 steps and 17,098 parameters achieving only 90.30%]**
+
 
 ---
 

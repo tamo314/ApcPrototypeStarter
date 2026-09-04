@@ -536,3 +536,49 @@ Task A1-B006 evaluates the functional consolidation and shadow validation milest
 - Authorizes Task A1-B007 (Recurrence and Bank Reuse).
 - Decision artifacts: `runs/phase_a1_consolidation_benchmark/` (`report.json`, `summary.json`, `system.json`, `config.yaml`, `seed_<0-4>/`). New modules: `src/apc/consolidation/compact_consolidation.py`, `src/apc/evaluation/consolidation_benchmark.py`, `scripts/consolidation_benchmark.py`, `tests/test_compact_consolidation.py`.
 
+---
+
+## ADR-0052: Recurrence & Bank Reuse Demonstrates Immediate Ceiling Performance with Zero Plastic Parameter Allocation across Lifelong Sequence
+
+**Date:** 2026-09-04
+**Status:** Accepted (Milestone Gate B-M7 / Task A1-B007 Passed)
+
+**Decision:**
+Approve Task A1-B007 (Recurrence & Reuse Benchmark: Milestone B-M7). When previously learned and consolidated novel operations (`SWAP_PAIRS`, `INVERT_HALF`) reappear in a lifelong task stream, the APC system retrieves and executes the installed primitives immediately with **zero adaptation steps** ($\text{adaptation\_steps} = 0$) and **zero temporary plastic parameter allocation** ($\text{allocated\_params} = 0$). Across 5 seeds (`0, 1, 2, 3, 4`), immediate bank reuse achieves **99.15% overall mean exact match** on held-out test data (threshold $\ge 90.00\%$; `SWAP_PAIRS`: 100.00%, `INVERT_HALF`: 98.30%). In contrast, the unconsolidated baseline bank fails completely ($\le 0.05\%$ exact match), and fresh scratch adaptation requires 500 training steps and 17,098 temporary parameters while achieving lower mean accuracy (90.30% vs 99.15%). Interleaving canonical tasks produces zero interference, and all frozen invariants and sparse execution invariants hold strictly. Authorize Task A1-B008 (Learned Routing & Full Closed Loop).
+
+**Context:**
+Task A1-B007 evaluates hypothesis H-B5 (Recurrence Without Adaptation) for Phase A.1 Branch B Integration (`docs/CODEX_TASKS_PHASE_A1_BRANCH_B_INTEGRATION.md` and `docs/EXPERIMENT_PLAN_PHASE_A1_BRANCH_B_INTEGRATION.md`). A core value proposition of the APC architecture is that newly consolidated primitives persist in `PrimitiveBank`, allowing recurrent operations to be solved instantaneously without triggering plastic adaptation or catastrophic forgetting:
+1. **Immediate Exact Match:** Recurrent task accuracy must achieve $\ge 0.90$ immediately without any adaptation steps.
+2. **Zero Plastic Allocation:** Temporary plastic workspace parameter allocation must be strictly 0 throughout recurrence.
+3. **Controls:**
+   - **Bank Reuse (APC Recurrence):** Instant lookup of installed primitive without adaptation.
+   - **Fresh Adaptation Control:** Re-learning from scratch via temporary plastic capacity (~17k params, 500 steps).
+   - **Unconsolidated Control:** Baseline bank without consolidated primitives (fails with EM $\le 0.05$).
+   - **Intervening Task Stream:** Interleaving canonical operations (`REVERSE`, `SHIFT`, `NEGATE`) demonstrates lifelong stability and zero skill degradation.
+
+**Measured Evidence (5 seeds: 0, 1, 2, 3, 4; RTX 5060 Ti 16 GB):**
+
+| Recurrent Operation | Immediate EM (Reuse) | Adaptation Steps | Allocated Temp Params | Fresh Scratch EM (500 steps) | Fresh Temp Params | Unconsolidated Bank EM | Invariants / Sparse | Status |
+|---|---|---|---|---|---|---|---|---|
+| **SWAP_PAIRS** | **1.0000** (100.0%) | **0** | **0** | 1.0000 | 17,098 | 0.0010 (0.1%) | PASS / PASS | **PASS** |
+| **INVERT_HALF** | **0.9830** (98.3%) | **0** | **0** | 0.8060 | 17,098 | 0.0000 (0.0%) | PASS / PASS | **PASS** |
+
+**Summary Aggregates:**
+- **Overall Mean Immediate Exact Match:** **0.9915** (99.15% vs threshold $\ge 0.9000$) -> **PASS**
+- **Maximum Allocated Plastic Parameters:** **0** (threshold $= 0$) -> **PASS**
+- **Unconsolidated Baseline EM:** **0.0005** (0.05% vs threshold $\le 0.0500$) -> **PASS**
+- **Fresh Adaptation Comparison:** Bank reuse saves 100% of adaptation steps (0 vs 500 steps) and 100% of plastic memory (0 vs 17,098 parameters) while delivering superior accuracy (99.15% vs 90.30%).
+- **Strict Invariants:** Stable Core and persistent primitives 100% frozen (`requires_grad == False`), zero forward calls to non-selected primitives (`forward_call_count == 0`), task-blind content representation strictly preserved -> **PASS**
+- **Seed Policy Compliance:** 5 seeds evaluated (`0, 1, 2, 3, 4`) -> **PASS**
+
+**Reason:**
+1. **True Functional Persistence:** Primitives installed during Task A1-B006 retain full functional integrity inside `PrimitiveBank`. When the task identifier or recipe recurs, executing the installed module directly on the frozen Stable Core's task-blind content encoding ($h_{\text{content}} = f(\text{content})$) achieves ceiling accuracy without an adaptation phase.
+2. **Computational and Memory Savings:** Compared to continual learners that require plastic fine-tuning or residual adaptation upon task re-encounter, APC's bank lookup bypasses the entire optimization loop, executing in $O(1)$ forward passes with 0 temporary parameter overhead.
+3. **Causal Necessity of Consolidation:** The unconsolidated control demonstrates near-zero accuracy ($\le 0.001$), confirming that immediate recurrence success is causally driven by the distilled compact primitives in `PrimitiveBank`, not by base model generalization or spurious heuristics.
+
+**Consequence:**
+- Successfully clears Milestone Gate B-M7 (Task A1-B007).
+- Authorizes Task A1-B008 (Learned Routing & Full Closed Loop).
+- Decision artifacts: `runs/phase_a1_recurrence_benchmark/` (`report.json`, `summary.json`, `system.json`, `config.yaml`, `seed_<0-4>/`). New modules: `src/apc/evaluation/recurrence_benchmark.py`, `scripts/recurrence_benchmark.py`, `configs/phase_a1_recurrence_benchmark.yaml`, `tests/test_recurrence_benchmark.py`.
+
+
