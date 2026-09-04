@@ -1,6 +1,11 @@
 """Primitive representation, persistent bank, and sparse router."""
 
 from apc.primitives.bank import PrimitiveBank
+from apc.primitives.composition import (
+    CompositionLibrary,
+    CompositionRecipe,
+    execute_composition_recipe,
+)
 from apc.primitives.primitive import (
     CrossPositionPrimitive,
     CrossPositionPrimitiveConfig,
@@ -16,6 +21,8 @@ from apc.primitives.primitive import (
 )
 
 __all__ = [
+    "CompositionLibrary",
+    "CompositionRecipe",
     "CrossPositionPrimitive",
     "CrossPositionPrimitiveConfig",
     "PointwisePrimitive",
@@ -28,4 +35,5 @@ __all__ = [
     "ReverseRelativePrimitiveConfig",
     "ShiftRelativePrimitive",
     "ShiftRelativePrimitiveConfig",
+    "execute_composition_recipe",
 ]

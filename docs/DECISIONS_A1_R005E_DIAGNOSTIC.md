@@ -355,3 +355,51 @@ Every operation clears `docs/EXPERIMENT_PLAN_A1_R005E_E006_PLUS.md` section 3's 
 - Successfully clears STOP GATE A1-B002.
 - Authorizes Task A1-B003 (Composition Library Execution).
 - Decision artifacts: `runs/phase_a1_unified_oracle_causal_benchmark/` (`report.json`, `summary.json`, `system.json`, `config.yaml`, `seed_<0-4>/`). New modules: `src/apc/evaluation/unified_oracle_causal_benchmark.py`, `scripts/unified_oracle_causal_benchmark.py`, `tests/test_unified_oracle_causal_benchmark.py`.
+
+---
+
+## ADR-0048: Composition Library Execution over Single Frozen Task-Blind Stable Core
+
+**Date:** 2026-09-04
+**Status:** Accepted (Milestone Gate B-M3 / Task A1-B003 Passed)
+
+**Decision:**
+Approve Task A1-B003 (Composition Library Execution). Multi-step compositional recipes over compact heterogeneous primitives (`CrossPositionPrimitive`, `ShiftRelativePrimitive`, `ReverseRelativePrimitive`) operate at near-ceiling accuracy (99.63% mean exact match) by sequentially piping latent representations through ordered primitive executions over a single frozen task-blind Stable Core, with zero task-conditioned core reprocessing, zero unselected forward calls, and zero temporary plastic parameters. Authorize Task A1-B004 (Composition Search Baseline).
+
+**Context:**
+Task A1-B003 is the composition execution milestone (Milestone B-M3, STOP GATE) of Phase A.1 Branch B Integration. It tests Hypothesis H-B2: sequential application of compact primitives computes composite multi-step functions without intermediate task-conditioned core reprocessing.
+
+The designated evaluation matrix spans 6 representative multi-step compositions across parameterized and parameter-free primitives:
+1. `SHIFT -> SELECT` (parameterized -> parameterized)
+2. `REVERSE -> COUNT` (parameter-free -> parameterized)
+3. `COPY -> SORT` (parameter-free -> parameter-free)
+4. `NEGATE -> SELECT` (parameter-free -> parameterized)
+5. `SHIFT -> BIND` (parameterized -> parameterized)
+6. `REVERSE -> SORT` (parameter-free -> parameter-free)
+
+**Measured Evidence (5 seeds: 0, 1, 2, 3, 4; RTX 5060 Ti 16 GB):**
+
+| Composition | Type | Mean Exact Match | Mean Token Accuracy | Unselected Calls | Threshold ($\ge 0.90$) | Status |
+|---|---|---|---|---|---|---|
+| **SHIFT -> SELECT** | Param -> Param | **0.9880** | 0.9967 | **0** | $\ge 0.9000$ | **PASS** |
+| **REVERSE -> COUNT** | Free -> Param | **0.9984** | 0.9984 | **0** | $\ge 0.9000$ | **PASS** |
+| **COPY -> SORT** | Free -> Free | **0.9996** | 1.0000 | **0** | $\ge 0.9000$ | **PASS** |
+| **NEGATE -> SELECT** | Free -> Param | **1.0000** | 1.0000 | **0** | $\ge 0.9000$ | **PASS** |
+| **SHIFT -> BIND** | Param -> Param | **0.9920** | 0.9920 | **0** | $\ge 0.9000$ | **PASS** |
+| **REVERSE -> SORT** | Free -> Free | **1.0000** | 1.0000 | **0** | $\ge 0.9000$ | **PASS** |
+
+**Summary Aggregates:**
+- **Overall Mean Composition Exact Match:** **0.9963** (99.63% vs threshold $\ge 0.9000$) -> **PASS**
+- **Strict Sparse Execution:** Unselected primitives strictly receive zero forward calls (`unselected_calls == 0`) across all recipes -> **PASS**
+- **Zero Plastic Capacity:** Temporary parameter allocation is strictly 0 (`temporary_params == 0`) -> **PASS**
+- **Seed Policy Compliance:** 5 seeds evaluated (0, 1, 2, 3, 4) -> **PASS**
+
+**Reason:**
+1. **Compositional Generalization without Core Reconditioning:** Primitives trained strictly on single-step tasks successfully compose into multi-step recipes without retraining or re-conditioning the Stable Core on task tokens. Piping intermediate representations through the task-blind encoder preserves all relevant features for downstream primitives.
+2. **Strict Invariant Separation:** `CompositionLibrary` and `CompositionRecipe` are strictly decoupled from `PrimitiveBank`, ensuring composite capabilities do not multiply or inflate resident parameter capacity.
+3. **Execution Sparsity Preserved in Depth:** Across an $N$-step recipe, only the $N$ participating primitives execute, validating that depth-wise sparse execution holds.
+
+**Consequence:**
+- Successfully clears STOP GATE A1-B003.
+- Authorizes Task A1-B004 (Composition Search Baseline).
+- Decision artifacts: `runs/phase_a1_composition_library_benchmark/` (`report.json`, `summary.json`, `system.json`, `config.yaml`, `seed_<0-4>/`). New modules: `src/apc/primitives/composition.py`, `src/apc/evaluation/composition_library_benchmark.py`, `scripts/composition_library_benchmark.py`, `tests/test_composition_library.py`.
