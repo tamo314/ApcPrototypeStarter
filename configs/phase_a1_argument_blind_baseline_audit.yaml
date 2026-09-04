@@ -1,0 +1,31 @@
+# Configuration for Task A1-R005E-S004: COUNT/BIND Argument-Blind Baseline Audit
+seeds:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+
+num_eval_groups: 1400
+vocab_size: 10
+sequence_length_range:
+  - 6
+  - 10
+
+operations:
+  - COUNT
+  - BIND
+
+historical_none_ceiling: 0.30
+
+gate_summary_paths:
+  E-004: runs/phase_a1_frozen_high_capacity_operator_benchmark/summary.json
+  E-005: runs/phase_a1_compact_cross_position_operator_probe/summary.json
+  E-006A: runs/phase_a1_joint_representation_compact_operator_probe/summary.json
+  S002: runs/phase_a1_shared_encoder_mixed_operation_training_gate/summary.json
+
+gate_report_paths:
+  E-004: runs/phase_a1_frozen_high_capacity_operator_benchmark/report.json
+  E-005: runs/phase_a1_compact_cross_position_operator_probe/report.json
+  E-006A: runs/phase_a1_joint_representation_compact_operator_probe/report.json
+  S002: runs/phase_a1_shared_encoder_mixed_operation_training_gate/report.json
