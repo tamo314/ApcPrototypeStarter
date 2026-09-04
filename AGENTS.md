@@ -20,54 +20,37 @@ Historical Phase A and earlier Phase A.1 documents remain valuable evidence, but
 
 The active phase is:
 
-**Phase A.1 — Post-Correction Redesign**
+**Phase A.1 Post-Diagnostic — Branch B Integration**
 
 The current scientific question is:
 
-> Can operation-specific computation be made causally dependent on sparse reusable primitives, rather than being solved directly inside the Stable Core?
+> Can the full continual learning lifecycle (sparse execution, composition, residual plastic learning, functional consolidation, recurrence reuse, and learned routing) be unified over a single shared task-blind Stable Core using heterogeneous compact primitives?
 
 The active task sequence uses IDs:
 
-`A1-R001` through `A1-R022`
+`A1-B001` through `A1-B008`
 
 from:
 
-`docs/CODEX_TASKS_PHASE_A1_POST_CORRECTION.md`
+`docs/CODEX_TASKS_PHASE_A1_BRANCH_B_INTEGRATION.md`
 
-> **A1-R006 remains blocked.** A1-R005 and its retry (D-001 through D-008)
-> produced a negative diagnostic result, and A1-R005E-001 through A1-R005E-005
-> produced a mixed result (ADR-0042). E-006 onward was revised after
-> ADR-0042 -- before any A1-R006+ work, read and follow the active revised
-> diagnostic queue/plan:
+> **Diagnostic Closure Note (ADR-0046):** The diagnostic series (A1-R005D,
+> A1-R005E-001..006A, S001..S007) successfully concluded by proving that:
+> 1. A single shared task-blind Stable Core content encoder preserves $\ge 99.6\%$
+>    of specialized performance across all operations (ADR-0044).
+> 2. Heterogeneous compact primitives (~18k parameters), such as
+>    `ShiftRelativeCrossPositionOperator` with modular relative position bias,
+>    resolve complex operations (93.85% exact match, ADR-0045).
+> 3. Historical `A1-R006` through `A1-R022` are superseded by the `A1-B001`
+>    through `A1-B008` roadmap.
 >
-> 1. `docs/exec-plans/active/A1_R005E_E006_PLUS.md`
-> 2. `docs/CODEX_TASKS_A1_R005E_E006_PLUS.md`
-> 3. `docs/EXPERIMENT_PLAN_A1_R005E_E006_PLUS.md`
-> 4. `docs/design-docs/REPRESENTATION_OPERATOR_FACTORIAL.md`
-> 5. `docs/AGENTS_A1_R005E_E006_PLUS_ADDENDUM.md`
->
-> After A1-R005E-006A / ADR-0043, before E-006B or any Branch-B commitment,
-> also read the active shared queryable representation gate (temporary
-> read-first pointers pending completion of that gate):
->
-> 6. `docs/exec-plans/active/A1_R005E_SHARED_ENCODER_GATE.md`
-> 7. `docs/CODEX_TASKS_A1_R005E_SHARED_ENCODER_GATE.md`
-> 8. `docs/EXPERIMENT_PLAN_A1_R005E_SHARED_ENCODER_GATE.md`
-> 9. `docs/design-docs/SHARED_QUERYABLE_REPRESENTATION.md`
-> 10. `docs/AGENTS_A1_R005E_SHARED_ENCODER_ADDENDUM.md`
->
-> The earlier `docs/exec-plans/active/A1_R005E_DIAGNOSTIC.md` /
-> `docs/CODEX_TASKS_A1_R005E_DIAGNOSTIC.md` /
-> `docs/EXPERIMENT_PLAN_A1_R005E_DIAGNOSTIC.md` /
-> `docs/design-docs/REPRESENTATION_OPERATOR_ISOLATION.md` /
-> `docs/design-docs/NEXT_PHASE_DECISION_MATRIX.md` /
-> `docs/AGENTS_A1_R005E_DIAGNOSTIC_ADDENDUM.md` set (A1-R005E-001 through
-> A1-R005E-005) remains historical reference -- do not delete or rewrite it.
->
-> Do not begin A1-R006 until the user approves a branch from the final
-> diagnostic decision report.
+> Follow the active execution plan:
+> 1. `docs/exec-plans/active/PHASE_A1_BRANCH_B_INTEGRATION.md`
+> 2. `docs/CODEX_TASKS_PHASE_A1_BRANCH_B_INTEGRATION.md`
+> 3. `docs/EXPERIMENT_PLAN_PHASE_A1_BRANCH_B_INTEGRATION.md`
+> 4. `docs/results/A1_R005E_DIAGNOSTIC_RESULT_FINAL.md`
 
-Implement **only the currently requested A1-Rxxx task** unless the user explicitly asks to change scope.
+Implement **only the currently requested A1-Bxxx task** unless the user explicitly asks to change scope.
 
 Do not continue automatically to the next task after completing one.
 
