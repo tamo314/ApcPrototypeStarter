@@ -1009,6 +1009,34 @@ Task A1-B007X-007 proves that newly discovered computation lives strictly in the
 - Authorizes progression to Task A1-B007X-008 (Capacity-gap final audit: `docs/results/A1_B007X_DISCOVERY_COMPRESSION_RESULT.md`).
 - Run artifacts preserved in `runs/phase_a1_fresh_runtime_recurrence/` (`report.json`, `summary.json`, `system.json`, `config.yaml`, and 5 seed reports).
 
+---
 
+## ADR-0060: Capacity-Gap Final Audit Approves "Compressibility Only" Verdict and Unblocks A1-B008 (A1-B007X-008)
 
+**Date:** 2026-09-04
+**Status:** Accepted / Approved
+**Affects:** `docs/CODEX_TASKS_A1_B007X_DISCOVERY_COMPRESSION.md`, `docs/EXPERIMENT_PLAN_A1_B007X_DISCOVERY_COMPRESSION.md`, `docs/exec-plans/active/A1_B007X_DISCOVERY_COMPRESSION.md`, `docs/results/A1_B007X_DISCOVERY_COMPRESSION_RESULT.md`, `docs/CODEX_TASKS_PHASE_A1_BRANCH_B_INTEGRATION.md`
 
+**Decision:**
+1. Formally accept and publish the official final audit report for Task A1-B007X-008: `docs/results/A1_B007X_DISCOVERY_COMPRESSION_RESULT.md`.
+2. Formally declare the official final verdict under the allowed verdicts schema:
+   - **Verdict:** **Compressibility only**
+     - Compression/recurrence pass: **PASS** ($8.04\times$ parameter compression, $97.50\%$ functional retention, $97.10\%$ fresh-runtime recurrence, 0 adaptation steps, 0 temporary parameters).
+     - Compact direct learning equally effective: **TRUE** (Direct compact learning achieved $99.70\%$ EM in 175 steps on `SWAP_PAIRS`, outperforming distillation's $97.50\%$ EM in 200 steps).
+3. Strictly separate the three scientific dimensions pursuant to the active experiment plan:
+   - **Compressibility:** **SUPPORTED** (Overcomplete $T_2$ to compact $T_0$ distillation achieves $R_{\text{param}} = 0.1244 \le 0.25$ and retention $\ge 95\%$).
+   - **Discovery Advantage:** **REJECTED / NEGATIVE RESULT PRESERVED** (No qualitative reliability gap; efficiency speedup ratio $57.14\% > 50.0\%$; inductive bias of compact Cross-Position Attention is sufficient for direct discovery).
+   - **Lifecycle Persistence:** **SUPPORTED** ($0.00\%$ catastrophic forgetting, byte-for-byte Core/Bank invariance, 100% temporary release $137\text{k} \to 0$, persistent bank expansion $8 \to 9$, fresh runtime ceiling recurrence).
+4. Formally declare **Gate A1-B007X COMPLETE AND CLOSED**.
+5. Formally unblock progression to Task A1-B008 (Dynamic Retrieval Routing and Sparse Execution Lifecycle Integration).
+
+**Context:**
+Task A1-B007X-008 is the final audit task for the entire A1-B007X gate. It synthesizes all empirical evidence across tasks A1-B007X-001 through A1-B007X-007, evaluating whether APC requires an overcomplete temporary discovery system or whether compact primitives possess sufficient direct learning capacity, and whether functional distillation safely transfers knowledge to persistent memory.
+
+**Measured Evidence:**
+All empirical findings across ADR-0053 through ADR-0059 and corresponding run directories (`runs/phase_a1_*/`) are fully audited and detailed in `docs/results/A1_B007X_DISCOVERY_COMPRESSION_RESULT.md`.
+
+**Consequence:**
+- Successfully completes Task A1-B007X-008.
+- Marks Gate A1-B007X (Tasks A1-B007X-001 through A1-B007X-008) complete.
+- Unblocks Task A1-B008 in `docs/CODEX_TASKS_PHASE_A1_BRANCH_B_INTEGRATION.md`.

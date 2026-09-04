@@ -109,13 +109,14 @@ Demonstrate that when previously learned operations reappear in a lifelong seque
 
 ---
 
-## A1-B007X — Discovery-to-Compact Consolidation Gate
+## A1-B007X — Discovery-to-Compact Consolidation Gate [PASSED - ADR-0060]
 
-See: `docs/CODEX_TASKS_A1_B007X_DISCOVERY_COMPRESSION.md` and `docs/exec-plans/active/A1_B007X_DISCOVERY_COMPRESSION.md`.
+See: `docs/CODEX_TASKS_A1_B007X_DISCOVERY_COMPRESSION.md`, `docs/exec-plans/active/A1_B007X_DISCOVERY_COMPRESSION.md`, and `docs/results/A1_B007X_DISCOVERY_COMPRESSION_RESULT.md`.
 Directly tests large temporary discovery workspace against compact persistent primitives ($P_{\text{temp}} \gg P_{\text{persistent}}$).
-Tasks: `A1-B007X-001` through `A1-B007X-008`. Must be resolved before proceeding to A1-B008.
+Tasks: `A1-B007X-001` through `A1-B007X-008` successfully resolved and audited under **Compressibility only** verdict (8.04x compression, 97.5% retention, 0.0% forgetting, 97.1% fresh-runtime recurrence, 0 adaptation steps, 0 temp params; direct compact learning equally effective). Authorizes unblocking of Task A1-B008.
 
 ---
+
 
 ## A1-B008 — Learned Routing & Full Closed Loop
 
