@@ -107,6 +107,13 @@ Demonstrate that when previously learned operations reappear in a lifelong seque
 - Temporary parameter allocation $= 0$. **[PASSED: exactly 0 temporary parameters allocated throughout recurrence]**
 - Baseline and Control verification. **[PASSED: unconsolidated bank EM <= 0.05%, fresh adaptation requires 500 steps and 17,098 parameters achieving only 90.30%]**
 
+---
+
+## A1-B007X — Discovery-to-Compact Consolidation Gate
+
+See: `docs/CODEX_TASKS_A1_B007X_DISCOVERY_COMPRESSION.md` and `docs/exec-plans/active/A1_B007X_DISCOVERY_COMPRESSION.md`.
+Directly tests large temporary discovery workspace against compact persistent primitives ($P_{\text{temp}} \gg P_{\text{persistent}}$).
+Tasks: `A1-B007X-001` through `A1-B007X-008`. Must be resolved before proceeding to A1-B008.
 
 ---
 

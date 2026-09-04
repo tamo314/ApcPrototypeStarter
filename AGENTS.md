@@ -28,11 +28,13 @@ The current scientific question is:
 
 The active task sequence uses IDs:
 
-`A1-B001` through `A1-B008`
+`A1-B001` through `A1-B007` -> `A1-B007X` -> `A1-B008`
 
 from:
 
 `docs/CODEX_TASKS_PHASE_A1_BRANCH_B_INTEGRATION.md`
+and:
+`docs/CODEX_TASKS_A1_B007X_DISCOVERY_COMPRESSION.md`
 
 > **Diagnostic Closure Note (ADR-0046):** The diagnostic series (A1-R005D,
 > A1-R005E-001..006A, S001..S007) successfully concluded by proving that:
@@ -47,8 +49,10 @@ from:
 > Follow the active execution plan:
 > 1. `docs/exec-plans/active/PHASE_A1_BRANCH_B_INTEGRATION.md`
 > 2. `docs/CODEX_TASKS_PHASE_A1_BRANCH_B_INTEGRATION.md`
-> 3. `docs/EXPERIMENT_PLAN_PHASE_A1_BRANCH_B_INTEGRATION.md`
-> 4. `docs/results/A1_R005E_DIAGNOSTIC_RESULT_FINAL.md`
+> 3. `docs/CODEX_TASKS_A1_B007X_DISCOVERY_COMPRESSION.md`
+> 4. `docs/EXPERIMENT_PLAN_A1_B007X_DISCOVERY_COMPRESSION.md`
+> 5. `docs/exec-plans/active/A1_B007X_DISCOVERY_COMPRESSION.md`
+> 6. `docs/results/A1_R005E_DIAGNOSTIC_RESULT_FINAL.md`
 
 Implement **only the currently requested A1-Bxxx task** unless the user explicitly asks to change scope.
 

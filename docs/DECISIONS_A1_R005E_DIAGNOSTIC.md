@@ -581,4 +581,75 @@ Task A1-B007 evaluates hypothesis H-B5 (Recurrence Without Adaptation) for Phase
 - Authorizes Task A1-B008 (Learned Routing & Full Closed Loop).
 - Decision artifacts: `runs/phase_a1_recurrence_benchmark/` (`report.json`, `summary.json`, `system.json`, `config.yaml`, `seed_<0-4>/`). New modules: `src/apc/evaluation/recurrence_benchmark.py`, `scripts/recurrence_benchmark.py`, `configs/phase_a1_recurrence_benchmark.yaml`, `tests/test_recurrence_benchmark.py`.
 
+---
 
+## ADR-0053: Consolidation Metric and Shadow Audit Classifies B006 as Functional Consolidation and Verifies Zero Forgetting on Individual Canonical and Composition Tasks
+
+**Date:** 2026-09-04
+**Status:** Accepted (Task A1-B007X-001 Passed)
+
+**Decision:**
+Approve Task A1-B007X-001 (Consolidation Metric and Shadow Audit).
+1. Formally audit Task A1-B006 parameters and reclassify B006 as **functional consolidation** (~17k -> ~17k parameters, $R_{\text{param}} = 1.0000$), not parameter compression.
+2. Resolve measurement ambiguity in shadow validation by establishing fine-grained, per-operation canonical before/after metrics (8 canonical operations) and representative composition before/after metrics (6 multi-step recipes), replacing reliance on opaque aggregate averages.
+3. Across 5 seeds (`0, 1, 2, 3, 4`), empirical evaluation confirms **mathematically zero forgetting (0.00% forgetting across all individual tasks, threshold $\le 2.00\%$)**:
+   - Canonical Parameter-free (`COPY`, `REVERSE`, `SORT`, `NEGATE`): 0.00% forgetting.
+   - Canonical Parameterized (`SELECT`, `COUNT`, `SHIFT`, `BIND`): 0.00% forgetting.
+   - Representative Compositions (`SHIFT->SELECT`, `REVERSE->COUNT`, `COPY->SORT`, `NEGATE->SELECT`, `SHIFT->BIND`, `REVERSE->SORT`): 0.00% forgetting.
+4. Strictly preserve historical Task A1-B006 run artifacts in `runs/phase_a1_consolidation_benchmark/` unchanged.
+5. Authorize Task A1-B007X-002 (Novel-task and capacity-ladder harness).
+
+**Context:**
+Before evaluating hypothesis $C_{\text{discover}} > C_{\text{represent}}$ in the A1-B007X Discovery-to-Compact Consolidation Gate (`A1_B007X_DISCOVERY_COMPRESSION_PATCH_GUIDE.md` and `docs/CODEX_TASKS_A1_B007X_DISCOVERY_COMPRESSION.md`), baseline measurement ambiguities had to be audited:
+- In Task A1-B006, the temporary plastic residual allocated 17,098 parameters and distilled into a 17,098 parameter compact candidate primitive ($R_{\text{param}} = 1.0$). While functional transfer succeeded (103.16% retention), this did not demonstrate parameter compression or a discovery-capacity gap ($P_{\text{temp}} \gg P_{\text{persistent}}$).
+- Prior shadow validation in B006 tracked only a scalar mean historical performance aggregate (`historical_baseline_mean_em` and `max_historical_forgetting`), which could obscure localized skill degradation on specific canonical operations or multi-step compositions.
+
+**Measured Evidence (5 seeds: 0, 1, 2, 3, 4; RTX 5060 Ti 16 GB; `runs/phase_a1_consolidation_shadow_audit/`):**
+
+### 1. B006 Parameter Audit
+- **Temporary Parameters (Before Release):** 17,098
+- **Candidate Primitive Parameters:** 17,098
+- **Parameter Ratio ($R_{\text{param}} = P_{\text{cand}} / P_{\text{temp}}$):** **1.0000**
+- **Classification:** `functional_consolidation` (is_parameter_compression: `false`)
+
+### 2. Individual Canonical Operations (Before vs After Consolidation)
+
+| Canonical Operation | Category | Before EM | After EM | Forgetting | Threshold ($\le 0.02$) | Status |
+|---|---|---|---|---|---|---|
+| **SELECT** | Parameterized | 0.1530 | 0.1530 | **0.0000 (0.0%)** | $\le 0.0200$ | **PASS** |
+| **COUNT** | Parameterized | 0.4220 | 0.4220 | **0.0000 (0.0%)** | $\le 0.0200$ | **PASS** |
+| **SHIFT** | Parameterized | 0.1380 | 0.1380 | **0.0000 (0.0%)** | $\le 0.0200$ | **PASS** |
+| **BIND** | Parameterized | 0.8250 | 0.8250 | **0.0000 (0.0%)** | $\le 0.0200$ | **PASS** |
+| **COPY** | Parameter-free | 0.2140 | 0.2140 | **0.0000 (0.0%)** | $\le 0.0200$ | **PASS** |
+| **REVERSE** | Parameter-free | 0.1520 | 0.1520 | **0.0000 (0.0%)** | $\le 0.0200$ | **PASS** |
+| **SORT** | Parameter-free | 0.0430 | 0.0430 | **0.0000 (0.0%)** | $\le 0.0200$ | **PASS** |
+| **NEGATE** | Parameter-free | 0.1780 | 0.1780 | **0.0000 (0.0%)** | $\le 0.0200$ | **PASS** |
+
+### 3. Representative Compositions (Before vs After Consolidation)
+
+| Composition Recipe | Before EM | After EM | Forgetting | Threshold ($\le 0.02$) | Status |
+|---|---|---|---|---|---|
+| **SHIFT -> SELECT** | 0.0500 | 0.0500 | **0.0000 (0.0%)** | $\le 0.0200$ | **PASS** |
+| **REVERSE -> COUNT** | 0.3980 | 0.3980 | **0.0000 (0.0%)** | $\le 0.0200$ | **PASS** |
+| **COPY -> SORT** | 0.0090 | 0.0090 | **0.0000 (0.0%)** | $\le 0.0200$ | **PASS** |
+| **NEGATE -> SELECT** | 0.1010 | 0.1010 | **0.0000 (0.0%)** | $\le 0.0200$ | **PASS** |
+| **SHIFT -> BIND** | 0.4320 | 0.4320 | **0.0000 (0.0%)** | $\le 0.0200$ | **PASS** |
+| **REVERSE -> SORT** | 0.0110 | 0.0110 | **0.0000 (0.0%)** | $\le 0.0200$ | **PASS** |
+
+**Summary Aggregates:**
+- **Maximum Overall Forgetting:** **0.0000** (0.00% vs threshold $\le 2.00\%$) -> **PASS**
+- **All Canonical Operations Passed:** **true** (8 of 8 individual tasks) -> **PASS**
+- **All Representative Compositions Passed:** **true** (6 of 6 recipes) -> **PASS**
+- **Opaque Aggregate Replacement:** Fine-grained per-task and per-composition records published -> **PASS**
+- **Artifact Preservation:** `runs/phase_a1_consolidation_benchmark/` verified 100% byte-for-byte intact -> **PASS**
+- **Seed Policy Compliance:** 5 seeds evaluated (`0, 1, 2, 3, 4`) -> **PASS**
+
+**Reason:**
+1. **Scientific Clarification of B006:** Acknowledging that Task A1-B006 proved functional consolidation without parameter compression ($R_{\text{param}} = 1.0$) prevents premature claims about capacity compression. It cleanly separates functional consolidation (C1) from compressibility (C2) and discovery advantage (C3).
+2. **True Modularity Ensures Zero Interference:** Because new primitives in `PrimitiveBank` occupy independent module indices and the shared Stable Core is strictly task-blind and frozen, expanding the bank from 8 to 10 primitives creates zero cross-talk with preexisting primitives or compositions.
+3. **Rigorous Audit Transparency:** Providing per-task before/after metrics eliminates aggregate masking and provides an exact, reproducible baseline for future capacity-ladder evaluations.
+
+**Consequence:**
+- Successfully satisfies Task A1-B007X-001.
+- Authorizes Task A1-B007X-002 (Novel-task and capacity-ladder harness).
+- Decision artifacts: `runs/phase_a1_consolidation_shadow_audit/` (`report.json`, `summary.json`, `system.json`, `config.yaml`, `seed_<0-4>/`). New modules: `src/apc/evaluation/consolidation_shadow_audit.py`, `scripts/consolidation_shadow_audit.py`, `configs/phase_a1_consolidation_shadow_audit.yaml`, `tests/test_consolidation_shadow_audit.py`.

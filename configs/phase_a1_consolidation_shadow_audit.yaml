@@ -1,0 +1,33 @@
+# Phase A.1 Post-Diagnostic Task A1-B007X-001
+# Consolidation Metric and Shadow Audit Configuration
+# Audits B006 parameter ratio and verifies per-operation canonical and per-composition before/after metrics.
+
+seeds: [0, 1, 2, 3, 4]
+
+vocab_size: 10
+sequence_length_range: [6, 10]
+group_size: 4
+
+model:
+  d_model: 192
+  n_layer: 4
+  n_head: 4
+  d_ff: 768
+  max_seq_len: 48
+  dropout: 0.0
+
+device: auto
+
+d_operator: 32
+n_operator_head: 4
+d_operator_ff: 64
+max_sequence_length: 32
+
+num_canonical_eval_examples: 200
+num_composition_eval_examples: 200
+max_forgetting_threshold: 0.02
+
+b006_benchmark_dir: "runs/phase_a1_consolidation_benchmark"
+core_train_steps: 6000
+bank_train_steps: 6000
+shared_encoder_checkpoint: null
