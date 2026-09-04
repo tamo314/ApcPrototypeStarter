@@ -411,8 +411,8 @@ def run_shadow_promotion_single_seed(
 
     if not loaded_bank:
         for op in ALL_CANONICAL_OPERATIONS:
-            p = bank.get(op_to_id[op])
-            _train_single_primitive(core, p, u_config, op, steps=config.bank_train_steps)
+            prim_module = bank.get(op_to_id[op])
+            _train_single_primitive(core, prim_module, u_config, op, steps=config.bank_train_steps)
 
     bank.freeze_all()
     bank.eval()

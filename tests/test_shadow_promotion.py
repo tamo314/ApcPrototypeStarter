@@ -1,7 +1,8 @@
 """Unit tests for Task A1-B007X-006 Shadow Validation, Promotion, and Release."""
 
-from __future__ import annotations
+from pathlib import Path
 
+import pytest
 import torch
 
 from apc.core.tokens import build_special_tokens
@@ -13,6 +14,7 @@ from apc.evaluation.shadow_promotion import (
     MAX_CANDIDATE_PARAMS,
     MAX_FORGETTING_THRESHOLD,
     ShadowPromotionConfig,
+    run_shadow_promotion_single_seed,
     shadow_promotion_config_from_dict,
     verify_bank_unchanged,
     verify_core_unchanged,
@@ -186,11 +188,8 @@ def test_conditional_promotion_and_release_contract() -> None:
 
 
 def test_shadow_promotion_fault_injection_core_mutation() -> None:
-    from pathlib import Path
-    import pytest
-    from apc.evaluation.shadow_promotion import run_shadow_promotion_single_seed
-
-    ckpt = Path("runs/phase_a1_overcomplete_distillation/checkpoints/distill_candidate_SWAP_PAIRS_seed_0.pt")
+    ckpt_dir = Path("runs/phase_a1_overcomplete_distillation/checkpoints")
+    ckpt = ckpt_dir / "distill_candidate_SWAP_PAIRS_seed_0.pt"
     core_ckpt = Path("runs/phase_a1_discovery_capacity_harness/shared_encoder.pt")
     if not ckpt.exists() or not core_ckpt.exists():
         pytest.skip("Required checkpoints not found for fault injection test")

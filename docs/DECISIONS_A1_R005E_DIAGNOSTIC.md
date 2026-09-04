@@ -952,5 +952,63 @@ Task A1-B007X-006 provides the critical safety gate separating temporary discove
 - Authorizes progression to Task A1-B007X-007 (Fresh-runtime recurrence after compression).
 - Decision artifacts: `runs/phase_a1_shadow_promotion/` (`report.json`, `summary.json`, `system.json`, `config.yaml`, and 5 seed checkpoints in `seed_<0-4>/`). New modules: `src/apc/evaluation/shadow_promotion.py`, `scripts/shadow_promotion.py`, `configs/phase_a1_shadow_promotion.yaml`, `tests/test_shadow_promotion.py`.
 
+---
+
+## ADR-0059: Multi-Seed Fresh-Runtime Recurrence After Compression (Task A1-B007X-007)
+
+**Date:** 2026-09-04
+**Status:** Approved
+
+**Decision:**
+1. Execute multi-seed fresh-runtime recurrence evaluation for Task A1-B007X-007 across all 5 decision seeds (`[0, 1, 2, 3, 4]`) on novel operation `SWAP_PAIRS` in a completely clean runtime environment.
+2. Confirm strict compliance with all fresh-runtime recurrence acceptance criteria:
+   - **Recurrence Exact Match $\ge 0.95$:** Mean EM on `SWAP_PAIRS` is $\mathbf{97.10\%}$ (std 0.0243, min 0.935, max 0.995; mean token accuracy $\mathbf{99.64\%}$) -> **PASS**.
+   - **Reused Same Primitive ID:** Exactly reuses the promoted primitive ID ($\text{ID} = 8$, $\mathbf{100\%}$ of seeds) via oracle selection -> **PASS**.
+   - **Adaptation Steps = 0:** Zero gradient updates, zero fine-tuning, zero adaptation steps ($\text{adaptation\_steps} = \mathbf{0}$) across all seeds -> **PASS**.
+   - **Temporary Parameters = 0:** Zero temporary parameter allocation ($\text{temp\_params} = \mathbf{0}$) throughout recurrence -> **PASS**.
+   - **Bank Invariance:** Persistent bank size strictly preserved at 9 and weights byte-for-byte identical ($\max |\Delta W_{\text{bank}}| = \mathbf{0.0000}$) -> **PASS**.
+   - **Stable Core Invariance:** Core weights byte-for-byte identical ($\max |\Delta W_{\text{core}}| = \mathbf{0.0000}$) -> **PASS**.
+   - **No Reconsolidation:** No temporary allocation, distillation, or consolidation re-triggered -> **PASS**.
+   - **Sparse Execution:** Strictly only primitive ID 8 received forward calls during novel task inference; unselected primitives received zero forward calls -> **PASS**.
+   - **Unconsolidated Control:** Initial 8-primitive bank completely fails `SWAP_PAIRS` ($\mathbf{0.00\%} \text{ EM} \le 5.00\%$), proving knowledge lives exclusively in the persistent bank and did not leak from the Core -> **PASS**.
+3. Authorize progression to Task A1-B007X-008 (Capacity-gap final audit).
+
+**Context:**
+Task A1-B007X-007 proves that newly discovered computation lives strictly in the persistent state (`Core` + `Promoted Bank`) and does not rely on residual activations, optimizer state, teacher representations, or temporary workspace capacity. In a fresh runtime where temporary objects are non-existent, the system must immediately recall and execute the consolidated compact primitive with ceiling performance.
+
+**Measured Evidence (5 Seeds: 0, 1, 2, 3, 4; RTX 5060 Ti 16 GB; `runs/phase_a1_fresh_runtime_recurrence/`):**
+
+### 1. Multi-Seed Recurrence Metrics Summary
+
+| Seed | Recurrence EM (`SWAP_PAIRS`) | Recurrence Token Acc | Adaptation Steps | Temp Params | Unconsolidated EM | Primitive ID Reused | Core Unchanged | Bank Unchanged | Verdict |
+|---|---|---|---|---|---|---|---|---|---|
+| **0** | **0.9950** (99.5%) | 0.9994 | 0 | 0 | 0.0000 (0.0%) | 8 | True | True | **PASS** |
+| **1** | **0.9750** (97.5%) | 0.9968 | 0 | 0 | 0.0000 (0.0%) | 8 | True | True | **PASS** |
+| **2** | **0.9350** (93.5%) | 0.9918 | 0 | 0 | 0.0000 (0.0%) | 8 | True | True | **PASS** |
+| **3** | **0.9600** (96.0%) | 0.9950 | 0 | 0 | 0.0000 (0.0%) | 8 | True | True | **PASS** |
+| **4** | **0.9900** (99.0%) | 0.9987 | 0 | 0 | 0.0000 (0.0%) | 8 | True | True | **PASS** |
+| **Mean** | **0.9710** (97.1%) | **0.9964** | **0** | **0** | **0.0000** (0.0%) | **8 (100%)** | **100%** | **100%** | **PASS** |
+
+### 2. Acceptance Criteria Evaluation
+- **Recurrence EM $\ge 0.95$:** $\mathbf{0.9710} \ge 0.9500$ (std 0.0243, min 0.935, max 0.995) -> **PASS**
+- **Same Primitive ID:** Reused ID 8 across all 5 seeds -> **PASS**
+- **Adaptation Steps 0:** Exactly 0 steps across all seeds -> **PASS**
+- **Temp Params 0:** Exactly 0 temporary parameters across all seeds -> **PASS**
+- **Bank Unchanged:** $\Delta W_{\text{bank}} = 0.0000$, bank size = 9 before and after -> **PASS**
+- **No Consolidation:** No distillation or consolidation re-triggered -> **PASS**
+- **Unconsolidated Control:** Baseline bank EM $= 0.0000 \le 0.05$ -> **PASS**
+- **Sparse Execution:** Only selected primitive called -> **PASS**
+
+**Reason:**
+1. **True State Persistence:** Because the distilled candidate was frozen and serialized into `promoted_bank.pt`, starting a clean runtime with zero temporary objects and zero learning capacity produces immediate ceiling performance ($97.10\%$ EM) without adaptation.
+2. **Causal Invariance:** The unconsolidated control completely fails ($0.0\%$ EM), verifying that task performance is strictly caused by the promoted compact primitive in the Bank and not by accidental computation within the shared Core encoder.
+3. **Execution Hygiene:** Zero adaptation steps and zero temporary parameters ensure that lifelong execution does not accumulate memory leaks or adaptation overhead.
+
+**Consequence:**
+- Successfully completes Task A1-B007X-007.
+- Authorizes progression to Task A1-B007X-008 (Capacity-gap final audit: `docs/results/A1_B007X_DISCOVERY_COMPRESSION_RESULT.md`).
+- Run artifacts preserved in `runs/phase_a1_fresh_runtime_recurrence/` (`report.json`, `summary.json`, `system.json`, `config.yaml`, and 5 seed reports).
+
+
 
 

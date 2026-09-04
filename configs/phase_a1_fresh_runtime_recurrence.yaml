@@ -1,0 +1,29 @@
+# Task A1-B007X-007: Fresh-runtime recurrence after compression configuration
+seeds: [0, 1, 2, 3, 4]
+novel_operation: "SWAP_PAIRS"
+
+recurrence_accuracy_threshold: 0.95
+min_seed_accuracy_threshold: 0.90
+unconsolidated_threshold: 0.05
+max_forgetting_threshold: 0.02
+
+vocab_size: 10
+sequence_length_range: [6, 10]
+group_size: 3
+max_sequence_length: 32
+
+num_recurrence_eval_examples: 200
+num_unconsolidated_eval_examples: 200
+num_canonical_eval_examples: 200
+num_composition_eval_examples: 200
+eval_batch_size: 128
+
+device: "auto"
+shared_encoder_checkpoint: "runs/phase_a1_discovery_capacity_harness/shared_encoder.pt"
+promoted_bank_checkpoint_pattern: "runs/phase_a1_shadow_promotion/seed_{seed}/promoted_bank.pt"
+op_to_id_checkpoint_pattern: "runs/phase_a1_shadow_promotion/seed_{seed}/op_to_id.json"
+plastic_bank_checkpoint_pattern: "runs/phase_a1_plastic_workspace_benchmark/seed_{seed}/primitive_bank.pt"
+
+core_train_steps: 6000
+bank_train_steps: 6000
+

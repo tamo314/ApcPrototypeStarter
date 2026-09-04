@@ -223,6 +223,21 @@ Prove knowledge lives in persistent state.
 - bank unchanged,
 - no consolidation.
 
+- **Status:** **COMPLETE** (ADR-0059)
+- **Verdict:** Proved knowledge lives strictly in persistent state across all 5 decision seeds:
+  - Recurrence EM: 97.10% (std 0.0243, min 0.935, max 0.995, >= 0.95) -> PASS.
+  - Recurrence Token Accuracy: 99.64% -> PASS.
+  - Reused Same Primitive ID: Primitive ID 8 reused across 100% of seeds -> PASS.
+  - Adaptation Steps: 0 steps across all seeds -> PASS.
+  - Temporary Parameters: 0 parameters across all seeds -> PASS.
+  - Bank Invariance: Bank size = 9, parameter weights byte-for-byte unchanged (delta == 0.0) -> PASS.
+  - Stable Core Invariance: Core weights byte-for-byte unchanged (delta == 0.0) -> PASS.
+  - No Reconsolidation: No distillation or consolidation re-triggered -> PASS.
+  - Sparse Execution: Strictly only primitive ID 8 executed for novel task -> PASS.
+  - Unconsolidated Control: Initial 8-primitive bank fails novel task (0.00% EM <= 0.05) -> PASS.
+- **Run Artifacts:** `runs/phase_a1_fresh_runtime_recurrence/` (`report.json`, `summary.json`, `system.json`, `config.yaml`, and 5 seed reports).
+- **Authorization:** Authorizes Task A1-B007X-008 (Capacity-gap final audit).
+
 ---
 
 ## A1-B007X-008 — Capacity-gap final audit
