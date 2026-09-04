@@ -780,3 +780,48 @@ Task A1-B007X-003 tests the core continuous-learning conjecture $\mathcal{C}_{\t
 - Successfully satisfies Task A1-B007X-003 with zero methodological compromise.
 - Authorizes Task A1-B007X-004 (Compact direct-learning control).
 - Decision artifacts: `runs/phase_a1_discovery_capacity_sweep/` (`report.json`, `summary.json`, `system.json`, `config.yaml`). New modules: `src/apc/evaluation/discovery_capacity_sweep.py`, `scripts/discovery_capacity_sweep.py`, `configs/phase_a1_discovery_capacity_sweep.yaml`, `tests/test_discovery_capacity_sweep.py`.
+
+---
+
+## ADR-0056: Compact Direct-Learning Control Establishes Mandatory Baseline for Functional Distillation (A1-B007X-004)
+
+**Date:** 2026-09-04
+**Status:** Accepted
+**Affects:** `docs/CODEX_TASKS_A1_B007X_DISCOVERY_COMPRESSION.md`, `docs/EXPERIMENT_PLAN_A1_B007X_DISCOVERY_COMPRESSION.md`, `docs/exec-plans/active/A1_B007X_DISCOVERY_COMPRESSION.md`
+
+**Decision:**
+1. Formally establish and preserve the **Compact Direct-Learning Control Baseline** for Task A1-B007X-004 across 5 decision seeds (`[0, 1, 2, 3, 4]`) and 3 novel operations (`SWAP_PAIRS`, `INVERT_HALF`, `ROTATE_TRIPLETS`).
+2. Verify strict parameter constraint compliance: Candidate operator (`ShiftRelativeCrossPositionOperator`, $T_0$ Compact) has 17,098 parameters, satisfying the $\le 25,000$ limit ($17,098 \le 25,000$, 68.4% of budget).
+3. Confirm matched discovery budget: Identical data stream (800 train / 200 eval), frozen task-blind Shared Core encoder, AdamW optimizer, batch size 32, 400 training steps, eval interval 25.
+4. Record official control baseline metrics:
+   - `SWAP_PAIRS`: Mean EM = 0.9970 (std 0.0045, min 0.990, max 1.000), 100.0% success rate, median step to 0.95 = 175.0 (5.6k examples), mean AUC = 0.7428.
+   - `INVERT_HALF`: Mean EM = 0.3930 (std 0.0488, min 0.325, max 0.455), 0.0% success rate, median step to 0.95 = N/A, mean AUC = 0.2015.
+   - `ROTATE_TRIPLETS`: Mean EM = 0.9370 (std 0.0637, min 0.860, max 0.985), 60.0% success rate, median step to 0.90 = 250.0 (8.0k ex), median step to 0.95 = 300.0 (9.6k ex), mean AUC = 0.6405.
+5. Save full control artifacts and model checkpoints (`runs/phase_a1_compact_direct_control/` with 15 checkpoint files and `control_baseline.json`) to serve as the mandatory comparison ground for Task A1-B007X-005 (Overcomplete-to-compact functional distillation).
+6. Authorize progression to Task A1-B007X-005.
+
+**Context:**
+Task A1-B007X-004 provides the mandatory control baseline required before any claim can be made about functional distillation in Task A1-B007X-005. To evaluate whether distilling an overcomplete temporary solution ($T_2$, 137k params) into a compact candidate ($\le 25\text{k}$) confers any advantage (in retention, stability, or sample efficiency), the performance of direct supervised learning on that same compact architecture under identical data/compute budgets must be known and fixed.
+
+**Measured Evidence (5 Seeds: 0, 1, 2, 3, 4; RTX 5060 Ti 16 GB; 36.9s wall-clock; `runs/phase_a1_compact_direct_control/`):**
+
+### 1. Multi-Seed Direct Control Baseline Metrics
+
+| Operation | Candidate Params | Compliant ($\le 25\text{k}$) | Mean EM | Std EM | Min EM | Max EM | Success Rate ($\ge 0.95$) | Median Step to 0.90 | Median Step to 0.95 | Median Ex to 0.95 | Mean AUC | Mean Clock (s) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| **SWAP_PAIRS** | 17,098 | **True** | **0.9970** | 0.0045 | 0.9900 | 1.0000 | **100.0%** (5/5) | 175.0 (5.6k) | **175.0** (5.6k) | 5,600 | 0.7428 | 2.25s |
+| **INVERT_HALF** | 17,098 | **True** | **0.3930** | 0.0488 | 0.3250 | 0.4550 | **0.0%** (0/5) | N/A | **N/A** | N/A | 0.2015 | 2.14s |
+| **ROTATE_TRIPLETS** | 17,098 | **True** | **0.9370** | 0.0637 | 0.8600 | 0.9850 | **60.0%** (3/5) | 250.0 (8.0k) | **300.0** (9.6k) | 9,600 | 0.6405 | 2.67s |
+
+### 2. Distillation Benchmarking Protocol for A1-B007X-005
+The recorded baselines establish the explicit criteria for evaluating functional distillation:
+- For `SWAP_PAIRS`: Can functional distillation match direct supervised performance ($\ge 0.95$ EM, $\ge 0.95$ retention) while compressing from $T_2$ (137k) to $T_0$ (17k, ratio 0.124)?
+- For `ROTATE_TRIPLETS`: Can distillation from $T_2$ stabilize the 60% success rate and achieve high retention?
+- For `INVERT_HALF`: Can distillation transfer teacher competence where direct compact learning achieved only 39.3% EM?
+
+**Consequence:**
+- Successfully completes Task A1-B007X-004 with full acceptance compliance.
+- Establishes `runs/phase_a1_compact_direct_control/control_baseline.json` as the immutable comparator for Task A1-B007X-005.
+- Authorizes Task A1-B007X-005 (Overcomplete-to-compact functional distillation).
+- Decision artifacts: `runs/phase_a1_compact_direct_control/` (`report.json`, `summary.json`, `control_baseline.json`, `system.json`, `config.yaml`, and 15 checkpoints in `checkpoints/`).
+

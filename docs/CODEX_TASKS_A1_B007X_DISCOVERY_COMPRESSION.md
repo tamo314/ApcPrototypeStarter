@@ -117,6 +117,14 @@ Report matched:
 
 Mandatory control.
 
+- **Status:** **COMPLETE** (ADR-0056)
+- **Verdict:** Established official mandatory control baseline using <=25k candidate architecture (17,098 params, 68.4% of budget) across 5 seeds:
+  - `SWAP_PAIRS`: 99.70% mean EM (±0.0045, min 0.990, max 1.000), 100.0% success rate (5/5), median step to 0.95 = 175.0 (5.6k examples), mean AUC = 0.7428.
+  - `INVERT_HALF`: 39.30% mean EM (±0.0488, min 0.325, max 0.455), 0.0% success rate (0/5), threshold not reached.
+  - `ROTATE_TRIPLETS`: 93.70% mean EM (±0.0637, min 0.860, max 0.985), 60.0% success rate (3/5), median step to 0.90 = 250.0 (8.0k examples), median step to 0.95 = 300.0 (9.6k examples), mean AUC = 0.6405.
+- **Run Artifacts:** `runs/phase_a1_compact_direct_control/` (`report.json`, `summary.json`, `control_baseline.json`, `system.json`, `config.yaml`, and 15 model checkpoints in `checkpoints/`).
+- **Authorization:** Authorizes Task A1-B007X-005 (Overcomplete-to-compact functional distillation).
+
 ---
 
 ## A1-B007X-005 — Overcomplete-to-compact functional distillation

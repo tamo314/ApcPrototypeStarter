@@ -1,0 +1,36 @@
+# Task A1-B007X-004: Compact Direct-Learning Control Configuration
+seeds:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+
+novel_operations:
+  - SWAP_PAIRS
+  - INVERT_HALF
+  - ROTATE_TRIPLETS
+
+candidate_tier: T0_compact
+max_candidate_params: 25000
+
+train_steps: 400
+eval_interval: 25
+batch_size: 32
+lr: 0.001
+weight_decay: 0.0001
+
+vocab_size: 10
+sequence_length_range:
+  - 6
+  - 10
+group_size: 3
+
+num_eval_examples: 200
+num_train_examples: 800
+device: auto
+
+shared_encoder_checkpoint: runs/phase_a1_discovery_capacity_harness/shared_encoder.pt
+core_train_steps: 6000
+bank_train_steps: 6000
+save_checkpoints: true
