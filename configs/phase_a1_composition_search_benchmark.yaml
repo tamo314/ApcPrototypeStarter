@@ -1,0 +1,39 @@
+# Phase A.1 Post-Diagnostic Task A1-B004
+# Composition Search Baseline Benchmark across designated multi-step compositions
+# (SHIFT -> SELECT, REVERSE -> COUNT, COPY -> SORT, NEGATE -> SELECT, SHIFT -> BIND, REVERSE -> SORT)
+# recovering composition recipes without oracle primitive identity using heuristic/beam search.
+
+seeds: [0, 1, 2, 3, 4]
+
+vocab_size: 10
+sequence_length_range: [6, 10]
+group_size: 3
+
+model:
+  d_model: 192
+  n_layer: 4
+  n_head: 4
+  d_ff: 768
+  max_seq_len: 48
+  dropout: 0.0
+
+device: auto
+
+d_operator: 32
+n_operator_head: 4
+d_operator_ff: 64
+arg_dim: 16
+max_sequence_length: 32
+
+parameterized_train_steps: 10000
+parameter_free_train_steps: 6000
+operator_lr: 0.0008
+operator_weight_decay: 0.0001
+operator_grad_clip: 1.0
+
+num_adaptation_examples: 32
+num_eval_examples_per_composition: 500
+min_eval_examples_per_composition: 200
+max_depth: 2
+beam_width: 16
+accuracy_threshold: 0.85

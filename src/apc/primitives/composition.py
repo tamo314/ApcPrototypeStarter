@@ -38,6 +38,7 @@ __all__ = [
     "CompositionRecipe",
     "execute_composition_recipe",
     "extract_argument_value",
+    "resolve_candidate_calls",
 ]
 
 
@@ -52,6 +53,59 @@ def extract_argument_value(operation: str, call: PrimitiveCall) -> Any:
     if operation == "BIND":
         return call.arguments.get("query_key", 0)
     return None
+
+
+def resolve_candidate_calls(
+    candidate_operations: Sequence[str],
+    examples: Sequence[Example],
+) -> list[tuple[PrimitiveCall, ...]]:
+    """Resolve per-example PrimitiveCalls for candidate operations from model-visible task spec.
+
+    Strict Invariant:
+    Does NOT access `ex.program`, `ex.oracle_metadata`, or `step.operation`.
+    Only inspects argument dictionaries (`step.arguments`) to match required argument names.
+    """
+    if not candidate_operations:
+        raise ValueError("candidate_operations must be non-empty.")
+
+    op_defs = [get_operation(op) for op in candidate_operations]
+    calls_per_example: list[tuple[PrimitiveCall, ...]] = []
+
+    for ex in examples:
+        step_calls: list[PrimitiveCall] = []
+        spec_steps = getattr(ex.task_spec, "steps", ()) if hasattr(ex, "task_spec") else ()
+
+        for step_idx, (op_name, op_def) in enumerate(
+            zip(candidate_operations, op_defs, strict=True)
+        ):
+            req_args = op_def.required_argument_names
+            if not req_args:
+                step_calls.append(PrimitiveCall(op_name, {}))
+                continue
+
+            # Look for required arguments in step_idx first, otherwise search across all spec steps
+            resolved_args: dict[str, Any] = {}
+            if step_idx < len(spec_steps):
+                step_args = spec_steps[step_idx].arguments
+                if all(k in step_args for k in req_args):
+                    resolved_args = {k: step_args[k] for k in req_args}
+
+            if not resolved_args:
+                for step in spec_steps:
+                    if all(k in step.arguments for k in req_args):
+                        resolved_args = {k: step.arguments[k] for k in req_args}
+                        break
+
+            if not resolved_args:
+                raise ValueError(
+                    f"Example missing required argument(s) {req_args} for operation '{op_name}'."
+                )
+
+            step_calls.append(PrimitiveCall(op_name, resolved_args))
+
+        calls_per_example.append(tuple(step_calls))
+
+    return calls_per_example
 
 
 @dataclass(frozen=True)
@@ -144,6 +198,8 @@ def execute_composition_recipe(
     examples: Sequence[Example],
     *,
     recipe: CompositionRecipe | None = None,
+    candidate_operations: Sequence[str] | None = None,
+    calls_per_example: Sequence[Sequence[PrimitiveCall]] | None = None,
 ) -> torch.Tensor:
     """Execute sequential recipes by piping latent activations across ordered primitive calls.
 
@@ -158,8 +214,10 @@ def execute_composition_recipe(
         bank: PrimitiveBank holding the compact heterogeneous primitives.
         op_to_id: Mapping from canonical operation name to bank primitive_id.
         examples: Batch of input examples to evaluate.
-        recipe: Optional static `CompositionRecipe`. If None, per-example oracle recipes
-            from `oracle_calls_for_example(ex)` are used.
+        recipe: Optional static `CompositionRecipe`.
+        candidate_operations: Optional sequence of operation names to resolve calls
+            dynamically from task spec.
+        calls_per_example: Optional pre-resolved sequence of PrimitiveCalls per example.
 
     Returns:
         Final output logits of shape `[batch, final_output_length, vocab_size]`.
@@ -171,13 +229,19 @@ def execute_composition_recipe(
     device = core.device
 
     # Resolve per-example call sequences
-    if recipe is not None:
-        calls_per_example: list[tuple[PrimitiveCall, ...]] = [recipe.steps] * batch_size
+    if calls_per_example is not None:
+        resolved_calls: list[tuple[PrimitiveCall, ...]] = [tuple(c) for c in calls_per_example]
+        num_steps = len(resolved_calls[0])
+    elif candidate_operations is not None:
+        resolved_calls = resolve_candidate_calls(candidate_operations, examples)
+        num_steps = len(candidate_operations)
+    elif recipe is not None:
+        resolved_calls = [recipe.steps] * batch_size
         num_steps = len(recipe.steps)
     else:
-        calls_per_example = [oracle_calls_for_example(ex) for ex in examples]
-        num_steps = len(calls_per_example[0])
-        if not all(len(calls) == num_steps for calls in calls_per_example):
+        resolved_calls = [oracle_calls_for_example(ex) for ex in examples]
+        num_steps = len(resolved_calls[0])
+        if not all(len(calls) == num_steps for calls in resolved_calls):
             raise ValueError("All examples in batch must have identical recipe depth.")
 
     # 1. Initial task-blind content encoding
@@ -187,7 +251,7 @@ def execute_composition_recipe(
     final_logits: torch.Tensor | None = None
 
     for step_idx in range(num_steps):
-        step_calls = [calls_per_example[b][step_idx] for b in range(batch_size)]
+        step_calls = [resolved_calls[b][step_idx] for b in range(batch_size)]
         op_name = step_calls[0].operation
         if not all(call.operation == op_name for call in step_calls):
             raise ValueError(f"Step {step_idx} has heterogeneous operations across batch items.")

@@ -6,6 +6,10 @@ from apc.primitives.composition import (
     CompositionRecipe,
     execute_composition_recipe,
 )
+from apc.primitives.composition_search import (
+    SearchResult,
+    search_composition_recipe,
+)
 from apc.primitives.primitive import (
     CrossPositionPrimitive,
     CrossPositionPrimitiveConfig,
@@ -33,7 +37,9 @@ __all__ = [
     "PrimitiveStatus",
     "ReverseRelativePrimitive",
     "ReverseRelativePrimitiveConfig",
+    "SearchResult",
     "ShiftRelativePrimitive",
     "ShiftRelativePrimitiveConfig",
     "execute_composition_recipe",
+    "search_composition_recipe",
 ]
