@@ -509,3 +509,87 @@ requires the actual causal APC inference graph and an executable dense control.
 - Primary artifacts are preserved under
   `runs/phase_a2_compute_latency_scaling/`.
 - A2-C011 is now the next queued task, but is not started by this task.
+
+## ADR-0072: Controller Ablations and Failure Mode Attribution (Task A2-C011)
+
+- **Date:** 2026-09-05
+- **Status:** Accepted
+- **Affected documents:**
+  `src/apc/evaluation/controller_ablation_benchmark.py`,
+  `scripts/controller_ablation_benchmark.py`,
+  `tests/test_controller_ablation_benchmark.py`,
+  `runs/phase_a2_controller_ablations/report.json`,
+  `runs/phase_a2_controller_ablations/BENCHMARK_REPORT.md`,
+  `docs/DECISIONS.md`,
+  `docs/DECISIONS_PHASE_A2.md`,
+  `docs/CODEX_TASKS_PHASE_A2_AUTONOMOUS_CONTROLLER.md`
+
+### Context
+
+Task A2-C011 systematically evaluates seven required ablations to isolate and attribute which
+architectural mechanism prevents each primary failure mode:
+1. False Expansion (triggering plastic learning when reuse or composition suffices)
+2. Missed Novelty (failing to trigger plastic expansion when the bank is inadequate)
+3. Routing Forgetting (degradation of routing accuracy on previously learned operations)
+
+The mandatory rule for A2-C011 is: **"No new architecture features"**.
+
+### Decision and findings
+
+A dedicated 5-seed benchmark (`scripts/controller_ablation_benchmark.py`, seeds 0–4)
+evaluated the 7 ablations across sequential K/C/N/R streams, router bank growth (10 -> 16),
+and plastic lifecycle execution:
+
+1. **False Expansion Prevention -> Composition Evidence (Features 4–8):**
+   - **Baseline:** Composite action accuracy is **100.00%**, with **0.00%** false plastic triggers.
+   - **No Composition Evidence (Ablation 1):** Composite action accuracy collapses to **0.00%**,
+     and false plastic expansion explodes to **100.00%** (overall accuracy drops from 97.50% to 15.00%,
+     AUROC drops from 1.0000 to 0.7538).
+   - **Attribution:** Composition evidence is strictly necessary to prevent false plastic expansion
+     on compositional tasks.
+
+2. **Missed Novelty Prevention -> Support-Set Functional Score (Features 0–3):**
+   - **Baseline:** Novel plastic trigger rate is **100.00%** (missed novelty rate is **0.00%**).
+   - **Router Confidence Only (Ablation 3):** Relies solely on router confidence / margin without
+     support-set execution verification. It misses **63.33%** of novel tasks (novel plastic trigger rate
+     drops to 36.67%, overall accuracy drops to 51.50%, AUROC drops to 0.8090).
+   - **No Support Functional Score (Ablation 2):** Omitting direct functional verification severely degrades
+     controller decision quality (overall accuracy drops to 45.00%).
+   - **Attribution:** Functional execution feedback on a support set is strictly necessary to detect
+     novelty when TaskSpec embeddings have overlap with existing bank operations.
+
+3. **Routing Forgetting Prevention -> Bounded Replay (R2):**
+   - **R2 (Bounded Replay):** Final 16-operation top-1 accuracy is **98.00%**, with an old-class accuracy
+     drop of only **2.00%** (zero catastrophic forgetting).
+   - **R1 (No Bounded Replay, Ablation 4):** Naive incremental updating without replay suffers catastrophic
+     forgetting: final 16-operation top-1 accuracy collapses to **15.56%**, with an old-class accuracy drop
+     of **84.44%**.
+   - **Attribution:** Bounded replay is strictly necessary to preserve routing stability as the primitive
+     bank scales.
+
+4. **Recurrence Similarity Role (Feature 9):**
+   - **No Recurrence Similarity (Ablation 5):** Direct reuse rate on recurrence tasks remains high at **97.50%**
+     (identical to Baseline 97.50%, AUROC 1.0000).
+   - **Attribution:** Recurrence key similarity is an auxiliary booster; once a primitive is consolidated into
+     the bank, direct execution exact match (EM = 1.0) dominates and autonomously ensures direct reuse.
+
+5. **Plastic Lifecycle Dynamics (Ablations 6 & 7):**
+   - **Compact-First (Baseline):** Successfully resolves easy novel tasks with **17,098** peak parameters (T0),
+     and promotes hard tasks via fallback to T2 (**137,482** peak parameters).
+   - **Compact-Only (Ablation 6):** Resolves easy tasks (17,098 params), but fails to learn hard tasks where
+     gradient dynamics stall, leading to permanent promotion failure.
+   - **Always-Overcomplete (Ablation 7):** Promotes both easy and hard tasks, but incurs an **8.04x parameter
+     inflation** (137,482 peak params) on easy tasks where compact capacity was sufficient.
+
+6. **Architectural Invariant Audit:**
+   - Zero new architecture features added.
+   - Strict zero-oracle leakage maintained across all evidence extraction and controller decision policies.
+
+### Consequences
+
+- Empirically validates the specific necessity of each core mechanism designed in Phase A.2.
+- Failure modes are now rigorously attributed to specific missing components in formal benchmarks.
+- Artifacts saved under `runs/phase_a2_controller_ablations/`.
+- Task A2-C011 is complete. Task A2-C012 (Final Phase A.2 synthesis and evaluation) is next in queue
+  and will not be started automatically.
+

@@ -106,6 +106,7 @@ ADR-0062 onward. **Active phase.** Follows docs/exec-plans/active/PHASE_A2_AUTON
 - [ADR-0069](DECISIONS_PHASE_A2.md#adr-0069-full-sequential-kcnr-autonomous-stream-verification-and-stop-gate-acceptance-task-a2-c008) -- Full Sequential K/C/N/R Autonomous Stream Verification and STOP GATE Acceptance (Task A2-C008 STOP GATE)
 - [ADR-0070](DECISIONS_PHASE_A2.md#adr-0070-repeated-semantic-bank-growth-stress-with-autonomous-consolidation-and-bounded-incremental-routing-task-a2-c009-stop-gate) -- Repeated Semantic Bank-Growth Stress with Autonomous Consolidation and Bounded Incremental Routing (Task A2-C009 STOP GATE)
 - [ADR-0071](DECISIONS_PHASE_A2.md#adr-0071-end-to-end-sparse-compute-and-latency-scaling-task-a2-c010) -- End-to-end Sparse Compute and Latency Scaling (Task A2-C010)
+- [ADR-0072](DECISIONS_PHASE_A2.md#adr-0072-controller-ablations-and-failure-mode-attribution-task-a2-c011) -- Controller Ablations and Failure Mode Attribution (Task A2-C011)
 
 
 

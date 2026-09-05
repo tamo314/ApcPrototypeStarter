@@ -429,6 +429,31 @@ Identify which mechanisms actually prevent:
 
 No new architecture features.
 
+### Result
+
+Formal five-seed benchmark (`seeds 0..4`) evaluated all 7 required ablations across
+sequential K/C/N/R stream, router incremental bank growth (10 -> 16), and plastic
+lifecycle execution without any new architecture features:
+
+- **False Expansion Prevention -> Composition Evidence:**
+  Removing composition evidence collapses composite action accuracy from 100.00% to
+  0.00% and inflates false plastic expansion on compositions to 100.00% (AUROC 0.7538).
+- **Missed Novelty Prevention -> Support-Set Functional Score:**
+  Relying on router confidence alone misses 63.33% of novel tasks (novel plastic trigger
+  rate 36.67%, AUROC 0.8090). Grounding adequacy on runtime support execution is essential.
+- **Routing Forgetting Prevention -> Bounded Replay (R2):**
+  R2 bounded replay limits old-class accuracy drop to 2.00% (98.00% final top-1). Removing
+  replay (R1) causes catastrophic forgetting with an 84.44% drop on old classes (15.56% final top-1).
+- **Recurrence Similarity:**
+  Recurrence key similarity provides auxiliary guidance; once a consolidated primitive is
+  present, direct execution verification autonomously maintains a 97.50% direct reuse rate.
+- **Plastic Lifecycle:**
+  Compact-first policy resolves easy tasks with 17,098 peak parameters (T0) and recovers hard
+  tasks via fallback (T2, 137,482 params). Compact-only permanently fails hard tasks.
+  Always-overcomplete causes 8.04x parameter inflation on easy tasks.
+
+Artifacts: `runs/phase_a2_controller_ablations/report.json`, `BENCHMARK_REPORT.md`, ADR-0072.
+
 ---
 
 ## A2-C012 — Phase A.2 final audit
