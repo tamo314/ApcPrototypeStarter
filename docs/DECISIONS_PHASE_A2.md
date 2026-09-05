@@ -178,4 +178,49 @@ Acceptance criteria at N=128 routing-only scale:
 - Validates the sparse-compute scaling hypothesis: APC maintains 100% routing fidelity and flat $O(1)$ active compute while resident bank capacity scales up to $N=128$.
 - Unblocks Task A2-C005 (Functional adequacy evidence interface).
 
+---
+
+## ADR-0066: Functional Adequacy Evidence Interface Architecture and Zero-Oracle Leakage Verification (Task A2-C005)
+
+**Date:** 2026-09-05  
+**Status:** Accepted (Task A2-C005 Complete)  
+**Affects:** `src/apc/meta/adequacy.py`, `src/apc/meta/__init__.py`, `tests/test_adequacy_evidence.py`, `docs/DECISIONS.md`, `docs/DECISIONS_PHASE_A2.md`, `docs/CODEX_TASKS_PHASE_A2_AUTONOMOUS_CONTROLLER.md`
+
+### Context
+In Phase A.2, the autonomous controller must decide whether an incoming task in an online stream should be handled via `DIRECT_REUSE`, `COMPOSE`, or `PLASTIC_SEARCH` (ADR-0062, `AUTONOMOUS_CONTROLLER_POLICY.md`).
+Per the core APC architectural invariant and AGENTS addendum:
+- Novelty must not be inferred from registry membership, unseen operation names, or hidden oracle labels.
+- Plastic expansion is forbidden until both direct execution and composition search demonstrably fail on support examples.
+Task A2-C005 builds the runtime evidence extraction interface that computes functional performance, margin, composition signals, router confidence, and recurrence similarity over a small support set \(S = \{(x, y)\}\) without oracle leakage.
+
+### Decision
+1. **Standardized Adequacy Evidence Record (`src/apc/meta/adequacy.py`):**
+   - Implemented `AdequacyEvidence` capturing:
+     - Direct primitive evidence: `direct_em`, `direct_loss`, `direct_token_acc`, `direct_primitive_id`, `direct_runner_up_em`, `direct_runner_up_loss`, `direct_margin`.
+     - Composition evidence: `composition_em`, `composition_loss`, `composition_depth`, `composition_recipe`, `composition_improvement_em`, `composition_improvement_loss`.
+     - Router evidence: `router_confidence`, `router_margin`, `router_entropy`, `proposed_primitive_id`, `runner_up_primitive_id`.
+     - Recurrence & retrieval evidence: `recurrence_key_similarity`, `prototype_similarity`.
+     - Execution & audit metadata: `support_size`, `compute_time_seconds`, `direct_candidates_evaluated`, `composition_candidates_evaluated`.
+   - Provided `to_feature_vector()` producing a standardized 13-dimensional bounded numerical vector (strictly zero NaNs, zero Infs) for direct input to the learned controller in Task A2-C006.
+   - Provided lossless JSON serialization (`to_dict()` and `from_dict()`).
+
+2. **Strict Zero-Oracle Leakage Enforcement:**
+   - The interface accesses exclusively model-visible fields: `input_tokens`, `target_tokens`, and explicit `task_spec`.
+   - Formally audited via unit tests:
+     - Redacting `example.oracle_metadata` and `example.program` produces identical evidence down to machine precision.
+     - Mutating `example.oracle_metadata.label` produces zero effect on output.
+     - `AdequacyEvidence` dataclass and dictionary expose zero oracle fields or held-out targets.
+
+3. **Deterministic K/C/N/R Fixture Acceptance:**
+   - Validated across deterministic fixtures in `tests/test_adequacy_evidence.py`:
+     - **K (Known):** `direct_em >= 0.95` (1.0), `router_confidence >= 0.70` (1.0), `composition_improvement_em <= 0.05` (0.0).
+     - **C (Composition):** `direct_em <= 0.20` (0.0), `composition_em >= 0.90` (1.0), `composition_depth == 2`, `composition_improvement_em >= 0.70` (1.0), recipe correctly discovered (`("REVERSE", "NEGATE")`).
+     - **N (Novel):** `direct_em <= 0.20` (0.0), `composition_em <= 0.20` (0.0), `composition_improvement_em <= 0.10` (0.0).
+     - **R (Recurrence):** `direct_em >= 0.95` (1.0), `composition_improvement_em <= 0.05` (0.0), `recurrence_key_similarity >= 0.70` (1.0).
+
+### Consequences
+- Task A2-C005 acceptance criteria are fully satisfied without qualification.
+- K/C/N/R tasks produce distinct, reliable, and deterministic evidence vectors.
+- Unblocks Task A2-C006 (Learned adequacy / novelty controller STOP GATE).
+
 
