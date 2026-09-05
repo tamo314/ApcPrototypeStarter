@@ -1,0 +1,9 @@
+# B-C004 infrastructure-only diagnostic; the frozen router is never updated
+# after baseline calibration and no B-C005 scientific threshold is evaluated.
+seeds: [0]
+bank_sizes: [16, 32, 64, 128]
+num_eval_examples: 32
+router_steps: 250
+top_k: 5
+device: auto
+output_dir: runs/phase_b_hard_negative_diagnostic

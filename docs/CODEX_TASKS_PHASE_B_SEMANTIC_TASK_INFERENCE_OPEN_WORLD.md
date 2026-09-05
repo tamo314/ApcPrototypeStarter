@@ -253,6 +253,14 @@ Infrastructure PASS if level ordering is measurable, deterministic, and leak-fre
 
 Scientific gate is B-C005.
 
+**Verification Status: Infrastructure PASS (B-C004 complete)**
+- Matrix: 80 cells across one deterministic GPU seed: `N ∈ {16, 32, 64, 128}` × `L0`–`L4` × four parameterized target operations.
+- Deterministic, non-mutating construction: PASS; the frozen router and every resident primitive parameter were unchanged after every cell.
+- Leak audit: PASS; evaluator-only difficulty/provenance metadata never enters the router input.
+- Sparse execution: PASS; unselected primitive forward calls were zero in every cell.
+- Artifacts: `runs/phase_b_hard_negative_diagnostic/` (`config.yaml`, `metrics.jsonl`, `protocol.json`, `report.json`, `report.md`, `summary.json`, `system.json`).
+- This is infrastructure evidence only. Gate B2's retrieval and functional-safety thresholds remain unmeasured until B-C005.
+
 ---
 
 # B-C005 — STOP GATE B2: hard-negative routing and functional safety
