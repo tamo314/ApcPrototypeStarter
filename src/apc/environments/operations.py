@@ -504,3 +504,150 @@ DISCOVERY_COMPRESSION_NOVEL_OPERATION_NAMES: tuple[str, ...] = (
     "ROTATE_TRIPLETS",
 )
 
+
+class SwapEndsOp(Operation):
+    """Swap the first and last elements: (x0, x1, ..., x_{n-1}) -> (x_{n-1}, x1, ..., x0).
+
+    Phase A.2 incremental bank operation (Task A2-C003).
+    """
+
+    name = "SWAP_ENDS"
+    min_input_length = 2
+
+    def output_length(self, input_length: int) -> int:
+        return input_length
+
+    def sample_params(
+        self, rng: random.Random, sequence: tuple[int, ...], vocab_size: int
+    ) -> dict[str, Any]:
+        return {}
+
+    def apply(
+        self, sequence: tuple[int, ...], vocab_size: int, params: dict[str, Any]
+    ) -> tuple[int, ...]:
+        res = list(sequence)
+        res[0], res[-1] = res[-1], res[0]
+        return tuple(res)
+
+
+class MirrorHalvesOp(Operation):
+    """Reverse each half independently:
+    (x0..xm-1, xm..xn-1) -> (reversed(x0..xm-1), reversed(xm..xn-1)).
+
+    Phase A.2 incremental bank operation (Task A2-C003).
+    """
+
+    name = "MIRROR_HALVES"
+    min_input_length = 2
+
+    def output_length(self, input_length: int) -> int:
+        return input_length
+
+    def sample_params(
+        self, rng: random.Random, sequence: tuple[int, ...], vocab_size: int
+    ) -> dict[str, Any]:
+        return {}
+
+    def apply(
+        self, sequence: tuple[int, ...], vocab_size: int, params: dict[str, Any]
+    ) -> tuple[int, ...]:
+        mid = len(sequence) // 2
+        return tuple(reversed(sequence[:mid])) + tuple(reversed(sequence[mid:]))
+
+
+class AlternatingNegateOp(Operation):
+    """Negate even positions, preserve odd positions:
+    (x0, x1, x2, ...) -> (vocab_size - 1 - x0, x1, vocab_size - 1 - x2, ...).
+
+    Phase A.2 incremental bank operation (Task A2-C003).
+    """
+
+    name = "ALTERNATING_NEGATE"
+    min_input_length = 1
+
+    def output_length(self, input_length: int) -> int:
+        return input_length
+
+    def sample_params(
+        self, rng: random.Random, sequence: tuple[int, ...], vocab_size: int
+    ) -> dict[str, Any]:
+        return {}
+
+    def apply(
+        self, sequence: tuple[int, ...], vocab_size: int, params: dict[str, Any]
+    ) -> tuple[int, ...]:
+        return tuple(
+            (vocab_size - 1 - x) if i % 2 == 0 else x
+            for i, x in enumerate(sequence)
+        )
+
+
+class CycleFourOp(Operation):
+    """Cyclically rotate elements within 4-token chunks: (x0, x1, x2, x3) -> (x1, x2, x3, x0).
+
+    Phase A.2 incremental bank operation (Task A2-C003).
+    """
+
+    name = "CYCLE_FOUR"
+    min_input_length = 4
+
+    def output_length(self, input_length: int) -> int:
+        return input_length
+
+    def sample_params(
+        self, rng: random.Random, sequence: tuple[int, ...], vocab_size: int
+    ) -> dict[str, Any]:
+        return {}
+
+    def apply(
+        self, sequence: tuple[int, ...], vocab_size: int, params: dict[str, Any]
+    ) -> tuple[int, ...]:
+        res = list(sequence)
+        for i in range(0, len(res) - 3, 4):
+            res[i], res[i + 1], res[i + 2], res[i + 3] = (
+                res[i + 1],
+                res[i + 2],
+                res[i + 3],
+                res[i],
+            )
+        return tuple(res)
+
+
+class IncrementModOp(Operation):
+    """Pointwise increment modulo vocabulary size: x -> (x + 1) mod vocab_size.
+
+    Phase A.2 incremental bank operation (Task A2-C003).
+    """
+
+    name = "INCREMENT_MOD"
+    min_input_length = 1
+
+    def output_length(self, input_length: int) -> int:
+        return input_length
+
+    def sample_params(
+        self, rng: random.Random, sequence: tuple[int, ...], vocab_size: int
+    ) -> dict[str, Any]:
+        return {}
+
+    def apply(
+        self, sequence: tuple[int, ...], vocab_size: int, params: dict[str, Any]
+    ) -> tuple[int, ...]:
+        return tuple((x + 1) % vocab_size for x in sequence)
+
+
+register_operation(SwapEndsOp())
+register_operation(MirrorHalvesOp())
+register_operation(AlternatingNegateOp())
+register_operation(CycleFourOp())
+register_operation(IncrementModOp())
+
+PHASE_A2_INCREMENTAL_NEW_OPERATIONS: tuple[str, ...] = (
+    "ROTATE_TRIPLETS",
+    "SWAP_ENDS",
+    "MIRROR_HALVES",
+    "ALTERNATING_NEGATE",
+    "CYCLE_FOUR",
+    "INCREMENT_MOD",
+)
+

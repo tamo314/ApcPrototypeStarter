@@ -64,7 +64,7 @@ No controller-learning claim yet.
 
 ---
 
-## A2-C003 — Incremental router update gate
+## A2-C003 — Incremental router update gate [PASSED - ADR-0064]
 
 ### Goal
 
