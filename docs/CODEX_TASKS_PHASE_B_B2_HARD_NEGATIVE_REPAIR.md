@@ -458,6 +458,12 @@ Do not yet select the repair architecture unless the diagnostic evidence support
 
 # B-C005R1 — Retrieval Ranking Repair
 
+## Status
+
+**COMPLETE — PASSED (ADR-0077)**
+
+All acceptance criteria passed across 5 development seeds on CUDA (Condition R2: L0-L3 top-1 = 1.000, L4 top-1 = 0.974, top-5 inclusion = 1.000, legacy regression = 0.00 pp, unselected calls = 0, wrong functional acceptance = 0.0%). Unblocks Task B-C005R2.
+
 ## Goal
 
 Improve fine-grained hard-negative ranking while preserving:

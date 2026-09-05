@@ -116,4 +116,5 @@ ADR-0074 onward. **Active phase.** Follows docs/exec-plans/active/PHASE_B_SEMANT
 - [ADR-0074](DECISIONS_PHASE_B.md#adr-0074-explicit-taskspec-unseen-family-lifecycle-gate-verification-stop-gate-b1) -- Explicit-TaskSpec Unseen-Family Lifecycle Gate Verification (STOP GATE B1) (Task B-C003)
 - [ADR-0075](DECISIONS_PHASE_B.md#adr-0075-hard-negative-routing-and-functional-safety-stop-gate-b2) -- Hard-Negative Routing and Functional Safety (STOP GATE B2) (Task B-C005, FAILED)
 - [ADR-0076](DECISIONS_PHASE_B.md#adr-0076-failure-isolation-retrieval-ranking-vs-argument-resolution-vs-support-adequacy-variance) -- Failure Isolation: Retrieval Ranking vs Argument Resolution vs Support Adequacy Variance (Task B-C005D)
+- [ADR-0077](DECISIONS_PHASE_B.md#adr-0077-retrieval-ranking-repair-and-factorized-primitive-call-scoring) -- Retrieval Ranking Repair and Factorized Primitive-Call Scoring (Task B-C005R1)
 

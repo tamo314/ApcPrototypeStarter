@@ -164,3 +164,58 @@ Task B-C005D performed mechanism-isolated diagnostic decomposition without modif
 - B-C005R1 targets hard-negative margin ranking and argument-compatibility scoring on development data; adequacy thresholds and statistical verifiers remain frozen during R1.
 - Downstream tasks (B-C005R2, B-C005G, B-C006) remain blocked pending R1 and re-gating.
 
+---
+
+## ADR-0077: Retrieval Ranking Repair and Factorized Primitive-Call Scoring
+
+**Date:** 2026-09-06  
+**Status:** Accepted (Task B-C005R1 Complete, Acceptance Criteria PASSED)  
+**Affects:** `src/apc/primitives/routing_losses.py`, `src/apc/primitives/argument_scoring.py`, `src/apc/evaluation/retrieval_repair_benchmark.py`, `configs/phase_b_b2_retrieval_repair.yaml`, `scripts/run_phase_b_b2_retrieval_repair.py`, `tests/test_routing_ranking_loss.py`, `tests/test_argument_scoring.py`, `tests/test_retrieval_repair_benchmark.py`, `docs/DECISIONS.md`, `docs/DECISIONS_PHASE_B.md`, `docs/CODEX_TASKS_PHASE_B_B2_HARD_NEGATIVE_REPAIR.md`  
+**Run Artifacts:** `runs/phase_b_b2_retrieval_repair/` (`config.yaml`, `metrics.jsonl`, `summary.json`, `system.json`, `report.md`)
+
+### Context
+STOP GATE B2 (Task B-C005) failed retrieval ranking under hard negatives (L2: 0.866, L3: 0.662, L4: 0.504 at $N=128$). Diagnostic task B-C005D isolated L4 failure as 100.0% argument-resolution failure (physical primitive top-1 was 1.000, but router keys could not distinguish same-family wrong-argument competitors). L2/L3 degradation stemmed from continuous margin collapse and specific semantic collisions under frozen Phase A.2 classification keys.
+
+Task B-C005R1 evaluated retrieval ranking repair on disjoint development partitions (`seeds [10, 11, 12, 13, 14]`), strictly isolating the original sealed evaluation partition (`seeds [0, 1, 2, 3, 4]`).
+
+### Architectural Implementation
+1. **Routing Margin Ranking Objective:**
+   Implemented `CombinedRoutingLoss = L_ce + beta * L_rank` where $L_{\text{rank}} = \max(0, \text{margin} - s_+ + s_-)$, penalizing near-neighbor and semantically related competitors. During router training, `query_proj` is frozen (preserving Phase A.2's invariant score projection geometry) while candidate keys are optimized against balanced replay and synthetic development negatives.
+2. **Factorized PrimitiveCall Scoring:**
+   Implemented `ArgumentScorer` for parameterized operations (`SHIFT`, `COUNT`, `BIND`, `SELECT`), predicting argument compatibility scores:
+   $$\text{score}(\text{PrimitiveCall}) = \text{score}_{\text{family}}(z_{\text{task}}, \text{key}) + \lambda \cdot \text{score}_{\text{args}}(z_{\text{task}}, \text{arguments})$$
+   where $\text{score}_{\text{args}} = 2 \cdot (P(\text{args} \mid z_{\text{task}}) - 0.5) \in [-1.0, 1.0]$, giving positive bonuses for matched arguments and negative penalties for conflicting arguments, without duplicating persistent primitive keys per argument value.
+
+### Acceptance Criteria & Measured Empirical Results (Condition R2 at N=128)
+Across 5 development seeds (10, 11, 12, 13, 14) on CUDA:
+
+1. **L0-L2 PrimitiveCall Top-1:** Target $\ge 0.98$ -> Measured **1.000** — **PASS**
+2. **L3 PrimitiveCall Top-1:** Target $\ge 0.95$ -> Measured **1.000** — **PASS**
+3. **L4 PrimitiveCall Top-1:** Target $\ge 0.90$ -> Measured **0.9742** (up from 0.420 in R0) — **PASS**
+4. **Top-5 Inclusion:** Target $\ge 0.99$ across all levels -> Measured **1.000** — **PASS**
+5. **L4 Physical Primitive Family Top-1:** Target $\ge 0.98$ -> Measured **1.000** — **PASS**
+6. **L4 Argument Accuracy:** Target $\ge 0.95$ -> Measured **0.9742** — **PASS**
+7. **Legacy Known-Task Regression:** Max drop $\le 1.0\,\text{pp}$ -> Measured **0.00 pp** (0.0% drop) — **PASS**
+8. **Unselected Primitive Forward Calls:** Exactly $== 0$ -> Measured **0** — **PASS**
+9. **Wrong Functional Acceptance:** Target $\le 1.0\%$ -> Measured **0.0%** — **PASS**
+
+### Condition Comparison at N=128 (PrimitiveCall Top-1)
+| Level | R0 (Frozen A.2) | R1 (Standard CE) | R2 (Ranking + ArgScorer) |
+|---|:---:|:---:|:---:|
+| L0_orthogonal | 1.000 | 1.000 | **1.000** |
+| L1_random_score_space | 1.000 | 1.000 | **1.000** |
+| L2_near_neighbor | 1.000 | 0.963 | **1.000** |
+| L3_semantically_related | 0.988 | 1.000 | **1.000** |
+| L4_confusable_family | 0.420 | 0.325 | **0.974** |
+
+### Key Findings & Attribution
+1. **Factorized Scoring Resolves L4 without Key Multiplicity:** R0 and R1 both fail on L4 (0.420 and 0.325) because primitive key similarity cannot differentiate argument variants. Condition R2 resolves L4 to 97.42% accuracy purely through argument compatibility scoring while maintaining a single resident primitive key per physical primitive family.
+2. **Zero Catastrophic Forgetting:** With frozen `query_proj` and bounded replay, candidate key margin optimization produced 0.00 pp drop on legacy tasks and 0 unselected primitive forward calls.
+3. **Partition Cleanliness:** Development repair was executed entirely on seeds [10-14] with zero access to the original sealed evaluation partition [0-4].
+
+### Consequences
+- Task **B-C005R1 is PASSED**.
+- Unblocks Task **B-C005R2 (Functional Adequacy Estimator Repair)**.
+- The repaired retrieval mechanism (CombinedRoutingLoss + ArgumentScorer with frozen query_proj) is frozen for B-C005R2.
+
+

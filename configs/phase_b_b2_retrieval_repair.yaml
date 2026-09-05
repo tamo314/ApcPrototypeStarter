@@ -1,0 +1,34 @@
+# Phase B Task B-C005R1 Retrieval Ranking Repair Configuration
+# Uses disjoint development seeds [10, 11, 12, 13, 14] strictly isolated from
+# sealed evaluation seeds [0, 1, 2, 3, 4].
+seeds: [10, 11, 12, 13, 14]
+bank_sizes: [16, 32, 64, 128]
+levels:
+  - L0_orthogonal
+  - L1_random_score_space
+  - L2_near_neighbor
+  - L3_semantically_related
+  - L4_confusable_family
+target_operations:
+  - SHIFT
+  - SELECT
+  - COUNT
+  - BIND
+conditions:
+  - R0
+  - R1
+  - R2
+support_examples: 32
+query_examples: 64
+router_train_examples: 32
+router_steps: 250
+router_lr: 0.005
+top_k: 5
+ranking_margin: 3.0
+ranking_beta: 1.0
+arg_lambda: 2.0
+adequacy_exact_match_threshold: 0.95
+deterministic_algorithms: true
+device: auto
+bank_checkpoint_dir: runs/phase_a2_bank_scaling_benchmark
+output_dir: runs/phase_b_b2_retrieval_repair
