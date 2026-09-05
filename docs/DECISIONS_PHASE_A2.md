@@ -439,3 +439,73 @@ recurrence, and sparse calls.
   this task.
 - Primary artifacts are preserved under
   `runs/phase_a2_repeated_bank_growth_stress/`.
+
+---
+
+## ADR-0071: End-to-end Sparse Compute and Latency Scaling (Task A2-C010)
+
+**Date:** 2026-09-05
+**Status:** Accepted (Task A2-C010 Complete)
+**Affects:** `src/apc/evaluation/compute_latency_scaling_benchmark.py`,
+`scripts/compute_latency_scaling_benchmark.py`,
+`configs/phase_a2_compute_latency_scaling.yaml`,
+`tests/test_compute_latency_scaling_benchmark.py`, `docs/DECISIONS.md`,
+`docs/DECISIONS_PHASE_A2.md`, `docs/CODEX_TASKS_PHASE_A2_AUTONOMOUS_CONTROLLER.md`
+
+### Context
+
+ADR-0062 established that B008's active-primitive parameter reduction was not
+an end-to-end FLOPs or latency measurement.  A2-C004 later measured routing
+competition and primitive-only latency, but its timed callable did not include
+TaskSpec encoding or the task-blind content encoder.  A2-C010 therefore
+requires the actual causal APC inference graph and an executable dense control.
+
+### Decision and findings
+
+1. **Measurement graph and dense control.** Added a dedicated C010 benchmark.
+   Its sparse callable executes `TaskSpec -> task encoder -> z_task -> router`
+   and `content -> task-blind content encoder -> selected primitive -> readout`.
+   Its dense callable executes the same encoders/router and every enabled,
+   resident STABLE primitive.  It does not extrapolate dense latency by
+   multiplying a single primitive measurement.  Cross-position primitives own
+   their decoder/readout, so the measured primitive call includes the output
+   projection in both conditions.
+
+2. **Formal protocol.** The run used seeds 0--4, N={10,16,32,64,128}, one
+   real TaskSpec example per timed call, ten warmups, and 50 CUDA-event timed
+   trials.  The bank is genuinely semantic through N=16; N>16 uses the
+   matched-scale frozen distractors from C004 and is reported only as
+   routing/compute scaling.
+
+3. **Hard acceptance.** Routing accuracy was **100.00%** at every size and
+   sparse unselected forward calls were **0** across every seed/size.  Dense
+   execution called every stable primitive exactly once in its post-profile
+   verification (50, 80, 160, 320, and 640 calls aggregated over five seeds
+   at N=10,16,32,64,128 respectively).
+
+4. **N=128 measured result.** Sparse median/p95 latency was **4.360 / 6.069
+   ms**, compared with **89.062 / 112.649 ms** for executable dense-all;
+   the mean-of-seed median ratio was **4.89%**, passing the non-scientific
+   practical target of <=30%.  Sparse/dense throughput was **220.65 / 10.93
+   examples/s** and peak GPU allocation was **36.47 / 36.49 MB**.
+
+5. **N=128 accounting.** Resident/active primitive parameters were
+   **2,195,056 / 20,890**, or **99.05%** primitive active-parameter savings.
+   The representative analytical totals were **68.38M** sparse FLOPs versus
+   **98.66M** dense FLOPs (30.69% estimated total savings).  Router scoring
+   was 123,392 FLOPs, or 0.18% of sparse FLOPs; its median/p95 measured
+   overhead was **0.580 / 0.911 ms**.  The relatively modest total-FLOPs
+   reduction compared to primitive parameter reduction is expected because
+   the two shared encoder passes dominate the short sequence workload.
+
+### Consequences
+
+- A2-C010 replaces the former active-parameter-only proxy with reproducible,
+  end-to-end FLOPs, latency, throughput, memory, and call-count evidence.
+- The sparse-inference practical target passes at N=128.  This is evidence of
+  sparse execution cost on the controlled explicit-TaskSpec universe, not a
+  claim of 128-semantic-task continual learning or natural-language task
+  inference.
+- Primary artifacts are preserved under
+  `runs/phase_a2_compute_latency_scaling/`.
+- A2-C011 is now the next queued task, but is not started by this task.

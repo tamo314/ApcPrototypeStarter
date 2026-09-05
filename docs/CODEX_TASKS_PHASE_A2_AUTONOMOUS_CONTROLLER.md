@@ -346,7 +346,9 @@ Additional invariants:
 
 ---
 
-## A2-C010 — End-to-end compute and latency scaling
+## A2-C010 — End-to-end compute and latency scaling [COMPLETED]
+
+**Status:** Completed (ADR-0071)
 
 ### Goal
 
@@ -383,6 +385,25 @@ At N=128:
 `sparse median latency <= 0.30 * dense median latency`
 
 If missed, report the actual ratio.
+
+### Result
+
+Formal five-seed GPU run (`seeds 0..4`, 50 timed trials after 10 warmups,
+batch size 1) passed both hard acceptance criteria at every size.  The timed
+paths both execute TaskSpec encoding, task-blind content encoding, learned
+top-1 routing, and primitive readout; dense actually executes every resident
+stable primitive.
+
+- routing accuracy: 100.00% at every size;
+- sparse unselected primitive calls: 0 at every size;
+- N=128: sparse median/p95 4.360/6.069 ms, dense 89.062/112.649 ms,
+  4.89% median-latency ratio (practical target passed);
+- N=128 primitive active-parameter savings: 99.05%; estimated sparse/dense
+  FLOPs: 68.38M / 98.66M; router FLOPs: 123,392 (0.18% of sparse estimate);
+- N=128 sparse/dense throughput: 220.65 / 10.93 examples/s; peak GPU memory:
+  36.47 / 36.49 MB.
+
+Artifact: `runs/phase_a2_compute_latency_scaling/report.json`.
 
 ---
 

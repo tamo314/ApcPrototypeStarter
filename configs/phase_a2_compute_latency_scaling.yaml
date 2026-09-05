@@ -1,0 +1,12 @@
+# Phase A.2 A2-C010: end-to-end sparse top-1 versus executable dense-all-primitives.
+# N > 16 uses frozen matched-scale distractors; this is routing/compute scaling only.
+bank_sizes: [10, 16, 32, 64, 128]
+seeds: [0, 1, 2, 3, 4]
+num_router_train_examples: 64
+num_routing_eval_examples: 100
+profile_batch_size: 1
+warmup_steps: 10
+profile_steps: 50
+device: auto
+bank_source_dir: runs/phase_a2_bank_scaling_benchmark
+output_dir: runs/phase_a2_compute_latency_scaling
