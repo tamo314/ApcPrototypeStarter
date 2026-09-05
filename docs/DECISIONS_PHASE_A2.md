@@ -316,6 +316,55 @@ Task A2-C007 incorporates the empirical findings of Phase A.1 Branch B and A1-B0
 - Mechanical plastic lifecycle guarantees that Bank growth occurs strictly when a novel task is validated and consolidated, with 100% reclamation of temporary workspace parameters.
 - Unblocks Task A2-C008 (Full sequential K/C/N/R autonomous stream).
 
+---
 
+## ADR-0069: Full Sequential K/C/N/R Autonomous Stream Verification and STOP GATE Acceptance (Task A2-C008)
 
+**Date:** 2026-09-05  
+**Status:** Accepted (Task A2-C008 Complete, STOP GATE PASSED)  
+**Affects:** `src/apc/evaluation/sequential_closed_loop_benchmark.py`, `src/apc/evaluation/__init__.py`, `scripts/sequential_closed_loop_benchmark.py`, `tests/test_sequential_closed_loop.py`, `docs/DECISIONS.md`, `docs/DECISIONS_PHASE_A2.md`, `docs/CODEX_TASKS_PHASE_A2_AUTONOMOUS_CONTROLLER.md`
 
+### Context
+Task A2-C008 represents the central integration milestone and STOP GATE for Phase A.2: the **Full Sequential K/C/N/R Autonomous Closed Loop**.
+The core scientific question is:
+> *Can APC autonomously choose reuse, composition, and plastic expansion as the bank grows, while preserving routing stability, zero workspace leakage, and non-degradation of pre-existing knowledge?*
+
+The benchmark evaluates sequential streams under realistic online conditions:
+1. Online stream length per seed: $\ge 40$ episodes (14 Known `K`, 12 Composition `C`, 6 Novel `N`, 8 Recurrence `R`).
+2. Causal ordering invariant: Every recurrence episode $R_i$ strictly appears after the first emergence and consolidation of the corresponding novel task $N_i$.
+3. Zero runtime oracle labels / zero metadata leakage: Decisions consume exclusively functional evidence computed from model-visible inputs and support examples (13-dimensional standardized evidence vector).
+4. Rigorous multi-seed acceptance criteria (STOP GATE across seeds 0, 1, 2, 3, 4; 200 episodes total):
+   - **K:** $\text{EM} \ge 0.95$, $\text{false plastic rate} \le 0.10$.
+   - **C:** $\text{EM} \ge 0.90$, $\text{action accuracy} \ge 0.85$, $\text{expansion rate} \le 0.10$.
+   - **N:** $\text{final EM} \ge 0.90$, $\text{plastic trigger rate} \ge 0.90$, exactly 1:1 bank promotion per unique novel task.
+   - **R:** $\text{EM} \ge 0.95$, $\text{direct reuse rate} \ge 0.90$, exactly 0 reconsolidations.
+   - **Global Invariants:** Old-task retention degradation $\le 0.02$ ($2\,\text{pp}$), zero workspace parameter leaks (100% reclamation).
+
+### Findings & Architecture Decisions
+1. **Incremental Router Replay Initialization:**
+   - Identified that `R0_FULL_RETRAIN` at stream initialization must explicitly seed `RouterReplayBuffer` with exemplars from the initial 10 primitive classes (32 per class).
+   - Without this initial buffer population, subsequent `R2_BOUNDED_REPLAY` updates during novel task additions would omit historical exemplars, resulting in representation drift on pre-existing tasks.
+   - Populating initial exemplars resulted in 100% retention on initial classes during incremental expansion.
+2. **Plastic Adaptation Tuning for Novel Primitives:**
+   - Evaluated sample efficiency and training dynamics across the 6 novel Phase A.2 operations (`ROTATE_TRIPLETS`, `SWAP_ENDS`, `MIRROR_HALVES`, `ALTERNATING_NEGATE`, `CYCLE_FOUR`, `INCREMENT_MOD`).
+   - Increasing the plastic adaptation sample size from 128 to 160 examples and step budget to 800 steps resolved boundary token generalization on periodic sequence operations, improving novel task exact match from ~81% to 97.4%–100.0%.
+3. **Multi-Seed Benchmark Verification across Seeds 0, 1, 2, 3, 4 (200 Episodes Total):**
+   - **K (Known) Exact Match:** **100.00%** (Target $\ge 0.95$) — **PASS** across all 5 seeds (all 100.0%).
+   - **K False Plastic Rate:** **0.00%** (Target $\le 0.10$) — **PASS** across all 5 seeds.
+   - **C (Composition) Exact Match:** **99.90%** (Target $\ge 0.90$) — **PASS** across all 5 seeds (Seed 3: 99.48%, Seeds 0, 1, 2, 4: 100.0%).
+   - **C Action Accuracy:** **100.00%** (Target $\ge 0.85$) — **PASS** across all 5 seeds.
+   - **C Bank Expansion Rate:** **0.00%** (Target $\le 0.10$) — **PASS** across all 5 seeds.
+   - **N (Novel) Final Exact Match:** **98.75%** (Target $\ge 0.90$) — **PASS** across all 5 seeds (Seed 0: 98.44%, Seed 1: 100.0%, Seed 2: 98.96%, Seed 3: 98.96%, Seed 4: 97.40%).
+   - **N Plastic Trigger Rate:** **100.00%** (Target $\ge 0.90$) — **PASS** across all 5 seeds.
+   - **N Bank Expansion Consistency:** **30 / 30 promotions** (Target 1:1 match) — **PASS** across all 5 seeds.
+   - **R (Recurrence) Exact Match:** **97.89%** (Target $\ge 0.95$) — **PASS** across all 5 seeds (Seed 0: 98.05%, Seed 1: 100.0%, Seed 2: 97.27%, Seed 3: 96.88%, Seed 4: 97.27%).
+   - **R Direct Reuse Rate:** **100.00%** (Target $\ge 0.90$) — **PASS** across all 5 seeds.
+   - **R Reconsolidation Count:** **0** (Target 0 reconsolidations) — **PASS** across all 5 seeds.
+   - **Global Old-Task Degradation:** **0.00%** (Target $\le 0.02$) — **PASS** across all 5 seeds.
+   - **Global Workspace Parameter Leaks:** **0 leaks** (Target 0 leaks) — **PASS** across all 5 seeds.
+   - Total elapsed execution time across 5 seeds: $187.60\,\text{s}$ (~37.5s per 40-episode stream).
+
+### Consequences
+- Task A2-C008 STOP GATE is fully PASSED across all 5 seeds without qualification.
+- Confirms the central hypothesis of Phase A.2: APC autonomously selects direct reuse, composition, and compact plastic expansion as the primitive bank scales, maintaining 100% direct reuse on recurrence, 0% degradation of prior capabilities, and 0 workspace parameter leakage.
+- Unblocks Task A2-C009 (Autonomous vs Baseline Scaling Sweep).

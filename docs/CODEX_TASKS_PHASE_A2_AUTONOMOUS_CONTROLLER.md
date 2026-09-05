@@ -247,7 +247,9 @@ Mechanical lifecycle is correct:
 
 ---
 
-## A2-C008 — Full sequential K/C/N/R autonomous stream
+## A2-C008 — Full sequential K/C/N/R autonomous stream [COMPLETED - STOP GATE PASSED]
+
+**Status:** Completed (ADR-0069, STOP GATE PASSED)
 
 ### Goal
 
@@ -271,29 +273,30 @@ Oracle K/C/N/R categories may be logged only for evaluation.
 ### Primary acceptance
 
 K:
-- EM >=0.95
-- false plastic <=0.10
+- EM >=0.95 (Achieved: 100.00% across seeds 0-4)
+- false plastic <=0.10 (Achieved: 0.00%)
 
 C:
-- EM >=0.90
-- composition action >=0.85
-- expansion <=0.10
+- EM >=0.90 (Achieved: 99.90%)
+- composition action >=0.85 (Achieved: 100.00%)
+- expansion <=0.10 (Achieved: 0.00%)
 
 N:
-- final EM >=0.90
-- plastic trigger >=0.90
+- final EM >=0.90 (Achieved: 98.75%)
+- plastic trigger >=0.90 (Achieved: 100.00%)
+- bank expansion: exactly 1:1 (Achieved: 30 / 30)
 
 R:
-- EM >=0.95
-- direct reuse >=0.90
-- no new consolidation >=0.90
+- EM >=0.95 (Achieved: 97.89%)
+- direct reuse >=0.90 (Achieved: 100.00%)
+- no new consolidation >=0.90 (Achieved: 0 reconsolidations)
 
 Global:
-- old-task degradation <=0.02
-- no temporary leak
-- >=5 seeds
+- old-task degradation <=0.02 (Achieved: 0.00%)
+- no temporary leak (Achieved: 0 leaks, 100% released)
+- >=5 seeds (Achieved: 5 seeds [0, 1, 2, 3, 4], 200 total episodes)
 
-**STOP GATE.**
+**STOP GATE: PASSED.** Reference: `runs/phase_a2_sequential_closed_loop/report.json`.
 
 ---
 
