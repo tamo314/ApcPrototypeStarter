@@ -133,7 +133,7 @@ No STOP GATE yet.
 
 ---
 
-# B-C003 — STOP GATE B1: explicit-TaskSpec unseen-family lifecycle
+# B-C003 — STOP GATE B1: explicit-TaskSpec unseen-family lifecycle [PASSED - ADR-0074]
 
 ## Goal
 
@@ -189,13 +189,21 @@ Also interleave legacy K/C/R episodes to measure regressions.
 
 Use Experiment Plan Gate B1.
 
-If FAIL:
-
-- save artifacts;
-- write ADR;
-- stop dependent Phase B work;
-- do not modify Task Inference;
-- investigate only controller evidence, adequacy verification, plastic learning, consolidation, or holdout validity as indicated by metrics.
+**Verification Status: PASSED (ADR-0074)**
+- Seeds evaluated: 5 seeds (`(0, 1, 2, 3, 4)`) on CUDA
+- Plastic Trigger Rate: **100.00%** ($\ge 95.0\%$) — PASS
+- Mean Final Novel EM: **97.66%** ($\ge 95.0\%$) — PASS
+- Min Seed Novel EM: **95.31%** ($\ge 90.0\%$) — PASS
+- 1:1 Promotion: **10/10** — PASS
+- Workspace Leaks: **0** ($== 0$) — PASS
+- Fresh Recurrence EM: **97.19%** ($\ge 95.0\%$) — PASS
+- Recurrence Adaptation Steps: **0** ($== 0$) — PASS
+- Recurrence Temporary Parameters: **0** ($== 0$) — PASS
+- Recurrence Bank Growth: **0** ($== 0$) — PASS
+- Max Old-Task EM Drop: **0.00 pp** ($\le 1.0\,\text{pp}$) — PASS
+- Max Old-Routing Top-1 Drop: **0.00 pp** ($\le 1.0\,\text{pp}$) — PASS
+- Legacy False Plastic: **0.00%** ($\le 1.0\%$) — PASS
+- Artifacts: `runs/phase_b_unseen_family_lifecycle_gate/` (`report.json`, `summary.json`, `report.md`)
 
 ---
 

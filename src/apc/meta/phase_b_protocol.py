@@ -27,11 +27,16 @@ from typing import Any
 import yaml
 
 from apc.meta.learned_controller import AdequacyControllerConfig
-from apc.plastic.lifecycle import CompactLifecycleConfig
 from apc.primitives.incremental_router import (
     IncrementalRouterConfig,
     IncrementalUpdateCondition,
 )
+
+
+def _get_default_plastic_lifecycle_config() -> Any:
+    from apc.plastic.lifecycle import CompactLifecycleConfig
+
+    return CompactLifecycleConfig()
 
 
 class FamilySplit(str, Enum):  # noqa: UP042
@@ -176,8 +181,8 @@ class PhaseBProtocol:
     adequacy_controller_config: AdequacyControllerConfig = field(
         default_factory=AdequacyControllerConfig
     )
-    plastic_lifecycle_config: CompactLifecycleConfig = field(
-        default_factory=CompactLifecycleConfig
+    plastic_lifecycle_config: Any = field(
+        default_factory=_get_default_plastic_lifecycle_config
     )
     incremental_router_config: IncrementalRouterConfig = field(
         default_factory=IncrementalRouterConfig
@@ -275,11 +280,12 @@ class PhaseBProtocol:
         )
 
         plastic_data = data.get("plastic_lifecycle_config", {})
-        plastic_cfg = (
-            CompactLifecycleConfig(**plastic_data)
-            if isinstance(plastic_data, dict)
-            else CompactLifecycleConfig()
-        )
+        if isinstance(plastic_data, dict):
+            from apc.plastic.lifecycle import CompactLifecycleConfig
+
+            plastic_cfg = CompactLifecycleConfig(**plastic_data)
+        else:
+            plastic_cfg = _get_default_plastic_lifecycle_config()
 
         router_data = data.get("incremental_router_config", {})
         if isinstance(router_data, dict) and router_data:
@@ -366,6 +372,6 @@ def create_frozen_phase_a2_upper_bound(
             timeout_seconds=60.0,
         ),
         adequacy_controller_config=AdequacyControllerConfig(),
-        plastic_lifecycle_config=CompactLifecycleConfig(),
+        plastic_lifecycle_config=_get_default_plastic_lifecycle_config(),
         incremental_router_config=IncrementalRouterConfig(),
     )

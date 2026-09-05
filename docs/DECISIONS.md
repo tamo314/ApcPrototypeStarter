@@ -112,3 +112,5 @@ ADR-0062 through ADR-0073. Historical reference / concluded phase -- see docs/re
 ## Phase B Semantic Task Inference & Open-World Extension (active) -- [`DECISIONS_PHASE_B.md`](DECISIONS_PHASE_B.md)
 
 ADR-0074 onward. **Active phase.** Follows docs/exec-plans/active/PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD.md, docs/CODEX_TASKS_PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD.md, and docs/EXPERIMENT_PLAN_PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD.md. Append new ADRs from Phase B here.
+
+- [ADR-0074](DECISIONS_PHASE_B.md#adr-0074-explicit-taskspec-unseen-family-lifecycle-gate-verification-stop-gate-b1) -- Explicit-TaskSpec Unseen-Family Lifecycle Gate Verification (STOP GATE B1) (Task B-C003)
