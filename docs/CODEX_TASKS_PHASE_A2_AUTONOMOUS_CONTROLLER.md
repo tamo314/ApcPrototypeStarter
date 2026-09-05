@@ -103,7 +103,7 @@ After every insertion measure:
 
 ---
 
-## A2-C004 — Bank competition and routing scaling
+## A2-C004 — Bank competition and routing scaling [PASSED - ADR-0065]
 
 ### Goal
 

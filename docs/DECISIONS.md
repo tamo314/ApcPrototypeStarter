@@ -99,6 +99,7 @@ ADR-0062 onward. **Active phase.** Follows docs/exec-plans/active/PHASE_A2_AUTON
 - [ADR-0062](DECISIONS_PHASE_A2.md#adr-0062-phase-a2-scope-and-metric-audit-of-adr-0061-clarification-of-explicit-taskspec-10-operation-closed-universe-primitive-bank-active-parameter-savings-and-unmeasured-flopslatency) -- Phase A.2 Scope and Metric Audit of ADR-0061: Clarification of Explicit TaskSpec, 10-Operation Closed Universe, Primitive-Bank Active Parameter Savings, and Unmeasured FLOPs/Latency (Task A2-C001)
 - [ADR-0063](DECISIONS_PHASE_A2.md#adr-0063-controller-instrumentation-and-comprehensive-compute-accounting-architecture-task-a2-c002) -- Controller Instrumentation and Comprehensive Compute Accounting Architecture (Task A2-C002)
 - [ADR-0064](DECISIONS_PHASE_A2.md#adr-0064-class-incremental-router-update-gate-and-bank-scaling-to-16-operations-task-a2-c003-stop-gate) -- Class-Incremental Router Update Gate and Bank Scaling to 16 Operations (Task A2-C003 STOP GATE)
+- [ADR-0065](DECISIONS_PHASE_A2.md#adr-0065-bank-competition-robustness-and-compute-scaling-to-n128-with-matched-frozen-distractor-primitives-task-a2-c004) -- Bank Competition Robustness and Compute Scaling to N=128 with Matched Frozen Distractor Primitives (Task A2-C004)
 
 
 
