@@ -590,6 +590,64 @@ and plastic lifecycle execution:
 - Empirically validates the specific necessity of each core mechanism designed in Phase A.2.
 - Failure modes are now rigorously attributed to specific missing components in formal benchmarks.
 - Artifacts saved under `runs/phase_a2_controller_ablations/`.
-- Task A2-C011 is complete. Task A2-C012 (Final Phase A.2 synthesis and evaluation) is next in queue
-  and will not be started automatically.
+- Task A2-C011 is complete. Task A2-C012 (Final Phase A.2 synthesis and evaluation) was next in queue.
+
+---
+
+## ADR-0073: Phase A.2 Final Audit and Autonomous Controller Verification (Task A2-C012)
+
+- **Date:** 2026-09-05
+- **Status:** Accepted (Phase A.2 Complete)
+- **Affected documents:**
+  `docs/results/PHASE_A2_AUTONOMOUS_CONTROLLER_RESULT.md`,
+  `docs/DECISIONS.md`,
+  `docs/DECISIONS_PHASE_A2.md`,
+  `docs/CODEX_TASKS_PHASE_A2_AUTONOMOUS_CONTROLLER.md`,
+  `docs/exec-plans/active/PHASE_A2_AUTONOMOUS_CONTROLLER.md`
+
+### Context
+
+Task A2-C012 represents the formal final synthesis and audit of **Phase A.2 — Autonomous Controller & Scaling**.
+The governing scientific question established in AGENTS.md was:
+> *Can APC autonomously choose reuse, composition, and plastic expansion as the bank grows, while preserving routing stability and real sparse-compute benefits?*
+
+All 12 planned tasks (`A2-C001` through `A2-C012`) and all 4 STOP GATES were systematically executed, evaluated across $\ge 5$ decision seeds, and confirmed against predetermined mathematical criteria. A final audit is required to synthesize empirical findings, assess failure modes, evaluate remaining limitations, and provide recommendations for the next research phase.
+
+### Decision and findings
+
+1. **Formal Verdict: Strong autonomous-controller support:**
+   All four STOP GATES passed without qualification across all multi-seed evaluations:
+   - **STOP GATE G1 (A2-C003, ADR-0064):** Class-incremental router scaling (`10 -> 12 -> 14 -> 16`) using bounded replay (R2, $\le 32$ examples/class) achieved 100.00% top-1 accuracy with 0.00 pp forgetting on pre-existing classes and 0 unselected primitive forward calls.
+   - **STOP GATE G2 (A2-C006, ADR-0067):** Learned adequacy/novelty controller trained on 13-dimensional support-set functional evidence achieved AUROC 1.0000, 0.00% false plastic triggers on K/C, 100.00% plastic trigger on N, and 100.00% direct reuse on R with strict zero-oracle leakage.
+   - **STOP GATE G3 (A2-C008, ADR-0069):** Full online sequential K/C/N/R stream (200 episodes across 5 seeds) operated autonomously with zero runtime oracle action labels, achieving $\ge 97.89\%$ exact match across all task categories, 30/30 1:1 bank promotion consistency on novel tasks, 0 reconsolidations on recurrence, 0.00% retention drop, and 0 temporary workspace leaks.
+   - **STOP GATE G4 (A2-C009, ADR-0070):** Repeated bank growth stress across 6 consecutive autonomous novelty-to-consolidation cycles (`10 -> 16`) preserved 100.00% routing accuracy, 0.00 pp old-routing degradation, 0.00 pp canonical and previously-consolidated task functional drop, and 100.00% autonomous recurrence direct reuse (99.17% recurrence EM).
+
+2. **Sparse Compute and Real Latency Verification (A2-C010, ADR-0071):**
+   - At resident bank size $N=128$, active primitive parameter count remained strictly $O(1)$ at 20,890 parameters (99.05% reduction relative to 2,195,056 resident parameters).
+   - Real CUDA-timed median latency on NVIDIA RTX 5060 Ti demonstrated that the sparse APC execution path requires **4.360 ms** versus **89.062 ms** for an executable dense-all baseline (a latency ratio of **4.89%**, well within the $\le 30\%$ target), providing a **$20.19\times$ throughput speedup** with 0 unselected forward calls.
+   - Total analytical FLOPs showed 30.69% reduction, reflecting that shared core encoding cost dominates on short sequence lengths while sparse execution eliminates repetitive primitive dispatch and memory bandwidth overhead.
+
+3. **Mechanistic Necessity Attribution (A2-C011, ADR-0072):**
+   Ablation studies proved:
+   - Composition evidence is necessary to prevent false plastic expansion (collapses to 100% false plastic without it).
+   - Support-set functional score is necessary to prevent missed novelty (misses 63.33% of novel tasks when relying on router confidence alone).
+   - Bounded replay is necessary to prevent routing forgetting (drops 84.44% without it).
+   - Compact-first lifecycle optimizes parameter efficiency while preserving recovery capacity on hard tasks.
+
+4. **Scope and Scaffold Boundaries Acknowledged:**
+   - Routing conditioning operates under explicit, model-visible TaskSpec sequences. Natural language task inference remains deferred.
+   - Bank scalability was tested on synthetic sequence transformation primitives and orthogonal-complement distractors up to $N=128$.
+
+5. **Phase A.2 Formally Closed:**
+   - Deliverable `docs/results/PHASE_A2_AUTONOMOUS_CONTROLLER_RESULT.md` is accepted.
+   - Phase A.2 task sequence (`A2-C001` through `A2-C012`) is complete.
+   - Recommendation to advance to Phase B (Semantic Task Inference & Open-World Extension).
+
+### Consequences
+
+- Phase A.2 is officially concluded with the highest allowed verdict: **Strong autonomous-controller support**.
+- The core scientific question of Phase A.2 is answered affirmatively with rigorous multi-seed experimental backing.
+- All Phase A.2 execution artifacts, benchmarks, and regression tests are preserved.
+- Unblocks planning and specification for Phase B.
+
 

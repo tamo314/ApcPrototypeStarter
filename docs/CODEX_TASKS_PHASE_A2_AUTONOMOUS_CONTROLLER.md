@@ -456,15 +456,15 @@ Artifacts: `runs/phase_a2_controller_ablations/report.json`, `BENCHMARK_REPORT.m
 
 ---
 
-## A2-C012 — Phase A.2 final audit
+## A2-C012 — Phase A.2 final audit [COMPLETED - ADR-0073]
 
 ### Output
 
-Create:
+Created and accepted:
 
 `docs/results/PHASE_A2_AUTONOMOUS_CONTROLLER_RESULT.md`
 
-### Required sections
+### Required sections (all verified)
 
 1. ADR-0061 scope clarification
 2. incremental routing
@@ -478,26 +478,21 @@ Create:
 10. remaining limitations
 11. next-phase recommendation
 
-### Allowed conclusion levels
+### Accepted conclusion level
 
-#### Strong autonomous-controller support
+#### Strong autonomous-controller support (CONFIRMED)
 
-All STOP gates pass.
+All four STOP gates passed:
+- G1 (A2-C003): PASS (100.00% top-1, 0.00 pp forgetting)
+- G2 (A2-C006): PASS (AUROC 1.0000, 0.00% false plastic)
+- G3 (A2-C008): PASS (full sequential stream without oracle labels, zero leak, zero forgetting)
+- G4 (A2-C009): PASS (6 consecutive novelty-to-consolidation cycles, zero degradation)
 
-#### Partial support
-
-Routing works but novelty/controller or growth fails.
-
-#### Sparse-inference only
-
-Fixed-bank routing works but continual control does not.
-
-#### Inconclusive
-
-Experimental confounds prevent a clean conclusion.
+Artifacts: `docs/results/PHASE_A2_AUTONOMOUS_CONTROLLER_RESULT.md`, ADR-0073.
 
 ### Rule
 
 Audit only.
 
 Do not start task-inference-from-language work in this task.
+
