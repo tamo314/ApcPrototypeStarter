@@ -111,3 +111,56 @@ The predeclared five-seed CUDA matrix covered 400 cells: four bank sizes, five h
 - The false-plastic outcome must be localized against support adequacy before changing any controller threshold or task-inference mechanism.
 - B-C006 onward, especially B-C008–B-C011 Task Inference, are blocked by STOP GATE B2.
 - No sealed-family status, controller threshold, router architecture, search budget, or plastic capacity was changed in response to this result.
+
+---
+
+## ADR-0076: Failure Isolation: Retrieval Ranking vs Argument Resolution vs Support Adequacy Variance
+
+**Date:** 2026-09-06  
+**Status:** Accepted (Task B-C005D Complete)  
+**Affects:** `src/apc/evaluation/hard_negative_failure_isolation.py`, `scripts/run_phase_b_b2_failure_isolation.py`, `configs/phase_b_b2_failure_isolation.yaml`, `tests/test_hard_negative_failure_isolation.py`, `docs/DECISIONS.md`, `docs/DECISIONS_PHASE_B.md`, `docs/CODEX_TASKS_PHASE_B_B2_HARD_NEGATIVE_REPAIR.md`  
+**Run Artifacts:** `runs/phase_b_b2_failure_isolation/` (`config.yaml`, `metrics.jsonl`, `summary.json`, `system.json`, `failure_breakdown.json`, `margin_summary.json`, `support_variance.json`, `plots/`)
+
+### Context
+STOP GATE B2 (Task B-C005) returned FAIL due to two distinct symptoms:
+1. Retrieval top-1 degradation under hard-negative levels L2 (0.866), L3 (0.662), and L4 (0.504) at N=128, despite top-5 inclusion remaining 1.000.
+2. False plastic rate on known tasks of 3.75% (> 2.0% threshold), despite 0.0% wrong functional acceptance.
+
+Task B-C005D performed mechanism-isolated diagnostic decomposition without modifying any router weights, architecture, thresholds, or policies.
+
+### Core Empirical Findings & Attributions
+
+1. **L4 Confusable Family Degradation is 100.0% Argument Resolution Failure:**
+   - Decomposing L4 queries (5,120 queries across 400 cells) revealed:
+     - `physical_primitive_top1`: **1.000** (100.0%)
+     - `argument_accuracy`: **0.540** (54.0%)
+     - `family_ranking_failure_fraction`: **0.0%** (0 / 2,353 failures)
+     - `argument_resolution_failure_fraction`: **100.0%** (2,353 / 2,353 failures)
+   - The physical primitive family was retrieved correctly in 100% of cases. The router failed strictly to distinguish the correct argument from an engineered same-family competitor (`virtual:wrong_argument`), yielding a mean score margin of $-0.0015$.
+   - **Architectural Consequence:** Router keys should NOT be duplicated per argument. Instead, B-C005R1 should introduce factorized primitive-call scoring `score(PrimitiveCall) = score_family(z_task, key) + lambda * score_args(z_task, args)` or an explicit margin ranking objective.
+
+2. **L2 vs L3 Retrieval Degradation Mechanisms:**
+   - **L2 Near Neighbor:** Continuous margin collapse. Mean score margin shrank from $7.00$ (L0/L1) to $2.14$, with a $10.0\%$ fraction of margins $\le 0$ and $p05 = -0.39$.
+   - **L3 Semantically Related:** Specific semantic collision. Bimodal score margin distribution (p05: $-10.31$, p95: $+10.70$) driven by engineered related-key competitors, with $29.6\%$ fraction of margins $\le 0$.
+   - Top-5 inclusion remained $1.000$ across all levels, proving candidate recall is preserved.
+
+3. **False Plastic is 100.0% Attributable to Finite-Support Estimator Variance:**
+   - In 100% (15/15) of false plastic cells, the correct candidate was ranked #1 (`correct_rank = 1.0`).
+   - The correct candidate achieved query EM of $95.3\%$ or $89.1\%$, but support EM on 32 examples fell just below threshold ($29/32 = 90.6\%$ or $30/32 = 93.8\% < 95.0\%$).
+   - **Candidate Ordering:** Comparing Policy A (ranked-first), Policy B (evaluate all top-5), and Policy C (oracle correct candidate) yielded identical false plastic rates ($3.75\%$) and closed-loop EM ($95.92\%$). Candidate ordering contributes $0.0\%$ to false plastic.
+   - **Support Size Variance:** Support scaling on disjoint development data verified that increasing support size without changing threshold reduces false plastic from $1.25\%$ ($K=16$) to $0.00\%$ ($K\ge 32$). The theoretical binomial reference curve for $p=0.99$ predicts a $4.07\%$ false-rejection rate at $K=32$, closely matching the observed $3.75\%$.
+
+### Answers to Required B-C005D Questions
+1. *Is L2 failure primarily margin/ranking failure?* **YES** (Continuous margin collapse, mean margin 2.14, 10.0% margin $\le 0$).
+2. *Is L3 failure primarily margin/ranking failure?* **YES** (Specific semantic collision, 29.6% margin $\le 0$).
+3. *For L4, what fraction is family routing vs argument resolution?* **0.0% family routing, 100.0% argument resolution**.
+4. *What fraction of false plastic occurs despite correct candidate in top-5?* **100.0%** (15/15 cells, and in fact rank 1.0).
+5. *What fraction occurs despite high query EM?* **66.7%** (10/15 cells query EM $\ge 90\%$, remainder $89.1\%$).
+6. *Does false plastic decrease as support size increases without changing threshold?* **YES** (Drops to 0.00% at K=128).
+7. *Is candidate ordering contributing materially?* **NO** (Identical 3.75% across Policy A, B, and C).
+
+### Consequences
+- Unblocks Task **B-C005R1 (Retrieval Ranking Repair)**.
+- B-C005R1 targets hard-negative margin ranking and argument-compatibility scoring on development data; adequacy thresholds and statistical verifiers remain frozen during R1.
+- Downstream tasks (B-C005R2, B-C005G, B-C006) remain blocked pending R1 and re-gating.
+

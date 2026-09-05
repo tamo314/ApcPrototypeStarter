@@ -1,0 +1,43 @@
+# Phase B B-C005D Failure Isolation Configuration
+seeds:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+bank_sizes:
+  - 16
+  - 32
+  - 64
+  - 128
+levels:
+  - L0_orthogonal
+  - L1_random_score_space
+  - L2_near_neighbor
+  - L3_semantically_related
+  - L4_confusable_family
+target_operations:
+  - SHIFT
+  - SELECT
+  - COUNT
+  - BIND
+support_examples: 32
+query_examples: 64
+router_train_examples: 32
+router_steps: 250
+top_k: 5
+adequacy_exact_match_threshold: 0.95
+support_variance_sizes:
+  - 16
+  - 32
+  - 64
+  - 128
+binomial_p_values:
+  - 0.97
+  - 0.98
+  - 0.99
+  - 0.995
+deterministic_algorithms: true
+device: auto
+bank_checkpoint_dir: runs/phase_a2_bank_scaling_benchmark
+output_dir: runs/phase_b_b2_failure_isolation
