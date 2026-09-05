@@ -650,6 +650,12 @@ Do not modify adequacy estimation in R1.
 
 # B-C005R2 — Functional Adequacy Estimator Repair
 
+## Status
+
+**COMPLETE — PASSED (ADR-0078)**
+
+All acceptance criteria passed across 5 development seeds on CUDA (Policy D Sequential: false plastic = 0.00%, wrong functional acceptance = 0.00%, closed-loop EM = 0.9961, mean support consumed = 32.29 < 64, zero unselected calls, zero query leakage). Unblocks Task B-C005G (New Sealed B2 Re-Gate).
+
 ## Goal
 
 Reduce false plastic caused by uncertain finite-support adequacy estimates without weakening protection against wrong functional reuse.

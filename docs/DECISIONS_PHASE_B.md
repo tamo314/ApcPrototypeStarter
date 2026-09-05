@@ -218,4 +218,57 @@ Across 5 development seeds (10, 11, 12, 13, 14) on CUDA:
 - Unblocks Task **B-C005R2 (Functional Adequacy Estimator Repair)**.
 - The repaired retrieval mechanism (CombinedRoutingLoss + ArgumentScorer with frozen query_proj) is frozen for B-C005R2.
 
+---
+
+## ADR-0078: Bounded Sequential Adequacy Verifier for Finite-Support Variance Repair
+
+**Date:** 2026-09-06  
+**Status:** Accepted (Task B-C005R2 Complete, Acceptance Criteria PASSED)  
+**Affects:** `src/apc/meta/adequacy_verifier.py`, `src/apc/evaluation/adequacy_repair_benchmark.py`, `configs/phase_b_b2_adequacy_repair.yaml`, `scripts/run_phase_b_b2_adequacy_repair.py`, `tests/test_adequacy_verifier.py`, `tests/test_adequacy_repair_benchmark.py`, `docs/DECISIONS.md`, `docs/DECISIONS_PHASE_B.md`, `docs/CODEX_TASKS_PHASE_B_B2_HARD_NEGATIVE_REPAIR.md`  
+**Run Artifacts:** `runs/phase_b_b2_adequacy_repair/` (`report.md`, `summary.json`, `metrics.jsonl`, `config.yaml`, `system.json`)
+
+### Context
+STOP GATE B2 (Task B-C005) returned FAIL partially due to a 3.75% false-plastic rate on known episodes despite 0.0% wrong functional acceptance. Diagnostic task B-C005D isolated this failure as 100.0% attributable to finite-support estimator variance under fixed $K=32$ with a hard $\text{EM} \ge 0.95$ threshold (where stochastic binomial variation on high-performing candidates $p \approx 0.98$ produced occasional $30/32 = 0.938 < 0.95$, triggering false rejection and fallback to plastic search).
+
+Task B-C005R1 resolved the retrieval-ranking bottleneck (ADR-0077). Task B-C005R2 freezes the repaired retrieval mechanism (Condition R2: CombinedRoutingLoss + ArgumentScorer with frozen `query_proj`) and repairs the functional adequacy verifier without altering the authoritative 0.95 adequacy threshold.
+
+### Architectural Implementation
+Implemented `SequentialAdequacyVerifier` in `src/apc/meta/adequacy_verifier.py`:
+1. **Bounded Sequential Evidence Gathering:** Evaluates candidate execution on support batches of increasing size: initial support $N_{\text{init}}=32$, increment $\Delta N=32$, maximum support budget $N_{\text{max}}=128$.
+2. **Statistically Justified Stopping Rules:**
+   - **Early Accept (Clearly Adequate):** Empirical accuracy $\hat{p} = k/n \ge 0.95$. Bounded candidates matching or exceeding the target threshold are accepted immediately at $n=32$.
+   - **Early Reject (Clearly Inadequate):** Wilson score confidence interval upper bound $U(k, n) < 0.95$ ($1 - \alpha = 0.95$). Inadequate distractors and competitors ($k/n \le 0.15$) are rejected immediately at $n=32$ ($U(k, 32) < 0.30$).
+   - **Uncertain (Evidence Gathering):** $\hat{p} < 0.95 \le U(k, n)$ (e.g., $k=30/32$). Instead of premature plastic search, the verifier gathers an additional 32 support examples up to $N_{\text{max}}=128$.
+   - **Max Budget Forced Decision:** If $n=N_{\text{max}}$, classify candidate as accepted iff $\hat{p} \ge 0.95$.
+3. **Zero Query Leakage:** Query examples and targets are strictly inaccessible to the verifier.
+
+### Acceptance Criteria & Measured Empirical Results (Policy D at N=128 across 5 dev seeds)
+Across 5 development seeds (10, 11, 12, 13, 14) on CUDA:
+
+1. **False Plastic Rate:** Target $\le 2.0\%$ -> Measured **0.00%** (0 / 100 episodes @ N=128; down from 5.00% in fixed-32) — **PASS**
+2. **Wrong Functional Acceptance:** Target $\le 1.0\%$ -> Measured **0.00%** (0 / 400 competitor evaluations) — **PASS**
+3. **Closed-Loop EM:** Target $\ge 95.0\%$ -> Measured **99.61%** (up from 94.92% in fixed-32) — **PASS**
+4. **Mean Support Consumed:** Target $< 64.0$ -> Measured **32.29 examples** (96%+ candidates decided at $n=32$) — **PASS**
+5. **Leak Audit Passed:** **True** (0 query targets used during verification) — **PASS**
+6. **Zero Unselected Forward Calls:** **True** (0 unselected calls across all episodes) — **PASS**
+
+### Comparative Policy Evaluation at N=128
+| Policy | Closed-loop EM | False Plastic | False Acceptance | Mean Support | P95 Support | Latency (ms) |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| Policy A (`fixed_32`) | 0.9492 | 0.0500 | 0.0000 | 32.0 | 32.0 | 0.39 |
+| Policy B (`fixed_64`) | 0.9961 | 0.0000 | 0.0000 | 64.0 | 64.0 | 0.51 |
+| Policy C (`fixed_128`) | 0.9492 | 0.0500 | 0.0000 | 128.0 | 128.0 | 0.74 |
+| Policy D (`sequential`) | **0.9961** | **0.0000** | **0.0000** | **32.3** | **33.6** | **0.40** |
+
+### Key Findings & Architecture Insights
+1. **Elimination of Estimator Variance without Budget Inflation:** Policy D completely eliminates false plastic ($5.00\% \to 0.00\%$) and raises closed-loop EM to $99.61\%$, while consuming an average of only $32.29$ support examples (virtually identical to fixed-32's $32.0$, and with $0.40\,\text{ms}$ latency vs $0.39\,\text{ms}$).
+2. **Preservation of Safety Priority:** Across 1,600 policy-cell evaluations, wrong functional acceptance remained strictly $0.0000$. Early rejection at $U(k, n) < 0.95$ safely discarded wrong candidates without ever expanding support consumption on distractors.
+3. **Dual Repair Complete:** The retrieval ranking repair (R1) and adequacy estimator repair (R2) together resolve all identified failure mechanisms of STOP GATE B2 in isolated development partitions.
+
+### Consequences
+- Task **B-C005R2 is PASSED**.
+- Unblocks Task **B-C005G (New Sealed Hard-Negative B2 Re-Gate)**.
+- Freezes the complete repaired architecture (CombinedRoutingLoss + ArgumentScorer + SequentialAdequacyVerifier) for sealed re-gating.
+
+
 
