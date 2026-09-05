@@ -20,41 +20,36 @@ Historical Phase A and earlier Phase A.1 documents remain valuable evidence, but
 
 The active phase is:
 
-**Phase A.1 Post-Diagnostic — Branch B Integration**
+**Phase A.2 — Autonomous Controller & Scaling**
 
 The current scientific question is:
 
-> Can the full continual learning lifecycle (sparse execution, composition, residual plastic learning, functional consolidation, recurrence reuse, and learned routing) be unified over a single shared task-blind Stable Core using heterogeneous compact primitives?
+> Can APC autonomously choose reuse, composition, and plastic expansion as the bank grows, while preserving routing stability and real sparse-compute benefits?
 
 The active task sequence uses IDs:
 
-`A1-B001` through `A1-B007` -> `A1-B007X` -> `A1-B008`
+`A2-C001` through `A2-C012`
 
 from:
 
-`docs/CODEX_TASKS_PHASE_A1_BRANCH_B_INTEGRATION.md`
-and:
-`docs/CODEX_TASKS_A1_B007X_DISCOVERY_COMPRESSION.md`
+`docs/CODEX_TASKS_PHASE_A2_AUTONOMOUS_CONTROLLER.md`
 
-> **Diagnostic Closure Note (ADR-0046):** The diagnostic series (A1-R005D,
-> A1-R005E-001..006A, S001..S007) successfully concluded by proving that:
-> 1. A single shared task-blind Stable Core content encoder preserves $\ge 99.6\%$
->    of specialized performance across all operations (ADR-0044).
-> 2. Heterogeneous compact primitives (~18k parameters), such as
->    `ShiftRelativeCrossPositionOperator` with modular relative position bias,
->    resolve complex operations (93.85% exact match, ADR-0045).
-> 3. Historical `A1-R006` through `A1-R022` are superseded by the `A1-B001`
->    through `A1-B008` roadmap.
+> **Phase A.1 Completion & Phase A.2 Scope Note (ADR-0061, ADR-0062):**
+> 1. Phase A.1 Branch B Integration demonstrated shared task-blind representation, heterogeneous
+>    compact primitives, composition search/execution, residual plastic adaptation, functional
+>    consolidation, recurrence reuse, and 99.99% learned routing over the known 10-operation universe.
+> 2. Per ADR-0062, B008 routing was established under explicit model-visible TaskSpec, and 90.11%
+>    savings measures primitive-bank active-parameter reduction rather than end-to-end FLOPs/latency.
+> 3. Phase A.2 addresses the unresolved system-level question of autonomous controller decisions
+>    (reuse vs compose vs plastic expansion) under continuous bank growth and incremental router scaling.
 >
 > Follow the active execution plan:
-> 1. `docs/exec-plans/active/PHASE_A1_BRANCH_B_INTEGRATION.md`
-> 2. `docs/CODEX_TASKS_PHASE_A1_BRANCH_B_INTEGRATION.md`
-> 3. `docs/CODEX_TASKS_A1_B007X_DISCOVERY_COMPRESSION.md`
-> 4. `docs/EXPERIMENT_PLAN_A1_B007X_DISCOVERY_COMPRESSION.md`
-> 5. `docs/exec-plans/active/A1_B007X_DISCOVERY_COMPRESSION.md`
-> 6. `docs/results/A1_R005E_DIAGNOSTIC_RESULT_FINAL.md`
+> 1. `docs/exec-plans/active/PHASE_A2_AUTONOMOUS_CONTROLLER.md`
+> 2. `docs/CODEX_TASKS_PHASE_A2_AUTONOMOUS_CONTROLLER.md`
+> 3. `docs/EXPERIMENT_PLAN_PHASE_A2_AUTONOMOUS_CONTROLLER.md`
+> 4. `docs/AGENTS_PHASE_A2_AUTONOMOUS_CONTROLLER_ADDENDUM.md`
 
-Implement **only the currently requested A1-Bxxx task** unless the user explicitly asks to change scope.
+Implement **only the currently requested A2-Cxxx task** unless the user explicitly asks to change scope.
 
 Do not continue automatically to the next task after completing one.
 
@@ -66,39 +61,42 @@ If a STOP GATE fails, stop dependent work and report the failure.
 
 Before changing architecture-level behavior, read these documents in order:
 
-1. `docs/exec-plans/active/PHASE_A1_POST_CORRECTION.md`
+1. `docs/exec-plans/active/PHASE_A2_AUTONOMOUS_CONTROLLER.md`
    - current milestone order and scientific gates.
 
-2. `docs/CODEX_TASKS_PHASE_A1_POST_CORRECTION.md`
+2. `docs/CODEX_TASKS_PHASE_A2_AUTONOMOUS_CONTROLLER.md`
    - current implementation tasks and acceptance criteria.
 
-3. `docs/design-docs/CAUSAL_PRIMITIVE_EXECUTION.md`
-   - source of truth for task-blind content encoding and causal primitive execution.
-
-4. `docs/EXPERIMENT_PLAN_PHASE_A1_POST_CORRECTION.md`
+3. `docs/EXPERIMENT_PLAN_PHASE_A2_AUTONOMOUS_CONTROLLER.md`
    - current hypotheses, controls, thresholds, baselines, and stop conditions.
 
-5. `docs/AGENTS_PHASE_A1_POST_CORRECTION_ADDENDUM.md`
+4. `docs/design-docs/AUTONOMOUS_CONTROLLER_POLICY.md`
+   - runtime controller decision policy (direct reuse vs compose vs plastic search).
+
+5. `docs/design-docs/INCREMENTAL_ROUTER_AND_BANK_SCALING.md`
+   - incremental router updates, replay/prototype bounds, and bank growth.
+
+6. `docs/design-docs/COMPUTE_ACCOUNTING_PHASE_A2.md`
+   - comprehensive parameter, FLOPs, and latency accounting requirements.
+
+7. `docs/AGENTS_PHASE_A2_AUTONOMOUS_CONTROLLER_ADDENDUM.md`
    - current phase-specific agent rules.
 
-6. `docs/design-docs/PARAMETERIZED_PRIMITIVE_CALLS.md`
-   - primitive family / argument separation.
+8. `docs/design-docs/CAUSAL_PRIMITIVE_EXECUTION.md`
+   - source of truth for task-blind content encoding and causal primitive execution.
 
-7. `docs/design-docs/PHASE_A1_ARCHITECTURE_DELTA.md`
-   - earlier Phase A.1 architecture changes that remain relevant unless superseded.
-
-8. `docs/HARDWARE_ENVIRONMENT.md`
+9. `docs/HARDWARE_ENVIRONMENT.md`
    - target workstation and compute constraints.
 
-9. `docs/DECISIONS.md`
-   - index of every ADR (measured findings and architecture decisions), split by
-     research phase into `docs/DECISIONS_PHASE_A.md`, `docs/DECISIONS_PHASE_A1.md`,
-     `docs/DECISIONS_PHASE_A1_CORRECTION.md`, `docs/DECISIONS_PHASE_A1_POST_CORRECTION.md`,
-     and `docs/DECISIONS_A1_R005E_DIAGNOSTIC.md` (active). ADR numbers are a single
-     global sequence and are never renumbered; append a new ADR to the active
-     phase's file and add one row to the index.
+10. `docs/DECISIONS.md`
+    - index of every ADR (measured findings and architecture decisions), split by
+      research phase into `docs/DECISIONS_PHASE_A.md`, `docs/DECISIONS_PHASE_A1.md`,
+      `docs/DECISIONS_PHASE_A1_CORRECTION.md`, `docs/DECISIONS_PHASE_A1_POST_CORRECTION.md`,
+      `docs/DECISIONS_A1_R005E_DIAGNOSTIC.md`, and `docs/DECISIONS_PHASE_A2.md` (active).
+      ADR numbers are a single global sequence and are never renumbered; append a new ADR
+      to the active phase's file and add one row to the index.
 
-10. `README.md`
+11. `README.md`
     - repository setup, commands, and general project context.
 
 ### Historical reference only
@@ -115,6 +113,17 @@ The following documents remain part of the research record but must not override
 - `docs/EXPERIMENT_PLAN_PHASE_A1_CORRECTION.md`
 - `docs/AGENTS_PHASE_A1_CORRECTION_ADDENDUM.md`
 - `docs/CODEX_TASKS_PHASE_A1_CORRECTION.md`
+- `docs/exec-plans/active/PHASE_A1_POST_CORRECTION.md`
+- `docs/CODEX_TASKS_PHASE_A1_POST_CORRECTION.md`
+- `docs/EXPERIMENT_PLAN_PHASE_A1_POST_CORRECTION.md`
+- `docs/AGENTS_PHASE_A1_POST_CORRECTION_ADDENDUM.md`
+- `docs/exec-plans/active/PHASE_A1_BRANCH_B_INTEGRATION.md`
+- `docs/CODEX_TASKS_PHASE_A1_BRANCH_B_INTEGRATION.md`
+- `docs/EXPERIMENT_PLAN_PHASE_A1_BRANCH_B_INTEGRATION.md`
+- `docs/CODEX_TASKS_A1_B007X_DISCOVERY_COMPRESSION.md`
+- `docs/EXPERIMENT_PLAN_A1_B007X_DISCOVERY_COMPRESSION.md`
+- `docs/exec-plans/active/A1_B007X_DISCOVERY_COMPRESSION.md`
+- `docs/results/A1_R005E_DIAGNOSTIC_RESULT_FINAL.md`
 
 These documents explain how the project reached the current design. Do not delete or rewrite their historical conclusions.
 
