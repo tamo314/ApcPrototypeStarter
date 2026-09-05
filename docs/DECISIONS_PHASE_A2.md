@@ -368,3 +368,74 @@ The benchmark evaluates sequential streams under realistic online conditions:
 - Task A2-C008 STOP GATE is fully PASSED across all 5 seeds without qualification.
 - Confirms the central hypothesis of Phase A.2: APC autonomously selects direct reuse, composition, and compact plastic expansion as the primitive bank scales, maintaining 100% direct reuse on recurrence, 0% degradation of prior capabilities, and 0 workspace parameter leakage.
 - Unblocks Task A2-C009 (Autonomous vs Baseline Scaling Sweep).
+
+---
+
+## ADR-0070: Repeated Semantic Bank-Growth Stress with Autonomous Consolidation and Bounded Incremental Routing (Task A2-C009 STOP GATE)
+
+**Date:** 2026-09-05
+**Status:** Accepted (Task A2-C009 Complete, STOP GATE PASSED)
+**Affects:** `src/apc/evaluation/repeated_bank_growth_benchmark.py`, `scripts/repeated_bank_growth_benchmark.py`, `tests/test_repeated_bank_growth_benchmark.py`, `docs/DECISIONS.md`, `docs/DECISIONS_PHASE_A2.md`, `docs/CODEX_TASKS_PHASE_A2_AUTONOMOUS_CONTROLLER.md`
+
+### Context
+
+A2-C003 established bounded class-incremental routing with executable semantic entries,
+and A2-C008 established six autonomous novelty/consolidation cycles in a mixed K/C/N/R
+stream. Neither result recorded routing interference, canonical functional retention,
+previously consolidated-task retention, and autonomous recurrence reuse immediately after
+every real insertion. A2-C009 is the Phase A.2 multi-growth STOP GATE joining those
+mechanisms in one repeated lifecycle stress test.
+
+The primary condition starts from the validated ten-operation bank and performs six
+one-at-a-time semantic insertions, covering the declared `10 -> 12 -> 14 -> 16`
+milestones. Each insertion must be initiated by the frozen learned controller from
+support-set adequacy evidence, pass compact-first plastic learning and shadow validation,
+promote exactly one executable primitive, update the router using R2 bounded replay only,
+release all temporary parameters, and then evaluate routing, functional retention,
+recurrence, and sparse calls.
+
+### Decision and findings
+
+1. **Per-insertion stress protocol:**
+   - Added a dedicated benchmark that records all six `10 -> 11 -> ... -> 16` insertion
+     snapshots rather than hiding interference inside only the paired milestones.
+   - The formal run used seeds 0, 1, 2, 3, and 4, producing 30 successful novelty to
+     consolidation cycles and 30 / 30 exactly-one promotions.
+   - At every insertion, recurrence evaluation covers every primitive consolidated so far;
+     therefore the final size-16 recurrence score covers all six newly learned tasks.
+
+2. **R2 update invariant after inference freeze:**
+   - The C008 environment correctly freezes the router for inference. Reusing that state
+     naively caused only the newly registered key to remain trainable during C009's first
+     smoke run, reducing final seed-0 routing to 87.25%.
+   - C009 now explicitly reopens all candidate key parameters for each R2 update while
+     keeping `query_proj` frozen, matching the validated C003 score-space policy. Keys are
+     frozen again immediately after the update. The corrected formal run achieved zero
+     routing interference.
+
+3. **Five-seed STOP GATE result:**
+   - Final overall routing: **100.00%** (target >=95%) -- **PASS**.
+   - Maximum old-routing mean drop over all insertions: **0.00 pp** (target <=2 pp) --
+     **PASS**.
+   - Maximum canonical performance drop: **0.00 pp** (target <=2 pp) -- **PASS**.
+   - Maximum previously consolidated-task drop: **0.00 pp** (target <=2 pp) -- **PASS**.
+   - Final autonomous recurrence direct reuse: **100.00%** (target >=90%) -- **PASS**;
+     final recurrence held-out EM was **99.17%**.
+   - Minimum new-class routing: **100.00%**; maximum worst-old-class drop: **0.00 pp**.
+   - Unselected primitive forward calls: **0**; temporary workspace leaks: **0**.
+   - Peak temporary capacity was 17,098 parameters and measured peak GPU allocation was
+     88,845,312 bytes on the RTX 5060 Ti.
+   - Formal elapsed wall time was 237.59 seconds.
+
+### Consequences
+
+- Task A2-C009 and the Phase A.2 multi-growth STOP GATE pass across all five seeds.
+- Repeated real consolidation through semantic bank size 16 preserves both routing and
+  executable function under the primary bounded-replay condition.
+- The result remains scoped to explicit model-visible TaskSpec and the controlled synthetic
+  operation universe; it is not evidence of natural-language task inference or open-world
+  discovery.
+- A2-C010 (end-to-end compute and latency scaling) is unblocked. Do not begin it as part of
+  this task.
+- Primary artifacts are preserved under
+  `runs/phase_a2_repeated_bank_growth_stress/`.

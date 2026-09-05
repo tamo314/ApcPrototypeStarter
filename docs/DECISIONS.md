@@ -104,6 +104,7 @@ ADR-0062 onward. **Active phase.** Follows docs/exec-plans/active/PHASE_A2_AUTON
 - [ADR-0067](DECISIONS_PHASE_A2.md#adr-0067-learned-adequacy-and-novelty-controller-decision-and-stop-gate-verification-task-a2-c006) -- Learned Adequacy and Novelty Controller Decision and STOP GATE Verification (Task A2-C006 STOP GATE)
 - [ADR-0068](DECISIONS_PHASE_A2.md#adr-0068-compact-first-plastic-lifecycle-policy-and-mechanical-verification-task-a2-c007) -- Compact-First Plastic Lifecycle Policy and Mechanical Verification (Task A2-C007)
 - [ADR-0069](DECISIONS_PHASE_A2.md#adr-0069-full-sequential-kcnr-autonomous-stream-verification-and-stop-gate-acceptance-task-a2-c008) -- Full Sequential K/C/N/R Autonomous Stream Verification and STOP GATE Acceptance (Task A2-C008 STOP GATE)
+- [ADR-0070](DECISIONS_PHASE_A2.md#adr-0070-repeated-semantic-bank-growth-stress-with-autonomous-consolidation-and-bounded-incremental-routing-task-a2-c009-stop-gate) -- Repeated Semantic Bank-Growth Stress with Autonomous Consolidation and Bounded Incremental Routing (Task A2-C009 STOP GATE)
 
 
 

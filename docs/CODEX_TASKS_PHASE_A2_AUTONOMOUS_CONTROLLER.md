@@ -300,7 +300,9 @@ Global:
 
 ---
 
-## A2-C009 — Repeated bank-growth stress
+## A2-C009 — Repeated bank-growth stress [COMPLETED - STOP GATE PASSED]
+
+**Status:** Completed (ADR-0070, STOP GATE PASSED)
 
 ### Goal
 
@@ -325,13 +327,22 @@ After each insertion:
 
 At final semantic bank:
 
-- overall routing >=0.95
-- old routing mean drop <=0.02
-- canonical performance drop <=0.02
-- consolidated-task drop <=0.02
-- recurrence reuse >=0.90
+- overall routing >=0.95 (Achieved: 100.00%)
+- old routing mean drop <=0.02 (Achieved: 0.00 pp maximum)
+- canonical performance drop <=0.02 (Achieved: 0.00 pp maximum)
+- consolidated-task drop <=0.02 (Achieved: 0.00 pp maximum)
+- recurrence reuse >=0.90 (Achieved: 100.00%)
 
-**STOP GATE.**
+Additional invariants:
+
+- 30 / 30 successful N -> consolidation promotions across seeds 0-4
+- new-class routing: 100.00% minimum
+- worst old-class routing drop: 0.00 pp
+- unselected primitive forward calls: 0
+- temporary workspace leaks: 0
+
+**STOP GATE: PASSED.** Reference:
+`runs/phase_a2_repeated_bank_growth_stress/report.json`.
 
 ---
 
