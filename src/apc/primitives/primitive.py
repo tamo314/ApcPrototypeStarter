@@ -230,7 +230,7 @@ class CrossPositionPrimitive(PrimitiveBase):
             op = get_operation(config.operation)
             has_args = bool(op.required_argument_names)
         except KeyError:
-            has_args = True
+            has_args = False
 
         if has_args:
             from apc.primitives.conditioning import default_argument_encoder

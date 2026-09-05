@@ -208,7 +208,7 @@ Freeze thresholds/model before final run.
 
 ---
 
-## A2-C007 — Compact-first plastic lifecycle policy
+## A2-C007 — Compact-first plastic lifecycle policy [PASSED - ADR-0068]
 
 ### Goal
 

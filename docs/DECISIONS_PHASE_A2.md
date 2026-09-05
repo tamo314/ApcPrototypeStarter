@@ -267,5 +267,55 @@ Task A2-C006 builds and trains a learned controller over the 13-dimensional func
 - Validates the functional evidence hypothesis: a compact learned controller accurately and deterministically selects between `DIRECT_REUSE`, `COMPOSE`, and `PLASTIC_SEARCH` from support-set functional evidence with zero oracle leakage.
 - Unblocks Task A2-C007 (Compact-first plastic lifecycle policy).
 
+---
+
+## ADR-0068: Compact-First Plastic Lifecycle Policy and Mechanical Verification (Task A2-C007)
+
+**Date:** 2026-09-05  
+**Status:** Accepted (Task A2-C007 Complete)  
+**Affects:** `src/apc/plastic/lifecycle.py`, `src/apc/plastic/__init__.py`, `src/apc/evaluation/compact_lifecycle_benchmark.py`, `scripts/compact_lifecycle_benchmark.py`, `tests/test_compact_lifecycle_policy.py`, `docs/DECISIONS.md`, `docs/DECISIONS_PHASE_A2.md`, `docs/CODEX_TASKS_PHASE_A2_AUTONOMOUS_CONTROLLER.md`
+
+### Context
+Task A2-C007 incorporates the empirical findings of Phase A.1 Branch B and A1-B007X (ADR-0056, ADR-0057, ADR-0060) into the runtime plastic lifecycle policy:
+1. Compact direct learning is prioritized first (T0 capacity ~17,098 parameters $\le 25,000$ budget).
+2. If compact learning succeeds within its fixed step budget, the candidate proceeds to shadow validation without allocating overcomplete capacity.
+3. If fixed-budget compact search fails, an optional overcomplete fallback (T2 capacity ~137,482 parameters) is invoked. If successful, its knowledge is distilled back into a compact student (T0 ~17k) via functional distillation before being released.
+4. Per ADR-0060, overcomplete fallback is not assumed to be universally superior.
+5. Strict mechanical lifecycle invariants must be enforced:
+   - No plastic allocation before direct reuse and composition are confirmed inadequate.
+   - Exactly one promotion per successful novel (N) task.
+   - Temporary workspace parameters strictly return to zero across all execution paths (100% release).
+   - Zero promotions for Known (K), Composition (C), and Recurrence (R) tasks.
+   - Separate accounting and reporting of controls: compact success, compact failure, fallback invoked, fallback success, and fallback failure.
+
+### Findings & Architecture Decisions
+1. **Lifecycle Policy Architecture (`src/apc/plastic/lifecycle.py`):**
+   - Implemented `CompactPlasticLifecyclePolicy` and `CompactLifecycleConfig`.
+   - Mechanical Inadequacy Guard: Raises `RuntimeError` or bypasses plastic search if invoked when `direct_em \ge threshold` or `composition_em \ge threshold`.
+   - Dynamic ID Allocation: Generates non-colliding primitive IDs (`max(bank.ids() + [-1]) + 1`) during promotion, preventing collisions with pre-existing bank elements.
+   - Distillation Pipeline: Overcomplete teacher delta is transferred to compact student via mixed KL divergence and cross-entropy loss ($\alpha = 0.5$, $\tau = 2.0$), followed by immediate release of teacher capacity.
+   - Shadow Validation & Retention: Checks candidate parameter budget ($\le 25,000$), novel test EM ($\ge 0.80$), finite output integrity, Core and Bank frozen invariants (`verify_frozen_invariants`), and execution integrity on historical tasks.
+   - Strict Zero Workspace Leak: Enforces post-condition `workspace.total_parameter_count() == 0` across all outcomes (success, compact failure, fallback failure, and shadow rejection).
+2. **Multi-Seed Benchmark Evaluation across Seeds 0, 1, 2, 3, 4 (35 Episodes Total):**
+   - **Premature Plastic Allocations:** **0** (Target: 0 premature) — **PASS**
+   - **Promotion Consistency on N:** **10 / 10** (1:1 promotion per successful novel task; 0 promotions on failed tasks) — **PASS**
+   - **Temporary Workspace Parameter Leaks:** **0 leaks** (100% capacity release across all paths) — **PASS**
+   - **Promotions on Known Tasks (K):** **0** (Target: 0) — **PASS**
+   - **Promotions on Composition Tasks (C):** **0** (Target: 0) — **PASS**
+   - **Promotions on Recurrence Tasks (R):** **0** (Target: 0) — **PASS**
+   - **Controls Breakdown:**
+     - Compact Success Cases: **3**
+     - Compact Failure Cases: **12**
+     - Fallback Invoked Cases: **7**
+     - Fallback Success Cases: **7**
+     - Fallback Failure Cases: **0**
+   - Total elapsed execution time across 5 seeds: $13.65\,\text{s}$.
+
+### Consequences
+- Task A2-C007 acceptance criteria are completely satisfied without qualification.
+- Mechanical plastic lifecycle guarantees that Bank growth occurs strictly when a novel task is validated and consolidated, with 100% reclamation of temporary workspace parameters.
+- Unblocks Task A2-C008 (Full sequential K/C/N/R autonomous stream).
+
+
 
 
