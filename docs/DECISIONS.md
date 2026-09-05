@@ -101,6 +101,7 @@ ADR-0062 onward. **Active phase.** Follows docs/exec-plans/active/PHASE_A2_AUTON
 - [ADR-0064](DECISIONS_PHASE_A2.md#adr-0064-class-incremental-router-update-gate-and-bank-scaling-to-16-operations-task-a2-c003-stop-gate) -- Class-Incremental Router Update Gate and Bank Scaling to 16 Operations (Task A2-C003 STOP GATE)
 - [ADR-0065](DECISIONS_PHASE_A2.md#adr-0065-bank-competition-robustness-and-compute-scaling-to-n128-with-matched-frozen-distractor-primitives-task-a2-c004) -- Bank Competition Robustness and Compute Scaling to N=128 with Matched Frozen Distractor Primitives (Task A2-C004)
 - [ADR-0066](DECISIONS_PHASE_A2.md#adr-0066-functional-adequacy-evidence-interface-architecture-and-zero-oracle-leakage-verification-task-a2-c005) -- Functional Adequacy Evidence Interface Architecture and Zero-Oracle Leakage Verification (Task A2-C005)
+- [ADR-0067](DECISIONS_PHASE_A2.md#adr-0067-learned-adequacy-and-novelty-controller-decision-and-stop-gate-verification-task-a2-c006) -- Learned Adequacy and Novelty Controller Decision and STOP GATE Verification (Task A2-C006 STOP GATE)
 
 
 

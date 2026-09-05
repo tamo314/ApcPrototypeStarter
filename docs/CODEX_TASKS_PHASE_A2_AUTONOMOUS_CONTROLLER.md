@@ -137,7 +137,7 @@ Do not call this 128-semantic-task continual learning.
 
 ---
 
-## A2-C005 — Functional adequacy evidence interface
+## A2-C005 — Functional adequacy evidence interface [PASSED - ADR-0066]
 
 ### Goal
 
@@ -171,7 +171,7 @@ No learned controller yet.
 
 ---
 
-## A2-C006 — Learned adequacy / novelty controller
+## A2-C006 — Learned adequacy / novelty controller [PASSED - ADR-0067]
 
 ### Goal
 
