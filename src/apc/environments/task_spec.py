@@ -65,6 +65,12 @@ _OPERATION_INDEX: dict[str, int] = {
 }
 
 
+def _sync_operation_index() -> None:
+    for index, name in enumerate(registered_operation_names()):
+        if name not in _OPERATION_INDEX:
+            _OPERATION_INDEX[name] = index
+
+
 def operation_id(name: str) -> int:
     """Stable integer identity for a registered operation name.
 
@@ -76,6 +82,8 @@ def operation_id(name: str) -> int:
     registration order and existing entries keep their index, but removing
     or reordering registration would).
     """
+    if name not in _OPERATION_INDEX:
+        _sync_operation_index()
     try:
         return _OPERATION_INDEX[name]
     except KeyError:
@@ -87,6 +95,7 @@ def num_registered_operations() -> int:
     token range `apc.core.tokens.SharedCoreTokens.op_base` reserves (Task
     A1-C003) -- every `operation_id()` this process can return is `<`
     this value, by construction of `_OPERATION_INDEX` above."""
+    _sync_operation_index()
     return len(_OPERATION_INDEX)
 
 
