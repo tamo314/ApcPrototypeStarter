@@ -24,13 +24,10 @@ The first goal is **not** to build a competitive LLM. The first goal is to estab
 
 ## Project status
 
-Phase A is complete with a negative scientific verdict and remains preserved as
-historical evidence in `docs/exec-plans/completed/PHASE_A_RESULT.md`.
-
-Current milestone: **Phase A.1 — Hypothesis Isolation and Oracle Ladder**.
-
-Read `docs/exec-plans/active/PHASE_A1.md` and the linked Phase A.1 addendum,
-architecture delta, experiment plan, and task queue before implementing features.
+- **Phase A**: Complete with a negative scientific verdict; preserved as historical evidence in `docs/exec-plans/completed/PHASE_A_RESULT.md`.
+- **Phase A.1**: Complete with Branch B integration and 10-operation closed-universe learned routing (`docs/exec-plans/active/PHASE_A1_BRANCH_B_INTEGRATION.md`, `ADR-0061`).
+- **Phase A.2**: Complete with strong autonomous controller support across all 4 STOP GATES and real sparse latency scaling up to N=128 (`docs/results/PHASE_A2_AUTONOMOUS_CONTROLLER_RESULT.md`, `ADR-0073`).
+- **Phase B (Active)**: **Semantic Task Inference & Open-World Extension**. See `docs/exec-plans/active/PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD.md` and `docs/CODEX_TASKS_PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD.md`.
 
 ## Development environment
 

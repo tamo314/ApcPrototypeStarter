@@ -20,36 +20,35 @@ Historical Phase A and earlier Phase A.1 documents remain valuable evidence, but
 
 The active phase is:
 
-**Phase A.2 — Autonomous Controller & Scaling**
+**Phase B — Semantic Task Inference & Open-World Extension**
 
 The current scientific question is:
 
-> Can APC autonomously choose reuse, composition, and plastic expansion as the bank grows, while preserving routing stability and real sparse-compute benefits?
+> Can APC generalize its reuse / composition / plasticity lifecycle beyond the operation families used to shape Phase A.2, remain safe under hard semantic retrieval competition, keep decision/search cost bounded as the bank grows, and infer task semantics without an explicit operation ID?
 
 The active task sequence uses IDs:
 
-`A2-C001` through `A2-C012`
+`B-C001` through `B-C014`
 
 from:
 
-`docs/CODEX_TASKS_PHASE_A2_AUTONOMOUS_CONTROLLER.md`
+`docs/CODEX_TASKS_PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD.md`
 
-> **Phase A.1 Completion & Phase A.2 Scope Note (ADR-0061, ADR-0062):**
-> 1. Phase A.1 Branch B Integration demonstrated shared task-blind representation, heterogeneous
->    compact primitives, composition search/execution, residual plastic adaptation, functional
->    consolidation, recurrence reuse, and 99.99% learned routing over the known 10-operation universe.
-> 2. Per ADR-0062, B008 routing was established under explicit model-visible TaskSpec, and 90.11%
->    savings measures primitive-bank active-parameter reduction rather than end-to-end FLOPs/latency.
-> 3. Phase A.2 addresses the unresolved system-level question of autonomous controller decisions
->    (reuse vs compose vs plastic expansion) under continuous bank growth and incremental router scaling.
+> **Phase A.2 Completion & Phase B Scope Note (ADR-0073):**
+> 1. Phase A.2 established strong autonomous controller support across all 4 STOP GATES,
+>    demonstrating autonomous K/C/N/R decisions, bank scaling to N=128 with real 20.19x latency speedup,
+>    and class-incremental router updates under explicit model-visible TaskSpec.
+> 2. Phase B investigates open-world extension beyond Phase A.2's closed operation families,
+>    hard-negative retrieval competition, bounded decision/search cost scaling, and semantic task
+>    inference without explicit canonical operation IDs.
 >
 > Follow the active execution plan:
-> 1. `docs/exec-plans/active/PHASE_A2_AUTONOMOUS_CONTROLLER.md`
-> 2. `docs/CODEX_TASKS_PHASE_A2_AUTONOMOUS_CONTROLLER.md`
-> 3. `docs/EXPERIMENT_PLAN_PHASE_A2_AUTONOMOUS_CONTROLLER.md`
-> 4. `docs/AGENTS_PHASE_A2_AUTONOMOUS_CONTROLLER_ADDENDUM.md`
+> 1. `docs/exec-plans/active/PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD.md`
+> 2. `docs/CODEX_TASKS_PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD.md`
+> 3. `docs/EXPERIMENT_PLAN_PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD.md`
+> 4. `docs/AGENTS_PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD_ADDENDUM.md`
 
-Implement **only the currently requested A2-Cxxx task** unless the user explicitly asks to change scope.
+Implement **only the currently requested B-Cxxx task** unless the user explicitly asks to change scope.
 
 Do not continue automatically to the next task after completing one.
 
@@ -61,42 +60,55 @@ If a STOP GATE fails, stop dependent work and report the failure.
 
 Before changing architecture-level behavior, read these documents in order:
 
-1. `docs/exec-plans/active/PHASE_A2_AUTONOMOUS_CONTROLLER.md`
+1. `docs/exec-plans/active/PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD.md`
    - current milestone order and scientific gates.
 
-2. `docs/CODEX_TASKS_PHASE_A2_AUTONOMOUS_CONTROLLER.md`
+2. `docs/CODEX_TASKS_PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD.md`
    - current implementation tasks and acceptance criteria.
 
-3. `docs/EXPERIMENT_PLAN_PHASE_A2_AUTONOMOUS_CONTROLLER.md`
+3. `docs/EXPERIMENT_PLAN_PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD.md`
    - current hypotheses, controls, thresholds, baselines, and stop conditions.
 
-4. `docs/design-docs/AUTONOMOUS_CONTROLLER_POLICY.md`
-   - runtime controller decision policy (direct reuse vs compose vs plastic search).
-
-5. `docs/design-docs/INCREMENTAL_ROUTER_AND_BANK_SCALING.md`
-   - incremental router updates, replay/prototype bounds, and bank growth.
-
-6. `docs/design-docs/COMPUTE_ACCOUNTING_PHASE_A2.md`
-   - comprehensive parameter, FLOPs, and latency accounting requirements.
-
-7. `docs/AGENTS_PHASE_A2_AUTONOMOUS_CONTROLLER_ADDENDUM.md`
+4. `docs/AGENTS_PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD_ADDENDUM.md`
    - current phase-specific agent rules.
 
-8. `docs/design-docs/CAUSAL_PRIMITIVE_EXECUTION.md`
-   - source of truth for task-blind content encoding and causal primitive execution.
+5. `docs/design-docs/OPEN_WORLD_HOLDOUT_PROTOCOL_PHASE_B.md`
+   - open-world holdout protocol and family partitions.
 
-9. `docs/HARDWARE_ENVIRONMENT.md`
-   - target workstation and compute constraints.
+6. `docs/design-docs/HARD_NEGATIVE_ROUTING_PHASE_B.md`
+   - retrieval competition difficulty ladder and verification design.
 
-10. `docs/DECISIONS.md`
+7. `docs/design-docs/DECISION_SEARCH_SCALING_PHASE_B.md`
+   - decision and composition search cost decomposition and bounded search.
+
+8. `docs/design-docs/TASK_INFERENCE_PHASE_B.md`
+   - semantic task inference modalities and identifiability constraints.
+
+9. `docs/design-docs/AUTONOMOUS_CONTROLLER_POLICY.md`
+   - runtime controller decision policy (direct reuse vs compose vs plastic search).
+
+10. `docs/design-docs/INCREMENTAL_ROUTER_AND_BANK_SCALING.md`
+    - incremental router updates, replay/prototype bounds, and bank growth.
+
+11. `docs/design-docs/COMPUTE_ACCOUNTING_PHASE_A2.md`
+    - comprehensive parameter, FLOPs, and latency accounting requirements.
+
+12. `docs/design-docs/CAUSAL_PRIMITIVE_EXECUTION.md`
+    - source of truth for task-blind content encoding and causal primitive execution.
+
+13. `docs/HARDWARE_ENVIRONMENT.md`
+    - target workstation and compute constraints.
+
+14. `docs/DECISIONS.md`
     - index of every ADR (measured findings and architecture decisions), split by
       research phase into `docs/DECISIONS_PHASE_A.md`, `docs/DECISIONS_PHASE_A1.md`,
       `docs/DECISIONS_PHASE_A1_CORRECTION.md`, `docs/DECISIONS_PHASE_A1_POST_CORRECTION.md`,
-      `docs/DECISIONS_A1_R005E_DIAGNOSTIC.md`, and `docs/DECISIONS_PHASE_A2.md` (active).
+      `docs/DECISIONS_A1_R005E_DIAGNOSTIC.md`, `docs/DECISIONS_PHASE_A2.md`,
+      and `docs/DECISIONS_PHASE_B.md` (active).
       ADR numbers are a single global sequence and are never renumbered; append a new ADR
       to the active phase's file and add one row to the index.
 
-11. `README.md`
+15. `README.md`
     - repository setup, commands, and general project context.
 
 ### Historical reference only
@@ -124,6 +136,11 @@ The following documents remain part of the research record but must not override
 - `docs/EXPERIMENT_PLAN_A1_B007X_DISCOVERY_COMPRESSION.md`
 - `docs/exec-plans/active/A1_B007X_DISCOVERY_COMPRESSION.md`
 - `docs/results/A1_R005E_DIAGNOSTIC_RESULT_FINAL.md`
+- `docs/exec-plans/active/PHASE_A2_AUTONOMOUS_CONTROLLER.md`
+- `docs/CODEX_TASKS_PHASE_A2_AUTONOMOUS_CONTROLLER.md`
+- `docs/EXPERIMENT_PLAN_PHASE_A2_AUTONOMOUS_CONTROLLER.md`
+- `docs/AGENTS_PHASE_A2_AUTONOMOUS_CONTROLLER_ADDENDUM.md`
+- `docs/results/PHASE_A2_AUTONOMOUS_CONTROLLER_RESULT.md`
 
 These documents explain how the project reached the current design. Do not delete or rewrite their historical conclusions.
 
@@ -456,7 +473,7 @@ Do not conflate resident capacity with active compute.
 
 Do not describe a result as supporting APC unless it is backed by the controls and baselines defined in:
 
-`docs/EXPERIMENT_PLAN_PHASE_A1_POST_CORRECTION.md`
+`docs/EXPERIMENT_PLAN_PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD.md`
 
 For every meaningful run, record at least:
 
@@ -625,10 +642,10 @@ Work in issue-sized changes.
 Before editing:
 
 1. identify the exact current task in:
-   `docs/CODEX_TASKS_PHASE_A1_POST_CORRECTION.md`
+   `docs/CODEX_TASKS_PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD.md`
 
 2. read its corresponding scientific gate in:
-   `docs/EXPERIMENT_PLAN_PHASE_A1_POST_CORRECTION.md`
+   `docs/EXPERIMENT_PLAN_PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD.md`
 
 3. inspect the architecture requirements in:
    `docs/design-docs/CAUSAL_PRIMITIVE_EXECUTION.md`
@@ -686,7 +703,7 @@ Default experiments must fit within the target machine.
 - Prefer mixed precision, gradient accumulation, activation checkpointing, and smaller synthetic batches before CPU offload.
 - Multi-hour sweeps must be explicit milestone experiments, not default tests.
 - Unit tests should remain lightweight and CPU-friendly unless CUDA behavior itself is under test.
-- Do not introduce distributed training in Phase A.1.
+- Do not introduce distributed training in Phase B.
 
 ---
 
@@ -711,7 +728,7 @@ These belong to later phases.
 
 A task is done only when:
 
-- the exact requested A1-R task is implemented,
+- the exact requested B-Cxxx task is implemented,
 - its acceptance criteria are explicitly evaluated,
 - required tests pass,
 - relevant run artifacts are saved,

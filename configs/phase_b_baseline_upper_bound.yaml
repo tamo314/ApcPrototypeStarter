@@ -1,0 +1,64 @@
+# Phase B Baseline Upper Bound Configuration (Task B-C001)
+# Preserves Phase A.2 verified mechanics:
+# Explicit TaskSpec, 10-operation universe, compact-first plasticity, bounded replay
+
+family_split: DEV_FAMILIES
+explicit_task_spec_visible: true
+operation_id_visible: true
+task_inference_modality: explicit_task_spec
+support_count: 16
+inference_count: 0
+verification_count: 32
+query_count: 64
+hard_negative_level: L0_orthogonal
+bank_size: 10
+
+candidate_search_budget:
+  max_candidates: 8
+  beam_width: 4
+  max_composition_depth: 2
+  max_direct_evaluations: 16
+  timeout_seconds: 60.0
+
+adequacy_controller_config:
+  in_features: 13
+  hidden_dim: 32
+  num_actions: 3
+  lr: 0.01
+  weight_decay: 0.0001
+  train_epochs: 100
+  use_threshold_policy: false
+  plastic_threshold: 0.5
+  compose_threshold: 0.5
+
+plastic_lifecycle_config:
+  compact_budget_steps: 150
+  compact_lr: 0.001
+  compact_weight_decay: 0.0001
+  compact_batch_size: 32
+  compact_success_threshold_em: 0.9
+  enable_overcomplete_fallback: true
+  fallback_budget_steps: 150
+  fallback_lr: 0.001
+  fallback_weight_decay: 0.0001
+  fallback_batch_size: 32
+  fallback_success_threshold_em: 0.9
+  distillation_steps: 150
+  distillation_lr: 0.001
+  distillation_temperature: 2.0
+  distillation_alpha: 0.5
+  shadow_retention_threshold: 0.95
+  shadow_max_forgetting: 0.02
+  max_candidate_parameters: 25000
+  eval_batch_size: 64
+  seed: 42
+
+incremental_router_config:
+  condition: R2
+  replay_max_per_class: 32
+  replay_max_total: 512
+  router_lr: 0.005
+  router_steps: 250
+  weight_decay: 0.0001
+  seed: 0
+

@@ -2,7 +2,7 @@
 
 This file indexes every ADR across the project's history. The log itself is split by research phase to keep each file a manageable size; ADR numbers are a single global, permanent, chronological sequence (`ADR-0001`, `ADR-0002`, ...) and are never renumbered or reused when a file is split -- code, tests, and other docs cite bare `ADR-NNNN` identifiers throughout the repository without a file path, and that remains valid regardless of which file physically holds the entry.
 
-**Adding a new ADR:** append it to the file for the *currently active* phase (`docs/DECISIONS_PHASE_A2.md` as of this split), using the next unused `ADR-NNNN` number, then add one row to this index. Do not rewrite or renumber existing entries (`docs/DECISIONS_PHASE_A.md`'s own header: "Do not rewrite history; append entries").
+**Adding a new ADR:** append it to the file for the *currently active* phase (`docs/DECISIONS_PHASE_B.md` as of this split), using the next unused `ADR-NNNN` number, then add one row to this index. Do not rewrite or renumber existing entries (`docs/DECISIONS_PHASE_A.md`'s own header: "Do not rewrite history; append entries").
 
 When a new research phase begins, start a new `docs/DECISIONS_<PHASE>.md` file (matching the existing `docs/exec-plans/`/`docs/EXPERIMENT_PLAN_*.md` naming for that phase) and add a new section below.
 
@@ -92,9 +92,9 @@ ADR-0038 through ADR-0061. Concluded phase. A1-R005E-001 through -005 followed d
 - [ADR-0060](DECISIONS_A1_R005E_DIAGNOSTIC.md#adr-0060-capacity-gap-final-audit-approves-compressibility-only-verdict-and-unblocks-a1-b008-a1-b007x-008) -- Task A1-B007X-008 Capacity-Gap Final Audit: approves 'Compressibility only' verdict, publishes final audit report docs/results/A1_B007X_DISCOVERY_COMPRESSION_RESULT.md, separates compressibility/discovery advantage/persistence, formally closes Gate A1-B007X, and unblocks Task A1-B008
 - [ADR-0061](DECISIONS_A1_R005E_DIAGNOSTIC.md#adr-0061-learned-routing--full-closed-loop-milestone-b-m8-unifies-continual-learning-with-autonomous-sparse-execution-9999-routing-and-9011-compute-savings) -- Task A1-B008 Learned Routing & Full Closed Loop (Milestone B-M8) passes: unifies continual learning with autonomous sparse execution, achieving 99.99% router accuracy, 99.79% closed-loop exact match across all 10 operations, and 90.11% active compute savings with zero temporary allocation and zero unselected forward calls
 
-## Phase A.2 Autonomous Controller & Scaling (active) -- [`DECISIONS_PHASE_A2.md`](DECISIONS_PHASE_A2.md)
+## Phase A.2 Autonomous Controller & Scaling -- [`DECISIONS_PHASE_A2.md`](DECISIONS_PHASE_A2.md)
 
-ADR-0062 onward. **Active phase.** Follows docs/exec-plans/active/PHASE_A2_AUTONOMOUS_CONTROLLER.md, docs/CODEX_TASKS_PHASE_A2_AUTONOMOUS_CONTROLLER.md, and docs/EXPERIMENT_PLAN_PHASE_A2_AUTONOMOUS_CONTROLLER.md. Append new ADRs from Phase A.2 here.
+ADR-0062 through ADR-0073. Historical reference / concluded phase -- see docs/results/PHASE_A2_AUTONOMOUS_CONTROLLER_RESULT.md, docs/exec-plans/active/PHASE_A2_AUTONOMOUS_CONTROLLER.md, docs/CODEX_TASKS_PHASE_A2_AUTONOMOUS_CONTROLLER.md, and docs/EXPERIMENT_PLAN_PHASE_A2_AUTONOMOUS_CONTROLLER.md.
 
 - [ADR-0062](DECISIONS_PHASE_A2.md#adr-0062-phase-a2-scope-and-metric-audit-of-adr-0061-clarification-of-explicit-taskspec-10-operation-closed-universe-primitive-bank-active-parameter-savings-and-unmeasured-flopslatency) -- Phase A.2 Scope and Metric Audit of ADR-0061: Clarification of Explicit TaskSpec, 10-Operation Closed Universe, Primitive-Bank Active Parameter Savings, and Unmeasured FLOPs/Latency (Task A2-C001)
 - [ADR-0063](DECISIONS_PHASE_A2.md#adr-0063-controller-instrumentation-and-comprehensive-compute-accounting-architecture-task-a2-c002) -- Controller Instrumentation and Comprehensive Compute Accounting Architecture (Task A2-C002)
@@ -109,6 +109,6 @@ ADR-0062 onward. **Active phase.** Follows docs/exec-plans/active/PHASE_A2_AUTON
 - [ADR-0072](DECISIONS_PHASE_A2.md#adr-0072-controller-ablations-and-failure-mode-attribution-task-a2-c011) -- Controller Ablations and Failure Mode Attribution (Task A2-C011)
 - [ADR-0073](DECISIONS_PHASE_A2.md#adr-0073-phase-a2-final-audit-and-autonomous-controller-verification-task-a2-c012) -- Phase A.2 Final Audit and Autonomous Controller Verification (Task A2-C012)
 
+## Phase B Semantic Task Inference & Open-World Extension (active) -- [`DECISIONS_PHASE_B.md`](DECISIONS_PHASE_B.md)
 
-
-
+ADR-0074 onward. **Active phase.** Follows docs/exec-plans/active/PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD.md, docs/CODEX_TASKS_PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD.md, and docs/EXPERIMENT_PLAN_PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD.md. Append new ADRs from Phase B here.
