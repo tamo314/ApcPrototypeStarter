@@ -27,7 +27,7 @@ No rerun required.
 
 ---
 
-## A2-C002 — Controller and compute instrumentation
+## A2-C002 — Controller and compute instrumentation [PASSED - ADR-0063]
 
 ### Goal
 

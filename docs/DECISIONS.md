@@ -97,6 +97,7 @@ ADR-0038 through ADR-0061. Concluded phase. A1-R005E-001 through -005 followed d
 ADR-0062 onward. **Active phase.** Follows docs/exec-plans/active/PHASE_A2_AUTONOMOUS_CONTROLLER.md, docs/CODEX_TASKS_PHASE_A2_AUTONOMOUS_CONTROLLER.md, and docs/EXPERIMENT_PLAN_PHASE_A2_AUTONOMOUS_CONTROLLER.md. Append new ADRs from Phase A.2 here.
 
 - [ADR-0062](DECISIONS_PHASE_A2.md#adr-0062-phase-a2-scope-and-metric-audit-of-adr-0061-clarification-of-explicit-taskspec-10-operation-closed-universe-primitive-bank-active-parameter-savings-and-unmeasured-flopslatency) -- Phase A.2 Scope and Metric Audit of ADR-0061: Clarification of Explicit TaskSpec, 10-Operation Closed Universe, Primitive-Bank Active Parameter Savings, and Unmeasured FLOPs/Latency (Task A2-C001)
+- [ADR-0063](DECISIONS_PHASE_A2.md#adr-0063-controller-instrumentation-and-comprehensive-compute-accounting-architecture-task-a2-c002) -- Controller Instrumentation and Comprehensive Compute Accounting Architecture (Task A2-C002)
 
 
 

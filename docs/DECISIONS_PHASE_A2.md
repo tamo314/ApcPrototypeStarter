@@ -35,3 +35,51 @@ As the project transitions to Phase A.2 (Autonomous Controller & Scaling), it is
 - Prevents overclaiming semantic task inference or end-to-end FLOPs reduction.
 - Formally satisfies all acceptance criteria for Task A2-C001 in `docs/CODEX_TASKS_PHASE_A2_AUTONOMOUS_CONTROLLER.md`.
 - Unblocks Task A2-C002 (Controller and compute instrumentation).
+
+---
+
+## ADR-0063: Controller Instrumentation and Comprehensive Compute Accounting Architecture (Task A2-C002)
+
+**Date:** 2026-09-05  
+**Status:** Accepted (Task A2-C002 Complete)  
+**Affects:** `src/apc/meta/episode_log.py`, `src/apc/evaluation/compute_accounting.py`, `tests/test_compute_accounting.py`, `tests/test_episode_log.py`, `docs/DECISIONS.md`, `docs/DECISIONS_PHASE_A2.md`, `docs/CODEX_TASKS_PHASE_A2_AUTONOMOUS_CONTROLLER.md`
+
+### Context
+In Phase A.1, compute savings were measured exclusively as active vs. resident primitive parameters (90.11% reduction in B008). As audited in ADR-0062, total FLOPs, wall-clock latency, throughput, peak memory, and per-episode controller action logging were unmeasured and unstandardized.
+
+To prepare for incremental router updates (A2-C003), bank competition scaling (A2-C004), adequacy/novelty control (A2-C005/C006), compact-first plastic policy (A2-C007), and sequential closed-loop stream evaluation (A2-C008), common instrumentation is required prior to running new scientific experiments.
+
+### Decision
+1. **Standardized Per-Episode Controller Instrumentation (`src/apc/meta/episode_log.py`):**
+   - Implemented `ControllerAction` (`DIRECT_REUSE`, `COMPOSE`, `PLASTIC_SEARCH`) matching Phase A.2 runtime action space.
+   - Built `EpisodeRecord` capturing all 11 required per-episode runtime signals:
+     1. controller action
+     2. proposed primitive ID
+     3. composition recipe
+     4. support-set direct score
+     5. support-set composition score
+     6. plastic trigger
+     7. bank size before/after
+     8. router version
+     9. adaptation steps
+     10. temporary params
+     11. selected/unselected forward calls
+   - Built `EpisodeLogger` for sequential episode accumulation, sparse invariant validation, summary metrics, and JSON persistence.
+
+2. **Comprehensive Compute Accounting (`src/apc/evaluation/compute_accounting.py`):**
+   - **Parameter Accounting:** Implemented `ParameterBreakdown` and `count_system_parameters` inspecting Stable Core, router, resident primitive, active primitive, and temporary workspace parameters, computing primitive and total parameter savings ratios.
+   - **Analytical FLOPs Models:** Implemented $2 \times \text{MACs}$ formulas for task encoder, linear top-k router (capturing $O(N)$ candidate scoring overhead), content Stable Core, selected primitive execution, decoder readout, total sparse path, and dense-all-primitives baseline, reporting `FLOPsBreakdown`.
+   - **Runtime Latency Profiling:** Implemented `profile_execution` with warmup iterations, repeated trials, CUDA events or high-resolution clock, reporting median, p95, p99, mean, std, throughput, and peak GPU memory (`torch.cuda.max_memory_allocated`).
+   - **True Executable Dense Baseline:** Implemented `execute_dense_primitive_baseline` executing all enabled STABLE primitives in `PrimitiveBank` (strictly avoiding multiplication approximations per `COMPUTE_ACCOUNTING_PHASE_A2.md` section 3).
+   - **Strict Sparse Execution Verification:** Implemented `verify_sparse_execution` confirming zero unselected primitive forward calls.
+
+3. **Deterministic Acceptance:**
+   - Validated via 15 unit tests across `tests/test_compute_accounting.py` and `tests/test_episode_log.py`.
+   - All FLOPs models, parameter formulas, and sparse invariants rederive deterministically from first principles without learned weights.
+   - Preserved constraint: no controller-learning claim is made in Task A2-C002.
+
+### Consequences
+- Standardizes episode logging and compute accounting across all subsequent Phase A.2 experiments.
+- Formally satisfies all acceptance criteria for Task A2-C002 in `docs/CODEX_TASKS_PHASE_A2_AUTONOMOUS_CONTROLLER.md`.
+- Unblocks Task A2-C003 (Incremental router update gate).
+
