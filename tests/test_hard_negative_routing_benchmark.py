@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import pytest
 import torch
 
 from apc.evaluation.hard_negative_routing_benchmark import (
+    HardNegativeSafetyConfig,
     build_hard_negative_candidates,
 )
 from apc.meta.phase_b_protocol import HardNegativeLevel
@@ -64,3 +66,15 @@ def test_levels_provide_distinct_competitor_construction() -> None:
     competitors = [_build(level)[1] for level in HardNegativeLevel]
     assert len({candidate.provenance for candidate in competitors}) == len(HardNegativeLevel)
     assert torch.dot(competitors[0].score_key, _keys()[0]).abs() < 1e-5
+
+
+def test_safety_gate_config_keeps_verification_budget_bounded() -> None:
+    """B-C005 accepts only the predeclared top-k and adequacy threshold range."""
+    config = HardNegativeSafetyConfig(
+        seeds=(0,), bank_sizes=(16,), support_examples=2, query_examples=3, top_k=5
+    )
+    assert config.adequacy_exact_match_threshold == 0.95
+    with pytest.raises(ValueError, match="top_k"):
+        HardNegativeSafetyConfig(top_k=6)
+    with pytest.raises(ValueError, match="adequacy_exact_match_threshold"):
+        HardNegativeSafetyConfig(adequacy_exact_match_threshold=0.0)

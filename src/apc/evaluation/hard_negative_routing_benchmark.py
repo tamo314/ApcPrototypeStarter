@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import statistics
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -24,7 +25,11 @@ from apc.consolidation.compact_consolidation import collate_content_only_batch
 from apc.environments.generator import Example
 from apc.environments.operations import PHASE_A2_INCREMENTAL_NEW_OPERATIONS, get_operation
 from apc.evaluation.bank_scaling_benchmark import build_scaled_bank_and_router
-from apc.evaluation.compute_accounting import verify_sparse_execution
+from apc.evaluation.compute_accounting import (
+    compute_flops_breakdown,
+    count_system_parameters,
+    verify_sparse_execution,
+)
 from apc.evaluation.incremental_router_benchmark import (
     INITIAL_10_OPERATIONS,
     extract_task_representations,
@@ -542,4 +547,415 @@ def run_hard_negative_diagnostic(config: HardNegativeBenchmarkConfig) -> dict[st
             "|---:|---:|---|---:|---:|---:|---:|---:|---:|\n" + rows + "\n",
             encoding="utf-8",
         )
+    return report
+
+
+@dataclass(frozen=True)
+class HardNegativeSafetyConfig:
+    """Predeclared B-C005 hard-negative retrieval-safety gate configuration."""
+
+    seeds: tuple[int, ...] = (0, 1, 2, 3, 4)
+    bank_sizes: tuple[int, ...] = DEFAULT_BANK_SIZES
+    levels: tuple[HardNegativeLevel, ...] = DEFAULT_LEVELS
+    target_operations: tuple[str, ...] = DEFAULT_TARGET_OPERATIONS
+    support_examples: int = 32
+    query_examples: int = 64
+    router_train_examples: int = 32
+    router_steps: int = 250
+    top_k: int = 5
+    adequacy_exact_match_threshold: float = 0.95
+    deterministic_algorithms: bool = True
+    device: str = "auto"
+    bank_checkpoint_dir: Path = Path("runs/phase_a2_bank_scaling_benchmark")
+    output_dir: Path | None = None
+
+    def __post_init__(self) -> None:
+        if not self.seeds:
+            raise ValueError("seeds must be non-empty")
+        if set(self.bank_sizes) - set(DEFAULT_BANK_SIZES):
+            raise ValueError(f"bank_sizes must be drawn from {DEFAULT_BANK_SIZES}")
+        if self.support_examples < 1 or self.query_examples < 1:
+            raise ValueError("support_examples and query_examples must be positive")
+        if not 1 <= self.top_k <= 5:
+            raise ValueError("top_k must be in [1, 5]")
+        if not 0.0 < self.adequacy_exact_match_threshold <= 1.0:
+            raise ValueError("adequacy_exact_match_threshold must be in (0, 1]")
+
+    def to_dict(self) -> dict[str, Any]:
+        data = dataclasses.asdict(self)
+        data["levels"] = [level.value for level in self.levels]
+        data["bank_checkpoint_dir"] = str(self.bank_checkpoint_dir)
+        data["output_dir"] = str(self.output_dir) if self.output_dir else None
+        return data
+
+
+@dataclass(frozen=True)
+class HardNegativeSafetyDiagnostic:
+    """One B-C005 cell with retrieval, verification, and final-action evidence."""
+
+    seed: int
+    bank_size: int
+    level: str
+    target_operation: str
+    support_count: int
+    query_count: int
+    candidate_count: int
+    top1: float
+    topk: float
+    candidate_rank: float
+    positive_negative_margin: float
+    target_negative_cosine: float
+    raw_top1_exact_match: float
+    closed_loop_exact_match: float
+    retrieval_failure_rate: float
+    false_functional_acceptance_rate: float
+    false_reuse_rate: float
+    false_plastic_rate: float
+    wrong_candidates_verified: int
+    wrong_candidates_accepted: int
+    accepted_candidate_count: int
+    direct_candidates_executed: int
+    selected_forward_calls: int
+    unselected_forward_calls: int
+    decision_latency_ms_per_query: float
+    parameter_breakdown: dict[str, Any]
+    flops_breakdown: dict[str, Any]
+    sparse_execution_passed: bool
+    primitive_functions_unchanged: bool
+    router_unchanged: bool
+    leak_audit_passed: bool
+    bank_composition: dict[str, int]
+    competitor_provenance: str
+    semantic_relation: str | None
+
+    def to_dict(self) -> dict[str, Any]:
+        return dataclasses.asdict(self)
+
+
+def _rank_logical_candidates(
+    core: Any,
+    router: Router,
+    candidates: Sequence[HardNegativeCandidate],
+    examples: Sequence[Example],
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Rank evaluation-only logical candidates without exposing their metadata to routing."""
+    z_task = extract_task_representations(core, list(examples))
+    with torch.no_grad():
+        query = router.query_proj(z_task)
+        matrix = torch.stack([candidate.score_key.to(query.device) for candidate in candidates])
+        scores = query @ matrix.transpose(0, 1)
+        return scores, torch.argsort(scores, dim=-1, descending=True)
+
+
+def _candidate_exact_match(
+    core: Any,
+    bank: Any,
+    operation_by_id: dict[int, str],
+    candidate: HardNegativeCandidate,
+    examples: Sequence[Example],
+) -> float:
+    """Score one logical candidate on verification examples only.
+
+    Logical candidates matter at L4: the correct and wrong-argument calls share
+    a physical primitive ID, so accepting/rejecting by primitive ID would erase
+    the actual safety question.
+    """
+    predictions = _execute_selected_candidates(
+        core, bank, operation_by_id, examples, [candidate] * len(examples)
+    )
+    return sum(
+        prediction == example.target_tokens
+        for prediction, example in zip(predictions, examples, strict=True)
+    ) / len(examples)
+
+
+def evaluate_hard_negative_safety_condition(
+    *,
+    core: Any,
+    bank: Any,
+    router: Router,
+    candidate_ids: Sequence[int],
+    operation_by_id: dict[int, str],
+    target_operation: str,
+    target_id: int,
+    level: HardNegativeLevel,
+    support_examples: Sequence[Example],
+    query_examples: Sequence[Example],
+    seed: int,
+    top_k: int,
+    adequacy_exact_match_threshold: float,
+    bank_composition: dict[str, int],
+) -> HardNegativeSafetyDiagnostic:
+    """Evaluate frozen retrieval plus support-only functional verification.
+
+    Query targets are deliberately absent until after candidate acceptance has
+    been fixed.  A rejected or missing candidate maps to ``PLASTIC_SEARCH``;
+    this gate records that as false plastic because every episode is known.
+    """
+    parameter_snapshot = {name: value.detach().clone() for name, value in router.state_dict().items()}
+    primitive_snapshot = {
+        pid: tuple(parameter.detach().clone() for parameter in bank.get(pid).parameters())
+        for pid in bank.ids()
+    }
+    keys = {pid: router.key_parameter(pid).detach().clone() for pid in candidate_ids}
+    candidates, competitor = build_hard_negative_candidates(
+        level=level,
+        target_id=target_id,
+        target_operation=target_operation,
+        candidate_ids=candidate_ids,
+        keys_by_id=keys,
+        operation_by_id=operation_by_id,
+        seed=seed,
+    )
+    leak_audit_passed = all(
+        "oracle" not in candidate.provenance.lower()
+        and "family_id" not in candidate.provenance.lower()
+        for candidate in candidates
+    )
+    correct_index = next(
+        index
+        for index, candidate in enumerate(candidates)
+        if candidate is not competitor and candidate.execute_primitive_id == target_id
+    )
+    competitor_index = next(index for index, candidate in enumerate(candidates) if candidate is competitor)
+
+    _, support_ordering = _rank_logical_candidates(core, router, candidates, support_examples)
+    query_scores, query_ordering = _rank_logical_candidates(core, router, candidates, query_examples)
+    ranks = (query_ordering == correct_index).nonzero(as_tuple=False)[:, 1] + 1
+    top1 = float((query_ordering[:, 0] == correct_index).to(torch.float32).mean().item())
+    topk = float(
+        (query_ordering[:, : min(top_k, len(candidates))] == correct_index)
+        .any(dim=-1)
+        .to(torch.float32)
+        .mean()
+        .item()
+    )
+    margin = float((query_scores[:, correct_index] - query_scores[:, competitor_index]).mean().item())
+    raw_selected = [candidates[int(index)] for index in query_ordering[:, 0].tolist()]
+    raw_predictions = _execute_selected_candidates(
+        core, bank, operation_by_id, query_examples, raw_selected
+    )
+    raw_top1_exact_match = sum(
+        prediction == example.target_tokens
+        for prediction, example in zip(raw_predictions, query_examples, strict=True)
+    ) / len(query_examples)
+
+    # Candidate verification is bounded by the declared top-k proposal.  This
+    # union never contains query targets and treats virtual L4 calls separately.
+    verify_indices = sorted(
+        {int(index) for index in support_ordering[:, : min(top_k, len(candidates))].reshape(-1).tolist()}
+    )
+    for pid in bank.ids():
+        bank.get(pid).reset_forward_call_count()
+    decision_start = time.perf_counter()
+    support_scores = {
+        index: _candidate_exact_match(
+            core, bank, operation_by_id, candidates[index], support_examples
+        )
+        for index in verify_indices
+    }
+    accepted_indices = {
+        index for index, score in support_scores.items() if score >= adequacy_exact_match_threshold
+    }
+    wrong_verified = [index for index in verify_indices if index != correct_index]
+    wrong_accepted = [index for index in wrong_verified if index in accepted_indices]
+
+    final_selected: list[HardNegativeCandidate | None] = []
+    for row in query_ordering[:, : min(top_k, len(candidates))].tolist():
+        accepted = next((int(index) for index in row if int(index) in accepted_indices), None)
+        final_selected.append(candidates[accepted] if accepted is not None else None)
+    selected_for_execution = [candidate for candidate in final_selected if candidate is not None]
+    final_predictions: list[tuple[int, ...] | None] = [None] * len(query_examples)
+    if selected_for_execution:
+        executed = _execute_selected_candidates(
+            core,
+            bank,
+            operation_by_id,
+            [example for example, candidate in zip(query_examples, final_selected, strict=True) if candidate is not None],
+            selected_for_execution,
+        )
+        for index, prediction in zip(
+            [i for i, candidate in enumerate(final_selected) if candidate is not None], executed, strict=True
+        ):
+            final_predictions[index] = prediction
+    decision_latency_ms = (time.perf_counter() - decision_start) * 1000.0 / len(query_examples)
+
+    closed_loop_exact_match = sum(
+        prediction == example.target_tokens
+        for prediction, example in zip(final_predictions, query_examples, strict=True)
+        if prediction is not None
+    ) / len(query_examples)
+    false_reuse = sum(
+        candidate is not None and candidate is not candidates[correct_index]
+        for candidate in final_selected
+    ) / len(query_examples)
+    false_plastic = sum(candidate is None for candidate in final_selected) / len(query_examples)
+    physical_selected = {candidate.execute_primitive_id for candidate in selected_for_execution}
+    physical_selected.update(candidates[index].execute_primitive_id for index in verify_indices)
+    sparse_ok, _ = verify_sparse_execution(bank, physical_selected)
+    selected_calls = sum(bank.get(pid).forward_call_count for pid in physical_selected)
+    unselected_calls = sum(
+        bank.get(pid).forward_call_count for pid in bank.ids() if pid not in physical_selected
+    )
+    parameter_breakdown = count_system_parameters(
+        core, router, bank, selected_ids=sorted(physical_selected)
+    ).to_dict()
+    first = query_examples[0]
+    flops_breakdown = compute_flops_breakdown(
+        core,
+        router,
+        bank,
+        sorted(physical_selected),
+        seq_len_task=len(first.task_spec.steps) + 4 if first.task_spec else 1,
+        seq_len_content=len(first.input_tokens) + 2,
+        seq_len_out=len(first.target_tokens),
+        batch_size=1,
+    ).to_dict()
+    router_unchanged = all(torch.equal(value, router.state_dict()[name]) for name, value in parameter_snapshot.items())
+    primitive_functions_unchanged = all(
+        all(torch.equal(before, after) for before, after in zip(primitive_snapshot[pid], bank.get(pid).parameters(), strict=True))
+        for pid in bank.ids()
+    )
+    return HardNegativeSafetyDiagnostic(
+        seed=seed,
+        bank_size=len(bank),
+        level=level.value,
+        target_operation=target_operation,
+        support_count=len(support_examples),
+        query_count=len(query_examples),
+        candidate_count=len(candidates),
+        top1=top1,
+        topk=topk,
+        candidate_rank=float(ranks.to(torch.float32).mean().item()),
+        positive_negative_margin=margin,
+        target_negative_cosine=_cosine(candidates[correct_index].score_key, competitor.score_key),
+        raw_top1_exact_match=raw_top1_exact_match,
+        closed_loop_exact_match=closed_loop_exact_match,
+        retrieval_failure_rate=1.0 - topk,
+        false_functional_acceptance_rate=(len(wrong_accepted) / len(wrong_verified) if wrong_verified else 0.0),
+        false_reuse_rate=false_reuse,
+        false_plastic_rate=false_plastic,
+        wrong_candidates_verified=len(wrong_verified),
+        wrong_candidates_accepted=len(wrong_accepted),
+        accepted_candidate_count=len(accepted_indices),
+        direct_candidates_executed=len(verify_indices),
+        selected_forward_calls=selected_calls,
+        unselected_forward_calls=unselected_calls,
+        decision_latency_ms_per_query=decision_latency_ms,
+        parameter_breakdown=parameter_breakdown,
+        flops_breakdown=flops_breakdown,
+        sparse_execution_passed=sparse_ok and unselected_calls == 0,
+        primitive_functions_unchanged=primitive_functions_unchanged,
+        router_unchanged=router_unchanged,
+        leak_audit_passed=leak_audit_passed,
+        bank_composition=bank_composition,
+        competitor_provenance=competitor.provenance,
+        semantic_relation=competitor.semantic_relation,
+    )
+
+
+def _mean(items: Sequence[HardNegativeSafetyDiagnostic], field: str) -> float:
+    return statistics.fmean(float(getattr(item, field)) for item in items)
+
+
+def run_hard_negative_safety_gate(config: HardNegativeSafetyConfig) -> dict[str, Any]:
+    """Run B-C005's frozen-router retrieval and functional-safety matrix."""
+    start = time.perf_counter()
+    diagnostics: list[HardNegativeSafetyDiagnostic] = []
+    for seed in config.seeds:
+        set_seed(seed, deterministic_algorithms=config.deterministic_algorithms)
+        base_config = HardNegativeBenchmarkConfig(
+            seeds=(seed,), bank_sizes=config.bank_sizes, levels=config.levels,
+            target_operations=config.target_operations, num_eval_examples=config.query_examples,
+            router_train_examples=config.router_train_examples, router_steps=config.router_steps,
+            top_k=config.top_k, device=config.device,
+            bank_checkpoint_dir=config.bank_checkpoint_dir,
+        )
+        core, base_bank, base_router, op_to_id = _build_frozen_base_system(seed, base_config)
+        for bank_size in config.bank_sizes:
+            bank, router, candidate_ids, semantic_ids, distractor_ids = build_scaled_bank_and_router(
+                core, base_bank, base_router, op_to_id, bank_size, seed=seed
+            )
+            operation_by_id = {pid: operation for operation, pid in op_to_id.items()}
+            operation_by_id.update({pid: "SWAP_ENDS" for pid in distractor_ids})
+            composition = {
+                "real_semantic_primitives": len(semantic_ids),
+                "consolidated_primitives": 0,
+                "hard_negative_learned_competitors": 0,
+                "synthetic_distractors": len(distractor_ids),
+            }
+            for operation in config.target_operations:
+                target_id = op_to_id[operation]
+                support = generate_benchmark_examples(
+                    seed * 100_000 + bank_size * 100 + target_id,
+                    config.support_examples, operation=operation, split="train",
+                )
+                query = generate_benchmark_examples(
+                    seed * 100_000 + bank_size * 100 + target_id + 1,
+                    config.query_examples, operation=operation, split="test",
+                )
+                for level in config.levels:
+                    diagnostics.append(evaluate_hard_negative_safety_condition(
+                        core=core, bank=bank, router=router, candidate_ids=candidate_ids,
+                        operation_by_id=operation_by_id, target_operation=operation,
+                        target_id=target_id, level=level, support_examples=support,
+                        query_examples=query, seed=seed, top_k=config.top_k,
+                        adequacy_exact_match_threshold=config.adequacy_exact_match_threshold,
+                        bank_composition=composition,
+                    ))
+    expected = len(config.seeds) * len(config.bank_sizes) * len(config.target_operations) * len(config.levels)
+    by_n_level: dict[str, dict[str, Any]] = {}
+    for bank_size in config.bank_sizes:
+        for level in config.levels:
+            cells = [item for item in diagnostics if item.bank_size == bank_size and item.level == level.value]
+            by_n_level[f"N{bank_size}/{level.value}"] = {
+                "cells": len(cells), "top1": _mean(cells, "top1"), "topk": _mean(cells, "topk"),
+                "margin": _mean(cells, "positive_negative_margin"),
+                "closed_loop_exact_match": _mean(cells, "closed_loop_exact_match"),
+            }
+    n128 = {level.value: [item for item in diagnostics if item.bank_size == 128 and item.level == level.value] for level in config.levels}
+    retrieval_thresholds = {
+        HardNegativeLevel.L0_ORTHOGONAL.value: 0.98,
+        HardNegativeLevel.L1_RANDOM_SCORE_SPACE.value: 0.98,
+        HardNegativeLevel.L2_NEAR_NEIGHBOR.value: 0.98,
+        HardNegativeLevel.L3_SEMANTICALLY_RELATED.value: 0.95,
+        HardNegativeLevel.L4_CONFUSABLE_FAMILY.value: 0.90,
+    }
+    retrieval_passed = 128 in config.bank_sizes and all(
+        _mean(n128[level.value], "top1") >= retrieval_thresholds[level.value]
+        and _mean(n128[level.value], "topk") >= 0.99
+        for level in config.levels
+    )
+    safety_passed = (
+        all(item.false_functional_acceptance_rate <= 0.01 for item in diagnostics)
+        and _mean(diagnostics, "closed_loop_exact_match") >= 0.95
+        and all(item.false_plastic_rate <= 0.02 for item in diagnostics)
+        and all(item.unselected_forward_calls == 0 for item in diagnostics)
+    )
+    summary = {
+        "expected_cells": expected,
+        "actual_cells": len(diagnostics),
+        "minimum_five_seeds_satisfied": len(config.seeds) >= 5,
+        "retrieval_passed": retrieval_passed,
+        "functional_safety_passed": safety_passed,
+        "stop_gate_passed": len(diagnostics) == expected and len(config.seeds) >= 5 and retrieval_passed and safety_passed,
+        "mean_false_functional_acceptance": _mean(diagnostics, "false_functional_acceptance_rate"),
+        "mean_false_reuse": _mean(diagnostics, "false_reuse_rate"),
+        "mean_false_plastic": _mean(diagnostics, "false_plastic_rate"),
+        "mean_closed_loop_exact_match": _mean(diagnostics, "closed_loop_exact_match"),
+        "zero_unselected_forward_calls": all(item.unselected_forward_calls == 0 for item in diagnostics),
+        "router_and_primitives_unchanged": all(item.router_unchanged and item.primitive_functions_unchanged for item in diagnostics),
+        "leak_audit_passed": all(item.leak_audit_passed for item in diagnostics),
+        "n128": {
+            level.value: by_n_level[f"N128/{level.value}"]
+            for level in config.levels
+        },
+        "scaling_curves": by_n_level,
+        "elapsed_seconds": time.perf_counter() - start,
+    }
+    report = {"task_id": "B-C005", "config": config.to_dict(), "matrix": [item.to_dict() for item in diagnostics], "summary": summary}
+    if config.output_dir is not None:
+        config.output_dir.mkdir(parents=True, exist_ok=True)
+        (config.output_dir / "report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+        (config.output_dir / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
     return report

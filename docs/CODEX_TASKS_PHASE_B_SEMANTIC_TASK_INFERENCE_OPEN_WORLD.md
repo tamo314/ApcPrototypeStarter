@@ -295,6 +295,15 @@ If the frozen router fails retrieval but functional verification remains safe, t
 
 If functional verification accepts wrong computations, stop and repair adequacy evidence before any Task Inference work.
 
+## Verification Status: STOP GATE B2 FAIL (B-C005 complete)
+
+- Matrix: 400 seeded CUDA cells across five seeds: `N ∈ {16, 32, 64, 128}` × `L0`–`L4` × four parameterized target operations.
+- Retrieval at `N=128`: top-k inclusion was `1.000` at every level, but top-1 was `1.000` (L0), `1.000` (L1), `0.866` (L2), `0.662` (L3), and `0.504` (L4). L2–L4 miss their predeclared B2 thresholds.
+- Functional safety: PASS in isolation. Wrong-candidate functional acceptance was `0.000`; the logical L4 wrong-argument candidate was verified with its wrong argument rather than its shared primitive ID alone; unselected physical primitive calls were zero in every cell; the frozen router and primitives were unchanged; and the evaluator-only hard-negative metadata did not enter routing.
+- Closed-loop safety: FAIL. Mean closed-loop EM was `0.959 >= 0.950`, but mean false plastic on known episodes was `0.0375 > 0.02`.
+- Artifacts: `runs/phase_b_hard_negative_safety_gate/` (`config.yaml`, `metrics.jsonl`, `protocol.json`, `report.json`, `report.md`, `summary.json`, `system.json`).
+- Consequence: STOP GATE B2 blocks B-C006 onward, including all Task Inference work. The next investigation must isolate frozen candidate proposal and the false-plastic/adequacy path without changing thresholds from this failed measurement.
+
 ---
 
 # B-C006 — Measure decision/search cost with the current algorithm

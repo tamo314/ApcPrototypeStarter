@@ -88,3 +88,26 @@ Across 5 deterministic seeds (0, 1, 2, 3, 4) on CUDA:
 - Validates that APC's core lifecycle (Adequacy -> Plastic Search -> Compact Consolidation -> Shadow Validation -> Promotion -> Incremental Routing -> Direct Recurrence) generalizes to unseen operation families under explicit `TaskSpec`.
 - Unblocks Task B-C004 (Hard-negative retrieval competition design and baseline dataset).
 
+---
+
+## ADR-0075: Hard-Negative Routing and Functional Safety (STOP GATE B2)
+
+**Date:** 2026-09-05
+**Status:** Accepted — FAILED STOP GATE B2 (Task B-C005 Complete)
+**Affects:** `src/apc/evaluation/hard_negative_routing_benchmark.py`, `scripts/run_phase_b_hard_negative_safety_gate.py`, `configs/phase_b_hard_negative_safety_gate.yaml`, `tests/test_hard_negative_routing_benchmark.py`, `docs/CODEX_TASKS_PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD.md`, `docs/DECISIONS.md`, `docs/DECISIONS_PHASE_B.md`
+**Run Artifacts:** `runs/phase_b_hard_negative_safety_gate/` (`config.yaml`, `metrics.jsonl`, `protocol.json`, `report.json`, `report.md`, `summary.json`, `system.json`)
+
+### Decision
+
+Record the frozen-router hard-negative result as a failed gate. Do not begin B-C006/B-C007 or any Task Inference task until candidate proposal and the known-episode false-plastic/adequacy path are isolated.
+
+### Evidence / reason
+
+The predeclared five-seed CUDA matrix covered 400 cells: four bank sizes, five hard-negative levels, and four parameterized target operations. At N=128, top-k inclusion was 1.000 at every level, but top-1 was 1.000 (L0), 1.000 (L1), 0.866 (L2), 0.662 (L3), and 0.504 (L4); L2–L4 fail the predeclared B2 thresholds. The functional verifier itself rejected every wrong candidate, including L4's logical same-primitive/wrong-argument candidate, and unselected physical primitive forward calls remained zero. Mean closed-loop EM was 0.959 (>=0.950), but mean false plastic on known episodes was 0.0375 (>0.02), so safety does not meet the full gate even though false functional acceptance was 0.000.
+
+### Consequences
+
+- The immediate bottleneck is candidate proposal/ranking under semantic and argument-near competition, not wrong-computation acceptance.
+- The false-plastic outcome must be localized against support adequacy before changing any controller threshold or task-inference mechanism.
+- B-C006 onward, especially B-C008–B-C011 Task Inference, are blocked by STOP GATE B2.
+- No sealed-family status, controller threshold, router architecture, search budget, or plastic capacity was changed in response to this result.

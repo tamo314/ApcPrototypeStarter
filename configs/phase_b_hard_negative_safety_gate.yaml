@@ -1,0 +1,12 @@
+# B-C005 STOP GATE B2.  The learned router is calibrated once per seed and
+# frozen before the N x difficulty safety matrix is constructed.
+seeds: [0, 1, 2, 3, 4]
+bank_sizes: [16, 32, 64, 128]
+support_examples: 32
+query_examples: 64
+router_steps: 250
+top_k: 5
+adequacy_exact_match_threshold: 0.95
+deterministic_algorithms: true
+device: auto
+output_dir: runs/phase_b_hard_negative_safety_gate
