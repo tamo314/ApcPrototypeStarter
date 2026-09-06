@@ -242,6 +242,15 @@ Task `B-C005`.
 
 Failure blocks Task Inference. First isolate candidate retrieval and functional verification.
 
+`B-C005` failed (ADR-0075), its repair/re-gate cycle `B-C005D`/`R1`/`R2`/`G` also
+failed at the sealed re-gate (ADR-0079), and the follow-on second diagnostic
+phase `B-C005D2-001`..`B-C005D2-006` (ADR-0080/ADR-0081) is complete but
+authorized no repair by itself. The active repair branch pursuing a passing
+sealed re-gate is `docs/exec-plans/active/PHASE_B_B2_POST_D2_REPAIR.md` /
+`docs/CODEX_TASKS_PHASE_B_B2_POST_D2_REPAIR.md` (tasks `B-C005R3-001`..
+`B-C005R3-012`; see root `AGENTS.md`). `B-C006` onward stays BLOCKED until
+that branch's sealed `B2_PROTOCOL_V2` Gate (`B-C005R3-012`) passes.
+
 ### STOP GATE B3 — Decision/search scalability
 
 Task `B-C007`.

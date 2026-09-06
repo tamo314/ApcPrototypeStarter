@@ -1,0 +1,10 @@
+# B-C005R3-001: Reproducible Benchmark Generation & Artifact Inventory.
+# Fixes ADR-0080's hash(operation) % 10000 nondeterminism. Does not touch
+# router/ArgumentScorer/verifier/controller/primitive code, model weights,
+# or adequacy thresholds. CPU-only; no GPU/model reconstruction happens here.
+seeds: [0, 10, 24]
+operations: [SHIFT, SWAP_PAIRS]
+splits: [train, test]
+n_examples: 16
+pythonhashseed_variants: [null, "0", "1", "123"]
+output_dir: runs/phase_b_b2_post_d2/r3_001_reproducibility

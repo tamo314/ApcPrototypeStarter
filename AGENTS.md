@@ -48,6 +48,24 @@ from:
 > 3. `docs/EXPERIMENT_PLAN_PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD.md`
 > 4. `docs/AGENTS_PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD_ADDENDUM.md`
 
+> **B2 Post-D2 Repair branch (ADR-0080/ADR-0081, active as of 2026-09-06):**
+> `B-C005G`'s sealed re-gate failed (ADR-0079), and the second diagnostic
+> phase (`B-C005D2-001`..`B-C005D2-006`, ADR-0080/ADR-0081) is now complete.
+> `B-C006` and all Task Inference work remain **blocked** until a new sealed
+> `B2_PROTOCOL_V2` Gate passes. The current repair branch uses task IDs
+> `B-C005R3-001`..`B-C005R3-012` and its own document set, read in this order:
+> 1. `docs/exec-plans/active/PHASE_B_B2_POST_D2_REPAIR.md`
+> 2. `docs/CODEX_TASKS_PHASE_B_B2_POST_D2_REPAIR.md`
+> 3. `docs/EXPERIMENT_PLAN_PHASE_B_B2_POST_D2_REPAIR.md`
+> 4. `docs/AGENTS_PHASE_B_B2_POST_D2_REPAIR_ADDENDUM.md`
+> 5. `docs/design-docs/B2_REPRODUCIBILITY_AND_RELATION_SPLITS.md`
+> 6. `docs/design-docs/B2_FUNCTIONAL_ADEQUACY_V2.md`
+>
+> This is a repair sub-phase of Phase B, not a new phase; it does not replace
+> the Phase B documents listed above, and it does not authorize starting
+> `B-C006`. Only one `B-C005R3-0NN` task runs per explicit user instruction;
+> completing one does not authorize starting the next.
+
 Implement **only the currently requested B-Cxxx task** unless the user explicitly asks to change scope.
 
 Do not continue automatically to the next task after completing one.

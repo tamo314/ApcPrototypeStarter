@@ -62,6 +62,13 @@ from apc.primitives.composition import execute_composition_recipe
 from apc.primitives.composition_search import search_composition_recipe
 from apc.primitives.primitive import CrossPositionPrimitiveConfig
 from apc.utils.seed import set_seed
+from apc.utils.seed_derivation import (
+    DEFAULT_GENERATOR_VERSION,
+    GENERATOR_VERSION_V1_LEGACY,
+    derive_seed,
+    derive_seed_v1_legacy,
+    legacy_split_salt,
+)
 
 MIN_GATE_SEEDS: Final[int] = 5
 RETENTION_THRESHOLD: Final[float] = 0.95
@@ -78,12 +85,32 @@ def generate_benchmark_examples(
     split: str,
     vocab_size: int = DEFAULT_VOCAB_SIZE,
     sequence_length_range: tuple[int, int] = (6, 10),
+    generator_version: str = DEFAULT_GENERATOR_VERSION,
+    start_index: int = 0,
 ) -> list[Example]:
-    """Deterministically generate examples for any canonical or novel operation."""
-    op = get_operation(operation)
-    salt = 2000 if split == "test" else (1000 if split == "train" else 500)
-    rng = random.Random(seed * 7919 + salt + (hash(operation) % 10000))
+    """Deterministically generate examples for any canonical or novel operation.
 
+    This is the single canonical implementation; `recurrence_benchmark.py`
+    imports this same function rather than defining its own copy (ADR-0080
+    found the two had drifted into a literal duplicate).
+
+    `generator_version` defaults to the SHA256-indexed v2 generator (ADR-0080
+    fix, Task B-C005R3-001): each example's RNG seed is derived independently
+    from ``(generator_version, seed, split, operation, start_index + i)`` via
+    `apc.utils.seed_derivation.derive_seed`, so results do not depend on
+    Python's per-process string-hash randomization, cell iteration order,
+    resumption point, or worker partitioning. `start_index` lets a caller
+    generate a sub-range (for resumption or worker partitioning) whose
+    examples are identical to the corresponding slice of a full `n`-example
+    call.
+
+    Pass `generator_version="v1_legacy_hash"` only to diagnostically
+    reconstruct a pre-fix run under a pinned `PYTHONHASHSEED`; that path
+    reuses one continuing RNG stream (the original behavior) and is *not*
+    guaranteed reproducible across processes or iteration orders. It must
+    not be used as a new default.
+    """
+    op = get_operation(operation)
     valid_lengths = [
         length
         for length in range(sequence_length_range[0], sequence_length_range[1] + 1)
@@ -94,11 +121,29 @@ def generate_benchmark_examples(
             f"No valid lengths for '{operation}' in range {sequence_length_range}"
         )
 
+    legacy_rng: random.Random | None = None
+    if generator_version == GENERATOR_VERSION_V1_LEGACY:
+        salt = legacy_split_salt(split)
+        legacy_rng = random.Random(
+            derive_seed_v1_legacy(master_seed=seed, salt=salt, task_key=operation)
+        )
+
     examples: list[Example] = []
-    for _ in range(n):
-        seq_len = rng.choice(valid_lengths)
-        seq = tuple(rng.randrange(vocab_size) for _ in range(seq_len))
-        params = op.sample_params(rng, seq, vocab_size)
+    for i in range(n):
+        if legacy_rng is not None:
+            example_rng = legacy_rng
+        else:
+            example_seed = derive_seed(
+                master_seed=seed,
+                stream_namespace=split,
+                task_key=operation,
+                sample_index=start_index + i,
+                generator_version=generator_version,
+            )
+            example_rng = random.Random(example_seed)
+        seq_len = example_rng.choice(valid_lengths)
+        seq = tuple(example_rng.randrange(vocab_size) for _ in range(seq_len))
+        params = op.sample_params(example_rng, seq, vocab_size)
         step = ProgramStep(operation=operation, params=params)
         prog = Program(steps=(step,))
         res = run_program(prog, seq, vocab_size)

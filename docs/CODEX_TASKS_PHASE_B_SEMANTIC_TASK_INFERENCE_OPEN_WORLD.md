@@ -304,11 +304,22 @@ If functional verification accepts wrong computations, stop and repair adequacy 
 - Artifacts: `runs/phase_b_hard_negative_safety_gate/` (`config.yaml`, `metrics.jsonl`, `protocol.json`, `report.json`, `report.md`, `summary.json`, `system.json`).
 - Consequence: STOP GATE B2 blocks B-C006 onward, including all Task Inference work. The next investigation must isolate frozen candidate proposal and the false-plastic/adequacy path without changing thresholds from this failed measurement.
 
+> **Repair branch update (2026-09-06):** the B-C005G sealed re-gate failure above
+> (ADR-0079) was followed by a second diagnostic phase, `B-C005D2-001`..`B-C005D2-006`
+> (ADR-0080: benchmark-generation nondeterminism + SHIFT seed-24 primitive
+> inadequacy; ADR-0081: integrated causal diagnosis, recommending semantic-relation
+> holdout redesign as the first repair step). That diagnostic phase is now complete
+> and no repair was authorized by it. The active repair task queue is
+> `docs/CODEX_TASKS_PHASE_B_B2_POST_D2_REPAIR.md` (tasks `B-C005R3-001`..`B-C005R3-012`);
+> see the pointer in root `AGENTS.md`. `B-C006`'s BLOCKED status below is
+> superseded in detail by that document but not lifted: `B-C006` stays blocked
+> until a new sealed `B2_PROTOCOL_V2` Gate (`B-C005R3-012`) passes.
+
 ---
 
 # B-C006 — Measure decision/search cost with the current algorithm
 
-## Status: BLOCKED by B-C005G (ADR-0079)
+## Status: BLOCKED by B-C005G (ADR-0079); see B-C005R3 series (ADR-0080/ADR-0081) for the active repair branch
 
 The B-C005G sealed re-gate failed. Do not begin B-C006 until a subsequent repair
 cycle passes on a newly designated sealed partition.

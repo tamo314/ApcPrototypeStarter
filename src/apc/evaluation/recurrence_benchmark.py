@@ -33,13 +33,8 @@ import torch.nn as nn
 
 from apc.consolidation.compact_consolidation import collate_content_only_batch
 from apc.core.data import IGNORE_INDEX
-from apc.environments.generator import Example, OracleMetadata, Program, ProgramStep
-from apc.environments.interpreter import run_program
-from apc.environments.operations import (
-    BRANCH_B_NOVEL_OPERATION_NAMES,
-    get_operation,
-)
-from apc.environments.task_spec import TaskSpec
+from apc.environments.generator import Example
+from apc.environments.operations import BRANCH_B_NOVEL_OPERATION_NAMES
 from apc.environments.vocab import DEFAULT_VOCAB_SIZE
 from apc.evaluation.compact_cross_position_operator_probe import (
     DEFAULT_GROUP_SIZE,
@@ -47,6 +42,7 @@ from apc.evaluation.compact_cross_position_operator_probe import (
 )
 from apc.evaluation.consolidation_benchmark import (
     ConsolidationBenchmarkConfig,
+    generate_benchmark_examples,
     run_consolidation_benchmark,
 )
 from apc.evaluation.unified_oracle_causal_benchmark import (
@@ -68,55 +64,6 @@ UNCONSOLIDATED_CEILING_THRESHOLD: Final[float] = 0.05
 MAX_ALLOCATED_PLASTIC_PARAMS: Final[int] = 0
 _EVAL_BATCH_SIZE: Final[int] = 64
 DEFAULT_SEEDS: Final[tuple[int, ...]] = (0, 1, 2, 3, 4)
-
-
-def generate_benchmark_examples(
-    seed: int,
-    n: int,
-    *,
-    operation: str,
-    split: str,
-    vocab_size: int = DEFAULT_VOCAB_SIZE,
-    sequence_length_range: tuple[int, int] = (6, 10),
-) -> list[Example]:
-    """Deterministically generate examples for any canonical or novel operation."""
-    op = get_operation(operation)
-    salt = 2000 if split == "test" else (1000 if split == "train" else 500)
-    rng = random.Random(seed * 7919 + salt + (hash(operation) % 10000))
-
-    valid_lengths = [
-        length
-        for length in range(sequence_length_range[0], sequence_length_range[1] + 1)
-        if op.is_valid_for_length(length)
-    ]
-    if not valid_lengths:
-        raise ValueError(
-            f"No valid lengths for '{operation}' in range {sequence_length_range}"
-        )
-
-    examples: list[Example] = []
-    for _ in range(n):
-        seq_len = rng.choice(valid_lengths)
-        seq = tuple(rng.randrange(vocab_size) for _ in range(seq_len))
-        params = op.sample_params(rng, seq, vocab_size)
-        step = ProgramStep(operation=operation, params=params)
-        prog = Program(steps=(step,))
-        res = run_program(prog, seq, vocab_size)
-        category = "known" if operation in ALL_CANONICAL_OPERATIONS else "novel"
-        meta_label: Any = "K" if category == "known" else "N"
-        ex = Example(
-            input_tokens=seq,
-            target_tokens=res.output_tokens,
-            program=prog,
-            operation_graph=res.graph,
-            category=category,
-            split=split,
-            vocab_size=vocab_size,
-            task_spec=TaskSpec.from_program(prog),
-            oracle_metadata=OracleMetadata(label=meta_label, primitive_operations=(operation,)),
-        )
-        examples.append(ex)
-    return examples
 
 
 @dataclass(frozen=True)

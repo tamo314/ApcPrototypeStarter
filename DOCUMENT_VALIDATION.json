@@ -1,0 +1,137 @@
+{
+  "status": "DOCUMENT_CHECKS_PASSED",
+  "apc_repository_tests_executed": false,
+  "apc_training_or_experiments_executed": false,
+  "local_markdown_links_checked": 22,
+  "task_headings": [
+    "B-C005R3-001",
+    "B-C005R3-002",
+    "B-C005R3-003",
+    "B-C005R3-004",
+    "B-C005R3-005",
+    "B-C005R3-006",
+    "B-C005R3-007",
+    "B-C005R3-008",
+    "B-C005R3-009",
+    "B-C005R3-010",
+    "B-C005R3-011",
+    "B-C005R3-012"
+  ],
+  "numerical_check_scope": "Finite-look exact-binomial contract example only; not APC results or evidence for repaired model performance.",
+  "alpha_each_side_per_candidate_per_look": 0.0004,
+  "all_success_min_n": 153,
+  "threshold_table": [
+    {
+      "n": 32,
+      "all_success_lower": 0.7830948624000185,
+      "min_successes_accept": null
+    },
+    {
+      "n": 64,
+      "all_success_lower": 0.8849264728778423,
+      "min_successes_accept": null
+    },
+    {
+      "n": 128,
+      "all_success_lower": 0.9407053060750972,
+      "min_successes_accept": null
+    },
+    {
+      "n": 256,
+      "all_success_lower": 0.9698996371146332,
+      "min_successes_accept": 254
+    },
+    {
+      "n": 512,
+      "all_success_lower": 0.9848348273262035,
+      "min_successes_accept": 502
+    }
+  ],
+  "single_candidate_finite_look_dynamic_programming": [
+    {
+      "p": 0.1,
+      "single_candidate_accept_probability": 2.6461450000000463e-250,
+      "single_candidate_reject_probability": 0.9999999999999996,
+      "single_candidate_uncertain_probability": 0.0,
+      "expected_candidate_examples": 31.999999999999986
+    },
+    {
+      "p": 0.9,
+      "single_candidate_accept_probability": 8.359366513205455e-10,
+      "single_candidate_reject_probability": 0.8466732922385118,
+      "single_candidate_uncertain_probability": 0.15332670692555328,
+      "expected_candidate_examples": 376.98355874915444
+    },
+    {
+      "p": 0.92,
+      "single_candidate_accept_probability": 1.4760366800182725e-07,
+      "single_candidate_reject_probability": 0.2976260434944169,
+      "single_candidate_uncertain_probability": 0.7023738089019169,
+      "expected_candidate_examples": 481.031280723382
+    },
+    {
+      "p": 0.94,
+      "single_candidate_accept_probability": 2.795602278168107e-05,
+      "single_candidate_reject_probability": 0.011804843112578418,
+      "single_candidate_uncertain_probability": 0.9881672008646407,
+      "expected_candidate_examples": 509.9783978418967
+    },
+    {
+      "p": 0.949,
+      "single_candidate_accept_probability": 0.00037006869586356575,
+      "single_candidate_reject_probability": 0.001263628238390708,
+      "single_candidate_uncertain_probability": 0.9983663030657459,
+      "expected_candidate_examples": 511.5779001766479
+    },
+    {
+      "p": 0.95,
+      "single_candidate_accept_probability": 0.0004961109929790273,
+      "single_candidate_reject_probability": 0.000979579904315451,
+      "single_candidate_uncertain_probability": 0.9985243091027053,
+      "expected_candidate_examples": 511.63539016041796
+    },
+    {
+      "p": 0.951,
+      "single_candidate_accept_probability": 0.0006651193255203911,
+      "single_candidate_reject_probability": 0.0007607228979240794,
+      "single_candidate_uncertain_probability": 0.9985741577765567,
+      "expected_candidate_examples": 511.6783454244091
+    },
+    {
+      "p": 0.97,
+      "single_candidate_accept_probability": 0.10400210216741698,
+      "single_candidate_reject_probability": 6.624803436452119e-06,
+      "single_candidate_uncertain_probability": 0.8959912730291473,
+      "expected_candidate_examples": 507.77640551389226
+    },
+    {
+      "p": 0.98,
+      "single_candidate_accept_probability": 0.5595811934329513,
+      "single_candidate_reject_probability": 2.2770751205683725e-07,
+      "single_candidate_uncertain_probability": 0.4404185788595382,
+      "expected_candidate_examples": 483.21310133350437
+    },
+    {
+      "p": 0.99,
+      "single_candidate_accept_probability": 0.9848722586860035,
+      "single_candidate_reject_probability": 8.905278138076911e-10,
+      "single_candidate_uncertain_probability": 0.01512774042346859,
+      "expected_candidate_examples": 376.88206639034166
+    },
+    {
+      "p": 0.995,
+      "single_candidate_accept_probability": 0.9999309028064629,
+      "single_candidate_reject_probability": 3.718194999126852e-12,
+      "single_candidate_uncertain_probability": 6.909718981880756e-05,
+      "expected_candidate_examples": 291.3010274949487
+    },
+    {
+      "p": 1.0,
+      "single_candidate_accept_probability": 1.0,
+      "single_candidate_reject_probability": 0.0,
+      "single_candidate_uncertain_probability": 0.0,
+      "expected_candidate_examples": 256.0
+    }
+  ],
+  "original_source_copy_sha256": "8dd92c336900683e96d5a907e4f921e0dcf252bd318a7b5310d091113cedc5b6"
+}
