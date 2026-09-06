@@ -110,7 +110,17 @@ class ArgumentScorer(nn.Module):
             return torch.zeros(batch_size, device=device)
 
         logits = self.heads[operation](z_task)  # (B, vocab_size)
-        probs = F.softmax(logits, dim=-1)
+        # SELECT is the one set-valued operation (see PARAMETERIZED_OPERATIONS
+        # / `train_on_examples` below): it is fit with independent multi-hot
+        # BCEWithLogitsLoss targets, so its members must be scored with
+        # independent per-index sigmoids here too. Reading a shared softmax
+        # (correct for the other, single-label operations) would force every
+        # simultaneously-true index to compete for one unit of probability
+        # mass, diluting each one's score as the set grows -- the
+        # `ARGUMENT_ENCODING_FAILURE` train/inference mismatch diagnosed in
+        # `runs/phase_b_b2_second_diagnostic/l4_argument_breakdown.json`
+        # (ADR-0081) and repaired by Task B-C005R3-007 (ADR-0088).
+        probs = torch.sigmoid(logits) if operation == "SELECT" else F.softmax(logits, dim=-1)
 
         scores_per_val = []
         for val in raw_vals:

@@ -1,0 +1,30 @@
+# B-C005R3-007: SELECT Argument-Encoding Repair.
+# Encoding/contract audit (schema, round-trip, canonicalization) followed by
+# a minimal ArgumentScorer.forward fix (independent sigmoid instead of a
+# shared softmax for SELECT only, matching its own BCEWithLogitsLoss
+# training objective). SHIFT/COUNT/BIND, the router, and every primitive are
+# frozen and measured, not just assumed, to be unaffected.
+development_seeds: [10, 11, 12, 13, 14]
+bank_size: 128
+support_examples: 32
+query_examples: 64
+router_train_examples: 32
+router_steps: 250
+router_lr: 0.005
+ranking_margin: 3.0
+ranking_beta: 1.0
+arg_lambda: 2.0
+top_k: 5
+adequacy_exact_match_threshold: 0.95
+gate_full_argument_accuracy_threshold: 0.95
+gate_full_call_top1_threshold: 0.90
+gate_other_op_regression_pp_max: 1.0
+cardinality_stress_lengths: [6, 8, 10]
+cardinality_stress_examples: 64
+rare_value_probe_examples: 512
+rare_value_query_examples: 256
+rare_value_percentile: 0.2
+rare_value_min_subset_size: 8
+dilution_cardinalities: [1, 2, 4, 8, 16]
+dilution_arg_vocab_size: 32
+output_dir: runs/phase_b_b2_post_d2/r3_007_select_argument_encoding_repair
