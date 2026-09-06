@@ -21,8 +21,12 @@ from apc.evaluation.post_d2_repair_benchmark import (
     PostD2ReproducibilityConfig,
     run_post_d2_reproducibility_task,
 )
+from apc.evaluation.relation_split_protocol import (
+    RelationSplitProtocolConfig,
+    run_relation_split_protocol,
+)
 
-_IMPLEMENTED_TASKS = ("B-C005R3-001",)
+_IMPLEMENTED_TASKS = ("B-C005R3-001", "B-C005R3-002")
 
 
 def _load_r3_001_config(config_path: Path) -> PostD2ReproducibilityConfig:
@@ -43,6 +47,27 @@ def _load_r3_001_config(config_path: Path) -> PostD2ReproducibilityConfig:
     )
 
 
+def _load_r3_002_config(config_path: Path) -> RelationSplitProtocolConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    defaults = RelationSplitProtocolConfig()
+    return RelationSplitProtocolConfig(
+        development_representativeness_bank_size=raw.get(
+            "development_representativeness_bank_size",
+            defaults.development_representativeness_bank_size,
+        ),
+        development_representativeness_query_examples=raw.get(
+            "development_representativeness_query_examples",
+            defaults.development_representativeness_query_examples,
+        ),
+        run_empirical_exposure_probe=raw.get(
+            "run_empirical_exposure_probe", defaults.run_empirical_exposure_probe
+        ),
+        empirical_probe_seed=raw.get("empirical_probe_seed", defaults.empirical_probe_seed),
+        device=raw.get("device", defaults.device),
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Phase B B2 post-D2 repair -- explicit single-task dispatch"
@@ -56,7 +81,8 @@ def main() -> int:
     parser.add_argument(
         "--config",
         type=Path,
-        default=Path("configs/phase_b_b2_post_d2_reproducibility.yaml"),
+        default=None,
+        help="Defaults to this task's own configs/phase_b_b2_post_d2_<task>.yaml.",
     )
     parser.add_argument("--output-dir", type=Path, default=None)
     args = parser.parse_args()
@@ -72,21 +98,38 @@ def main() -> int:
         )
         return 2
 
-    config = _load_r3_001_config(args.config)
-    if args.output_dir is not None:
-        config = PostD2ReproducibilityConfig(
-            seeds=config.seeds,
-            operations=config.operations,
-            splits=config.splits,
-            n_examples=config.n_examples,
-            pythonhashseed_variants=config.pythonhashseed_variants,
-            output_dir=args.output_dir,
-        )
+    if args.task == "B-C005R3-001":
+        config_path = args.config or Path("configs/phase_b_b2_post_d2_reproducibility.yaml")
+        config = _load_r3_001_config(config_path)
+        if args.output_dir is not None:
+            config = PostD2ReproducibilityConfig(
+                seeds=config.seeds,
+                operations=config.operations,
+                splits=config.splits,
+                n_examples=config.n_examples,
+                pythonhashseed_variants=config.pythonhashseed_variants,
+                output_dir=args.output_dir,
+            )
+        report = run_post_d2_reproducibility_task(config)
+        next_blocked = "B-C005R3-002 onward"
+    else:  # B-C005R3-002
+        config_path = args.config or Path("configs/phase_b_b2_post_d2_relation_split.yaml")
+        r3_002_config = _load_r3_002_config(config_path)
+        if args.output_dir is not None:
+            r3_002_config = RelationSplitProtocolConfig(
+                development_representativeness_bank_size=r3_002_config.development_representativeness_bank_size,
+                development_representativeness_query_examples=r3_002_config.development_representativeness_query_examples,
+                run_empirical_exposure_probe=r3_002_config.run_empirical_exposure_probe,
+                empirical_probe_seed=r3_002_config.empirical_probe_seed,
+                device=r3_002_config.device,
+                output_dir=args.output_dir,
+            )
+        report = run_relation_split_protocol(r3_002_config)
+        next_blocked = "B-C005R3-003 onward"
 
-    report = run_post_d2_reproducibility_task(config)
     print(json.dumps(report["protocol"], indent=2))
     print(
-        "STOP: only B-C005R3-001 was executed. B-C005R3-002 onward and "
+        f"STOP: only {args.task} was executed. {next_blocked} and "
         "B-C006/Task Inference remain blocked pending an explicit next "
         "user instruction."
     )

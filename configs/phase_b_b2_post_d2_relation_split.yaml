@@ -1,0 +1,12 @@
+# B-C005R3-002: Semantic-Relation Split & Exposure Protocol (Option C).
+# Defines DEV/VALIDATION/SEALED_V2 relation-group and seed membership, and
+# audits (without changing) the existing repair-training code's holdout
+# ceiling. No router/ArgumentScorer/verifier weights are trained or updated
+# here except a throwaway, non-persisted copy used only to empirically
+# confirm the exposure-audit finding.
+development_representativeness_bank_size: 16
+development_representativeness_query_examples: 16
+run_empirical_exposure_probe: true
+empirical_probe_seed: 10
+device: auto
+output_dir: runs/phase_b_b2_post_d2/r3_002_relation_split
