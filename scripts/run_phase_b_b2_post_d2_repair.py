@@ -2,7 +2,7 @@
 
 Per `docs/CODEX_TASKS_PHASE_B_B2_POST_D2_REPAIR.md` Section 0: exactly one
 named task runs per invocation, and there is no `--all` or implicit
-next-task execution. Only `B-C005R3-001` through `B-C005R3-005` are
+next-task execution. Only `B-C005R3-001` through `B-C005R3-008` are
 implemented so far; every other task ID is rejected until it is explicitly
 implemented and wired in here.
 """
@@ -19,6 +19,10 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
+from apc.evaluation.bind_argument_scorer_repair import (
+    BindArgumentScorerRepairConfig,
+    run_bind_argument_scorer_repair,
+)
 from apc.evaluation.count_bind_key_scoring_repair import (
     CountBindKeyScoringConfig,
     run_count_bind_key_scoring_repair,
@@ -56,6 +60,7 @@ _IMPLEMENTED_TASKS = (
     "B-C005R3-005",
     "B-C005R3-006",
     "B-C005R3-007",
+    "B-C005R3-008",
 )
 
 
@@ -278,6 +283,58 @@ def _load_r3_007_config(config_path: Path) -> SelectArgumentEncodingConfig:
     )
 
 
+def _load_r3_008_config(config_path: Path) -> BindArgumentScorerRepairConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    defaults = BindArgumentScorerRepairConfig()
+    return BindArgumentScorerRepairConfig(
+        development_seeds=tuple(raw.get("development_seeds", defaults.development_seeds)),
+        bank_size=raw.get("bank_size", defaults.bank_size),
+        support_examples=raw.get("support_examples", defaults.support_examples),
+        query_examples=raw.get("query_examples", defaults.query_examples),
+        selection_support_examples=raw.get(
+            "selection_support_examples", defaults.selection_support_examples
+        ),
+        selection_query_examples=raw.get(
+            "selection_query_examples", defaults.selection_query_examples
+        ),
+        router_train_examples=raw.get("router_train_examples", defaults.router_train_examples),
+        router_steps=raw.get("router_steps", defaults.router_steps),
+        router_lr=raw.get("router_lr", defaults.router_lr),
+        ranking_margin=raw.get("ranking_margin", defaults.ranking_margin),
+        ranking_beta=raw.get("ranking_beta", defaults.ranking_beta),
+        arg_lambda=raw.get("arg_lambda", defaults.arg_lambda),
+        top_k=raw.get("top_k", defaults.top_k),
+        adequacy_exact_match_threshold=raw.get(
+            "adequacy_exact_match_threshold", defaults.adequacy_exact_match_threshold
+        ),
+        repair_pool_examples=raw.get("repair_pool_examples", defaults.repair_pool_examples),
+        repair_training_budget=raw.get(
+            "repair_training_budget", defaults.repair_training_budget
+        ),
+        repair_steps=raw.get("repair_steps", defaults.repair_steps),
+        repair_lr=raw.get("repair_lr", defaults.repair_lr),
+        gate_argument_accuracy_threshold=raw.get(
+            "gate_argument_accuracy_threshold", defaults.gate_argument_accuracy_threshold
+        ),
+        gate_full_call_top1_threshold=raw.get(
+            "gate_full_call_top1_threshold", defaults.gate_full_call_top1_threshold
+        ),
+        gate_family_top1_threshold=raw.get(
+            "gate_family_top1_threshold", defaults.gate_family_top1_threshold
+        ),
+        gate_topk_threshold=raw.get("gate_topk_threshold", defaults.gate_topk_threshold),
+        gate_other_op_regression_pp_max=raw.get(
+            "gate_other_op_regression_pp_max", defaults.gate_other_op_regression_pp_max
+        ),
+        variants=tuple(raw.get("variants", defaults.variants)),
+        device=raw.get("device", defaults.device),
+        deterministic_algorithms=raw.get(
+            "deterministic_algorithms", defaults.deterministic_algorithms
+        ),
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Phase B B2 post-D2 repair -- explicit single-task dispatch"
@@ -376,7 +433,7 @@ def main() -> int:
             r3_006_config = dataclasses.replace(r3_006_config, output_dir=args.output_dir)
         report = run_count_bind_key_scoring_repair(r3_006_config)
         next_blocked = "B-C005R3-007 onward"
-    else:  # B-C005R3-007
+    elif args.task == "B-C005R3-007":
         config_path = args.config or Path(
             "configs/phase_b_b2_post_d2_select_argument_encoding_repair.yaml"
         )
@@ -385,6 +442,15 @@ def main() -> int:
             r3_007_config = dataclasses.replace(r3_007_config, output_dir=args.output_dir)
         report = run_select_argument_encoding_repair(r3_007_config)
         next_blocked = "B-C005R3-008 onward"
+    else:  # B-C005R3-008
+        config_path = args.config or Path(
+            "configs/phase_b_b2_post_d2_bind_argument_scorer_repair.yaml"
+        )
+        r3_008_config = _load_r3_008_config(config_path)
+        if args.output_dir is not None:
+            r3_008_config = dataclasses.replace(r3_008_config, output_dir=args.output_dir)
+        report = run_bind_argument_scorer_repair(r3_008_config)
+        next_blocked = "B-C005R3-009 onward"
 
     print(json.dumps(report["protocol"], indent=2))
     print(
