@@ -842,6 +842,14 @@ Safety has priority over avoiding unnecessary plastic expansion.
 
 # B-C005G — New Sealed Hard-Negative B2 Re-Gate
 
+## Status
+
+**COMPLETE — FAILED (ADR-0079).** The sealed CUDA matrix on seeds `[20, 21, 22, 23, 24]`
+completed with protocol hash `05e703b63f323cefebb909eebdf176b2bb7088c404b240d96db40de34c9bd1af`.
+L3 full PrimitiveCall top-1 was `0.6555 < 0.95`, L4 argument accuracy was
+`0.8883 < 0.95`, and false plastic reached `1.000` in affected cells. B-C006 remains
+blocked. The partition is sealed and may not be used for tuning.
+
 ## Goal
 
 Re-evaluate STOP GATE B2 on a new sealed evaluation partition after the retrieval and adequacy repairs have been selected using development data only.

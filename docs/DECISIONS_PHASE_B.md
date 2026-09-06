@@ -270,5 +270,55 @@ Across 5 development seeds (10, 11, 12, 13, 14) on CUDA:
 - Unblocks Task **B-C005G (New Sealed Hard-Negative B2 Re-Gate)**.
 - Freezes the complete repaired architecture (CombinedRoutingLoss + ArgumentScorer + SequentialAdequacyVerifier) for sealed re-gating.
 
+---
 
+## ADR-0079: New Sealed Hard-Negative B2 Re-Gate
+
+**Date:** 2026-09-06
+**Status:** Accepted — FAILED STOP GATE B2 (Task B-C005G Complete)
+**Affects:** `src/apc/evaluation/hard_negative_repair_gate.py`, `configs/phase_b_b2_regate.yaml`, `scripts/run_phase_b_b2_regate.py`, `tests/test_hard_negative_repair_gate.py`, `docs/DECISIONS.md`, `docs/DECISIONS_PHASE_B.md`, `docs/CODEX_TASKS_PHASE_B_B2_HARD_NEGATIVE_REPAIR.md`, `docs/CODEX_TASKS_PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD.md`
+**Run Artifacts:** `runs/phase_b_b2_regate/` (`protocol.json`, `config.yaml`, `metrics.jsonl`, `summary.json`, `system.json`, `report.md`)
+
+### Context
+
+ADR-0077 and ADR-0078 passed their development-only repair criteria using seeds
+`[10, 11, 12, 13, 14]`. B-C005G froze the selected mechanism before evaluation:
+`CombinedRoutingLoss` (margin `3.0`, beta `1.0`, frozen `query_proj`),
+factorized `ArgumentScorer` (lambda `2.0`), and the sequential Wilson adequacy
+verifier (threshold `0.95`, confidence `0.95`, support `32/32/128`, top-k `5`).
+
+The runner designated `[20, 21, 22, 23, 24]` as a new sealed partition, disjoint
+from both development data and the original B-C005 sealed seeds `[0, 1, 2, 3, 4]`.
+It recorded protocol hash `05e703b63f323cefebb909eebdf176b2bb7088c404b240d96db40de34c9bd1af`
+before the matrix began; post-seal configuration mutation is rejected.
+
+### Sealed Results
+
+The CUDA matrix completed all 400 required cells: five seeds × four bank sizes
+(`16, 32, 64, 128`) × five levels × four parameterized targets.
+
+At `N=128`:
+
+1. L0-L2 full PrimitiveCall top-1 was `1.000` and top-k inclusion was `1.000` — PASS.
+2. L3 full PrimitiveCall top-1 was `0.6555`, below `0.95` — **FAIL**. This is the
+   first failed mechanism: semantically related candidate ranking remains
+   insufficient despite perfect top-k inclusion.
+3. L4 physical primitive-family top-1 was `1.000` — PASS, but argument accuracy
+   and full PrimitiveCall top-1 were both `0.8883`, below `0.95` and `0.90` — **FAIL**.
+4. Wrong functional acceptance was `0.000`, mean closed-loop EM was `0.9588`,
+   unselected primitive calls were `0`, router/primitive mutation was absent, and
+   evaluation-metadata leakage was `0` — PASS.
+5. False plastic reached `1.000` in cells associated with sealed seed `24` and
+   target `SHIFT`, exceeding `0.02` — **FAIL**. This is a functional-reuse failure
+   after candidate verification, not a wrong-reuse safety failure.
+
+### Consequences
+
+- **B-C005G is FAILED.** ADR-0075 remains the historical original B-C005 failure;
+  the re-gate does not reinterpret it as a pass.
+- B-C006 and all dependent Task Inference work remain blocked.
+- The sealed partition `[20, 21, 22, 23, 24]` must not be used for tuning. Any
+  further repair cycle must first designate another disjoint sealed partition.
+- The next investigation must isolate the L3 semantic-ranking failure before
+  changing downstream controller or Task Inference mechanisms.
 

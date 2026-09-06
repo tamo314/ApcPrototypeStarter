@@ -308,6 +308,11 @@ If functional verification accepts wrong computations, stop and repair adequacy 
 
 # B-C006 — Measure decision/search cost with the current algorithm
 
+## Status: BLOCKED by B-C005G (ADR-0079)
+
+The B-C005G sealed re-gate failed. Do not begin B-C006 until a subsequent repair
+cycle passes on a newly designated sealed partition.
+
 ## Goal
 
 Measure the cost that Phase A.2 did not establish: the cost of deciding what computation to use.

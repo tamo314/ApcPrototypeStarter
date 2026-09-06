@@ -118,4 +118,4 @@ ADR-0074 onward. **Active phase.** Follows docs/exec-plans/active/PHASE_B_SEMANT
 - [ADR-0076](DECISIONS_PHASE_B.md#adr-0076-failure-isolation-retrieval-ranking-vs-argument-resolution-vs-support-adequacy-variance) -- Failure Isolation: Retrieval Ranking vs Argument Resolution vs Support Adequacy Variance (Task B-C005D)
 - [ADR-0077](DECISIONS_PHASE_B.md#adr-0077-retrieval-ranking-repair-and-factorized-primitive-call-scoring) -- Retrieval Ranking Repair and Factorized Primitive-Call Scoring (Task B-C005R1)
 - [ADR-0078](DECISIONS_PHASE_B.md#adr-0078-bounded-sequential-adequacy-verifier-for-finite-support-variance-repair) -- Bounded Sequential Adequacy Verifier for Finite-Support Variance Repair (Task B-C005R2)
-
+- [ADR-0079](DECISIONS_PHASE_B.md#adr-0079-new-sealed-hard-negative-b2-regate) -- New Sealed Hard-Negative B2 Re-Gate (Task B-C005G, FAILED)
