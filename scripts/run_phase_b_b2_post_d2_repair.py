@@ -2,7 +2,7 @@
 
 Per `docs/CODEX_TASKS_PHASE_B_B2_POST_D2_REPAIR.md` Section 0: exactly one
 named task runs per invocation, and there is no `--all` or implicit
-next-task execution. Only `B-C005R3-001` through `B-C005R3-003` are
+next-task execution. Only `B-C005R3-001` through `B-C005R3-004` are
 implemented so far; every other task ID is rejected until it is explicitly
 implemented and wired in here.
 """
@@ -10,6 +10,7 @@ implemented and wired in here.
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import sys
 from pathlib import Path
@@ -22,6 +23,10 @@ from apc.evaluation.functional_metrics_v2 import (
     FunctionalMetricsV2Config,
     run_functional_metrics_v2_protocol,
 )
+from apc.evaluation.paired_baseline_repair import (
+    PairedBaselineConfig,
+    run_paired_baseline_repair,
+)
 from apc.evaluation.post_d2_repair_benchmark import (
     PostD2ReproducibilityConfig,
     run_post_d2_reproducibility_task,
@@ -31,7 +36,7 @@ from apc.evaluation.relation_split_protocol import (
     run_relation_split_protocol,
 )
 
-_IMPLEMENTED_TASKS = ("B-C005R3-001", "B-C005R3-002", "B-C005R3-003")
+_IMPLEMENTED_TASKS = ("B-C005R3-001", "B-C005R3-002", "B-C005R3-003", "B-C005R3-004")
 
 
 def _load_r3_001_config(config_path: Path) -> PostD2ReproducibilityConfig:
@@ -83,6 +88,45 @@ def _load_r3_003_config(config_path: Path) -> FunctionalMetricsV2Config:
         alpha_accept_episode=raw.get("alpha_accept_episode", defaults.alpha_accept_episode),
         alpha_reject_episode=raw.get("alpha_reject_episode", defaults.alpha_reject_episode),
         alpha_ref_episode=raw.get("alpha_ref_episode", defaults.alpha_ref_episode),
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+    )
+
+
+def _load_r3_004_config(config_path: Path) -> PairedBaselineConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    defaults = PairedBaselineConfig()
+    return PairedBaselineConfig(
+        development_seeds=tuple(raw.get("development_seeds", defaults.development_seeds)),
+        bank_size=raw.get("bank_size", defaults.bank_size),
+        retrieval_target_operations=tuple(
+            raw.get("retrieval_target_operations", defaults.retrieval_target_operations)
+        ),
+        support_examples=raw.get("support_examples", defaults.support_examples),
+        query_examples=raw.get("query_examples", defaults.query_examples),
+        router_train_examples=raw.get("router_train_examples", defaults.router_train_examples),
+        router_steps=raw.get("router_steps", defaults.router_steps),
+        router_lr=raw.get("router_lr", defaults.router_lr),
+        top_k=raw.get("top_k", defaults.top_k),
+        ranking_margin=raw.get("ranking_margin", defaults.ranking_margin),
+        ranking_beta=raw.get("ranking_beta", defaults.ranking_beta),
+        arg_lambda=raw.get("arg_lambda", defaults.arg_lambda),
+        adequacy_exact_match_threshold=raw.get(
+            "adequacy_exact_match_threshold", defaults.adequacy_exact_match_threshold
+        ),
+        shift_operation=raw.get("shift_operation", defaults.shift_operation),
+        shift_reference_examples=raw.get(
+            "shift_reference_examples", defaults.shift_reference_examples
+        ),
+        select_bind_target_operation=raw.get(
+            "select_bind_target_operation", defaults.select_bind_target_operation
+        ),
+        probe_train_examples=raw.get("probe_train_examples", defaults.probe_train_examples),
+        probe_eval_examples=raw.get("probe_eval_examples", defaults.probe_eval_examples),
+        probe_steps=raw.get("probe_steps", defaults.probe_steps),
+        probe_lr=raw.get("probe_lr", defaults.probe_lr),
+        shuffled_chance_tolerance=raw.get(
+            "shuffled_chance_tolerance", defaults.shuffled_chance_tolerance
+        ),
         output_dir=Path(raw.get("output_dir", defaults.output_dir)),
     )
 
@@ -145,7 +189,7 @@ def main() -> int:
             )
         report = run_relation_split_protocol(r3_002_config)
         next_blocked = "B-C005R3-003 onward"
-    else:  # B-C005R3-003
+    elif args.task == "B-C005R3-003":
         config_path = args.config or Path("configs/phase_b_b2_post_d2_functional_metrics_v2.yaml")
         r3_003_config = _load_r3_003_config(config_path)
         if args.output_dir is not None:
@@ -160,6 +204,13 @@ def main() -> int:
             )
         report = run_functional_metrics_v2_protocol(r3_003_config)
         next_blocked = "B-C005R3-004 onward"
+    else:  # B-C005R3-004
+        config_path = args.config or Path("configs/phase_b_b2_post_d2_paired_baseline.yaml")
+        r3_004_config = _load_r3_004_config(config_path)
+        if args.output_dir is not None:
+            r3_004_config = dataclasses.replace(r3_004_config, output_dir=args.output_dir)
+        report = run_paired_baseline_repair(r3_004_config)
+        next_blocked = "B-C005R3-005 onward"
 
     print(json.dumps(report["protocol"], indent=2))
     print(
@@ -167,7 +218,8 @@ def main() -> int:
         "B-C006/Task Inference remain blocked pending an explicit next "
         "user instruction."
     )
-    return 0 if report["protocol"]["result"] == "INFRASTRUCTURE_OR_PROTOCOL_PASS" else 1
+    result = report["protocol"]["result"]
+    return 0 if result in ("INFRASTRUCTURE_OR_PROTOCOL_PASS", "COMPARISON_ESTABLISHED") else 1
 
 
 if __name__ == "__main__":

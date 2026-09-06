@@ -1,0 +1,29 @@
+# B-C005R3-004: Paired Frozen Baseline & Comparison Repair.
+# Retrieval comparison (R0/R1/R2) restricted to the `development_units` scope
+# registered by B-C005R3-002 (SELECT/COUNT/BIND at L3/L4), a SHIFT reference-
+# adequacy comparison across four offline evaluators on one frozen stream, and
+# a one-time SELECT/BIND shuffled-control re-check. No performance PASS is
+# required; router/scorer weights are the only thing retrained, via the
+# existing, unmodified B-C005R1 recipe.
+development_seeds: [10, 11, 12, 13, 14]
+bank_size: 128
+retrieval_target_operations: ["SELECT", "COUNT", "BIND"]
+support_examples: 32
+query_examples: 64
+router_train_examples: 32
+router_steps: 250
+router_lr: 0.005
+top_k: 5
+ranking_margin: 3.0
+ranking_beta: 1.0
+arg_lambda: 2.0
+adequacy_exact_match_threshold: 0.95
+shift_operation: "SHIFT"
+shift_reference_examples: 512
+select_bind_target_operation: "SELECT"
+probe_train_examples: 64
+probe_eval_examples: 64
+probe_steps: 300
+probe_lr: 0.05
+shuffled_chance_tolerance: 0.15
+output_dir: runs/phase_b_b2_post_d2/r3_004_paired_baseline
