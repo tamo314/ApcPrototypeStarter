@@ -1,0 +1,24 @@
+# B-C005R3-006: COUNT<->BIND Key/Scoring Repair.
+# Pre-repair diagnostics, two scoped repair mechanisms (scoped_ce /
+# scoped_pairwise_margin) restricted to ONLY the COUNT and BIND router keys
+# (every other key, query_proj, ArgumentScorer, Task Encoder, verifier, and
+# all primitives frozen), selected via a disjoint internal split, compared
+# against a frozen baseline (R0) and the existing generic repair recipe (R2)
+# on `development` seeds only.
+development_seeds: [10, 11, 12, 13, 14]
+bank_size: 128
+support_examples: 32
+query_examples: 64
+selection_query_examples: 64
+router_train_examples: 32
+router_steps: 250
+router_lr: 0.005
+ranking_margin: 3.0
+ranking_beta: 1.0
+top_k: 5
+adequacy_exact_match_threshold: 0.95
+gate_top1_threshold: 0.95
+gate_topk_threshold: 0.99
+gate_legacy_regression_pp_max: 1.0
+variants: ["scoped_ce", "scoped_pairwise_margin"]
+output_dir: runs/phase_b_b2_post_d2/r3_006_count_bind_key_scoring_repair

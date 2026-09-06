@@ -19,6 +19,10 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
+from apc.evaluation.count_bind_key_scoring_repair import (
+    CountBindKeyScoringConfig,
+    run_count_bind_key_scoring_repair,
+)
 from apc.evaluation.functional_metrics_v2 import (
     FunctionalMetricsV2Config,
     run_functional_metrics_v2_protocol,
@@ -46,6 +50,7 @@ _IMPLEMENTED_TASKS = (
     "B-C005R3-003",
     "B-C005R3-004",
     "B-C005R3-005",
+    "B-C005R3-006",
 )
 
 
@@ -177,6 +182,40 @@ def _load_r3_004_config(config_path: Path) -> PairedBaselineConfig:
     )
 
 
+def _load_r3_006_config(config_path: Path) -> CountBindKeyScoringConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    defaults = CountBindKeyScoringConfig()
+    return CountBindKeyScoringConfig(
+        development_seeds=tuple(raw.get("development_seeds", defaults.development_seeds)),
+        bank_size=raw.get("bank_size", defaults.bank_size),
+        support_examples=raw.get("support_examples", defaults.support_examples),
+        query_examples=raw.get("query_examples", defaults.query_examples),
+        selection_query_examples=raw.get(
+            "selection_query_examples", defaults.selection_query_examples
+        ),
+        router_train_examples=raw.get("router_train_examples", defaults.router_train_examples),
+        router_steps=raw.get("router_steps", defaults.router_steps),
+        router_lr=raw.get("router_lr", defaults.router_lr),
+        ranking_margin=raw.get("ranking_margin", defaults.ranking_margin),
+        ranking_beta=raw.get("ranking_beta", defaults.ranking_beta),
+        top_k=raw.get("top_k", defaults.top_k),
+        adequacy_exact_match_threshold=raw.get(
+            "adequacy_exact_match_threshold", defaults.adequacy_exact_match_threshold
+        ),
+        gate_top1_threshold=raw.get("gate_top1_threshold", defaults.gate_top1_threshold),
+        gate_topk_threshold=raw.get("gate_topk_threshold", defaults.gate_topk_threshold),
+        gate_legacy_regression_pp_max=raw.get(
+            "gate_legacy_regression_pp_max", defaults.gate_legacy_regression_pp_max
+        ),
+        variants=tuple(raw.get("variants", defaults.variants)),
+        device=raw.get("device", defaults.device),
+        deterministic_algorithms=raw.get(
+            "deterministic_algorithms", defaults.deterministic_algorithms
+        ),
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Phase B B2 post-D2 repair -- explicit single-task dispatch"
@@ -257,7 +296,7 @@ def main() -> int:
             r3_004_config = dataclasses.replace(r3_004_config, output_dir=args.output_dir)
         report = run_paired_baseline_repair(r3_004_config)
         next_blocked = "B-C005R3-005 onward"
-    else:  # B-C005R3-005
+    elif args.task == "B-C005R3-005":
         config_path = args.config or Path(
             "configs/phase_b_b2_post_d2_safe_bounded_verification.yaml"
         )
@@ -266,6 +305,15 @@ def main() -> int:
             r3_005_config = dataclasses.replace(r3_005_config, output_dir=args.output_dir)
         report = run_safe_bounded_verification(r3_005_config)
         next_blocked = "B-C005R3-006 onward"
+    else:  # B-C005R3-006
+        config_path = args.config or Path(
+            "configs/phase_b_b2_post_d2_count_bind_key_scoring_repair.yaml"
+        )
+        r3_006_config = _load_r3_006_config(config_path)
+        if args.output_dir is not None:
+            r3_006_config = dataclasses.replace(r3_006_config, output_dir=args.output_dir)
+        report = run_count_bind_key_scoring_repair(r3_006_config)
+        next_blocked = "B-C005R3-007 onward"
 
     print(json.dumps(report["protocol"], indent=2))
     print(
@@ -274,7 +322,12 @@ def main() -> int:
         "user instruction."
     )
     result = report["protocol"]["result"]
-    passing_results = ("INFRASTRUCTURE_OR_PROTOCOL_PASS", "COMPARISON_ESTABLISHED", "G3_PASS")
+    passing_results = (
+        "INFRASTRUCTURE_OR_PROTOCOL_PASS",
+        "COMPARISON_ESTABLISHED",
+        "G3_PASS",
+        "VALIDATION_PASS",
+    )
     return 0 if result in passing_results else 1
 
 
