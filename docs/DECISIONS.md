@@ -119,3 +119,4 @@ ADR-0074 onward. **Active phase.** Follows docs/exec-plans/active/PHASE_B_SEMANT
 - [ADR-0077](DECISIONS_PHASE_B.md#adr-0077-retrieval-ranking-repair-and-factorized-primitive-call-scoring) -- Retrieval Ranking Repair and Factorized Primitive-Call Scoring (Task B-C005R1)
 - [ADR-0078](DECISIONS_PHASE_B.md#adr-0078-bounded-sequential-adequacy-verifier-for-finite-support-variance-repair) -- Bounded Sequential Adequacy Verifier for Finite-Support Variance Repair (Task B-C005R2)
 - [ADR-0079](DECISIONS_PHASE_B.md#adr-0079-new-sealed-hard-negative-b2-regate) -- New Sealed Hard-Negative B2 Re-Gate (Task B-C005G, FAILED)
+- [ADR-0080](DECISIONS_PHASE_B.md#adr-0080-shift-seed-24-adequacy-audit-primitive-inadequacy-asymmetric-rule-premature-acceptance-and-a-benchmark-generation-nondeterminism-bug) -- SHIFT Seed-24 Adequacy Audit: Primitive Inadequacy, Asymmetric-Rule Premature Acceptance, and a Benchmark-Generation Nondeterminism Bug (Task B-C005D2-005)
