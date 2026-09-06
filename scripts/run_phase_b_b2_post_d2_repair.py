@@ -2,8 +2,9 @@
 
 Per `docs/CODEX_TASKS_PHASE_B_B2_POST_D2_REPAIR.md` Section 0: exactly one
 named task runs per invocation, and there is no `--all` or implicit
-next-task execution. Only `B-C005R3-001` is implemented so far; every other
-task ID is rejected until it is explicitly implemented and wired in here.
+next-task execution. Only `B-C005R3-001` through `B-C005R3-003` are
+implemented so far; every other task ID is rejected until it is explicitly
+implemented and wired in here.
 """
 
 from __future__ import annotations
@@ -17,6 +18,10 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
+from apc.evaluation.functional_metrics_v2 import (
+    FunctionalMetricsV2Config,
+    run_functional_metrics_v2_protocol,
+)
 from apc.evaluation.post_d2_repair_benchmark import (
     PostD2ReproducibilityConfig,
     run_post_d2_reproducibility_task,
@@ -26,7 +31,7 @@ from apc.evaluation.relation_split_protocol import (
     run_relation_split_protocol,
 )
 
-_IMPLEMENTED_TASKS = ("B-C005R3-001", "B-C005R3-002")
+_IMPLEMENTED_TASKS = ("B-C005R3-001", "B-C005R3-002", "B-C005R3-003")
 
 
 def _load_r3_001_config(config_path: Path) -> PostD2ReproducibilityConfig:
@@ -64,6 +69,20 @@ def _load_r3_002_config(config_path: Path) -> RelationSplitProtocolConfig:
         ),
         empirical_probe_seed=raw.get("empirical_probe_seed", defaults.empirical_probe_seed),
         device=raw.get("device", defaults.device),
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+    )
+
+
+def _load_r3_003_config(config_path: Path) -> FunctionalMetricsV2Config:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    defaults = FunctionalMetricsV2Config()
+    return FunctionalMetricsV2Config(
+        tau=raw.get("tau", defaults.tau),
+        max_candidates=raw.get("max_candidates", defaults.max_candidates),
+        looks=tuple(raw.get("looks", defaults.looks)),
+        alpha_accept_episode=raw.get("alpha_accept_episode", defaults.alpha_accept_episode),
+        alpha_reject_episode=raw.get("alpha_reject_episode", defaults.alpha_reject_episode),
+        alpha_ref_episode=raw.get("alpha_ref_episode", defaults.alpha_ref_episode),
         output_dir=Path(raw.get("output_dir", defaults.output_dir)),
     )
 
@@ -112,7 +131,7 @@ def main() -> int:
             )
         report = run_post_d2_reproducibility_task(config)
         next_blocked = "B-C005R3-002 onward"
-    else:  # B-C005R3-002
+    elif args.task == "B-C005R3-002":
         config_path = args.config or Path("configs/phase_b_b2_post_d2_relation_split.yaml")
         r3_002_config = _load_r3_002_config(config_path)
         if args.output_dir is not None:
@@ -126,6 +145,21 @@ def main() -> int:
             )
         report = run_relation_split_protocol(r3_002_config)
         next_blocked = "B-C005R3-003 onward"
+    else:  # B-C005R3-003
+        config_path = args.config or Path("configs/phase_b_b2_post_d2_functional_metrics_v2.yaml")
+        r3_003_config = _load_r3_003_config(config_path)
+        if args.output_dir is not None:
+            r3_003_config = FunctionalMetricsV2Config(
+                tau=r3_003_config.tau,
+                max_candidates=r3_003_config.max_candidates,
+                looks=r3_003_config.looks,
+                alpha_accept_episode=r3_003_config.alpha_accept_episode,
+                alpha_reject_episode=r3_003_config.alpha_reject_episode,
+                alpha_ref_episode=r3_003_config.alpha_ref_episode,
+                output_dir=args.output_dir,
+            )
+        report = run_functional_metrics_v2_protocol(r3_003_config)
+        next_blocked = "B-C005R3-004 onward"
 
     print(json.dumps(report["protocol"], indent=2))
     print(

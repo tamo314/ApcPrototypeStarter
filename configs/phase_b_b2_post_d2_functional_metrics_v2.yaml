@@ -1,0 +1,12 @@
+# B-C005R3-003: Functional Metrics v2 & Statistical Contract (Option E, spec only).
+# Freezes the reference-state / candidate-verdict / action-envelope schema and
+# the finite-look exact-bound statistical contract as offline, CPU-only code.
+# No runtime verifier, router, ArgumentScorer, or primitive weight is touched;
+# apc.meta.adequacy_verifier is not imported by this task.
+tau: 0.95
+max_candidates: 5
+looks: [32, 64, 128, 256, 512]
+alpha_accept_episode: 0.01
+alpha_reject_episode: 0.01
+alpha_ref_episode: 0.01
+output_dir: runs/phase_b_b2_post_d2/r3_003_functional_metrics_v2
