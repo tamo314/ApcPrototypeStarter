@@ -1,0 +1,10 @@
+# B-C005D2-006: integrated causal diagnosis + next-repair decision gate.
+# Pure synthesis over D2-001..005 artifacts already in output_dir; no model
+# reconstruction, no sealed training, no architecture/threshold change.
+d2001_summary_path: runs/phase_b_b2_second_diagnostic/summary.json
+d2002_summary_path: runs/phase_b_b2_second_diagnostic/representation_stage_summary.json
+d2003_summary_path: runs/phase_b_b2_second_diagnostic/semantic_relation_summary.json
+d2004_summary_path: runs/phase_b_b2_second_diagnostic/l4_argument_breakdown.json
+d2005_summary_path: runs/phase_b_b2_second_diagnostic/shift_seed24_adequacy_audit.json
+no_failure_threshold: 0.95
+output_dir: runs/phase_b_b2_second_diagnostic

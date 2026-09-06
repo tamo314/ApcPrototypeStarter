@@ -351,3 +351,47 @@ ADR-0079 (B-C005G) reported false plastic `1.000` in every sealed seed-24 / SHIF
 - No repair is authorized by this ADR. `B-C005D2-006` must incorporate this evidence into its integrated causal-diagnosis table before any next-repair recommendation.
 - The `generate_benchmark_examples` hash-seed nondeterminism (evidence item 5) is a separate, repository-wide reproducibility bug, disclosed for the user's attention. It is outside B-C005D2's diagnostic scope and touches infrastructure shared by many historical results, so it is **not** fixed by this task; recommended as a small, dedicated follow-up (e.g., replacing `hash(operation)` with a deterministic hash, or pinning `PYTHONHASHSEED` in run scripts).
 
+---
+
+## ADR-0081: Integrated Causal Diagnosis and Next-Repair Decision Gate (Second Diagnostic Phase Complete)
+
+**Date:** 2026-09-06
+**Status:** Accepted (Task B-C005D2-006 Complete; diagnostic-only, no repair authorized — STOP per `docs/CODEX_TASKS_PHASE_B_B2_SECOND_DIAGNOSTIC.md` Section 9)
+**Affects:** `src/apc/evaluation/integrated_causal_diagnosis.py`, `scripts/run_phase_b_b2_integrated_causal_diagnosis.py`, `configs/phase_b_b2_integrated_causal_diagnosis.yaml`, `tests/test_integrated_causal_diagnosis.py`, `docs/DECISIONS.md`, `docs/DECISIONS_PHASE_B.md`, `docs/CODEX_TASKS_PHASE_B_B2_SECOND_DIAGNOSTIC.md`
+**Run Artifacts:** `runs/phase_b_b2_second_diagnostic/` (`final_causal_diagnosis.json`, `integrated_causal_diagnosis_config.yaml`, `integrated_causal_diagnosis_protocol.json`, `integrated_causal_diagnosis_system.json`)
+
+### Context
+
+`B-C005D2-001` through `B-C005D2-005` each diagnosed one mechanism of the `B-C005G` sealed re-gate failure in isolation. Task `B-C005D2-006` is the final task of the second diagnostic phase: combine that evidence into one causal findings table and exactly one recommended next research action (or `UNRESOLVED`), without implementing any repair. Every row of the table below is read directly back from the five prior tasks' own JSON artifacts (`summary.json`, `representation_stage_summary.json`, `semantic_relation_summary.json`, `l4_argument_breakdown.json`, `shift_seed24_adequacy_audit.json`) — none is recomputed or asserted from intuition, per the task doc's own D2-006.1 rule. A runtime guard (`_assert_no_forbidden_conclusions`) additionally checks the output never contains the two conclusions Section 2 of the task doc explicitly forbids.
+
+### Findings table
+
+| Mechanism | Evidence | Verdict | Confidence | Next action |
+|---|---|---|---|---|
+| L2 retrieval | D2-005's SHIFT/seed-24 reconstruction: `primitive_call_top1 = 1.0` at L0/L1/L2 for every bank size; matches ADR-0079's reported `L0-L2 top1 = 1.000` | NO_FAILURE | HIGH | none |
+| L3 task representation | D2-002 `z_probe_accuracy = 1.0` at the failing `regate_sealed/R2_frozen_post_repair` cell | NO_FAILURE | HIGH | none |
+| L3 query projection | D2-002 `q_probe_accuracy = 1.0` at the same cell; `query_proj` is frozen and identical across R0/R1/R2 | NO_FAILURE | HIGH | none |
+| L3 key/scoring | D2-002 per-relation verdicts at the focus cell: `COUNT->BIND` and `BIND->COUNT` = `KEY_SCORING_BOTTLENECK` (`control_a` top1 0.40/0.628 vs `z`/`q` probes both 1.0); `SHIFT->CYCLE_FOUR` = `NO_FAILURE`; `SELECT->BIND` = `UNRESOLVED` (shuffled-control artifact) | KEY_SCORING_BOTTLENECK (scoped to `COUNT<->BIND`) | MEDIUM | scope any future key-scoring repair to `COUNT->BIND`/`BIND->COUNT` only |
+| L3 relation split | D2-003: `cross_relation_spread_at_focus_cell = 0.878`; difficulty-matched `matched_gap = 0.366` stays close to `raw_gap = 0.370` | SEMANTIC_RELATION_HOLDOUT_REQUIRED | HIGH | define development/validation/sealed relation sets before any next repair training |
+| L4 family routing | D2-004: `family_top1 = 1.0` for SHIFT/SELECT/COUNT/BIND at the focus cell | NO_FAILURE | HIGH | none |
+| L4 argument resolution | D2-004 `failure_classification`: SHIFT/COUNT `NO_FAILURE`; BIND `ARGUMENT_SCORER_GENERALIZATION_FAILURE`; SELECT `ARGUMENT_ENCODING_FAILURE` | MIXED | HIGH | scope any future argument-scorer repair to `SELECT`/`BIND` only |
+| adequacy estimator | D2-005: `implementation_matches_spec = true` (10/10 synthetic cases), but `SEQUENTIAL_RULE_BIAS` present in `overall_classification.labels` (2/4 `UNSAFE_REUSE` cells) | SEQUENTIAL_RULE_BIAS | HIGH | confirm asymmetric early-accept before deploying any confidence-based verifier change (Option E) |
+| installed SHIFT adequacy | D2-005: `reference_EM` in `[0.9033, 0.9248]` across all 4 bank sizes; Wilson upper bound never exceeds `0.940` | TRUE_PRIMITIVE_INADEQUACY | HIGH | primitive functional-generalization repair for this seed/operation, not the controller (Option F) |
+| false-plastic metric | D2-005: `n_true_false_plastic = 0`, `n_unsafe_reuse = 2` — the metric tracks only plastic-when-should-reuse and has no signal for reuse-when-should-go-plastic | METRIC_MISCLASSIFICATION | HIGH | adequacy metric/protocol repair (Option E) |
+
+D2-001's own `representativeness_verdict` (`NON_REPRESENTATIVE`, flag `DEVELOPMENT_DIFFICULTY_MISMATCH`) is reproduced in the artifact for completeness but is not itself a table row, since it describes the development/sealed split rather than one runtime mechanism; its consequence is folded into the "L3 relation split" row and the recommendation below.
+
+### Recommendation
+
+Evaluating D2-006.2's six allowed options against the table above: **A** (query-projection repair) and **B** (task-representation repair) are not evidence-supported (both `z_task` and `query_proj` retain full separating information everywhere); **C** (semantic-relation holdout redesign), **D** (argument-scorer repair, scoped to SELECT/BIND), **E** (adequacy metric/protocol repair), and **F** (primitive functional-generalization repair for the installed SHIFT candidate) are all evidence-supported.
+
+**Primary recommended next action: Option C — semantic-relation holdout redesign.** This is recommended as the single gating action, not merely one option among equals, because it precedes every other supported option: D2-003 found genuine model-generalization failure even after matching development and sealed examples on relation and geometric difficulty (`MODEL_GENERALIZATION_FAILURE_AFTER_MATCHING`), meaning any future repair — key-scoring for `COUNT<->BIND`, argument-scorer changes for SELECT/BIND, or SHIFT primitive retraining — trained under the current seed-only development/sealed split risks reproducing the exact develops-fine/fails-sealed pattern this entire D2 phase exists to diagnose. Options D, E, and F remain evidence-supported and are recorded in `final_causal_diagnosis.json` as pending actions, but are not authorized by this ADR.
+
+Per D2-006.3, this diagnosis does not conclude the router needs to be larger (the key-scoring bottleneck is scoped to one specific relation pair, not a capacity claim) and does not conclude the adequacy threshold should be lower (the installed SHIFT primitive is genuinely below it).
+
+### Consequences
+
+- The second diagnostic phase (`B-C005D2-001` through `B-C005D2-006`) is complete. Per the task doc's Section 9 STOP condition, no repair, threshold change, `B-C006`, or Task Inference work is authorized by this ADR or any prior D2 task. `B-C006` and all dependent Task Inference work remain blocked pending an explicit user instruction naming the next repair task.
+- All historical ADRs (0075–0080) remain in force; none is reinterpreted or overwritten by this diagnosis.
+- Any future repair task must first define development/validation/sealed relation sets (Option C) before training, per this ADR's recommendation; once that protocol change is in place, Options D, E, and F become candidate follow-on repair tasks, each scoped to the specific operations/mechanisms this diagnosis identified rather than applied uniformly.
+
