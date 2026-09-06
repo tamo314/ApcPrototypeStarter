@@ -1,0 +1,26 @@
+# B-C005D2-003: L3 semantic-relation generalization audit. Diagnostic/probe-only;
+# no architecture change, no sealed training. Reuses runs/phase_b_b2_second_diagnostic/.
+original_sealed_seeds: [0, 1, 2, 3, 4]
+development_seeds: [10, 11, 12, 13, 14]
+regate_sealed_seeds: [20, 21, 22, 23, 24]
+bank_size: 128
+target_operations: [SHIFT, SELECT, COUNT, BIND]
+query_examples: 64
+router_train_examples: 32
+router_steps: 250
+router_lr: 0.005
+top_k: 5
+ranking_margin: 3.0
+ranking_beta: 1.0
+arg_lambda: 2.0
+probe_steps: 300
+probe_lr: 0.05
+cosine_bin_count: 3
+match_gap_tolerance: 0.05
+relation_spread_threshold: 0.15
+probe_generalization_gap_tolerance: 0.15
+shuffled_chance_tolerance: 0.15
+deterministic_algorithms: true
+device: auto
+bank_checkpoint_dir: runs/phase_a2_bank_scaling_benchmark
+output_dir: runs/phase_b_b2_second_diagnostic
