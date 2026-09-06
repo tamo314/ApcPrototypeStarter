@@ -18,6 +18,18 @@ Key Invariants:
    are rejected early.
    Uncertain candidates (empirical EM < threshold <= upper bound) gather additional
    evidence in declared increments up to a strict maximum support budget.
+
+Task B-C005R3-005 (Safe Bounded Verification, ADR-0086) adds a second,
+explicitly versioned policy below (`BoundedExactLookVerifier`) that wires the
+frozen `B-C005R3-003` finite-look exact-bound contract
+(`apc.evaluation.functional_metrics_v2`, ADR-0084) into this runtime module,
+plus a thin `enforce_verified_execution` wrapper that blocks unsafe reuse. The
+legacy `SequentialAdequacyVerifier` above is kept byte-for-byte unmodified for
+backward compatibility -- existing callers that still request it are
+unaffected. Per design doc `B2_FUNCTIONAL_ADEQUACY_V2.md` S4.1 this deliberate
+reversal of the usual `meta` -> `evaluation` import direction reuses the
+frozen exact-Beta-quantile formula verbatim rather than re-implementing it
+under the same "exact" name.
 """
 
 from __future__ import annotations
@@ -25,8 +37,20 @@ from __future__ import annotations
 import dataclasses
 import enum
 import math
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Final
+
+from apc.evaluation.functional_metrics_v2 import (
+    CandidateVerdict,
+    ControllerAction,
+    ExecutionStatus,
+    FiniteLookTrace,
+    FiniteLookVerifierContract,
+    SearchStatus,
+    VerifiedDecisionEnvelope,
+    verify_candidate_finite_look,
+)
 
 _EPS: Final[float] = 1e-9
 
@@ -426,3 +450,165 @@ class SequentialAdequacyVerifier:
         trace.final_support_consumed = current_support
         trace.final_accuracy = interval.point_estimate
         return trace
+
+
+# ---------------------------------------------------------------------------
+# B-C005R3-005: runtime wiring of the frozen finite-look exact-bound contract.
+# ---------------------------------------------------------------------------
+
+RUNTIME_VERIFIER_VERSION: Final[str] = "v2_finite_look_exact_bounds_R3-005"
+
+
+@dataclass(frozen=True)
+class BoundedExactLookVerifierConfig:
+    """Carries a `version` tag through the verification trace. Field defaults
+    mirror `apc.evaluation.functional_metrics_v2.FiniteLookVerifierContract`
+    exactly; this task may not redefine `tau`/`looks`/the alpha budgets
+    (design doc S4.2: frozen by G2/ADR-0084) -- it only wires them into a
+    runtime-callable policy alongside the legacy one above.
+    """
+
+    tau: float = 0.95
+    max_candidates: int = 5
+    looks: tuple[int, ...] = (32, 64, 128, 256, 512)
+    alpha_accept_episode: float = 0.01
+    alpha_reject_episode: float = 0.01
+    version: str = RUNTIME_VERIFIER_VERSION
+
+    def to_contract(self) -> FiniteLookVerifierContract:
+        return FiniteLookVerifierContract(
+            tau=self.tau,
+            max_candidates=self.max_candidates,
+            looks=self.looks,
+            alpha_accept_episode=self.alpha_accept_episode,
+            alpha_reject_episode=self.alpha_reject_episode,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        data = dataclasses.asdict(self)
+        data["looks"] = list(self.looks)
+        return data
+
+
+class BoundedExactLookVerifier:
+    """Runtime verifier wired against the frozen B-C005R3-003 contract
+    (ADR-0084), added by B-C005R3-005 (ADR-0086) as a second, explicitly
+    versioned policy alongside `SequentialAdequacyVerifier` (unmodified).
+
+    Unlike the legacy sequential verifier, this policy never forces a
+    decision once `contract.looks` is exhausted: an `UNCERTAIN` verdict at
+    max support stays `UNCERTAIN` (design doc S4.3), which
+    `enforce_verified_execution` below surfaces as `NEEDS_MORE_EVIDENCE`,
+    never as a silently forced ACCEPT/REJECT.
+    """
+
+    def __init__(self, config: BoundedExactLookVerifierConfig | None = None) -> None:
+        self.config = config or BoundedExactLookVerifierConfig()
+        self.contract = self.config.to_contract()
+
+    def verify_candidate(
+        self,
+        candidate_id: str,
+        support_eval_fn: Callable[[int, int], int],
+    ) -> FiniteLookTrace:
+        """`support_eval_fn(start_idx, end_idx)` returns the correct-count in
+        that half-open slice of support examples -- the same convention
+        `SequentialAdequacyVerifier.verify_candidate_sequentially` uses, so a
+        caller can share one evaluation function across both policies."""
+        return verify_candidate_finite_look(
+            candidate_id=candidate_id,
+            support_eval_fn=support_eval_fn,
+            contract=self.contract,
+        )
+
+
+def classify_search_status(
+    trace: FiniteLookTrace, *, all_of_h_evaluated: bool
+) -> SearchStatus:
+    """Design doc S2/S6: `ACCEPT` is always `FOUND_SOLUTION`; an exhausted
+    budget without an `ACCEPT` is `BUDGET_EXHAUSTED` regardless of whether
+    the rest of the declared library scope `H` was evaluated; only a `REJECT`
+    reached with the *entire* declared scope evaluated may be reported as
+    `COMPLETE_WITHIN_SCOPE` (never "library scope exhausted" on a partial
+    evaluation, matching `functional_metrics_v2.classify_library_scope`)."""
+    if trace.final_verdict == CandidateVerdict.ACCEPT:
+        return SearchStatus.FOUND_SOLUTION
+    if trace.final_verdict == CandidateVerdict.UNCERTAIN:
+        return SearchStatus.BUDGET_EXHAUSTED
+    if all_of_h_evaluated:
+        return SearchStatus.COMPLETE_WITHIN_SCOPE
+    return SearchStatus.BUDGET_EXHAUSTED
+
+
+def enforce_verified_execution(
+    trace: FiniteLookTrace,
+    *,
+    requested_action: ControllerAction | None,
+    all_of_h_evaluated: bool,
+) -> VerifiedDecisionEnvelope:
+    """Thin unsafe-reuse-blocking wrapper (design doc S6, task doc B-C005R3-005):
+    "controllerの3-class MLPは再学習しない...controllerがunsafe reuseを選ぼうとし
+    ても、ACCEPTされたcandidateがなければ実行を許可しない." The existing
+    controller's weights/policy are never read or changed here -- this
+    function only decides whether a caller's *already-decided* requested
+    action may actually execute, given this candidate's verified verdict.
+
+    - `requested_action` executes (`EXECUTED`) only if `trace.final_verdict
+      == ACCEPT` and the request is `DIRECT_REUSE` or `COMPOSE`; a `None`
+      request, or a `PLASTIC_SEARCH` request, never reaches `EXECUTED` here
+      regardless of verdict (this wrapper only ever authorizes reuse/compose;
+      committing new plastic capacity is out of this task's scope per the
+      task doc's "薄いaction envelopeでNEEDS_MORE_EVIDENCEを返す").
+    - `UNCERTAIN` at budget exhaustion always downgrades to
+      `NEEDS_MORE_EVIDENCE` with `controller_action=None` -- no temporary
+      workspace is authorized while a candidate is still unresolved,
+      regardless of what the caller requested.
+    - `REJECT` always downgrades to `NO_VERIFIED_SOLUTION`.
+
+    Out of this wrapper's contract (raises `ValueError` rather than silently
+    constructing an invalid envelope): a `PLASTIC_SEARCH` request never
+    passes through here -- committing new plastic capacity has its own,
+    separate, already-authorized pathway, untouched by this task -- and an
+    `ACCEPT` verdict requires the caller to actually request `DIRECT_REUSE`
+    or `COMPOSE` (the frozen `ExecutionStatus` schema has no state for
+    "verified adequate but nothing was requested").
+    """
+    if requested_action == ControllerAction.PLASTIC_SEARCH:
+        raise ValueError(
+            "enforce_verified_execution only gates a DIRECT_REUSE/COMPOSE "
+            "attempt; a PLASTIC_SEARCH decision does not pass through this "
+            "wrapper (plastic capacity commitment has its own, separate, "
+            "already-authorized pathway, out of this task's scope)."
+        )
+
+    search_status = classify_search_status(trace, all_of_h_evaluated=all_of_h_evaluated)
+
+    if trace.final_verdict == CandidateVerdict.UNCERTAIN:
+        return VerifiedDecisionEnvelope(
+            candidate_verdict=CandidateVerdict.UNCERTAIN,
+            search_status=SearchStatus.BUDGET_EXHAUSTED,
+            controller_action=None,
+            execution_status=ExecutionStatus.NEEDS_MORE_EVIDENCE,
+        )
+
+    if trace.final_verdict == CandidateVerdict.ACCEPT:
+        if requested_action not in (ControllerAction.DIRECT_REUSE, ControllerAction.COMPOSE):
+            raise ValueError(
+                "candidate_verdict is ACCEPT but requested_action is "
+                f"{requested_action!r}; a caller must request DIRECT_REUSE or "
+                "COMPOSE to execute a verified-adequate candidate."
+            )
+        return VerifiedDecisionEnvelope(
+            candidate_verdict=CandidateVerdict.ACCEPT,
+            search_status=search_status,
+            controller_action=requested_action,
+            execution_status=ExecutionStatus.EXECUTED,
+        )
+
+    # REJECT
+    return VerifiedDecisionEnvelope(
+        candidate_verdict=trace.final_verdict,
+        search_status=search_status,
+        controller_action=None,
+        execution_status=ExecutionStatus.NO_VERIFIED_SOLUTION,
+    )

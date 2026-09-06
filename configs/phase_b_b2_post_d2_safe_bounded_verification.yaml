@@ -1,0 +1,31 @@
+# B-C005R3-005: Safe Bounded Verification (Option E, runtime wiring, ADR-0086).
+# Wires the frozen B-C005R3-003 finite-look exact-bound contract into a new,
+# explicitly versioned runtime verifier policy (apc.meta.adequacy_verifier
+# .BoundedExactLookVerifier) alongside the legacy SequentialAdequacyVerifier
+# (kept unmodified), plus a thin unsafe-reuse-blocking wrapper. Validated by
+# a CPU-only Bernoulli contract sweep and a real, GPU-backed neural candidate
+# safety stress on `development` seeds only (10-14); the mandatory old-
+# insufficient-SHIFT stress is replayed from the already-committed
+# B-C005D2-005 audit artifact, never by retraining SHIFT or by a live
+# sealed-seed model access.
+development_seeds: [10, 11, 12, 13, 14]
+target_operations: ["SELECT", "COUNT", "BIND"]
+verification_examples: 512
+reference_examples: 1024
+tau: 0.95
+looks: [32, 64, 128, 256, 512]
+alpha_accept_episode: 0.01
+alpha_reject_episode: 0.01
+alpha_ref_episode: 0.01
+legacy_max_support: 128
+fixed_ns: [32, 64, 128]
+bernoulli_episodes_per_p: 2000
+availability_min_accept_rate: 0.97
+composition_check_examples: 32
+composition_max_depth: 2
+composition_beam_width: 8
+router_train_examples: 32
+router_steps: 250
+device: "auto"
+deterministic_algorithms: true
+output_dir: runs/phase_b_b2_post_d2/r3_005_safe_bounded_verification

@@ -2,7 +2,7 @@
 
 Per `docs/CODEX_TASKS_PHASE_B_B2_POST_D2_REPAIR.md` Section 0: exactly one
 named task runs per invocation, and there is no `--all` or implicit
-next-task execution. Only `B-C005R3-001` through `B-C005R3-004` are
+next-task execution. Only `B-C005R3-001` through `B-C005R3-005` are
 implemented so far; every other task ID is rejected until it is explicitly
 implemented and wired in here.
 """
@@ -35,8 +35,18 @@ from apc.evaluation.relation_split_protocol import (
     RelationSplitProtocolConfig,
     run_relation_split_protocol,
 )
+from apc.evaluation.safe_bounded_verification import (
+    SafeBoundedVerificationConfig,
+    run_safe_bounded_verification,
+)
 
-_IMPLEMENTED_TASKS = ("B-C005R3-001", "B-C005R3-002", "B-C005R3-003", "B-C005R3-004")
+_IMPLEMENTED_TASKS = (
+    "B-C005R3-001",
+    "B-C005R3-002",
+    "B-C005R3-003",
+    "B-C005R3-004",
+    "B-C005R3-005",
+)
 
 
 def _load_r3_001_config(config_path: Path) -> PostD2ReproducibilityConfig:
@@ -88,6 +98,42 @@ def _load_r3_003_config(config_path: Path) -> FunctionalMetricsV2Config:
         alpha_accept_episode=raw.get("alpha_accept_episode", defaults.alpha_accept_episode),
         alpha_reject_episode=raw.get("alpha_reject_episode", defaults.alpha_reject_episode),
         alpha_ref_episode=raw.get("alpha_ref_episode", defaults.alpha_ref_episode),
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+    )
+
+
+def _load_r3_005_config(config_path: Path) -> SafeBoundedVerificationConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    defaults = SafeBoundedVerificationConfig()
+    return SafeBoundedVerificationConfig(
+        development_seeds=tuple(raw.get("development_seeds", defaults.development_seeds)),
+        target_operations=tuple(raw.get("target_operations", defaults.target_operations)),
+        verification_examples=raw.get("verification_examples", defaults.verification_examples),
+        reference_examples=raw.get("reference_examples", defaults.reference_examples),
+        tau=raw.get("tau", defaults.tau),
+        looks=tuple(raw.get("looks", defaults.looks)),
+        alpha_accept_episode=raw.get("alpha_accept_episode", defaults.alpha_accept_episode),
+        alpha_reject_episode=raw.get("alpha_reject_episode", defaults.alpha_reject_episode),
+        alpha_ref_episode=raw.get("alpha_ref_episode", defaults.alpha_ref_episode),
+        legacy_max_support=raw.get("legacy_max_support", defaults.legacy_max_support),
+        fixed_ns=tuple(raw.get("fixed_ns", defaults.fixed_ns)),
+        bernoulli_episodes_per_p=raw.get(
+            "bernoulli_episodes_per_p", defaults.bernoulli_episodes_per_p
+        ),
+        availability_min_accept_rate=raw.get(
+            "availability_min_accept_rate", defaults.availability_min_accept_rate
+        ),
+        composition_check_examples=raw.get(
+            "composition_check_examples", defaults.composition_check_examples
+        ),
+        composition_max_depth=raw.get("composition_max_depth", defaults.composition_max_depth),
+        composition_beam_width=raw.get("composition_beam_width", defaults.composition_beam_width),
+        router_train_examples=raw.get("router_train_examples", defaults.router_train_examples),
+        router_steps=raw.get("router_steps", defaults.router_steps),
+        device=raw.get("device", defaults.device),
+        deterministic_algorithms=raw.get(
+            "deterministic_algorithms", defaults.deterministic_algorithms
+        ),
         output_dir=Path(raw.get("output_dir", defaults.output_dir)),
     )
 
@@ -204,13 +250,22 @@ def main() -> int:
             )
         report = run_functional_metrics_v2_protocol(r3_003_config)
         next_blocked = "B-C005R3-004 onward"
-    else:  # B-C005R3-004
+    elif args.task == "B-C005R3-004":
         config_path = args.config or Path("configs/phase_b_b2_post_d2_paired_baseline.yaml")
         r3_004_config = _load_r3_004_config(config_path)
         if args.output_dir is not None:
             r3_004_config = dataclasses.replace(r3_004_config, output_dir=args.output_dir)
         report = run_paired_baseline_repair(r3_004_config)
         next_blocked = "B-C005R3-005 onward"
+    else:  # B-C005R3-005
+        config_path = args.config or Path(
+            "configs/phase_b_b2_post_d2_safe_bounded_verification.yaml"
+        )
+        r3_005_config = _load_r3_005_config(config_path)
+        if args.output_dir is not None:
+            r3_005_config = dataclasses.replace(r3_005_config, output_dir=args.output_dir)
+        report = run_safe_bounded_verification(r3_005_config)
+        next_blocked = "B-C005R3-006 onward"
 
     print(json.dumps(report["protocol"], indent=2))
     print(
@@ -219,7 +274,8 @@ def main() -> int:
         "user instruction."
     )
     result = report["protocol"]["result"]
-    return 0 if result in ("INFRASTRUCTURE_OR_PROTOCOL_PASS", "COMPARISON_ESTABLISHED") else 1
+    passing_results = ("INFRASTRUCTURE_OR_PROTOCOL_PASS", "COMPARISON_ESTABLISHED", "G3_PASS")
+    return 0 if result in passing_results else 1
 
 
 if __name__ == "__main__":
