@@ -80,9 +80,14 @@ def test_config_to_dict_serializes_paths() -> None:
 
 
 # ---------------------------------------------------------------------------
-# _pretrained_core_available: sealed seeds 0-4 have a checkpoint, development
-# seeds 10-14 do not (this is the real, checked-in repo state this task's
-# SHIFT-reference-adequacy scoping decision depends on).
+# _pretrained_core_available: sealed seeds 0-4 have a checkpoint. At the time
+# THIS task (B-C005R3-004/ADR-0085) ran, development seeds 10-14 did not --
+# that was the real, checked-in repo state its SHIFT-reference-adequacy
+# scoping decision depended on. B-C005R3-009 later pretrained a genuinely
+# new, non-sealed checkpoint for each of those five seeds (user-confirmed
+# before doing so) via the same on-disk cache path, so seeds 10-14 now DO
+# have one; seed 15 (a `NEW_VALIDATION_SEEDS` seed R3-009 never touched)
+# stands in here for "a seed with no pretrained core" instead.
 # ---------------------------------------------------------------------------
 
 
@@ -90,8 +95,12 @@ def test_pretrained_core_available_for_sealed_seed_0() -> None:
     assert _pretrained_core_available(0) is True
 
 
-def test_pretrained_core_unavailable_for_development_seed_10() -> None:
-    assert _pretrained_core_available(10) is False
+def test_pretrained_core_available_for_development_seed_10_after_r3_009() -> None:
+    assert _pretrained_core_available(10) is True
+
+
+def test_pretrained_core_unavailable_for_untouched_validation_seed_15() -> None:
+    assert _pretrained_core_available(15) is False
 
 
 def test_pretrained_core_unavailable_for_unknown_seed() -> None:

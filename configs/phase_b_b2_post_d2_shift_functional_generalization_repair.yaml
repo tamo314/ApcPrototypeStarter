@@ -1,0 +1,26 @@
+development_seeds: [10, 11, 12, 13, 14]
+bank_size: 16
+sequence_length_range: [6, 10]
+core_train_steps: 16000
+core_lr: 0.0003
+core_weight_decay: 0.0001
+operator_train_steps: 12000
+operator_lr: 0.0005
+operator_weight_decay: 0.0001
+operator_grad_clip: 1.0
+operator_batch_size: 32
+diagnostic_examples: 1000
+selection_query_examples: 128
+gate_query_examples: 512
+other_op_query_examples: 64
+router_train_examples: 32
+router_steps: 250
+gate_mean_query_em_threshold: 0.99
+gate_ref_adequacy_tau: 0.95
+gate_other_task_regression_pp_max: 1.0
+variants: ["iid_baseline", "error_weighted_stratified"]
+device: auto
+deterministic_algorithms: true
+bank_checkpoint_dir: runs/phase_a2_bank_scaling_benchmark
+shared_encoder_cache_dir: runs/phase_a1_shift_compact_structural_probe
+output_dir: runs/phase_b_b2_post_d2/r3_009_shift_functional_generalization_repair

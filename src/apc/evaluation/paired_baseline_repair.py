@@ -202,14 +202,25 @@ _PRETRAINED_CORE_DIR: Final[Path] = Path("runs/phase_a1_shift_compact_structural
 
 
 def _pretrained_core_available(seed: int) -> bool:
-    """`development` seeds (10-14) have no entry under `_PRETRAINED_CORE_DIR` --
-    only the sealed seeds 0-4 do -- so `_build_frozen_base_system` silently
-    falls back to a fresh random Core init for them (see
-    `representation_stage_probe.py`'s module docstring, which already
-    disclosed this for its own probes). That makes raw execution-correctness
-    (closed-loop EM) meaningless on `development` seeds even though
-    routing/ranking comparisons stay valid; this task must not access the
-    sealed seeds that do have a pretrained core (`assert_sealed_access_permitted`)."""
+    """At the time this task (`B-C005R3-004`/ADR-0085) ran, `development` seeds
+    (10-14) had no entry under `_PRETRAINED_CORE_DIR` -- only the sealed seeds
+    0-4 did -- so `_build_frozen_base_system` silently fell back to a fresh
+    random Core init for them (see `representation_stage_probe.py`'s module
+    docstring, which already disclosed this for its own probes). That made raw
+    execution-correctness (closed-loop EM) meaningless on `development` seeds
+    even though routing/ranking comparisons stayed valid; this task must not
+    access the sealed seeds that do have a pretrained core
+    (`assert_sealed_access_permitted`).
+
+    **Superseded for seeds 10-14 by `B-C005R3-009`** (with the user's explicit,
+    pre-confirmed authorization): that task pretrained a genuinely new,
+    non-sealed shared-encoder checkpoint for each development seed via the
+    existing, unmodified Phase A.1 recipe and cached it at this exact path, so
+    `_pretrained_core_available(10..14)` now returns `True`. This function
+    itself is unchanged (still a plain file-existence check reflecting
+    whatever is really on disk); only the *fact* it reports for those five
+    seeds changed. R3-004's own `paired_baseline.json`/ADR-0085 finding is
+    left untouched as a historical record of what was true when it ran."""
     return (_PRETRAINED_CORE_DIR / f"seed_{seed}" / "shared_encoder.pt").is_file()
 
 

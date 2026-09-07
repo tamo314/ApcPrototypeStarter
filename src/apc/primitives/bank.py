@@ -146,6 +146,27 @@ class PrimitiveBank(nn.Module):
         self.add_primitive(primitive)
         return primitive
 
+    def replace_primitive(
+        self, primitive_id: int, new_primitive: PrimitiveBase
+    ) -> PrimitiveBase:
+        """Atomically swap the module backing `primitive_id` for `new_primitive`,
+        preserving the bank's id-space and leaving every other primitive
+        untouched. Used for a same-physical-family versioned replacement
+        (e.g. Task B-C005R3-009): the dislodged primitive is returned, not
+        mutated, so callers can retain it read-only for audit/rollback."""
+        key = str(primitive_id)
+        if key not in self._primitives:
+            raise KeyError(f"No primitive with id {primitive_id} in bank")
+        if new_primitive.primitive_id != primitive_id:
+            raise ValueError(
+                f"new_primitive.primitive_id ({new_primitive.primitive_id}) must equal "
+                f"primitive_id ({primitive_id})"
+            )
+        old_primitive = self._primitives[key]
+        assert isinstance(old_primitive, PrimitiveBase)
+        self._primitives[key] = new_primitive
+        return old_primitive
+
     def set_status(self, primitive_id: int, status: PrimitiveStatus) -> None:
         self.get(primitive_id).status = status
 

@@ -172,3 +172,45 @@ def test_update_utility_delegates_to_primitive() -> None:
 def test_len_reflects_all_registered_primitives() -> None:
     bank = _filled_bank(n_stable=2, n_candidate=3)
     assert len(bank) == 5
+
+
+# ---------------------------------------------------------------------------
+# replace_primitive (Task B-C005R3-009: same-physical-family versioned
+# replacement -- swap the module backing an id, leave every other id alone).
+# ---------------------------------------------------------------------------
+
+
+def test_replace_primitive_swaps_module_and_returns_old() -> None:
+    bank = _filled_bank(n_stable=2, n_candidate=0)
+    pid = bank.ids()[0]
+    old_primitive = bank.get(pid)
+    new_primitive = Primitive(pid, CONFIG)
+    torch.nn.init.ones_(new_primitive.a_proj.weight)
+
+    returned = bank.replace_primitive(pid, new_primitive)
+
+    assert returned is old_primitive
+    assert bank.get(pid) is new_primitive
+    assert bank.ids() == [0, 1]
+    assert len(bank) == 2
+
+
+def test_replace_primitive_leaves_other_ids_untouched() -> None:
+    bank = _filled_bank(n_stable=2, n_candidate=0)
+    ids = bank.ids()
+    untouched_before = bank.get(ids[1])
+    bank.replace_primitive(ids[0], Primitive(ids[0], CONFIG))
+    assert bank.get(ids[1]) is untouched_before
+
+
+def test_replace_primitive_rejects_unknown_id() -> None:
+    bank = _filled_bank(n_stable=1, n_candidate=0)
+    with pytest.raises(KeyError, match="No primitive with id"):
+        bank.replace_primitive(999, Primitive(999, CONFIG))
+
+
+def test_replace_primitive_rejects_mismatched_primitive_id() -> None:
+    bank = _filled_bank(n_stable=2, n_candidate=0)
+    ids = bank.ids()
+    with pytest.raises(ValueError, match="must equal"):
+        bank.replace_primitive(ids[0], Primitive(ids[1], CONFIG))

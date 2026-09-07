@@ -2,7 +2,7 @@
 
 Per `docs/CODEX_TASKS_PHASE_B_B2_POST_D2_REPAIR.md` Section 0: exactly one
 named task runs per invocation, and there is no `--all` or implicit
-next-task execution. Only `B-C005R3-001` through `B-C005R3-008` are
+next-task execution. Only `B-C005R3-001` through `B-C005R3-009` are
 implemented so far; every other task ID is rejected until it is explicitly
 implemented and wired in here.
 """
@@ -51,6 +51,10 @@ from apc.evaluation.select_argument_encoding_repair import (
     SelectArgumentEncodingConfig,
     run_select_argument_encoding_repair,
 )
+from apc.evaluation.shift_functional_generalization_repair import (
+    ShiftFunctionalGeneralizationRepairConfig,
+    run_shift_functional_generalization_repair,
+)
 
 _IMPLEMENTED_TASKS = (
     "B-C005R3-001",
@@ -61,6 +65,7 @@ _IMPLEMENTED_TASKS = (
     "B-C005R3-006",
     "B-C005R3-007",
     "B-C005R3-008",
+    "B-C005R3-009",
 )
 
 
@@ -335,6 +340,53 @@ def _load_r3_008_config(config_path: Path) -> BindArgumentScorerRepairConfig:
     )
 
 
+def _load_r3_009_config(config_path: Path) -> ShiftFunctionalGeneralizationRepairConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    defaults = ShiftFunctionalGeneralizationRepairConfig()
+    return ShiftFunctionalGeneralizationRepairConfig(
+        development_seeds=tuple(raw.get("development_seeds", defaults.development_seeds)),
+        bank_size=raw.get("bank_size", defaults.bank_size),
+        sequence_length_range=tuple(
+            raw.get("sequence_length_range", defaults.sequence_length_range)
+        ),
+        core_train_steps=raw.get("core_train_steps", defaults.core_train_steps),
+        core_lr=raw.get("core_lr", defaults.core_lr),
+        core_weight_decay=raw.get("core_weight_decay", defaults.core_weight_decay),
+        operator_train_steps=raw.get("operator_train_steps", defaults.operator_train_steps),
+        operator_lr=raw.get("operator_lr", defaults.operator_lr),
+        operator_weight_decay=raw.get("operator_weight_decay", defaults.operator_weight_decay),
+        operator_grad_clip=raw.get("operator_grad_clip", defaults.operator_grad_clip),
+        operator_batch_size=raw.get("operator_batch_size", defaults.operator_batch_size),
+        diagnostic_examples=raw.get("diagnostic_examples", defaults.diagnostic_examples),
+        selection_query_examples=raw.get(
+            "selection_query_examples", defaults.selection_query_examples
+        ),
+        gate_query_examples=raw.get("gate_query_examples", defaults.gate_query_examples),
+        other_op_query_examples=raw.get(
+            "other_op_query_examples", defaults.other_op_query_examples
+        ),
+        router_train_examples=raw.get("router_train_examples", defaults.router_train_examples),
+        router_steps=raw.get("router_steps", defaults.router_steps),
+        gate_mean_query_em_threshold=raw.get(
+            "gate_mean_query_em_threshold", defaults.gate_mean_query_em_threshold
+        ),
+        gate_ref_adequacy_tau=raw.get("gate_ref_adequacy_tau", defaults.gate_ref_adequacy_tau),
+        gate_other_task_regression_pp_max=raw.get(
+            "gate_other_task_regression_pp_max", defaults.gate_other_task_regression_pp_max
+        ),
+        variants=tuple(raw.get("variants", defaults.variants)),
+        device=raw.get("device", defaults.device),
+        deterministic_algorithms=raw.get(
+            "deterministic_algorithms", defaults.deterministic_algorithms
+        ),
+        bank_checkpoint_dir=Path(raw.get("bank_checkpoint_dir", defaults.bank_checkpoint_dir)),
+        shared_encoder_cache_dir=Path(
+            raw.get("shared_encoder_cache_dir", defaults.shared_encoder_cache_dir)
+        ),
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Phase B B2 post-D2 repair -- explicit single-task dispatch"
@@ -442,7 +494,7 @@ def main() -> int:
             r3_007_config = dataclasses.replace(r3_007_config, output_dir=args.output_dir)
         report = run_select_argument_encoding_repair(r3_007_config)
         next_blocked = "B-C005R3-008 onward"
-    else:  # B-C005R3-008
+    elif args.task == "B-C005R3-008":
         config_path = args.config or Path(
             "configs/phase_b_b2_post_d2_bind_argument_scorer_repair.yaml"
         )
@@ -451,6 +503,15 @@ def main() -> int:
             r3_008_config = dataclasses.replace(r3_008_config, output_dir=args.output_dir)
         report = run_bind_argument_scorer_repair(r3_008_config)
         next_blocked = "B-C005R3-009 onward"
+    else:  # B-C005R3-009
+        config_path = args.config or Path(
+            "configs/phase_b_b2_post_d2_shift_functional_generalization_repair.yaml"
+        )
+        r3_009_config = _load_r3_009_config(config_path)
+        if args.output_dir is not None:
+            r3_009_config = dataclasses.replace(r3_009_config, output_dir=args.output_dir)
+        report = run_shift_functional_generalization_repair(r3_009_config)
+        next_blocked = "B-C005R3-010 onward"
 
     print(json.dumps(report["protocol"], indent=2))
     print(
