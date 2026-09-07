@@ -66,6 +66,31 @@ from:
 > `B-C006`. Only one `B-C005R3-0NN` task runs per explicit user instruction;
 > completing one does not authorize starting the next.
 
+> **B2 Model Bundle Recovery branch (ADR-0092, active as of 2026-09-07):**
+> `B-C005R3-010`'s G4 result is `DEVELOPMENT_INTEGRATION_FAIL` (ADR-0091):
+> the cached `primitive_bank_16.pt` for development seeds 10-14 is
+> incoherent with the real shared encoder `B-C005R3-009` pretrained for
+> those same seeds (raw execution breaks for 10 of 16 primitives), and
+> COUNT<->BIND L3 routing has independently degraded. Before any
+> `B-C005R3-011`/`012` continuation, a recovery branch preserves/inventories
+> existing artifacts and, where restoration is not possible, rebuilds only
+> the missing dependencies on the same class of frozen Core, using task IDs
+> `B-C005REC-001`..`B-C005REC-008` and its own document set, read in this
+> order:
+> 1. `docs/exec-plans/active/PHASE_B_B2_MODEL_BUNDLE_RECOVERY.md`
+> 2. `docs/CODEX_TASKS_PHASE_B_B2_MODEL_BUNDLE_RECOVERY.md`
+> 3. `docs/EXPERIMENT_PLAN_PHASE_B_B2_MODEL_BUNDLE_RECOVERY.md`
+> 4. `docs/design-docs/B2_MODEL_BUNDLE_RECOVERY_CONTRACT.md`
+> 5. `docs/AGENTS_PHASE_B_B2_MODEL_BUNDLE_RECOVERY_ADDENDUM.md`
+> 6. `docs/research/B2_MODEL_BUNDLE_RECOVERY_SOURCE_NOTES.md`
+>
+> This is a recovery sub-branch of the R3 repair sub-phase, not a new phase
+> and not a relaxation of any R3/G4 threshold; it does not authorize
+> starting `B-C005R3-011`. Only one `B-C005REC-00N` task runs per explicit
+> user instruction; completing one does not authorize starting the next.
+> As of this note, only `B-C005REC-001` (artifact preservation, dependency
+> inventory, restore decision -- no training) has been executed.
+
 Implement **only the currently requested B-Cxxx task** unless the user explicitly asks to change scope.
 
 Do not continue automatically to the next task after completing one.

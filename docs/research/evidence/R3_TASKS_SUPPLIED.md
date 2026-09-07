@@ -3,11 +3,6 @@
 **Task IDs：B-C005R3-001～B-C005R3-012**  
 **状態：実装前の指示書。B-C006 / Task Inferenceはblocked。**
 
-> **状態更新（2026-09-07）：** `R3-001`～`R3-010`は実行済み。`R3-010`のG4は
-> `DEVELOPMENT_INTEGRATION_FAIL`（ADR-0091）。`R3-011`以降は、復旧分岐
-> `B-C005REC-001`～`B-C005REC-008`（[タスク](CODEX_TASKS_PHASE_B_B2_MODEL_BUNDLE_RECOVERY.md)、
-> ADR-0092）がartifact復元／再構築判断を完了するまでblocked。
-
 ## 0. 使用方法と共通規則
 
 実行するのはユーザーが指定した一タスクだけ。タスク間の自動継続は禁止。最初は **B-C005R3-001**。
@@ -308,13 +303,6 @@ C5: C4 + SHIFT version replacement
 `integration_matrix.json`、`legacy_regression.json`、`safety_and_availability.json`、`compute_accounting.json`。**G4**を満たすこと。ここで失敗したら原因機構の新タスクを別途設計し、自動で戻って複数修正を混ぜない。
 
 ---
-
-> **B-C005R3-011 is blocked as of 2026-09-07 (ADR-0091/ADR-0092).** Do not
-> start it until the `B-C005REC-00N` model bundle recovery branch
-> (`docs/exec-plans/active/PHASE_B_B2_MODEL_BUNDLE_RECOVERY.md`) reports a
-> restored/rebuilt coherent parent cohort and an explicit next user
-> instruction authorizes resuming R3-011. The task text below is preserved
-> unchanged as the pre-block specification.
 
 ## B-C005R3-011 — B2 Protocol v2 Seal & Preflight
 

@@ -2,6 +2,16 @@
 
 **Status: proposed / not executed.** タスク：`B-C005R3-001`～`B-C005R3-012`。
 
+> **状態更新（2026-09-07、ADR-0091／ADR-0092）：** `R3-001`～`R3-010`は実行済み。
+> `R3-010`のG4は`DEVELOPMENT_INTEGRATION_FAIL`（ADR-0091）。development seeds
+> 10～14でキャッシュ済み`primitive_bank_16.pt`（16個中10 primitive分、2026-09-06付）が
+> `R3-009`が同じseedへ実際に事前学習した新shared encoder（2026-09-07付）と非整合で、
+> raw executionが崩壊している。COUNT↔BINDのL3 routingも別要因で劣化。
+> `R3-011`／`R3-012`は本状態が解決するまでblockedのまま。
+> 復旧分岐`B-C005REC-001`～`B-C005REC-008`（[実行計画](PHASE_B_B2_MODEL_BUNDLE_RECOVERY.md)、
+> ADR-0092）がartifactの保存・依存調査・復元／再構築判断を先に行う。本ファイルの
+> 以下の本文・タスク表・過去の測定値は変更しない。
+
 ## 1. 研究上の位置づけ
 
 第二診断は完了し、ADR-0081はOption C（semantic-relation holdout再設計）を次の研究上の第一優先に指定した。ADR-0080は、それと独立したbenchmark生成の非決定性修正を推奨している。本サブフェーズでは、再現性を前提としてOption Cを実施し、その後、証拠で支持された局所修正を行う。[S1: ADR-0080 evidence 5 / consequences; ADR-0081 recommendation]
