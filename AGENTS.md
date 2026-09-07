@@ -88,8 +88,11 @@ from:
 > and not a relaxation of any R3/G4 threshold; it does not authorize
 > starting `B-C005R3-011`. Only one `B-C005REC-00N` task runs per explicit
 > user instruction; completing one does not authorize starting the next.
-> As of this note, only `B-C005REC-001` (artifact preservation, dependency
-> inventory, restore decision -- no training) has been executed.
+> As of this note, `B-C005REC-001` (artifact preservation, dependency
+> inventory, restore decision -- no training, ADR-0092) and `B-C005REC-002`
+> (immutable ModelBundle manifest/hash/fail-closed loader contract, CPU-only
+> fixtures, RG1 PASS, ADR-0093) have been executed. `B-C005REC-003` onward
+> remain unexecuted pending an explicit next user instruction.
 
 Implement **only the currently requested B-Cxxx task** unless the user explicitly asks to change scope.
 

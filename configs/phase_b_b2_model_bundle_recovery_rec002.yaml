@@ -1,0 +1,7 @@
+# Task B-C005REC-002 -- Immutable ModelBundle, Strict Loading & Qualification
+# Contract. CPU-only fixture milestone: no GPU, no training. See
+# docs/CODEX_TASKS_PHASE_B_B2_MODEL_BUNDLE_RECOVERY.md and
+# docs/design-docs/B2_MODEL_BUNDLE_RECOVERY_CONTRACT.md.
+
+real_core_source: runs/phase_a1_shift_compact_structural_probe/seed_10/shared_encoder.pt
+output_dir: runs/phase_b_b2_model_bundle_recovery/rec002/run_001
