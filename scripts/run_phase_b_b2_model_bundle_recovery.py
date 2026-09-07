@@ -25,13 +25,16 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from apc.evaluation.model_bundle_recovery import (
+    RECOVERY_PILOT_SEED,
     ModelBundleContractConfig,
+    PilotRestoreBuildConfig,
     RecoveryBuildPlanConfig,
     run_model_bundle_contract_task,
+    run_pilot_restore_build_task,
     run_recovery_build_plan_task,
 )
 
-_IMPLEMENTED_TASKS = ("B-C005REC-002", "B-C005REC-003")
+_IMPLEMENTED_TASKS = ("B-C005REC-002", "B-C005REC-003", "B-C005REC-004")
 
 
 def _load_rec002_config(config_path: Path) -> ModelBundleContractConfig:
@@ -51,6 +54,25 @@ def _load_rec003_config(config_path: Path) -> RecoveryBuildPlanConfig:
     return RecoveryBuildPlanConfig(
         output_dir=Path(raw.get("output_dir", defaults.output_dir)),
         seeds=tuple(seeds),
+    )
+
+
+def _load_rec004_config(config_path: Path) -> PilotRestoreBuildConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+    defaults = PilotRestoreBuildConfig()
+    seed = raw.get("seed", defaults.seed)
+    if seed != RECOVERY_PILOT_SEED:
+        raise ValueError(
+            f"B-C005REC-004's pilot seed is pre-registered as {RECOVERY_PILOT_SEED}; "
+            f"config requested seed={seed}"
+        )
+    return PilotRestoreBuildConfig(
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+        seed=seed,
+        direct_query_examples_per_operation=raw.get(
+            "direct_query_examples_per_operation", defaults.direct_query_examples_per_operation
+        ),
+        non_shift_floor=raw.get("non_shift_floor", defaults.non_shift_floor),
     )
 
 
@@ -91,17 +113,26 @@ def main() -> int:
             rec002_config = dataclasses.replace(rec002_config, output_dir=args.output_dir)
         report = run_model_bundle_contract_task(rec002_config)
         expected_result = "RG1_PASS"
-    else:  # B-C005REC-003
+    elif args.task == "B-C005REC-003":
         config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec003.yaml")
         rec003_config = _load_rec003_config(config_path)
         if args.output_dir is not None:
             rec003_config = dataclasses.replace(rec003_config, output_dir=args.output_dir)
         report = run_recovery_build_plan_task(rec003_config)
         expected_result = "RG2_PASS"
+    else:  # B-C005REC-004
+        config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004.yaml")
+        rec004_config = _load_rec004_config(config_path)
+        if args.output_dir is not None:
+            rec004_config = dataclasses.replace(rec004_config, output_dir=args.output_dir)
+        report = run_pilot_restore_build_task(rec004_config)
+        expected_result = "RG3_PASS"
 
-    next_blocked = (
-        "B-C005REC-004 onward" if args.task == "B-C005REC-003" else "B-C005REC-003 onward"
-    )
+    next_blocked = {
+        "B-C005REC-002": "B-C005REC-003 onward",
+        "B-C005REC-003": "B-C005REC-004 onward",
+        "B-C005REC-004": "B-C005REC-005 onward",
+    }[args.task]
 
     print(json.dumps(report["protocol"], indent=2))
     print(

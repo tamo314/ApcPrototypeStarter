@@ -17,8 +17,13 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import json
+import math
+import os
+import subprocess
+import sys
+import tempfile
 import time
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, fields, is_dataclass
 from enum import Enum
@@ -35,6 +40,8 @@ __all__ = [
     "RecoveryBuildPlanConfig",
     "run_recovery_build_plan_task",
     "EvaluationFrozenError",
+    "PilotRestoreBuildConfig",
+    "run_pilot_restore_build_task",
 ]
 
 
@@ -845,8 +852,17 @@ def _build_stage_graph() -> list[dict[str, Any]]:
             "_ensure_learned_routing_bank_and_core:570-650, called with "
             "seed_dir=<namespace>/seed_{seed} so its own cache-miss branch trains fresh "
             "against the restored Core instead of loading a stale bank",
-            "covers_operations": ["SELECT", "COUNT", "BIND", "COPY", "REVERSE", "SORT", "NEGATE",
-                                   "SWAP_PAIRS", "INVERT_HALF"],
+            "covers_operations": [
+                "SELECT",
+                "COUNT",
+                "BIND",
+                "COPY",
+                "REVERSE",
+                "SORT",
+                "NEGATE",
+                "SWAP_PAIRS",
+                "INVERT_HALF",
+            ],
             "namespace_output_template": f"{ns}/seed_{{seed}}/canonical_branch_b/primitive_bank.pt",
             "recipe_side_effect_warning": (
                 "This call's own canonical loop (:627-634) also trains SHIFT (SHIFT is in "
@@ -915,8 +931,12 @@ def _build_stage_graph() -> list[dict[str, Any]]:
             "SHIFT_OVERRIDE_MERGE bank -- WITHOUT that function's b008 "
             "strict=False fallback load (:225-229), which this plan never calls",
             "covers_operations": [
-                "ROTATE_TRIPLETS", "SWAP_ENDS", "MIRROR_HALVES",
-                "ALTERNATING_NEGATE", "CYCLE_FOUR", "INCREMENT_MOD",
+                "ROTATE_TRIPLETS",
+                "SWAP_ENDS",
+                "MIRROR_HALVES",
+                "ALTERNATING_NEGATE",
+                "CYCLE_FOUR",
+                "INCREMENT_MOD",
             ],
             "namespace_output_template": f"{ns}/seed_{{seed}}/primitive_bank_16.pt",
             "notes": (
@@ -1049,8 +1069,7 @@ def _build_training_budget_manifest() -> dict[str, Any]:
                 "trainable_parameters": 0,
                 "budget": None,
                 "note": (
-                    "Restore path taken for all 5 registered seeds; no training budget "
-                    "consumed."
+                    "Restore path taken for all 5 registered seeds; no training budget consumed."
                 ),
             },
             "CANONICAL_AND_BRANCH_B_BUILD": {
@@ -1064,9 +1083,15 @@ def _build_training_budget_manifest() -> dict[str, Any]:
                     "internal u_bank_cfg"
                 ),
                 "steps_per_operation": {
-                    "SELECT": 6000, "COUNT": 6000, "BIND": 6000,
-                    "COPY": 3000, "REVERSE": 3000, "SORT": 3000, "NEGATE": 3000,
-                    "SWAP_PAIRS": 3000, "INVERT_HALF": 3000,
+                    "SELECT": 6000,
+                    "COUNT": 6000,
+                    "BIND": 6000,
+                    "COPY": 3000,
+                    "REVERSE": 3000,
+                    "SORT": 3000,
+                    "NEGATE": 3000,
+                    "SWAP_PAIRS": 3000,
+                    "INVERT_HALF": 3000,
                     "SHIFT_discarded_byproduct": 6000,
                 },
                 "steps_source": (
@@ -1117,13 +1142,20 @@ def _build_training_budget_manifest() -> dict[str, Any]:
                 ),
                 "deferred_repair_budgets": {
                     "R3-006_count_bind_key_scoring_repair": {
-                        "router_lr": 0.005, "router_steps": 250,
-                        "ranking_margin": 3.0, "ranking_beta": 1.0, "top_k": 5,
+                        "router_lr": 0.005,
+                        "router_steps": 250,
+                        "ranking_margin": 3.0,
+                        "ranking_beta": 1.0,
+                        "top_k": 5,
                         "source": "count_bind_key_scoring_repair.py:128-143",
                     },
                     "R3-008_bind_argument_scorer_repair": {
-                        "router_lr": 0.005, "router_steps": 250,
-                        "ranking_margin": 3.0, "ranking_beta": 1.0, "top_k": 5, "arg_lambda": 2.0,
+                        "router_lr": 0.005,
+                        "router_steps": 250,
+                        "ranking_margin": 3.0,
+                        "ranking_beta": 1.0,
+                        "top_k": 5,
+                        "arg_lambda": 2.0,
                         "source": "bind_argument_scorer_repair.py:164-176",
                     },
                 },
@@ -1359,8 +1391,10 @@ def _run_build_dry_run_scenarios(fixture_root: Path) -> list[dict[str, Any]]:
     # 4. Empty cache -> BUILD.
     core_hash_a = _tiny_core_hash(10)
     key_a = _stage_cache_key(
-        stage_id="INCREMENTAL_6_BUILD", upstream_content_hash=core_hash_a,
-        recipe_version="v1", data_role_hash="dev-10",
+        stage_id="INCREMENTAL_6_BUILD",
+        upstream_content_hash=core_hash_a,
+        recipe_version="v1",
+        data_role_hash="dev-10",
     )
     cache: dict[str, str] = {}
     action = "BUILD" if key_a not in cache else "REUSE"
@@ -1374,15 +1408,19 @@ def _run_build_dry_run_scenarios(fixture_root: Path) -> list[dict[str, Any]]:
     # 6. Upstream content change invalidates the downstream cache key.
     core_hash_b = _tiny_core_hash(11)
     key_b = _stage_cache_key(
-        stage_id="INCREMENTAL_6_BUILD", upstream_content_hash=core_hash_b,
-        recipe_version="v1", data_role_hash="dev-10",
+        stage_id="INCREMENTAL_6_BUILD",
+        upstream_content_hash=core_hash_b,
+        recipe_version="v1",
+        data_role_hash="dev-10",
     )
     record("upstream_content_change_invalidates_cache_key", key_b != key_a and key_b not in cache)
 
     # 7. Recipe-version change (formula/schema bump) also invalidates, holding upstream fixed.
     key_c = _stage_cache_key(
-        stage_id="INCREMENTAL_6_BUILD", upstream_content_hash=core_hash_a,
-        recipe_version="v2", data_role_hash="dev-10",
+        stage_id="INCREMENTAL_6_BUILD",
+        upstream_content_hash=core_hash_a,
+        recipe_version="v2",
+        data_role_hash="dev-10",
     )
     record("recipe_version_change_invalidates_cache_key", key_c != key_a)
 
@@ -1454,9 +1492,7 @@ def _run_build_dry_run_scenarios(fixture_root: Path) -> list[dict[str, Any]]:
             scope=mb.BundleScope.DIAGNOSTIC,
             requested_capabilities=frozenset({"diagnostic_only"}),
             publish_status=mb.PublishStatus.STAGING,
-            core=mb.ComponentManifest(
-                "core", str(core_path), core_raw, core_state, "schema-v1"
-            ),
+            core=mb.ComponentManifest("core", str(core_path), core_raw, core_state, "schema-v1"),
             vocabulary=mb.ComponentManifest(
                 "vocabulary", str(vocab_path), vocab_raw, vocab_state, "schema-v1"
             ),
@@ -1546,4 +1582,1211 @@ def run_recovery_build_plan_task(config: RecoveryBuildPlanConfig) -> dict[str, A
         "recovery_protocol": recovery_protocol,
         "legacy_stream_manifest": legacy_stream_manifest,
         "build_dry_run": dry_run_rows,
+    }
+
+
+# =============================================================================
+# Task B-C005REC-004: One-Seed Restore / Clean Build & Fresh-Process Validation
+#
+# Executes REC-003's fixed 8-stage DAG for real, for seed 10 only (RG3 is a
+# ONE-seed pilot; RECOVERY_COHORT_READY across all 5 seeds is REC-005's job).
+# Per RG3's own scope (EXPERIMENT_PLAN_PHASE_B_B2_MODEL_BUNDLE_RECOVERY.md
+# section 6): all 16 primitives must be covered, non-SHIFT-15 must clear the
+# query-EM>=0.95 floor per operation, SHIFT may be recorded COHERENT_LIMITED,
+# and a *separate process* with no access to this run's in-memory state or
+# any shared-cache path must reload the published bundle and reproduce the
+# same discrete predictions for the same sample IDs.
+#
+# REC-001's restore/build classification for seed 10 (`restore_decision.json`)
+# is followed exactly, not re-decided here: Core = RESTORE_CANDIDATE (restored
+# from `runs/phase_a1_shift_compact_structural_probe/seed_10/shared_encoder.pt`,
+# hash cross-checked against REC-001's own recorded value); SHIFT =
+# RESTORE_CANDIDATE (seed 10 is in the R3-009 COMMITTED set -- restored from
+# `.../committed_bank/seed_10/primitive_bank_16_shift_v1.pt`); the other 15
+# primitives (8 canonical minus SHIFT + 2 Branch-B + 6 incremental) plus the
+# Router and ArgumentScorer are all REBUILD_REQUIRED / BUILD_REQUIRED_BY_DESIGN
+# -- genuinely trained by this task, not restored. This means REC-004's own
+# "one-seed pilot" necessarily exercises almost the entire REC-003 clean-build
+# path for real (15 of 16 primitives), not merely a restore-and-verify pass.
+#
+# Every recipe call below was confirmed by directly reading live source
+# during this task (not re-derived from REC-003's own report alone):
+#   * apc.evaluation.learned_routing_benchmark._ensure_learned_routing_bank_and_core
+#     (:493-651, confirmed in full) -- called with `shared_encoder_checkpoint`
+#     pointed at THIS task's own namespace-restored Core copy (never the
+#     hardcoded shared-cache path at :526-533) and `seed_dir` pointed at this
+#     task's own namespace (never `runs/phase_a1_learned_routing_benchmark`).
+#     Because `comp_bank_ckpt` (`runs/phase_a1_composition_library_benchmark/
+#     seed_10/primitive_bank.pt`) is confirmed absent (REC-001 Evidence 2),
+#     its cache-miss branch (:626-639) genuinely trains all 8 canonical + 2
+#     Branch-B primitives -- including a *discarded* generic SHIFT byproduct
+#     (SHIFT is in `ALL_CANONICAL_OPERATIONS`), per ADR-0094's own finding.
+#   * SHIFT_OVERRIDE_MERGE: `bank.get(op_to_id["SHIFT"]).load_state_dict(
+#     mb.primitive_state_dict(shift_v1_state_dict, op_to_id["SHIFT"]))`.
+#     `op_to_id["SHIFT"] == 3` is not assumed -- it falls out of
+#     `_build_heterogeneous_bank`'s own deterministic construction order
+#     (SELECT, COUNT, BIND, SHIFT, ..., confirmed by direct read at
+#     unified_oracle_causal_benchmark.py:357-424), which
+#     `shift_functional_generalization_repair._rebuild_full_bank_structure`
+#     (:607-619, confirmed in full) also uses first, before appending Branch-B
+#     + incremental ops in the same fixed order -- so both this task's own
+#     freshly-built bank and R3-009's committed SHIFT checkpoint assign SHIFT
+#     the identical physical_id, and a shape mismatch on `load_state_dict`
+#     would surface as a loud `RuntimeError`, not a silent misassignment.
+#   * INCREMENTAL_6_BUILD: the *shape* of `incremental_router_benchmark.
+#     get_or_build_16_primitive_bank`'s cache-miss branch (:231-247,
+#     confirmed in full) -- `bank.new_cross_position_primitive(...)` +
+#     `_train_single_primitive(core, p, u_bank_cfg, op, steps=1000)` --
+#     applied directly to the SHIFT_OVERRIDE_MERGE bank, never that
+#     function's own `b008_ckpt` `strict=False` fallback (:225-229), which
+#     this task never calls.
+#   * ROUTER_CALIBRATION: `incremental_router.update_router_incrementally`
+#     (:191-267, confirmed in full) with `IncrementalUpdateCondition.
+#     R0_FULL_RETRAIN`, `router_lr=0.005`, `router_steps=250` -- confirmed
+#     that this call registers a key for every id in `candidate_ids` that
+#     lacks one (:211-213), so a single full-cohort call is sufficient; no
+#     separate `Router.add_primitive_key` bookkeeping is needed by this task.
+#   * ARGUMENT_SCORER_CALIBRATION: `apc.primitives.argument_scoring.
+#     ArgumentScorer.train_on_examples` (:137-199, confirmed in full),
+#     constructed with `d_model=core.model.config.d_model` (confirmed real
+#     call sites in `argument_generalization_audit.py`/`retrieval_repair_
+#     benchmark.py` always override the dataclass's own `d_model=128`
+#     default this way -- using the un-overridden default against a real
+#     `d_model=192` Core would raise a `nn.Linear` shape error at the first
+#     forward call).
+#   * Publish + fresh-process reload both go through `apc.utils.model_bundle.
+#     load_bundle` unmodified (REC-002); this task adds no new loader logic,
+#     per the design doc's own instruction that REC-004 exercises the
+#     existing contract, not extends it.
+# =============================================================================
+
+
+REC004_TASK_ID: Final = "B-C005REC-004"
+REC004_DIRECT_QUERY_EXAMPLES: Final = 1024  # recovery_protocol.json (REC-003)
+REC004_NON_SHIFT_FLOOR: Final = 0.95  # EXPERIMENT_PLAN section 2.2 item 3
+REC004_ROUTER_TRAIN_EXAMPLES: Final = 64
+REC004_ROUTER_EVAL_EXAMPLES: Final = 200
+REC004_ROUTER_LR: Final = 0.005
+REC004_ROUTER_STEPS: Final = 250
+REC004_ARG_SCHEMA_HASH: Final = "apc_argument_schema_v1_recovery"
+REC004_FRESH_PROCESS_SAMPLE_EXAMPLES: Final = 64
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[3]
+
+
+def _rec004_namespace(seed: int) -> Path:
+    return Path(RECOVERY_NAMESPACE_ROOT) / f"seed_{seed}" / "rec004"
+
+
+def _extra_8_ops() -> tuple[str, ...]:
+    """The 2 Branch-B + 6 Phase-A2-incremental operations -- all parameter-
+    free, so `unified_oracle_causal_benchmark.WRONG_FAMILY_MAP`/
+    `NATURAL_BASELINES` (which only cover the 8 canonical ops) do not name
+    them; this task extends both, never hand-typing the operation names."""
+    from apc.environments.operations import (
+        BRANCH_B_NOVEL_OPERATION_NAMES,
+        PHASE_A2_INCREMENTAL_NEW_OPERATIONS,
+    )
+
+    return tuple(BRANCH_B_NOVEL_OPERATION_NAMES) + tuple(PHASE_A2_INCREMENTAL_NEW_OPERATIONS)
+
+
+def _extra_8_wrong_family_map() -> dict[str, str]:
+    ops = _extra_8_ops()
+    return {op: ops[(i + 1) % len(ops)] for i, op in enumerate(ops)}
+
+
+@dataclass(frozen=True)
+class PilotRestoreBuildConfig:
+    output_dir: Path = Path("runs/phase_b_b2_model_bundle_recovery/rec004")
+    seed: int = RECOVERY_PILOT_SEED
+    direct_query_examples_per_operation: int = REC004_DIRECT_QUERY_EXAMPLES
+    non_shift_floor: float = REC004_NON_SHIFT_FLOOR
+
+
+def _read_rec001_recorded_hash(component: str, seed: int) -> str | None:
+    """Read REC-001's own recorded seed-10 `sha256` for cross-validation
+    (never re-derived/guessed -- if `artifact_inventory.json` is missing or
+    lacks the row, this returns None and the caller records that honestly
+    rather than fabricating a match)."""
+    inv_path = Path("runs/phase_b_b2_model_bundle_recovery/rec001/run_001/artifact_inventory.json")
+    if not inv_path.is_file():
+        return None
+    data = json.loads(inv_path.read_text(encoding="utf-8"))
+    key = "core_checkpoints" if component == "core" else "shift_versioned_replacement_checkpoints"
+    for row in data.get(key, []):
+        if row.get("seed") == seed:
+            return row.get("sha256")
+    return None
+
+
+def _snapshot_forbidden_cache_hashes(seed: int) -> dict[str, str | None]:
+    """Raw-byte hash of every real shared-cache path this task must never
+    write to, for the given seed -- taken before and after the run so
+    `side_effect_audit.json` can prove (not merely assert) the shared cache
+    was never modified."""
+    candidates = {
+        "primitive_bank_16": Path("runs/phase_a2_bank_scaling_benchmark")
+        / f"seed_{seed}"
+        / "primitive_bank_16.pt",
+        "shared_encoder": Path("runs/phase_a1_shift_compact_structural_probe")
+        / f"seed_{seed}"
+        / "shared_encoder.pt",
+        "learned_routing_bank_b008": Path("runs/phase_a1_learned_routing_benchmark")
+        / f"seed_{seed}"
+        / "primitive_bank.pt",
+        "composition_library_bank": Path("runs/phase_a1_composition_library_benchmark")
+        / f"seed_{seed}"
+        / "primitive_bank.pt",
+        "shift_committed_bank_v1": (
+            Path("runs/phase_b_b2_post_d2/r3_009_shift_functional_generalization_repair")
+            / "committed_bank"
+            / f"seed_{seed}"
+            / "primitive_bank_16_shift_v1.pt"
+        ),
+    }
+    return {
+        name: (mb.raw_file_sha256(path) if path.is_file() else None)
+        for name, path in candidates.items()
+    }
+
+
+# ---------------------------------------------------------------------------
+# Stage 1: restore Core + SHIFT (REC-001 RESTORE_CANDIDATE artifacts) into
+# this task's own namespace. Never touches the shared-cache source files.
+# ---------------------------------------------------------------------------
+
+
+def _restore_core_and_shift(config: PilotRestoreBuildConfig) -> dict[str, Any]:
+    _guard_not_frozen("restore_core_and_shift")
+    seed = config.seed
+    ns = _rec004_namespace(seed)
+    core_source = (
+        Path("runs/phase_a1_shift_compact_structural_probe") / f"seed_{seed}" / "shared_encoder.pt"
+    )
+    shift_source = (
+        Path("runs/phase_b_b2_post_d2/r3_009_shift_functional_generalization_repair")
+        / "committed_bank"
+        / f"seed_{seed}"
+        / "primitive_bank_16_shift_v1.pt"
+    )
+    if not core_source.is_file():
+        raise mb.MissingArtifactError(f"REC-004 restore: Core source missing: {core_source}")
+    if not shift_source.is_file():
+        raise mb.MissingArtifactError(f"REC-004 restore: SHIFT source missing: {shift_source}")
+
+    core_component = mb.legacy_import(core_source, ns / "core", component_id=f"core_seed{seed}")
+    shift_component = mb.legacy_import(
+        shift_source, ns / "shift", component_id=f"shift_bank_v1_seed{seed}"
+    )
+
+    expected_core_hash = _read_rec001_recorded_hash("core", seed)
+    expected_shift_hash = _read_rec001_recorded_hash("shift", seed)
+
+    return {
+        "core": {
+            "source": str(core_source.resolve()),
+            "restored_to": str(Path(core_component.file_path).resolve()),
+            "raw_file_sha256": core_component.file_sha256,
+            "canonical_state_hash": core_component.canonical_state_hash,
+            "rec001_recorded_hash": expected_core_hash,
+            "matches_rec001_recorded_hash": (
+                expected_core_hash is not None and expected_core_hash == core_component.file_sha256
+            ),
+            "provenance_status": mb.ProvenanceStatus.LEGACY_IMPORTED.value,
+            "restore_decision_source": (
+                "runs/phase_b_b2_model_bundle_recovery/rec001/run_001/restore_decision.json "
+                "(core_task_encoder_decoder = RESTORE_CANDIDATE)"
+            ),
+        },
+        "shift_bank_v1": {
+            "source": str(shift_source.resolve()),
+            "restored_to": str(Path(shift_component.file_path).resolve()),
+            "raw_file_sha256": shift_component.file_sha256,
+            "canonical_state_hash": shift_component.canonical_state_hash,
+            "rec001_recorded_hash": expected_shift_hash,
+            "matches_rec001_recorded_hash": (
+                expected_shift_hash is not None
+                and expected_shift_hash == shift_component.file_sha256
+            ),
+            "provenance_status": mb.ProvenanceStatus.LEGACY_IMPORTED.value,
+            "restore_decision_source": (
+                "runs/phase_b_b2_model_bundle_recovery/rec001/run_001/restore_decision.json "
+                "(bank_shift = RESTORE_CANDIDATE for seed 10, COMMITTED per "
+                "bank_transaction_log.json)"
+            ),
+        },
+        "namespace_root": str(ns.resolve()),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Stage 2: CANONICAL_AND_BRANCH_B_BUILD -> SHIFT_OVERRIDE_MERGE ->
+# INCREMENTAL_6_BUILD. Real GPU training for 15 of 16 primitives.
+# ---------------------------------------------------------------------------
+
+
+def _run_build_stages(
+    config: PilotRestoreBuildConfig, restore_info: dict[str, Any]
+) -> tuple[Any, Any, dict[str, int], dict[str, Any]]:
+    _guard_not_frozen("run_build_stages")
+    from apc.environments.operations import PHASE_A2_INCREMENTAL_NEW_OPERATIONS
+    from apc.evaluation.learned_routing_benchmark import (
+        LearnedRoutingBenchmarkConfig,
+        _ensure_learned_routing_bank_and_core,
+    )
+    from apc.evaluation.unified_oracle_causal_benchmark import (
+        UnifiedBenchmarkConfig,
+        _train_single_primitive,
+    )
+    from apc.primitives.primitive import CrossPositionPrimitiveConfig, PrimitiveStatus
+
+    seed = config.seed
+    ns = _rec004_namespace(seed)
+    canonical_dir = ns / "canonical_branch_b"
+    stage_report: dict[str, Any] = {}
+
+    t0 = time.time()
+    lr_cfg = LearnedRoutingBenchmarkConfig(
+        seed=seed,
+        shared_encoder_checkpoint=restore_info["core"]["restored_to"],
+    )
+    core, bank, op_to_id = _ensure_learned_routing_bank_and_core(lr_cfg, seed_dir=canonical_dir)
+    stage_report["CANONICAL_AND_BRANCH_B_BUILD"] = {
+        "operations": [
+            "SELECT",
+            "COUNT",
+            "BIND",
+            "COPY",
+            "REVERSE",
+            "SORT",
+            "NEGATE",
+            "SWAP_PAIRS",
+            "INVERT_HALF",
+        ],
+        "shift_generic_byproduct_trained_and_discarded": True,
+        "op_to_id_after_stage": dict(op_to_id),
+        "output_bank_file": str((canonical_dir / "primitive_bank.pt").resolve()),
+        "wall_clock_seconds": time.time() - t0,
+    }
+
+    t1 = time.time()
+    shift_path = Path(restore_info["shift_bank_v1"]["restored_to"])
+    shift_sd = mb.load_state_dict(shift_path)
+    shift_id = op_to_id["SHIFT"]
+    shift_slice = mb.primitive_state_dict(shift_sd, shift_id)
+    if not shift_slice:
+        raise mb.MissingArtifactError(
+            f"REC-004 SHIFT_OVERRIDE_MERGE: no primitive slice found at physical_id "
+            f"{shift_id} in {shift_path} -- op_to_id assignment order assumption failed"
+        )
+    bank.get(shift_id).load_state_dict(shift_slice, strict=True)
+    stage_report["SHIFT_OVERRIDE_MERGE"] = {
+        "shift_primitive_id": shift_id,
+        "source": str(shift_path),
+        "keys_loaded": sorted(shift_slice.keys()),
+        "discarded_generic_byproduct_replaced": True,
+        "wall_clock_seconds": time.time() - t1,
+    }
+
+    t2 = time.time()
+    u_bank_cfg = UnifiedBenchmarkConfig(seed=seed, vocab_size=10, device=str(core.device))
+    incremental_losses: dict[str, float] = {}
+    incremental_ids: dict[str, int] = {}
+    for op in PHASE_A2_INCREMENTAL_NEW_OPERATIONS:
+        p = bank.new_cross_position_primitive(
+            CrossPositionPrimitiveConfig(
+                operation=op,
+                d_model=core.model.config.d_model,
+                d_operator=32,
+                n_head=4,
+                d_operator_ff=64,
+                vocab_size=10,
+                max_sequence_length=32,
+            ),
+            status=PrimitiveStatus.STABLE,
+        )
+        op_to_id[op] = p.primitive_id
+        incremental_ids[op] = p.primitive_id
+        p.to(core.device)
+        incremental_losses[op] = _train_single_primitive(core, p, u_bank_cfg, op, steps=1000)
+    bank.freeze_all()
+    bank.eval()
+    stage_report["INCREMENTAL_6_BUILD"] = {
+        "operations": list(PHASE_A2_INCREMENTAL_NEW_OPERATIONS),
+        "steps_per_operation": 1000,
+        "final_losses": incremental_losses,
+        "op_to_id_added": incremental_ids,
+        "wall_clock_seconds": time.time() - t2,
+    }
+
+    if len(op_to_id) != 16:
+        raise mb.IncompleteBundleError(
+            f"REC-004 build produced {len(op_to_id)} primitives, expected 16: {sorted(op_to_id)}"
+        )
+
+    return core, bank, op_to_id, stage_report
+
+
+# ---------------------------------------------------------------------------
+# Stage 3: ROUTER_CALIBRATION -> ARGUMENT_SCORER_CALIBRATION.
+# ---------------------------------------------------------------------------
+
+
+def _calibrate_router_and_scorer(
+    core: Any, bank: Any, op_to_id: dict[str, int], config: PilotRestoreBuildConfig
+) -> tuple[Any, Any, dict[str, Any]]:
+    _guard_not_frozen("calibrate_router_and_scorer")
+    from apc.evaluation.incremental_router_benchmark import extract_task_representations
+    from apc.evaluation.recurrence_benchmark import generate_benchmark_examples
+    from apc.evaluation.unified_oracle_causal_benchmark import (
+        PARAMETERIZED_OPERATION_NAMES,
+        _flatten_groups,
+        generate_compact_operator_counterfactual_groups,
+    )
+    from apc.primitives.argument_scoring import ArgumentScorer, ArgumentScorerConfig
+    from apc.primitives.incremental_router import (
+        IncrementalRouterConfig,
+        IncrementalUpdateCondition,
+        RouterReplayBuffer,
+        evaluate_router_accuracy,
+        update_router_incrementally,
+    )
+    from apc.primitives.router import Router, RouterConfig
+
+    seed = config.seed
+    device = core.device
+    all_ops = sorted(op_to_id.keys())
+
+    train_z_by_pid: dict[int, list[tuple[torch.Tensor, int]]] = {}
+    eval_z_by_pid: dict[int, list[tuple[torch.Tensor, int]]] = {}
+    for op in all_ops:
+        pid = op_to_id[op]
+        ex_train = generate_benchmark_examples(
+            seed=seed * 1000 + 11,
+            n=REC004_ROUTER_TRAIN_EXAMPLES,
+            operation=op,
+            split="train",
+            vocab_size=10,
+        )
+        z_train = extract_task_representations(core, ex_train)
+        train_z_by_pid[pid] = [(z_train[i], pid) for i in range(len(ex_train))]
+        ex_eval = generate_benchmark_examples(
+            seed=seed * 1000 + 99,
+            n=REC004_ROUTER_EVAL_EXAMPLES,
+            operation=op,
+            split="test",
+            vocab_size=10,
+        )
+        z_eval = extract_task_representations(core, ex_eval)
+        eval_z_by_pid[pid] = [(z_eval[i], pid) for i in range(len(ex_eval))]
+
+    router = Router(RouterConfig(d_model=core.model.config.d_model, top_k=1, score_fn="dot"))
+    router.to(device)
+    replay_buffer = RouterReplayBuffer()
+    all_pids = [op_to_id[op] for op in all_ops]
+    router_cfg = IncrementalRouterConfig(
+        condition=IncrementalUpdateCondition.R0_FULL_RETRAIN,
+        router_lr=REC004_ROUTER_LR,
+        router_steps=REC004_ROUTER_STEPS,
+        seed=seed,
+    )
+    calib_result = update_router_incrementally(
+        router,
+        candidate_ids=all_pids,
+        new_primitive_ids=all_pids,
+        new_data_by_pid=train_z_by_pid,
+        replay_buffer=replay_buffer,
+        config=router_cfg,
+        all_historical_data_by_pid=train_z_by_pid,
+        device=device,
+    )
+    router.eval()
+
+    accuracy = evaluate_router_accuracy(router, all_pids, eval_z_by_pid, device=device)
+    router_table = {
+        op: {
+            "primitive_id": op_to_id[op],
+            "top1": accuracy[op_to_id[op]]["top1"],
+            "topk": accuracy[op_to_id[op]]["topk"],
+            "entropy": accuracy[op_to_id[op]]["entropy"],
+            "num_examples": accuracy[op_to_id[op]]["num_examples"],
+        }
+        for op in all_ops
+    }
+
+    examples_by_op: dict[str, Any] = {}
+    z_task_by_op: dict[str, torch.Tensor] = {}
+    for op in PARAMETERIZED_OPERATION_NAMES:
+        n_groups = max(1, math.ceil(REC004_DIRECT_QUERY_EXAMPLES / 3))
+        groups = generate_compact_operator_counterfactual_groups(
+            seed,
+            n_groups,
+            operation=op,
+            step=0,
+            split="rec004_scorer_calibration",
+            vocab_size=10,
+            sequence_length_range=(6, 10),
+            group_size=3,
+        )
+        examples, _wrong_arg_map, _ = _flatten_groups(groups)
+        examples = examples[:REC004_DIRECT_QUERY_EXAMPLES]
+        examples_by_op[op] = examples
+        z_task_by_op[op] = extract_task_representations(core, examples)
+
+    scorer = ArgumentScorer(
+        ArgumentScorerConfig(
+            d_model=core.model.config.d_model, lambda_weight=2.0, lr=0.005, steps=200
+        )
+    )
+    scorer.to(device)
+    scorer_losses = scorer.train_on_examples(z_task_by_op, examples_by_op, device=device)
+    scorer.eval()
+
+    report = {
+        "router_calibration": {
+            "condition": calib_result["condition"],
+            "candidate_count": calib_result["candidate_count"],
+            "replay_buffer_size": calib_result["replay_buffer_size"],
+            "final_loss": calib_result["final_loss"],
+            "router_lr": REC004_ROUTER_LR,
+            "router_steps": REC004_ROUTER_STEPS,
+            "train_examples_per_op": REC004_ROUTER_TRAIN_EXAMPLES,
+            "eval_examples_per_op": REC004_ROUTER_EVAL_EXAMPLES,
+        },
+        "router_top1_topk_by_operation": router_table,
+        "argument_scorer_calibration": {
+            "final_losses_by_op": scorer_losses,
+            "lambda_weight": 2.0,
+            "lr": 0.005,
+            "steps": 200,
+            "examples_per_op": REC004_DIRECT_QUERY_EXAMPLES,
+        },
+    }
+    return router, scorer, report
+
+
+# ---------------------------------------------------------------------------
+# Stage 4: direct/oracle raw-execution measurement, all 16 primitives.
+# Separate from the router top-1 table above (REC-004 action item 5).
+# ---------------------------------------------------------------------------
+
+
+def _evaluate_one_operation(
+    core: Any,
+    bank: Any,
+    op_to_id: dict[str, int],
+    op: str,
+    *,
+    seed: int,
+    n_examples: int,
+    split: str,
+) -> dict[str, Any]:
+    """Correct / Wrong-Argument (parameterized only) / Wrong-Family / None
+    arms for ONE of the 16 real registry operations -- generalizes
+    `unified_oracle_causal_benchmark.run_unified_oracle_causal_benchmark`'s
+    per-operation block (AGENTS.md's Correct/Wrong/None causal evidence rule)
+    to all 16 operations, not only the 8 canonical ones."""
+    from apc.evaluation.unified_oracle_causal_benchmark import (
+        DEFAULT_WRONG_FAMILY_ARGUMENTS,
+        NATURAL_BASELINES,
+        PARAMETERIZED_OPERATION_NAMES,
+        WRONG_FAMILY_MAP,
+        _evaluate_primitive_arm,
+        _flatten_groups,
+        _generate_parameter_free_examples,
+        _make_arg_provider_const,
+        _make_arg_provider_correct,
+        _make_arg_provider_map,
+        generate_compact_operator_counterfactual_groups,
+    )
+
+    wrong_family_map = {**WRONG_FAMILY_MAP, **_extra_8_wrong_family_map()}
+    natural_baselines = {**NATURAL_BASELINES, **{o: 0.01 for o in _extra_8_ops()}}
+    wrong_family_arguments = {**DEFAULT_WRONG_FAMILY_ARGUMENTS, **{o: None for o in _extra_8_ops()}}
+
+    is_param = op in PARAMETERIZED_OPERATION_NAMES
+    pid = op_to_id[op]
+    prim = bank.get(pid)
+    wrong_op = wrong_family_map[op]
+    wrong_pid = op_to_id[wrong_op]
+    wrong_prim = bank.get(wrong_pid)
+    b_natural = natural_baselines[op]
+
+    if is_param:
+        n_groups = max(1, math.ceil(n_examples / 3))
+        groups = generate_compact_operator_counterfactual_groups(
+            seed,
+            n_groups,
+            operation=op,
+            step=0,
+            split=split,
+            vocab_size=10,
+            sequence_length_range=(6, 10),
+            group_size=3,
+        )
+        examples, wrong_arg_map, _ = _flatten_groups(groups)
+        examples = examples[:n_examples]
+
+        corr_exact, corr_tok = _evaluate_primitive_arm(
+            core, prim, examples, op, argument_provider=_make_arg_provider_correct(op)
+        )
+        wr_arg_exact, _ = _evaluate_primitive_arm(
+            core, prim, examples, op, argument_provider=_make_arg_provider_map(wrong_arg_map)
+        )
+        wr_fam_exact, _ = _evaluate_primitive_arm(
+            core,
+            wrong_prim,
+            examples,
+            op,
+            argument_provider=_make_arg_provider_const(wrong_family_arguments[wrong_op]),
+            primitive_operation=wrong_op,
+        )
+        none_exact, _ = _evaluate_primitive_arm(core, prim, examples, op, argument_provider=None)
+        causal_gap = corr_exact - max(wr_arg_exact, wr_fam_exact, none_exact)
+    else:
+        examples = _generate_parameter_free_examples(
+            seed,
+            n_examples,
+            operation=op,
+            split=split,
+            vocab_size=10,
+            sequence_length_range=(6, 10),
+        )
+        corr_exact, corr_tok = _evaluate_primitive_arm(
+            core, prim, examples, op, argument_provider=None
+        )
+        wr_arg_exact = None
+        wr_fam_exact, _ = _evaluate_primitive_arm(
+            core,
+            wrong_prim,
+            examples,
+            op,
+            argument_provider=None,
+            primitive_operation=wrong_op,
+        )
+        prim.enabled = False
+        none_exact, _ = _evaluate_primitive_arm(core, prim, examples, op, argument_provider=None)
+        prim.enabled = True
+        causal_gap = corr_exact - max(wr_fam_exact, none_exact)
+
+    return {
+        "operation": op,
+        "primitive_id": pid,
+        "primitive_class": prim.__class__.__name__,
+        "parameter_count": prim.num_parameters(),
+        "is_parameterized": is_param,
+        "requested_examples": n_examples,
+        "actual_examples": len(examples),
+        "correct_exact_match": corr_exact,
+        "correct_token_accuracy": corr_tok,
+        "wrong_argument_exact_match": wr_arg_exact,
+        "wrong_family_exact_match": wr_fam_exact,
+        "none_exact_match": none_exact,
+        "exact_match_causal_gap": causal_gap,
+        "natural_baseline": b_natural,
+        "none_within_natural_baseline_plus_0.05": none_exact <= (b_natural + 0.05),
+    }
+
+
+def _measure_all_16_primitives(
+    core: Any,
+    bank: Any,
+    op_to_id: dict[str, int],
+    config: PilotRestoreBuildConfig,
+    *,
+    provenance_by_op: dict[str, mb.ProvenanceStatus],
+) -> dict[str, Any]:
+    rows: dict[str, Any] = {}
+    for op in sorted(op_to_id.keys()):
+        row = _evaluate_one_operation(
+            core,
+            bank,
+            op_to_id,
+            op,
+            seed=config.seed,
+            n_examples=config.direct_query_examples_per_operation,
+            split="rec004_direct_query",
+        )
+        if op == "SHIFT":
+            row["recovery_floor_status"] = "COHERENT_LIMITED"
+            row["recovery_floor_passed"] = None
+        else:
+            row["recovery_floor_status"] = "EVALUATED"
+            row["recovery_floor_passed"] = row["correct_exact_match"] >= config.non_shift_floor
+        row["provenance_status"] = provenance_by_op[op].value
+        rows[op] = row
+
+    non_shift_ops = [op for op in rows if op != "SHIFT"]
+    all_non_shift_pass = all(bool(rows[op]["recovery_floor_passed"]) for op in non_shift_ops)
+    return {
+        "task_id": REC004_TASK_ID,
+        "non_shift_floor": config.non_shift_floor,
+        "direct_query_examples_per_operation": config.direct_query_examples_per_operation,
+        "operations": rows,
+        "all_16_operations_present": set(rows) == set(op_to_id) and len(rows) == 16,
+        "all_non_shift_15_floor_passed": all_non_shift_pass,
+        "non_shift_floor_failures": [
+            op for op in non_shift_ops if not rows[op]["recovery_floor_passed"]
+        ],
+        "shift_status": "COHERENT_LIMITED",
+        "shift_correct_exact_match": rows.get("SHIFT", {}).get("correct_exact_match"),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Duplicated (deliberately, not imported -- see module docstring of
+# scripts/rec004_fresh_process_check.py) raw discrete-token prediction
+# extraction, used ONLY for the fresh-process byte-exact comparison.
+# ---------------------------------------------------------------------------
+
+
+def _predict_tokens(
+    core: Any, primitive: Any, examples: Sequence[Any], op: str, argument_provider: Any
+) -> list[list[int]]:
+    from apc.core.data import collate_content_only_batch
+    from apc.environments.operations import get_operation
+    from apc.primitives.primitive import (
+        CrossPositionPrimitive,
+        ReverseRelativePrimitive,
+        ShiftRelativePrimitive,
+    )
+
+    primitive.eval()
+    device = core.device
+    content_lengths = [len(ex.input_tokens) for ex in examples]
+    output_lengths = [get_operation(op).output_length(n) for n in content_lengths]
+    batch_input = collate_content_only_batch(examples, core.tokens, device=device)
+    with torch.no_grad():
+        h = core.model.encode(batch_input)[:, 1 : 1 + max(content_lengths), :]
+        argument_values = (
+            None if argument_provider is None else [argument_provider(ex) for ex in examples]
+        )
+        if isinstance(
+            primitive, (CrossPositionPrimitive, ShiftRelativePrimitive, ReverseRelativePrimitive)
+        ):
+            logits = primitive(h, content_lengths, output_lengths, argument_values)
+        else:
+            logits = primitive(h)
+        pred_tokens = logits.argmax(dim=-1)
+    return [pred_tokens[row, :n].tolist() for row, n in enumerate(output_lengths)]
+
+
+# ---------------------------------------------------------------------------
+# Stage 5: publish (CERTIFICATE stage) -- assemble + self-verify a real
+# ModelBundleManifest through the exact fail-closed contract REC-002 built.
+# ---------------------------------------------------------------------------
+
+
+def _vocab_state_dict(core: Any) -> dict[str, torch.Tensor]:
+    tokens = core.tokens
+    return {
+        "vocab_size": torch.tensor([tokens.env_vocab_size], dtype=torch.long),
+        "op_base": torch.tensor([tokens.op_base], dtype=torch.long),
+        "arg_base": torch.tensor([tokens.arg_base], dtype=torch.long),
+        "arg_span": torch.tensor([tokens.arg_span], dtype=torch.long),
+        "num_operations": torch.tensor([tokens.num_operations], dtype=torch.long),
+    }
+
+
+def _manifest_to_json_dict(manifest: mb.ModelBundleManifest) -> dict[str, Any]:
+    def _component(c: mb.ComponentManifest | None) -> dict[str, Any] | None:
+        return None if c is None else dataclasses.asdict(c)
+
+    return {
+        "schema_version": manifest.schema_version,
+        "bundle_id": manifest.bundle_id,
+        "content_manifest_digest": manifest.content_manifest_digest,
+        "source_commit": manifest.source_commit,
+        "runtime_recipe_version": manifest.runtime_recipe_version,
+        "environment_record": dict(manifest.environment_record),
+        "model_id": manifest.model_id,
+        "model_seed": manifest.model_seed,
+        "training_run_id": manifest.training_run_id,
+        "parent_bundle_ids": list(manifest.parent_bundle_ids),
+        "build_route": manifest.build_route.value,
+        "scope": manifest.scope.value,
+        "requested_capabilities": sorted(manifest.requested_capabilities),
+        "publish_status": manifest.publish_status.value,
+        "core": _component(manifest.core),
+        "vocabulary": _component(manifest.vocabulary),
+        "primitives": [
+            {**dataclasses.asdict(p), "provenance_status": p.provenance_status.value}
+            for p in manifest.primitives
+        ],
+        "router": dataclasses.asdict(manifest.router),
+        "argument_scorer": dataclasses.asdict(manifest.argument_scorer),
+        "scoring_policy": dataclasses.asdict(manifest.scoring_policy),
+        "build_recipe_hash": manifest.build_recipe_hash,
+        "known_defects": list(manifest.known_defects),
+        "clean_build_exercised_stages": list(manifest.clean_build_exercised_stages),
+        "qualification_refs": list(manifest.qualification_refs),
+    }
+
+
+def _publish_bundle(
+    config: PilotRestoreBuildConfig,
+    core: Any,
+    bank: Any,
+    router: Any,
+    scorer: Any,
+    op_to_id: dict[str, int],
+    restore_info: dict[str, Any],
+    provenance_by_op: dict[str, mb.ProvenanceStatus],
+) -> tuple[mb.ModelBundleManifest, dict[str, Any]]:
+    _guard_not_frozen("publish_bundle")
+    from apc.environments.operations import PHASE_A2_INCREMENTAL_NEW_OPERATIONS
+    from apc.primitives.argument_scoring import PARAMETERIZED_OPERATIONS as ARG_PARAM_OPS
+    from apc.utils.system_info import get_system_info
+
+    seed = config.seed
+    ns = _rec004_namespace(seed)
+    publish_dir = ns / "publish"
+    publish_dir.mkdir(parents=True, exist_ok=True)
+
+    core_path = Path(restore_info["core"]["restored_to"]).resolve()
+    bank_path = (publish_dir / "primitive_bank_16.pt").resolve()
+    router_path = (publish_dir / "router.pt").resolve()
+    scorer_path = (publish_dir / "argument_scorer.pt").resolve()
+    vocab_path = (publish_dir / "vocab.pt").resolve()
+
+    torch.save(bank.state_dict(), bank_path)
+    torch.save(router.state_dict(), router_path)
+    torch.save(scorer.state_dict(), scorer_path)
+    torch.save(_vocab_state_dict(core), vocab_path)
+
+    core_raw, core_state = mb.canonical_state_hash_from_file(core_path)
+    schema_hash = (
+        f"vocab{core.tokens.env_vocab_size}_ops{core.tokens.num_operations}_"
+        f"argspan{core.tokens.arg_span}_v1"
+    )
+    core_component = mb.ComponentManifest("core", str(core_path), core_raw, core_state, schema_hash)
+    vocab_raw, vocab_state = mb.canonical_state_hash_from_file(vocab_path)
+    vocab_component = mb.ComponentManifest(
+        "vocabulary", str(vocab_path), vocab_raw, vocab_state, schema_hash
+    )
+
+    bank_state_dict = mb.load_state_dict(bank_path)
+    incremental_ops = set(PHASE_A2_INCREMENTAL_NEW_OPERATIONS)
+    primitives = []
+    for op, pid in sorted(op_to_id.items(), key=lambda kv: kv[1]):
+        sliced = mb.primitive_state_dict(bank_state_dict, pid)
+        weights_hash = mb.canonical_state_hash(sliced)
+        provenance = provenance_by_op[op]
+        if op == "SHIFT":
+            receipt = f"REC-004 restore of {restore_info['shift_bank_v1']['source']}"
+        elif op in incremental_ops:
+            receipt = "REC-004 INCREMENTAL_6_BUILD stage, steps=1000"
+        else:
+            receipt = "REC-004 CANONICAL_AND_BRANCH_B_BUILD stage"
+        primitives.append(
+            mb.PrimitiveManifestEntry(
+                physical_id=pid,
+                operation_name=op,
+                version="rec004-seed10-v1",
+                architecture_signature="shift_relative_v1"
+                if op == "SHIFT"
+                else "cross_position_v1",
+                state_abi_hash=weights_hash,
+                core_dependency_hash=core_state,
+                decoder_dependency_hash="NOT_APPLICABLE_NO_SEPARATE_DECODER_COMPONENT",
+                weights_hash=weights_hash,
+                source_artifact=str(bank_path),
+                provenance_status=provenance,
+                argument_schema_hash=REC004_ARG_SCHEMA_HASH if op in ARG_PARAM_OPS else None,
+                training_receipt=receipt,
+            )
+        )
+
+    router_sd = mb.load_state_dict(router_path)
+    primitive_ids = [p.physical_id for p in primitives]
+    router_component = mb.RouterManifest(
+        source_artifact=str(router_path),
+        weights_hash=mb.canonical_state_hash(mb.router_non_key_state_dict(router_sd)),
+        task_state_dependency_hash=core_state,
+        key_to_primitive_mapping_hash=mb.router_key_to_primitive_mapping_hash(
+            router_sd, primitive_ids
+        ),
+    )
+    scorer_sd = mb.load_state_dict(scorer_path)
+    scorer_component = mb.ArgumentScorerManifest(
+        source_artifact=str(scorer_path),
+        weights_hash=mb.canonical_state_hash(scorer_sd),
+        input_dependency_hash=core_state,
+        argument_schema_hash=REC004_ARG_SCHEMA_HASH,
+    )
+    scoring_policy = mb.ScoringPolicyManifest(
+        family_formula_version="dot_product_v1",
+        argument_formula_version="select_sigmoid_v2_adr0088",
+        lambda_weight=2.0,
+        application_policy_version="rec004_recovery_v1",
+        calibrated_pair_id=f"rec004-seed{seed}-pair-1",
+    )
+
+    system_info = get_system_info(seed=seed)
+    manifest = mb.build_manifest(
+        schema_version=1,
+        source_commit=system_info.get("git_commit") or "unknown",
+        runtime_recipe_version="rec004-v1",
+        environment_record={
+            "python_version": str(system_info["python_version"]),
+            "torch_version": str(system_info["torch_version"]),
+            "device_name": str(system_info.get("device_name")),
+        },
+        model_id=f"seed{seed}",
+        model_seed=seed,
+        training_run_id=f"rec004-seed{seed}-run-001",
+        parent_bundle_ids=(),
+        build_route=mb.BuildRoute.PARTIAL_BUILD,
+        scope=mb.BundleScope.NOMINAL,
+        requested_capabilities=frozenset({"nominal_execution", "diagnostic_only"}),
+        publish_status=mb.PublishStatus.PUBLISHED,
+        core=core_component,
+        vocabulary=vocab_component,
+        primitives=tuple(primitives),
+        router=router_component,
+        argument_scorer=scorer_component,
+        scoring_policy=scoring_policy,
+        build_recipe_hash=hashlib.sha256(b"B-C005REC-004-build-plan-v1").hexdigest(),
+        known_defects=(),
+        clean_build_exercised_stages=(
+            "CANONICAL_AND_BRANCH_B_BUILD",
+            "SHIFT_OVERRIDE_MERGE",
+            "INCREMENTAL_6_BUILD",
+            "ROUTER_CALIBRATION",
+            "ARGUMENT_SCORER_CALIBRATION",
+        ),
+        qualification_refs=(REC004_TASK_ID,),
+    )
+
+    # Self-verify through the real fail-closed contract -- RG3 depends on
+    # this succeeding, not merely on "training ran".
+    loaded = mb.load_bundle(manifest, mode="nominal", expected_primitive_count=16)
+
+    bundle_dir = (
+        _repo_root() / "runs" / "phase_b_b2_model_bundle_recovery" / "bundles" / manifest.bundle_id
+    )
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+    manifest_json = _manifest_to_json_dict(manifest)
+    (bundle_dir / "manifest.json").write_text(json.dumps(manifest_json, indent=2), encoding="utf-8")
+
+    manifest_paths_file = publish_dir / "manifest_paths.json"
+    manifest_paths_file.write_text(
+        json.dumps({"op_to_id": op_to_id, "manifest": manifest_json}, indent=2), encoding="utf-8"
+    )
+
+    report = {
+        "bundle_id": manifest.bundle_id,
+        "content_manifest_digest": manifest.content_manifest_digest,
+        "self_load_bundle_mode": "nominal",
+        "self_load_bundle_checks_performed": list(loaded.checks_performed),
+        "manifest_path": str(bundle_dir / "manifest.json"),
+        "manifest_paths_json_for_fresh_process": str(manifest_paths_file.resolve()),
+        "core_path": str(core_path),
+        "bank_path": str(bank_path),
+        "router_path": str(router_path),
+        "scorer_path": str(scorer_path),
+        "vocab_path": str(vocab_path),
+    }
+    return manifest, report
+
+
+# ---------------------------------------------------------------------------
+# Stage 6: fresh-process validation. Spawns a genuinely separate `python`
+# process with no shared in-memory state, from a scratch working directory
+# that is not the repo root, and diffs its discrete predictions against this
+# process's own.
+# ---------------------------------------------------------------------------
+
+
+def _run_fresh_process_validation(
+    config: PilotRestoreBuildConfig,
+    core: Any,
+    bank: Any,
+    op_to_id: dict[str, int],
+    manifest_paths_file: str,
+    bundle_id: str,
+) -> dict[str, Any]:
+    from apc.evaluation.unified_oracle_causal_benchmark import (
+        PARAMETERIZED_OPERATION_NAMES,
+        _flatten_groups,
+        _generate_parameter_free_examples,
+        _make_arg_provider_correct,
+        generate_compact_operator_counterfactual_groups,
+    )
+
+    seed = config.seed
+    sample_n = REC004_FRESH_PROCESS_SAMPLE_EXAMPLES
+    split = "rec004_fresh_process_check"
+
+    in_process_predictions: dict[str, list[list[int]]] = {}
+    for op, pid in sorted(op_to_id.items()):
+        prim = bank.get(pid)
+        if op in PARAMETERIZED_OPERATION_NAMES:
+            n_groups = max(1, math.ceil(sample_n / 3))
+            groups = generate_compact_operator_counterfactual_groups(
+                seed,
+                n_groups,
+                operation=op,
+                step=0,
+                split=split,
+                vocab_size=10,
+                sequence_length_range=(6, 10),
+                group_size=3,
+            )
+            examples, _wrong_arg_map, _ = _flatten_groups(groups)
+            examples = examples[:sample_n]
+            provider = _make_arg_provider_correct(op)
+        else:
+            examples = _generate_parameter_free_examples(
+                seed,
+                sample_n,
+                operation=op,
+                split=split,
+                vocab_size=10,
+                sequence_length_range=(6, 10),
+            )
+            provider = None
+        in_process_predictions[op] = _predict_tokens(core, prim, examples, op, provider)
+
+    script_path = _repo_root() / "scripts" / "rec004_fresh_process_check.py"
+    scratch_cwd = Path(tempfile.gettempdir()) / f"apc_rec004_fresh_process_cwd_seed{seed}"
+    scratch_cwd.mkdir(parents=True, exist_ok=True)
+
+    t0 = time.time()
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(script_path),
+            "--manifest-paths",
+            manifest_paths_file,
+            "--seed",
+            str(seed),
+            "--sample-examples-per-op",
+            str(sample_n),
+            "--split",
+            split,
+        ],
+        cwd=str(scratch_cwd),
+        capture_output=True,
+        text=True,
+        timeout=900,
+        check=False,
+        env=dict(os.environ),
+    )
+    wall = time.time() - t0
+
+    if proc.returncode != 0:
+        return {
+            "task_id": REC004_TASK_ID,
+            "cwd_used": str(scratch_cwd),
+            "repo_root_cwd": str(_repo_root()),
+            "different_working_directory_confirmed": str(scratch_cwd) != str(_repo_root()),
+            "subprocess_returncode": proc.returncode,
+            "subprocess_stdout_tail": proc.stdout[-4000:],
+            "subprocess_stderr_tail": proc.stderr[-4000:],
+            "reproducibility_passed": False,
+            "wall_clock_seconds": wall,
+        }
+
+    fresh = json.loads(proc.stdout.strip().splitlines()[-1])
+    fresh_predictions = fresh["predictions_by_op"]
+
+    mismatches: dict[str, Any] = {}
+    for op in sorted(op_to_id):
+        a = in_process_predictions[op]
+        b = fresh_predictions.get(op)
+        if a != b:
+            mismatches[op] = {"in_process": a, "fresh_process": b}
+
+    return {
+        "task_id": REC004_TASK_ID,
+        "cwd_used": str(scratch_cwd),
+        "repo_root_cwd": str(_repo_root()),
+        "different_working_directory_confirmed": str(scratch_cwd) != str(_repo_root()),
+        "sample_examples_per_op": sample_n,
+        "subprocess_returncode": proc.returncode,
+        "no_builder_identifier_found_in_subprocess_script": fresh[
+            "no_builder_identifier_found_in_this_script"
+        ],
+        "forbidden_identifiers_checked": fresh["forbidden_identifiers_checked"],
+        "load_bundle_checks_performed_in_subprocess": fresh["checks_performed_by_load_bundle"],
+        "bundle_id_matches": fresh["bundle_id"] == bundle_id,
+        "per_operation_prediction_mismatches": mismatches,
+        "predictions_byte_exact_for_all_16_ops": not mismatches,
+        "exact_match_by_op_in_subprocess": fresh["exact_match_by_op"],
+        "reproducibility_passed": (
+            not mismatches
+            and bool(fresh["no_builder_identifier_found_in_this_script"])
+            and fresh["bundle_id"] == bundle_id
+        ),
+        "wall_clock_seconds": wall,
+        "subprocess_python_executable": fresh["python_executable"],
+        "subprocess_device": fresh["device"],
+    }
+
+
+# ---------------------------------------------------------------------------
+# Orchestration.
+# ---------------------------------------------------------------------------
+
+
+def run_pilot_restore_build_task(config: PilotRestoreBuildConfig) -> dict[str, Any]:
+    start = time.time()
+    output_dir = config.output_dir
+    output_dir.mkdir(parents=True, exist_ok=True)
+    seed = config.seed
+    if seed != RECOVERY_PILOT_SEED:
+        raise ValueError(
+            f"B-C005REC-004's pilot seed is pre-registered as {RECOVERY_PILOT_SEED} "
+            f"(EXPERIMENT_PLAN_PHASE_B_B2_MODEL_BUNDLE_RECOVERY.md section 2.1); "
+            f"got seed={seed} -- re-selecting the pilot seed is not permitted"
+        )
+
+    before_hashes = _snapshot_forbidden_cache_hashes(seed)
+
+    restore_info = _restore_core_and_shift(config)
+    core, bank, op_to_id, build_stage_report = _run_build_stages(config, restore_info)
+    router, scorer, calibration_report = _calibrate_router_and_scorer(core, bank, op_to_id, config)
+
+    provenance_by_op: dict[str, mb.ProvenanceStatus] = {
+        op: (
+            mb.ProvenanceStatus.RESTORED_VALIDATED
+            if op == "SHIFT"
+            else mb.ProvenanceStatus.TRAINED_THIS_BUILD
+        )
+        for op in op_to_id
+    }
+
+    manifest, publish_report = _publish_bundle(
+        config, core, bank, router, scorer, op_to_id, restore_info, provenance_by_op
+    )
+
+    with frozen_evaluation():
+        execution_report = _measure_all_16_primitives(
+            core, bank, op_to_id, config, provenance_by_op=provenance_by_op
+        )
+
+    fresh_process_report = _run_fresh_process_validation(
+        config,
+        core,
+        bank,
+        op_to_id,
+        publish_report["manifest_paths_json_for_fresh_process"],
+        manifest.bundle_id,
+    )
+
+    after_hashes = _snapshot_forbidden_cache_hashes(seed)
+    side_effect_audit = {
+        "task_id": REC004_TASK_ID,
+        "before": before_hashes,
+        "after": after_hashes,
+        "shared_cache_unchanged": before_hashes == after_hashes,
+        "namespace_root": str(_rec004_namespace(seed).resolve()),
+        "bundle_dir": str(
+            (
+                _repo_root()
+                / "runs"
+                / "phase_b_b2_model_bundle_recovery"
+                / "bundles"
+                / manifest.bundle_id
+            ).resolve()
+        ),
+    }
+
+    all_16_present = execution_report["all_16_operations_present"]
+    non_shift_floor_pass = execution_report["all_non_shift_15_floor_passed"]
+    fresh_process_pass = fresh_process_report["reproducibility_passed"]
+    cache_unchanged = side_effect_audit["shared_cache_unchanged"]
+    restore_hashes_confirmed = (
+        restore_info["core"]["matches_rec001_recorded_hash"]
+        and restore_info["shift_bank_v1"]["matches_rec001_recorded_hash"]
+    )
+
+    rg3_pass = all(
+        [
+            all_16_present,
+            non_shift_floor_pass,
+            fresh_process_pass,
+            cache_unchanged,
+            restore_hashes_confirmed,
+        ]
+    )
+    result = "RG3_PASS" if rg3_pass else "RG3_FAIL"
+
+    from apc.environments.operations import PHASE_A2_INCREMENTAL_NEW_OPERATIONS
+
+    restore_vs_build_labels = {"core": "RESTORE_VALIDATED", "SHIFT": "RESTORE_VALIDATED"}
+    for op in op_to_id:
+        if op not in restore_vs_build_labels:
+            restore_vs_build_labels[op] = "CLEAN_BUILD_EXERCISED"
+    restore_vs_build_labels["router"] = "CLEAN_BUILD_EXERCISED_BY_DESIGN_NEVER_RESTORED"
+    restore_vs_build_labels["argument_scorer"] = "CLEAN_BUILD_EXERCISED"
+
+    qualification = {
+        "task_id": REC004_TASK_ID,
+        "result": result,
+        "seed": seed,
+        "seed_preregistered_not_reselected": True,
+        "criteria": {
+            "all_16_operations_coverage": all_16_present,
+            "non_shift_15_floor_passed": non_shift_floor_pass,
+            "non_shift_floor_failures": execution_report["non_shift_floor_failures"],
+            "shift_status": "COHERENT_LIMITED",
+            "shift_correct_exact_match": execution_report["shift_correct_exact_match"],
+            "fresh_process_reproducibility_passed": fresh_process_pass,
+            "shared_cache_unchanged": cache_unchanged,
+            "restore_hashes_confirmed_against_rec001": restore_hashes_confirmed,
+        },
+        "restore_vs_clean_build_labels": restore_vs_build_labels,
+        "clean_build_note": (
+            "Only seed 10 (this pilot) actually executed the REC-003 clean-build "
+            "recipe for the 15 non-SHIFT primitives + router + scorer. Seeds "
+            "11-14's own clean-build path is implemented (same recipe, same "
+            "code) but CLEAN_BUILD_IMPLEMENTED_NOT_FULLY_EXERCISED for those "
+            "seeds until B-C005REC-005 runs it."
+        ),
+        "no_5_model_cohort_started_by_this_task": True,
+        "wall_clock_seconds": time.time() - start,
+    }
+
+    pilot_build_report = {
+        "task_id": REC004_TASK_ID,
+        "seed": seed,
+        "restore": restore_info,
+        "build_stages": build_stage_report,
+        "calibration": calibration_report,
+        "publish": publish_report,
+        "provenance_by_operation": {
+            op: provenance_by_op[op].value for op in sorted(provenance_by_op)
+        },
+        "incremental_operations": list(PHASE_A2_INCREMENTAL_NEW_OPERATIONS),
+        "wall_clock_seconds": time.time() - start,
+    }
+
+    (output_dir / "pilot_build_report.json").write_text(
+        json.dumps(pilot_build_report, indent=2, default=str), encoding="utf-8"
+    )
+    (output_dir / "all_primitive_execution.json").write_text(
+        json.dumps(execution_report, indent=2, default=str), encoding="utf-8"
+    )
+    (output_dir / "fresh_process_report.json").write_text(
+        json.dumps(fresh_process_report, indent=2, default=str), encoding="utf-8"
+    )
+    (output_dir / "qualification.json").write_text(
+        json.dumps(qualification, indent=2, default=str), encoding="utf-8"
+    )
+    (output_dir / "side_effect_audit.json").write_text(
+        json.dumps(side_effect_audit, indent=2, default=str), encoding="utf-8"
+    )
+
+    return {
+        "protocol": qualification,
+        "pilot_build_report": pilot_build_report,
+        "calibration": calibration_report,
+        "all_primitive_execution": execution_report,
+        "fresh_process_report": fresh_process_report,
+        "side_effect_audit": side_effect_audit,
     }

@@ -91,11 +91,15 @@ from:
 > As of this note, `B-C005REC-001` (artifact preservation, dependency
 > inventory, restore decision -- no training, ADR-0092), `B-C005REC-002`
 > (immutable ModelBundle manifest/hash/fail-closed loader contract, CPU-only
-> fixtures, RG1 PASS, ADR-0093), and `B-C005REC-003` (complete 16-primitive
+> fixtures, RG1 PASS, ADR-0093), `B-C005REC-003` (complete 16-primitive
 > build DAG and preregistered recovery protocol, CPU dry run + real-registry
-> structural checks only, RG2 PASS, ADR-0094) have been executed. No GPU
-> training has been performed and no 5-model run has started.
-> `B-C005REC-004` onward remain unexecuted pending an explicit next user
+> structural checks only, RG2 PASS, ADR-0094), and `B-C005REC-004` (one-seed
+> pilot restore/clean-build + fresh-process validation, real GPU training for
+> seed 10 only, **RG3 FAIL** -- Core and SHIFT restore validated, 11/15
+> non-SHIFT primitives clear the recovery floor but the existing
+> `INCREMENTAL_6_BUILD` recipe's 1000-step budget does not for 4 of 6
+> operations, ADR-0095) have been executed. No 5-model cohort has started.
+> `B-C005REC-005` onward remain unexecuted pending an explicit next user
 > instruction.
 
 Implement **only the currently requested B-Cxxx task** unless the user explicitly asks to change scope.
