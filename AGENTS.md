@@ -158,7 +158,8 @@ Before changing architecture-level behavior, read these documents in order:
       research phase into `docs/DECISIONS_PHASE_A.md`, `docs/DECISIONS_PHASE_A1.md`,
       `docs/DECISIONS_PHASE_A1_CORRECTION.md`, `docs/DECISIONS_PHASE_A1_POST_CORRECTION.md`,
       `docs/DECISIONS_A1_R005E_DIAGNOSTIC.md`, `docs/DECISIONS_PHASE_A2.md`,
-      and `docs/DECISIONS_PHASE_B.md` (active).
+      `docs/DECISIONS_PHASE_B.md`, `docs/DECISIONS_PHASE_B_B2_POST_D2_REPAIR.md`,
+      and `docs/DECISIONS_PHASE_B_B2_MODEL_BUNDLE_RECOVERY.md` (active).
       ADR numbers are a single global sequence and are never renumbered; append a new ADR
       to the active phase's file and add one row to the index.
 
