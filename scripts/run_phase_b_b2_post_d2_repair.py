@@ -2,7 +2,7 @@
 
 Per `docs/CODEX_TASKS_PHASE_B_B2_POST_D2_REPAIR.md` Section 0: exactly one
 named task runs per invocation, and there is no `--all` or implicit
-next-task execution. Only `B-C005R3-001` through `B-C005R3-009` are
+next-task execution. Only `B-C005R3-001` through `B-C005R3-010` are
 implemented so far; every other task ID is rejected until it is explicitly
 implemented and wired in here.
 """
@@ -35,6 +35,10 @@ from apc.evaluation.paired_baseline_repair import (
     PairedBaselineConfig,
     run_paired_baseline_repair,
 )
+from apc.evaluation.paired_integration_regression import (
+    PairedIntegrationRegressionConfig,
+    run_paired_integration_regression,
+)
 from apc.evaluation.post_d2_repair_benchmark import (
     PostD2ReproducibilityConfig,
     run_post_d2_reproducibility_task,
@@ -55,6 +59,7 @@ from apc.evaluation.shift_functional_generalization_repair import (
     ShiftFunctionalGeneralizationRepairConfig,
     run_shift_functional_generalization_repair,
 )
+from apc.meta.phase_b_protocol import HardNegativeLevel
 
 _IMPLEMENTED_TASKS = (
     "B-C005R3-001",
@@ -66,6 +71,7 @@ _IMPLEMENTED_TASKS = (
     "B-C005R3-007",
     "B-C005R3-008",
     "B-C005R3-009",
+    "B-C005R3-010",
 )
 
 
@@ -387,6 +393,103 @@ def _load_r3_009_config(config_path: Path) -> ShiftFunctionalGeneralizationRepai
     )
 
 
+def _load_r3_010_config(config_path: Path) -> PairedIntegrationRegressionConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    defaults = PairedIntegrationRegressionConfig()
+    nominal_levels_raw = raw.get(
+        "nominal_levels", [level.value for level in defaults.nominal_levels]
+    )
+    nominal_levels = tuple(HardNegativeLevel.from_str(value) for value in nominal_levels_raw)
+    return PairedIntegrationRegressionConfig(
+        development_seeds=tuple(raw.get("development_seeds", defaults.development_seeds)),
+        bank_size=raw.get("bank_size", defaults.bank_size),
+        nominal_target_operations=tuple(
+            raw.get("nominal_target_operations", defaults.nominal_target_operations)
+        ),
+        nominal_levels=nominal_levels,
+        support_examples=raw.get("support_examples", defaults.support_examples),
+        query_examples=raw.get("query_examples", defaults.query_examples),
+        shift_query_examples=raw.get("shift_query_examples", defaults.shift_query_examples),
+        safety_verification_examples=raw.get(
+            "safety_verification_examples", defaults.safety_verification_examples
+        ),
+        safety_reference_examples=raw.get(
+            "safety_reference_examples", defaults.safety_reference_examples
+        ),
+        legacy_deterministic_eval_examples=raw.get(
+            "legacy_deterministic_eval_examples", defaults.legacy_deterministic_eval_examples
+        ),
+        router_train_examples=raw.get("router_train_examples", defaults.router_train_examples),
+        router_steps=raw.get("router_steps", defaults.router_steps),
+        router_lr=raw.get("router_lr", defaults.router_lr),
+        top_k=raw.get("top_k", defaults.top_k),
+        ranking_margin=raw.get("ranking_margin", defaults.ranking_margin),
+        ranking_beta=raw.get("ranking_beta", defaults.ranking_beta),
+        arg_lambda=raw.get("arg_lambda", defaults.arg_lambda),
+        count_bind_variant=raw.get("count_bind_variant", defaults.count_bind_variant),
+        count_bind_router_steps=raw.get(
+            "count_bind_router_steps", defaults.count_bind_router_steps
+        ),
+        count_bind_router_lr=raw.get("count_bind_router_lr", defaults.count_bind_router_lr),
+        count_bind_ranking_margin=raw.get(
+            "count_bind_ranking_margin", defaults.count_bind_ranking_margin
+        ),
+        count_bind_ranking_beta=raw.get(
+            "count_bind_ranking_beta", defaults.count_bind_ranking_beta
+        ),
+        bind_head_variant=raw.get("bind_head_variant", defaults.bind_head_variant),
+        bind_head_pool_examples=raw.get(
+            "bind_head_pool_examples", defaults.bind_head_pool_examples
+        ),
+        bind_head_training_budget=raw.get(
+            "bind_head_training_budget", defaults.bind_head_training_budget
+        ),
+        bind_head_steps=raw.get("bind_head_steps", defaults.bind_head_steps),
+        bind_head_lr=raw.get("bind_head_lr", defaults.bind_head_lr),
+        tau=raw.get("tau", defaults.tau),
+        looks=tuple(raw.get("looks", defaults.looks)),
+        alpha_accept_episode=raw.get("alpha_accept_episode", defaults.alpha_accept_episode),
+        alpha_reject_episode=raw.get("alpha_reject_episode", defaults.alpha_reject_episode),
+        alpha_ref_episode=raw.get("alpha_ref_episode", defaults.alpha_ref_episode),
+        legacy_max_support=raw.get("legacy_max_support", defaults.legacy_max_support),
+        nominal_l0l2_top1_threshold=raw.get(
+            "nominal_l0l2_top1_threshold", defaults.nominal_l0l2_top1_threshold
+        ),
+        nominal_l3_top1_threshold=raw.get(
+            "nominal_l3_top1_threshold", defaults.nominal_l3_top1_threshold
+        ),
+        nominal_l4_top1_threshold=raw.get(
+            "nominal_l4_top1_threshold", defaults.nominal_l4_top1_threshold
+        ),
+        nominal_top5_threshold=raw.get("nominal_top5_threshold", defaults.nominal_top5_threshold),
+        nominal_l4_family_top1_threshold=raw.get(
+            "nominal_l4_family_top1_threshold", defaults.nominal_l4_family_top1_threshold
+        ),
+        nominal_argument_accuracy_threshold=raw.get(
+            "nominal_argument_accuracy_threshold", defaults.nominal_argument_accuracy_threshold
+        ),
+        shift_mean_query_em_threshold=raw.get(
+            "shift_mean_query_em_threshold", defaults.shift_mean_query_em_threshold
+        ),
+        safety_rate_budget=raw.get("safety_rate_budget", defaults.safety_rate_budget),
+        legacy_mean_regression_pp_max=raw.get(
+            "legacy_mean_regression_pp_max", defaults.legacy_mean_regression_pp_max
+        ),
+        legacy_worst_regression_pp_max=raw.get(
+            "legacy_worst_regression_pp_max", defaults.legacy_worst_regression_pp_max
+        ),
+        device=raw.get("device", defaults.device),
+        deterministic_algorithms=raw.get(
+            "deterministic_algorithms", defaults.deterministic_algorithms
+        ),
+        bank_checkpoint_dir=Path(raw.get("bank_checkpoint_dir", defaults.bank_checkpoint_dir)),
+        r3009_bank_transaction_log=Path(
+            raw.get("r3009_bank_transaction_log", defaults.r3009_bank_transaction_log)
+        ),
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Phase B B2 post-D2 repair -- explicit single-task dispatch"
@@ -503,7 +606,7 @@ def main() -> int:
             r3_008_config = dataclasses.replace(r3_008_config, output_dir=args.output_dir)
         report = run_bind_argument_scorer_repair(r3_008_config)
         next_blocked = "B-C005R3-009 onward"
-    else:  # B-C005R3-009
+    elif args.task == "B-C005R3-009":
         config_path = args.config or Path(
             "configs/phase_b_b2_post_d2_shift_functional_generalization_repair.yaml"
         )
@@ -512,6 +615,15 @@ def main() -> int:
             r3_009_config = dataclasses.replace(r3_009_config, output_dir=args.output_dir)
         report = run_shift_functional_generalization_repair(r3_009_config)
         next_blocked = "B-C005R3-010 onward"
+    else:  # B-C005R3-010
+        config_path = args.config or Path(
+            "configs/phase_b_b2_post_d2_paired_integration_regression.yaml"
+        )
+        r3_010_config = _load_r3_010_config(config_path)
+        if args.output_dir is not None:
+            r3_010_config = dataclasses.replace(r3_010_config, output_dir=args.output_dir)
+        report = run_paired_integration_regression(r3_010_config)
+        next_blocked = "B-C005R3-011 onward"
 
     print(json.dumps(report["protocol"], indent=2))
     print(
@@ -525,6 +637,7 @@ def main() -> int:
         "COMPARISON_ESTABLISHED",
         "G3_PASS",
         "VALIDATION_PASS",
+        "DEVELOPMENT_INTEGRATION_PASS",
     )
     return 0 if result in passing_results else 1
 

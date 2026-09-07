@@ -1,0 +1,59 @@
+# Task B-C005R3-010: Paired Integration & Frozen Legacy Regression.
+# Mirrors PairedIntegrationRegressionConfig's dataclass defaults exactly.
+
+development_seeds: [10, 11, 12, 13, 14]
+bank_size: 128
+
+nominal_target_operations: ["SELECT", "COUNT", "BIND"]
+nominal_levels: ["L0_orthogonal", "L1_random_score_space", "L2_near_neighbor", "L3_semantically_related", "L4_confusable_family"]
+
+support_examples: 32
+query_examples: 64
+shift_query_examples: 512
+safety_verification_examples: 512
+safety_reference_examples: 1024
+legacy_deterministic_eval_examples: 30
+
+router_train_examples: 32
+router_steps: 250
+router_lr: 0.005
+top_k: 5
+ranking_margin: 3.0
+ranking_beta: 1.0
+arg_lambda: 2.0
+
+count_bind_variant: "scoped_pairwise_margin"
+count_bind_router_steps: 250
+count_bind_router_lr: 0.005
+count_bind_ranking_margin: 3.0
+count_bind_ranking_beta: 1.0
+
+bind_head_variant: "stratified_value_coverage"
+bind_head_pool_examples: 256
+bind_head_training_budget: 128
+bind_head_steps: 300
+bind_head_lr: 0.005
+
+tau: 0.95
+looks: [32, 64, 128, 256, 512]
+alpha_accept_episode: 0.01
+alpha_reject_episode: 0.01
+alpha_ref_episode: 0.01
+legacy_max_support: 128
+
+nominal_l0l2_top1_threshold: 0.98
+nominal_l3_top1_threshold: 0.95
+nominal_l4_top1_threshold: 0.90
+nominal_top5_threshold: 0.99
+nominal_l4_family_top1_threshold: 0.98
+nominal_argument_accuracy_threshold: 0.95
+shift_mean_query_em_threshold: 0.99
+safety_rate_budget: 0.01
+legacy_mean_regression_pp_max: 0.01
+legacy_worst_regression_pp_max: 0.02
+
+device: "auto"
+deterministic_algorithms: true
+bank_checkpoint_dir: "runs/phase_a2_bank_scaling_benchmark"
+r3009_bank_transaction_log: "runs/phase_b_b2_post_d2/r3_009_shift_functional_generalization_repair/bank_transaction_log.json"
+output_dir: "runs/phase_b_b2_post_d2/r3_010_paired_integration_regression"
