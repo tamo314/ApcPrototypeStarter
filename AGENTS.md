@@ -89,10 +89,14 @@ from:
 > starting `B-C005R3-011`. Only one `B-C005REC-00N` task runs per explicit
 > user instruction; completing one does not authorize starting the next.
 > As of this note, `B-C005REC-001` (artifact preservation, dependency
-> inventory, restore decision -- no training, ADR-0092) and `B-C005REC-002`
+> inventory, restore decision -- no training, ADR-0092), `B-C005REC-002`
 > (immutable ModelBundle manifest/hash/fail-closed loader contract, CPU-only
-> fixtures, RG1 PASS, ADR-0093) have been executed. `B-C005REC-003` onward
-> remain unexecuted pending an explicit next user instruction.
+> fixtures, RG1 PASS, ADR-0093), and `B-C005REC-003` (complete 16-primitive
+> build DAG and preregistered recovery protocol, CPU dry run + real-registry
+> structural checks only, RG2 PASS, ADR-0094) have been executed. No GPU
+> training has been performed and no 5-model run has started.
+> `B-C005REC-004` onward remain unexecuted pending an explicit next user
+> instruction.
 
 Implement **only the currently requested B-Cxxx task** unless the user explicitly asks to change scope.
 

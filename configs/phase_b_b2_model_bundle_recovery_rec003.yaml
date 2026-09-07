@@ -1,0 +1,8 @@
+# Task B-C005REC-003 -- Complete Build DAG & Preregistered Recovery Protocol.
+# RG2 scope only: fixes the build plan and proves its logic on CPU tiny
+# fixtures + real-registry structural checks. No GPU training, no 5-model
+# run. See docs/CODEX_TASKS_PHASE_B_B2_MODEL_BUNDLE_RECOVERY.md and
+# docs/EXPERIMENT_PLAN_PHASE_B_B2_MODEL_BUNDLE_RECOVERY.md section 5.
+
+seeds: [10, 11, 12, 13, 14]
+output_dir: runs/phase_b_b2_model_bundle_recovery/rec003/run_001

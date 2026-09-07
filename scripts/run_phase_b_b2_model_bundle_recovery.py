@@ -6,7 +6,10 @@ Per `docs/CODEX_TASKS_PHASE_B_B2_MODEL_BUNDLE_RECOVERY.md` section 0 and
 task runs per invocation, and there is no `--all` or implicit next-task
 execution. B-C005REC-001 was a documentation/audit-only task (no `src/`
 code, no dispatcher entry -- see ADR-0092); only B-C005REC-002 onward has a
-dispatcher entry, and only once each is actually implemented.
+dispatcher entry, and only once each is actually implemented. B-C005REC-003
+(ADR-0094) fixes the full 16-primitive build DAG and preregistered recovery
+protocol on CPU tiny fixtures + real-registry structural checks -- it starts
+no GPU training and no 5-model run.
 """
 
 from __future__ import annotations
@@ -23,10 +26,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from apc.evaluation.model_bundle_recovery import (
     ModelBundleContractConfig,
+    RecoveryBuildPlanConfig,
     run_model_bundle_contract_task,
+    run_recovery_build_plan_task,
 )
 
-_IMPLEMENTED_TASKS = ("B-C005REC-002",)
+_IMPLEMENTED_TASKS = ("B-C005REC-002", "B-C005REC-003")
 
 
 def _load_rec002_config(config_path: Path) -> ModelBundleContractConfig:
@@ -36,6 +41,16 @@ def _load_rec002_config(config_path: Path) -> ModelBundleContractConfig:
     return ModelBundleContractConfig(
         real_core_source=Path(real_core_source) if real_core_source else None,
         output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+    )
+
+
+def _load_rec003_config(config_path: Path) -> RecoveryBuildPlanConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    defaults = RecoveryBuildPlanConfig()
+    seeds = raw.get("seeds", list(defaults.seeds))
+    return RecoveryBuildPlanConfig(
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+        seeds=tuple(seeds),
     )
 
 
@@ -69,12 +84,24 @@ def main() -> int:
         )
         return 2
 
-    config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec002.yaml")
-    config = _load_rec002_config(config_path)
-    if args.output_dir is not None:
-        config = dataclasses.replace(config, output_dir=args.output_dir)
-    report = run_model_bundle_contract_task(config)
-    next_blocked = "B-C005REC-003 onward"
+    if args.task == "B-C005REC-002":
+        config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec002.yaml")
+        rec002_config = _load_rec002_config(config_path)
+        if args.output_dir is not None:
+            rec002_config = dataclasses.replace(rec002_config, output_dir=args.output_dir)
+        report = run_model_bundle_contract_task(rec002_config)
+        expected_result = "RG1_PASS"
+    else:  # B-C005REC-003
+        config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec003.yaml")
+        rec003_config = _load_rec003_config(config_path)
+        if args.output_dir is not None:
+            rec003_config = dataclasses.replace(rec003_config, output_dir=args.output_dir)
+        report = run_recovery_build_plan_task(rec003_config)
+        expected_result = "RG2_PASS"
+
+    next_blocked = (
+        "B-C005REC-004 onward" if args.task == "B-C005REC-003" else "B-C005REC-003 onward"
+    )
 
     print(json.dumps(report["protocol"], indent=2))
     print(
@@ -83,7 +110,7 @@ def main() -> int:
         "user instruction."
     )
     result = report["protocol"]["result"]
-    return 0 if result == "RG1_PASS" else 1
+    return 0 if result == expected_result else 1
 
 
 if __name__ == "__main__":
