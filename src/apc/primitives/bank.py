@@ -13,6 +13,8 @@ from typing import Any
 from torch import nn
 
 from apc.primitives.primitive import (
+    CrossPositionLengthBiasPrimitive,
+    CrossPositionLengthBiasPrimitiveConfig,
     CrossPositionPrimitive,
     CrossPositionPrimitiveConfig,
     PointwisePrimitive,
@@ -99,6 +101,26 @@ class PrimitiveBank(nn.Module):
     ) -> CrossPositionPrimitive:
         """Construct a CrossPositionPrimitive with an auto-assigned id, add it, and return it."""
         primitive = CrossPositionPrimitive(
+            self._next_id,
+            config,
+            status=status,
+            created_at_task=created_at_task,
+            metadata=metadata,
+        )
+        self.add_primitive(primitive)
+        return primitive
+
+    def new_cross_position_length_bias_primitive(
+        self,
+        config: CrossPositionLengthBiasPrimitiveConfig,
+        *,
+        status: PrimitiveStatus = PrimitiveStatus.CANDIDATE,
+        created_at_task: int = 0,
+        metadata: dict[str, Any] | None = None,
+    ) -> CrossPositionLengthBiasPrimitive:
+        """Construct a CrossPositionLengthBiasPrimitive with an
+        auto-assigned id, add it, and return it (B-C005REC-004D)."""
+        primitive = CrossPositionLengthBiasPrimitive(
             self._next_id,
             config,
             status=status,

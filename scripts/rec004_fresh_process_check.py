@@ -63,7 +63,11 @@ from apc.evaluation.unified_oracle_causal_benchmark import (  # noqa: E402
     generate_compact_operator_counterfactual_groups,
 )
 from apc.primitives.argument_scoring import ArgumentScorer, ArgumentScorerConfig  # noqa: E402
-from apc.primitives.primitive import CrossPositionPrimitiveConfig, PrimitiveStatus  # noqa: E402
+from apc.primitives.primitive import (  # noqa: E402
+    CrossPositionLengthBiasPrimitiveConfig,
+    CrossPositionPrimitiveConfig,
+    PrimitiveStatus,
+)
 from apc.primitives.router import Router, RouterConfig  # noqa: E402
 from apc.utils import model_bundle as mb  # noqa: E402
 
@@ -92,27 +96,49 @@ def _make_arg_provider_correct(operation: str):
     return _provider
 
 
-def _rebuild_16_bank_structure(core: Any, seed: int) -> tuple[Any, dict[str, int]]:
+def _rebuild_16_bank_structure(
+    core: Any, seed: int, architecture_signatures: dict[str, str] | None = None
+) -> tuple[Any, dict[str, int]]:
     """Structural rebuild ONLY -- no weights, no training. Mirrors
     `shift_functional_generalization_repair._rebuild_full_bank_structure`
     exactly (same call order -> same deterministic physical_id assignment),
     reimplemented here rather than imported so this script's own import list
-    never touches a module that also defines a training entry point."""
+    never touches a module that also defines a training entry point.
+
+    `architecture_signatures` (operation_name -> manifest-declared
+    `architecture_signature`) lets this rebuild pick the right operator
+    CLASS per slot -- e.g. B-C005REC-004D's MIRROR_HALVES entry declares
+    `cross_position_length_bias_v1`, which needs
+    `CrossPositionLengthBiasPrimitive`, not the plain
+    `CrossPositionPrimitive` every other Branch-B/Phase-A2-incremental slot
+    still uses (`cross_position_v1`). Defaults to `cross_position_v1` for any
+    operation not present in the map, matching every manifest produced
+    before REC-004D."""
+    architecture_signatures = architecture_signatures or {}
     u_bank_cfg = UnifiedBenchmarkConfig(seed=seed, vocab_size=10, device=str(core.device))
     bank, op_to_id = _build_heterogeneous_bank(u_bank_cfg)
     for op in tuple(BRANCH_B_NOVEL_OPERATION_NAMES) + tuple(PHASE_A2_INCREMENTAL_NEW_OPERATIONS):
-        p = bank.new_cross_position_primitive(
-            CrossPositionPrimitiveConfig(
-                operation=op,
-                d_model=core.model.config.d_model,
-                d_operator=32,
-                n_head=4,
-                d_operator_ff=64,
-                vocab_size=10,
-                max_sequence_length=32,
-            ),
-            status=PrimitiveStatus.STABLE,
-        )
+        arch = architecture_signatures.get(op, "cross_position_v1")
+        base_kwargs = {
+            "operation": op,
+            "d_model": core.model.config.d_model,
+            "d_operator": 32,
+            "n_head": 4,
+            "d_operator_ff": 64,
+            "vocab_size": 10,
+            "max_sequence_length": 32,
+        }
+        if arch == "cross_position_length_bias_v1":
+            p = bank.new_cross_position_length_bias_primitive(
+                CrossPositionLengthBiasPrimitiveConfig(**base_kwargs),
+                status=PrimitiveStatus.STABLE,
+            )
+        elif arch == "cross_position_v1":
+            p = bank.new_cross_position_primitive(
+                CrossPositionPrimitiveConfig(**base_kwargs), status=PrimitiveStatus.STABLE
+            )
+        else:
+            raise ValueError(f"unknown architecture_signature {arch!r} for operation {op!r}")
         op_to_id[op] = p.primitive_id
     return bank, op_to_id
 
@@ -180,7 +206,12 @@ def main() -> int:
     for p in core.model.parameters():
         p.requires_grad_(False)
 
-    bank, fresh_op_to_id = _rebuild_16_bank_structure(core, args.seed)
+    architecture_signatures = {
+        p["operation_name"]: p["architecture_signature"] for p in manifest_dict["primitives"]
+    }
+    bank, fresh_op_to_id = _rebuild_16_bank_structure(
+        core, args.seed, architecture_signatures
+    )
     assert fresh_op_to_id == op_to_id, (
         f"fresh-process bank structure produced a different op_to_id mapping "
         f"than the build process recorded: {fresh_op_to_id} != {op_to_id}"

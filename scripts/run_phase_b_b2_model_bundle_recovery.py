@@ -32,6 +32,15 @@ from apc.evaluation.incremental_budget_calibration import (
     IncrementalBudgetCalibrationConfig,
     run_incremental_budget_calibration_task,
 )
+from apc.evaluation.mirror_position_bias_repair import (
+    REC004D_CHECKPOINT_INTERVAL,
+    REC004D_EXISTING_VALIDATION_EXAMPLES,
+    REC004D_EXISTING_VALIDATION_FLOOR,
+    REC004D_MAX_UPDATES_PER_RUN,
+    REC004D_RECHECK_QUERY_EXAMPLES,
+    MirrorPositionBiasRepairConfig,
+    run_mirror_position_bias_repair_task,
+)
 from apc.evaluation.mirror_position_initialization_diagnostic import (
     REC004C_CHECKPOINT_INTERVAL,
     REC004C_DESCRIPTIVE_FLOOR,
@@ -66,6 +75,7 @@ _IMPLEMENTED_TASKS = (
     "B-C005REC-004A",
     "B-C005REC-004B",
     "B-C005REC-004C",
+    "B-C005REC-004D",
 )
 
 
@@ -174,6 +184,30 @@ def _load_rec004c_config(config_path: Path) -> MirrorPositionInitializationDiagn
     )
 
 
+def _load_rec004d_config(config_path: Path) -> MirrorPositionBiasRepairConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+    defaults = MirrorPositionBiasRepairConfig()
+    seed = raw.get("seed", defaults.seed)
+    if seed != RECOVERY_PILOT_SEED:
+        raise ValueError(
+            f"B-C005REC-004D's Core seed is pre-registered as {RECOVERY_PILOT_SEED} "
+            f"(same seed10 Core as REC-004/REC-004A/REC-004C); config requested seed={seed}"
+        )
+    return MirrorPositionBiasRepairConfig(
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+        seed=seed,
+        existing_validation_examples=raw.get(
+            "existing_validation_examples", REC004D_EXISTING_VALIDATION_EXAMPLES
+        ),
+        existing_validation_floor=raw.get(
+            "existing_validation_floor", REC004D_EXISTING_VALIDATION_FLOOR
+        ),
+        recheck_query_examples=raw.get("recheck_query_examples", REC004D_RECHECK_QUERY_EXAMPLES),
+        checkpoint_interval=raw.get("checkpoint_interval", REC004D_CHECKPOINT_INTERVAL),
+        max_updates_per_run=raw.get("max_updates_per_run", REC004D_MAX_UPDATES_PER_RUN),
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Phase B B2 model bundle recovery -- explicit single-task dispatch"
@@ -275,7 +309,7 @@ def main() -> int:
             "instruction."
         )
         return 0 if rec004b_report["rg3_recheck"] == "RG3_RECHECK_PASS" else 1
-    else:  # B-C005REC-004C
+    elif args.task == "B-C005REC-004C":
         config_path = args.config or Path(
             "configs/phase_b_b2_model_bundle_recovery_rec004c.yaml"
         )
@@ -307,6 +341,32 @@ def main() -> int:
             "instruction."
         )
         return 0 if rec004c_report["execution_contract_status"] == "PASS" else 1
+    else:  # B-C005REC-004D
+        config_path = args.config or Path(
+            "configs/phase_b_b2_model_bundle_recovery_rec004d.yaml"
+        )
+        rec004d_config = _load_rec004d_config(config_path)
+        if args.output_dir is not None:
+            rec004d_config = dataclasses.replace(rec004d_config, output_dir=args.output_dir)
+        rec004d_report = run_mirror_position_bias_repair_task(rec004d_config)
+        print(
+            json.dumps(
+                {
+                    "implementation_status": rec004d_report["implementation_status"],
+                    "source_audit_status": rec004d_report["source_audit_status"],
+                    "candidate_status": rec004d_report["candidate_status"],
+                    "rg3_recheck": rec004d_report["rg3_recheck"],
+                    "rec005_eligible": rec004d_report["rec005_eligible"],
+                },
+                indent=2,
+            )
+        )
+        print(
+            "STOP: only B-C005REC-004D was executed. B-C005REC-005 onward and "
+            "B-C006/Task Inference remain blocked pending an explicit next user "
+            "instruction."
+        )
+        return 0 if rec004d_report["rg3_recheck"] == "RG3_RECHECK_PASS" else 1
 
     next_blocked = {
         "B-C005REC-002": "B-C005REC-003 onward",

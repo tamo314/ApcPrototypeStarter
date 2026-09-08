@@ -143,8 +143,28 @@ from:
 > showed moderate shared difficulty (pairwise wrong-set Jaccard 0.42-0.66),
 > not fully independent failure sets. `selected_init: null`,
 > `child_bundle: null`, `rg3_recheck: NOT_EXECUTED` per the task's
-> diagnostic-only charter. No 5-model cohort has started. `B-C005REC-005`
-> onward remain unexecuted pending an explicit next user instruction.
+> diagnostic-only charter. A user-supplied task `B-C005REC-004D`
+> (`docs/CODEX_TASKS_PHASE_B_B2_MIRROR_LENGTH_POSITION_BIAS.md`, ADR-0099)
+> then added a new `CrossPositionLengthBiasPrimitive` operator class (192
+> new parameters: a 4-input generic-coordinate `[i/d, j/d, (j-i)/d,
+> n/length_ref]` MLP producing an additive attention-score bias before
+> softmax, output layer zero-initialized so a fresh instance is an exact
+> forward/gradient no-op of the unmodified operator) and paired-compared it
+> (arm P) against a fresh, unmodified `CrossPositionPrimitive` (arm U) from
+> each of REC-004C's own 5 saved initial states -- 10 runs, 6000 updates
+> each, 60000 total, identical Core/data-stream/recipe throughout.
+> `candidate_status: POSITION_BIAS_VALIDATION_NOT_MET` -- P beat its paired
+> U on **all 5** initializations (mean validation EM 0.3873 -> 0.7189,
+> every pair improved by >=+0.137), positive causal evidence the operator's
+> missing explicit position signal is a real contributor, but no P run
+> reached the pre-registered 0.95 floor (best: I05 at 0.9023), so per the
+> task's own all-or-nothing gate no child bundle was built and
+> `rg3_recheck: NOT_EXECUTED`. The residual gap concentrates specifically
+> at length 10 (the longest trained length), where P is flat-or-worse than
+> U in 4 of 5 inits even as lengths 6-9 improve sharply -- an open lead for
+> a future task, not yet investigated. No 5-model cohort has started.
+> `B-C005REC-005` onward remain unexecuted pending an explicit next user
+> instruction.
 
 Implement **only the currently requested B-Cxxx task** unless the user explicitly asks to change scope.
 

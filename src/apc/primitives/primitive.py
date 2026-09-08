@@ -9,24 +9,31 @@ Provides:
   $P(h) = h + s(h) * B A h$.
 - `CrossPositionPrimitive`: Primitive-scale (~18k-21k parameter) single-layer
   cross-attention operator over content states, conditioned on typed arguments.
+- `CrossPositionLengthBiasPrimitive`: `CrossPositionPrimitive` plus a small
+  (192-parameter) length-conditioned additive position-bias term added to the
+  attention scores before softmax (Task B-C005REC-004D).
 - `ShiftRelativePrimitive`: Primitive-scale (18,282 parameter) cross-attention operator
   equipped with modular relative-position attention bias for cyclic shifts.
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+import contextlib
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
 import torch
+import torch.nn.functional as F
 from torch import nn
 
 DEFAULT_ARG_DIM: int = 32
 DEFAULT_MAX_SEQUENCE_LENGTH: int = 32
 
 __all__ = [
+    "CrossPositionLengthBiasPrimitive",
+    "CrossPositionLengthBiasPrimitiveConfig",
     "CrossPositionPrimitive",
     "CrossPositionPrimitiveConfig",
     "PointwisePrimitive",
@@ -303,6 +310,176 @@ class CrossPositionPrimitive(PrimitiveBase):
         hidden = self.attn_norm(query + attn_out)
         hidden = self.ffn_norm(hidden + self.ffn(hidden))
         return self.readout(hidden)
+
+
+# ---------------------------------------------------------------------------
+# Cross-Position Length-Bias Primitive (B-C005REC-004D / MIRROR_HALVES repair)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class CrossPositionLengthBiasPrimitiveConfig(CrossPositionPrimitiveConfig):
+    """`CrossPositionPrimitiveConfig` plus the length-conditioned position-bias
+    head's own two hyperparameters. `length_ref` is the model's fixed legal
+    max content length (recorded once at protocol-lock time, not derived from
+    a batch's own max length)."""
+
+    bias_hidden_dim: int = 32
+    length_ref: int = DEFAULT_MAX_SEQUENCE_LENGTH
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.bias_hidden_dim < 1:
+            raise ValueError(f"bias_hidden_dim must be >= 1, got {self.bias_hidden_dim}")
+        if self.length_ref < 1:
+            raise ValueError(f"length_ref must be >= 1, got {self.length_ref}")
+
+
+class CrossPositionLengthBiasPrimitive(CrossPositionPrimitive):
+    """`CrossPositionPrimitive` with a small additive position-bias term.
+
+    Adds `score_new = score_existing + b_theta(i, j, n)` before softmax, where
+    `b_theta` is a 2-layer MLP (4 -> `bias_hidden_dim` -> 1, no output bias,
+    shared across attention heads) over generic coordinates only:
+    `phi(i, j, n) = [i/d, j/d, (j-i)/d, n/length_ref]` with `d = max(n-1, 1)`,
+    `i` the output/query content position, `j` the input/key content position,
+    and `n` the real (unpadded) content length -- never the teacher position
+    map, a half-index label, or any operation-specific lookup.
+
+    192 new parameters total (`4*bias_hidden_dim + bias_hidden_dim +
+    bias_hidden_dim` = 128+32+32 for the default `bias_hidden_dim=32`). The
+    output layer is initialized to exactly zero so a freshly-constructed
+    instance is an exact no-op versus `CrossPositionPrimitive` (the hidden
+    layer keeps its ordinary nonzero random init so gradients reach it once
+    the output layer's own weight moves off zero -- zeroing both layers would
+    make the whole branch permanently untrainable).
+
+    Masking is folded into a single additive float `attn_mask` (padded keys
+    get `-inf`, valid keys get `b_theta`) instead of `CrossPositionPrimitive`'s
+    boolean `key_padding_mask`, matching the precedent already established by
+    `ShiftRelativePrimitive`/`ReverseRelativePrimitive`. With the bias output
+    at zero this produces byte-identical masking semantics to the parent
+    class (a `-inf`/`0` additive mask is exactly what PyTorch's own bool
+    `key_padding_mask` lowers to internally).
+    """
+
+    def __init__(
+        self,
+        primitive_id: int,
+        config: CrossPositionLengthBiasPrimitiveConfig,
+        *,
+        status: PrimitiveStatus = PrimitiveStatus.CANDIDATE,
+        created_at_task: int = 0,
+        enabled: bool = True,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(
+            primitive_id,
+            config,
+            status=status,
+            created_at_task=created_at_task,
+            enabled=enabled,
+            metadata=metadata,
+        )
+        self.n_head = config.n_head
+        self.length_ref = config.length_ref
+        self.position_bias_hidden = nn.Linear(4, config.bias_hidden_dim)
+        self.position_bias_out = nn.Linear(config.bias_hidden_dim, 1, bias=False)
+        nn.init.zeros_(self.position_bias_out.weight)
+
+    def _position_bias(
+        self, content_lengths: Sequence[int], out_max: int, lmax: int, device: torch.device
+    ) -> torch.Tensor:
+        """Returns `b_theta(i, j, n)` of shape `[batch, out_max, lmax]`."""
+        batch = len(content_lengths)
+        dtype = self.position_bias_hidden.weight.dtype
+        c_lens = torch.tensor(content_lengths, device=device, dtype=dtype).view(batch, 1, 1)
+        s_idx = torch.arange(out_max, device=device, dtype=dtype).view(1, out_max, 1)
+        p_idx = torch.arange(lmax, device=device, dtype=dtype).view(1, 1, lmax)
+        d_denom = torch.clamp(c_lens - 1.0, min=1.0)
+        shape = (batch, out_max, lmax)
+        phi = torch.stack(
+            [
+                s_idx.expand(shape) / d_denom,
+                p_idx.expand(shape) / d_denom,
+                (p_idx - s_idx).expand(shape) / d_denom,
+                (c_lens / float(self.length_ref)).expand(shape),
+            ],
+            dim=-1,
+        )
+        hidden = F.relu(self.position_bias_hidden(phi))
+        return self.position_bias_out(hidden).squeeze(-1)
+
+    def forward(
+        self,
+        content_features: torch.Tensor,
+        content_lengths: Sequence[int],
+        output_lengths: Sequence[int],
+        argument_values: Sequence[Any] | None = None,
+    ) -> torch.Tensor:
+        """Apply cross-attention operator over content features.
+
+        Returns:
+            Logits of shape `[batch, max(output_lengths), vocab_size]`.
+        """
+        device = content_features.device
+        batch, lmax, _ = content_features.shape
+        out_max = max(output_lengths)
+
+        if not self.enabled:
+            return content_features.new_zeros(batch, out_max, self.config.vocab_size)
+
+        self.forward_call_count += 1
+
+        content_position_ids = torch.arange(lmax, device=device).unsqueeze(0).expand(batch, lmax)
+        kv = self.content_in_proj(content_features) + self.content_position_embedding(
+            content_position_ids
+        )
+
+        query_ids = torch.arange(out_max, device=device).unsqueeze(0).expand(batch, out_max)
+        query_slots = self.answer_query_embedding(query_ids)
+
+        if argument_values is None or self.arg_encoder is None or self.arg_proj is None:
+            arg_token = content_features.new_zeros(batch, 1, self.d_operator)
+        else:
+            arg_embedding = self.arg_encoder(argument_values)
+            arg_token = self.arg_proj(arg_embedding).unsqueeze(1)
+
+        query = query_slots + arg_token
+
+        bias = self._position_bias(content_lengths, out_max, lmax, device)
+        bias = bias.unsqueeze(1).expand(batch, self.n_head, out_max, lmax)
+
+        content_lengths_t = torch.tensor(content_lengths, device=device).view(batch, 1, 1)
+        p_idx_long = torch.arange(lmax, device=device).view(1, 1, lmax)
+        pad_mask = (p_idx_long >= content_lengths_t).unsqueeze(1).expand(
+            batch, self.n_head, out_max, lmax
+        )
+        attn_mask = torch.where(
+            pad_mask, torch.tensor(float("-inf"), device=device), bias
+        ).reshape(batch * self.n_head, out_max, lmax)
+
+        attn_out, _ = self.cross_attn(query, kv, kv, attn_mask=attn_mask, need_weights=False)
+        hidden = self.attn_norm(query + attn_out)
+        hidden = self.ffn_norm(hidden + self.ffn(hidden))
+        return self.readout(hidden)
+
+    @contextlib.contextmanager
+    def zeroed_position_bias(self) -> Iterator[None]:
+        """Diagnostic-only context manager: temporarily zeros the trained
+        `position_bias_out` weight (an intervention on the learned bias, NOT
+        a reset to `CrossPositionPrimitive`'s architecture) so a caller can
+        forward-evaluate this exact trained instance with its bias term
+        switched off, then restores the original weight on exit. Never used
+        during training; never mutates any other parameter."""
+        original = self.position_bias_out.weight.detach().clone()
+        with torch.no_grad():
+            self.position_bias_out.weight.zero_()
+        try:
+            yield
+        finally:
+            with torch.no_grad():
+                self.position_bias_out.weight.copy_(original)
 
 
 # ---------------------------------------------------------------------------

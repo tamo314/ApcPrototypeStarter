@@ -73,6 +73,7 @@ __all__ = [
     "DuplicateTrainingIdentityError",
     "raw_file_sha256",
     "canonical_state_hash",
+    "compute_state_abi_hash",
     "canonical_state_hash_from_file",
     "load_state_dict",
     "primitive_state_dict",
@@ -213,6 +214,35 @@ def canonical_state_hash(state_dict: Mapping[str, torch.Tensor]) -> str:
         hasher.update(str(tuple(tensor.shape)).encode("utf-8"))
         hasher.update(str(tensor.dtype).encode("utf-8"))
         hasher.update(tensor.detach().cpu().contiguous().numpy().tobytes())
+    return hasher.hexdigest()
+
+
+def compute_state_abi_hash(
+    state_dict: Mapping[str, torch.Tensor], *, architecture_signature: str
+) -> str:
+    """Structural (name/shape/dtype) hash of a primitive's parameter ABI,
+    tagged with its declared `architecture_signature` -- deliberately
+    independent of tensor *content* (that is `canonical_state_hash`'s job).
+    Two state dicts with the same keys/shapes/dtypes under the SAME
+    `architecture_signature` hash identically regardless of trained values;
+    a state dict missing/extra keys (e.g. a bias-carrying primitive's slice
+    with its bias tensors silently dropped), or declared under a different
+    `architecture_signature` string, never collides with either.
+
+    Existing bundle producers set `state_abi_hash = weights_hash`, which
+    carries no ABI information of its own today (`load_bundle`'s
+    `structural_completeness` check only verifies it is non-empty). This
+    function exists so a new architecture (B-C005REC-004D's
+    `cross_position_length_bias_v1`) can record a real ABI fingerprint
+    instead, without touching any of `load_bundle`'s existing checks.
+    """
+    hasher = hashlib.sha256()
+    hasher.update(architecture_signature.encode("utf-8"))
+    for name in sorted(state_dict.keys()):
+        tensor = state_dict[name]
+        hasher.update(name.encode("utf-8"))
+        hasher.update(str(tuple(tensor.shape)).encode("utf-8"))
+        hasher.update(str(tensor.dtype).encode("utf-8"))
     return hasher.hexdigest()
 
 
