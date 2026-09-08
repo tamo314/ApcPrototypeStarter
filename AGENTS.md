@@ -108,9 +108,43 @@ from:
 > 1000/2000/2000) within the budget, but MIRROR_HALVES never reaches the
 > 0.95 floor even at 6000 steps (a length-dependent capacity limit, not a
 > generalization gap), so per the task's own all-or-nothing gate no child
-> bundle was built and `rg3_recheck: NOT_EXECUTED`. No 5-model cohort has
-> started. `B-C005REC-005` onward remain unexecuted pending an explicit
-> next user instruction.
+> bundle was built and `rg3_recheck: NOT_EXECUTED`. An inserted task
+> `B-C005REC-004B` (`docs/CODEX_TASKS_PHASE_B_B2_MIRROR_SCHEDULE_REPAIR.md`,
+> ADR-0097) then compared two LR schedules for MIRROR_HALVES only (same
+> fresh shared initial weights, same 6000-step training stream, differing
+> only in `CosineAnnealingLR`'s `T_max`: 1000 mechanically extended vs. a
+> single 6000-step decay) while importing REC-004A's own step=4000
+> checkpoints read-only for CYCLE_FOUR/ROTATE_TRIPLETS/SWAP_ENDS.
+> `mirror_candidate_status: VALIDATION_TARGET_NOT_MET` -- neither condition
+> reached 0.95 at the decisive step=6000 checkpoint (T_max=1000: 0.4717,
+> T_max=6000: 0.4336), and this fresh run's own result is well below
+> ADR-0096's original 0.6875 under the *same* T_max=1000 schedule family,
+> evidence that MIRROR_HALVES's convergence is highly initialization-
+> sensitive (its own by-length failure pattern also did not reproduce
+> ADR-0096's clean monotonic falloff). Per the task's own D1 gate, no child
+> bundle was built and `rg3_recheck: NOT_EXECUTED`. An inserted, diagnostic-
+> only task `B-C005REC-004C`
+> (`docs/CODEX_TASKS_PHASE_B_B2_MIRROR_POSITION_INITIALIZATION_DIAGNOSTIC.md`,
+> ADR-0098) then audited the real source artifacts (catching and fixing one
+> of its own transcription errors via its own `SOURCE_REPLAY_MISMATCH`
+> gate), derived and source-verified MIRROR_HALVES's content-independent
+> position map, confirmed the padding/batching execution contract is
+> correct on every checked condition, and trained 5 new isolated
+> initializations (`I01`-`I05`, seed-label namespace distinct from
+> REC-004A's/REC-004B's own) for 6000 updates each (30000 total) under
+> REC-004B's `A_FIXED_TMAX_1000` recipe only -- no schedule comparison, no
+> selection, no child bundle, no RG3 recheck, by the task's own charter even
+> if a trial had cleared 0.95. All 5 completed; validation EM spanned
+> 0.2041-0.5029 (range 0.2988, sample SD 0.1260, n=5) from the identical
+> Core/data-stream/recipe, directly confirming ADR-0097's initialization-
+> sensitivity finding with a 5-point sample; per-length failure signatures
+> also differed qualitatively across inits (2 of 5 showed a pronounced
+> length-8-specific dip absent in the other 3); cross-init error overlap
+> showed moderate shared difficulty (pairwise wrong-set Jaccard 0.42-0.66),
+> not fully independent failure sets. `selected_init: null`,
+> `child_bundle: null`, `rg3_recheck: NOT_EXECUTED` per the task's
+> diagnostic-only charter. No 5-model cohort has started. `B-C005REC-005`
+> onward remain unexecuted pending an explicit next user instruction.
 
 Implement **only the currently requested B-Cxxx task** unless the user explicitly asks to change scope.
 

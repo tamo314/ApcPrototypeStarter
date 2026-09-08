@@ -1,0 +1,6 @@
+seed: 10
+output_dir: runs/phase_b_b2_model_bundle_recovery/rec004c/run_001
+schedule_validation_examples: 1024
+checkpoint_interval: 500
+max_updates_per_init: 6000
+descriptive_floor: 0.95

@@ -32,6 +32,23 @@ from apc.evaluation.incremental_budget_calibration import (
     IncrementalBudgetCalibrationConfig,
     run_incremental_budget_calibration_task,
 )
+from apc.evaluation.mirror_position_initialization_diagnostic import (
+    REC004C_CHECKPOINT_INTERVAL,
+    REC004C_DESCRIPTIVE_FLOOR,
+    REC004C_MAX_UPDATES_PER_INIT,
+    REC004C_SCHEDULE_VALIDATION_EXAMPLES,
+    MirrorPositionInitializationDiagnosticConfig,
+    run_mirror_position_initialization_diagnostic_task,
+)
+from apc.evaluation.mirror_schedule_comparison import (
+    REC004B_CHECKPOINT_INTERVAL,
+    REC004B_MAX_UPDATES,
+    REC004B_RECHECK_QUERY_EXAMPLES,
+    REC004B_SCHEDULE_VALIDATION_EXAMPLES,
+    REC004B_SCHEDULE_VALIDATION_FLOOR,
+    MirrorScheduleComparisonConfig,
+    run_mirror_schedule_comparison_task,
+)
 from apc.evaluation.model_bundle_recovery import (
     RECOVERY_PILOT_SEED,
     ModelBundleContractConfig,
@@ -47,6 +64,8 @@ _IMPLEMENTED_TASKS = (
     "B-C005REC-003",
     "B-C005REC-004",
     "B-C005REC-004A",
+    "B-C005REC-004B",
+    "B-C005REC-004C",
 )
 
 
@@ -110,6 +129,51 @@ def _load_rec004a_config(config_path: Path) -> IncrementalBudgetCalibrationConfi
     )
 
 
+def _load_rec004b_config(config_path: Path) -> MirrorScheduleComparisonConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+    defaults = MirrorScheduleComparisonConfig()
+    seed = raw.get("seed", defaults.seed)
+    if seed != RECOVERY_PILOT_SEED:
+        raise ValueError(
+            f"B-C005REC-004B's model seed is pre-registered as {RECOVERY_PILOT_SEED} "
+            f"(same seed10 Core as REC-004/REC-004A); config requested seed={seed}"
+        )
+    return MirrorScheduleComparisonConfig(
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+        seed=seed,
+        schedule_validation_examples=raw.get(
+            "schedule_validation_examples", REC004B_SCHEDULE_VALIDATION_EXAMPLES
+        ),
+        schedule_validation_floor=raw.get(
+            "schedule_validation_floor", REC004B_SCHEDULE_VALIDATION_FLOOR
+        ),
+        recheck_query_examples=raw.get("recheck_query_examples", REC004B_RECHECK_QUERY_EXAMPLES),
+        checkpoint_interval=raw.get("checkpoint_interval", REC004B_CHECKPOINT_INTERVAL),
+        max_updates=raw.get("max_updates", REC004B_MAX_UPDATES),
+    )
+
+
+def _load_rec004c_config(config_path: Path) -> MirrorPositionInitializationDiagnosticConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+    defaults = MirrorPositionInitializationDiagnosticConfig()
+    seed = raw.get("seed", defaults.seed)
+    if seed != RECOVERY_PILOT_SEED:
+        raise ValueError(
+            f"B-C005REC-004C's Core seed is pre-registered as {RECOVERY_PILOT_SEED} "
+            f"(same seed10 Core as REC-004/REC-004A/REC-004B); config requested seed={seed}"
+        )
+    return MirrorPositionInitializationDiagnosticConfig(
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+        seed=seed,
+        schedule_validation_examples=raw.get(
+            "schedule_validation_examples", REC004C_SCHEDULE_VALIDATION_EXAMPLES
+        ),
+        checkpoint_interval=raw.get("checkpoint_interval", REC004C_CHECKPOINT_INTERVAL),
+        max_updates_per_init=raw.get("max_updates_per_init", REC004C_MAX_UPDATES_PER_INIT),
+        descriptive_floor=raw.get("descriptive_floor", REC004C_DESCRIPTIVE_FLOOR),
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Phase B B2 model bundle recovery -- explicit single-task dispatch"
@@ -161,7 +225,7 @@ def main() -> int:
             rec004_config = dataclasses.replace(rec004_config, output_dir=args.output_dir)
         report = run_pilot_restore_build_task(rec004_config)
         expected_result = "RG3_PASS"
-    else:  # B-C005REC-004A
+    elif args.task == "B-C005REC-004A":
         config_path = args.config or Path(
             "configs/phase_b_b2_model_bundle_recovery_rec004a.yaml"
         )
@@ -185,6 +249,64 @@ def main() -> int:
             "instruction."
         )
         return 0 if rec004a_report["rg3_recheck"] == "RG3_RECHECK_PASS" else 1
+    elif args.task == "B-C005REC-004B":
+        config_path = args.config or Path(
+            "configs/phase_b_b2_model_bundle_recovery_rec004b.yaml"
+        )
+        rec004b_config = _load_rec004b_config(config_path)
+        if args.output_dir is not None:
+            rec004b_config = dataclasses.replace(rec004b_config, output_dir=args.output_dir)
+        rec004b_report = run_mirror_schedule_comparison_task(rec004b_config)
+        print(
+            json.dumps(
+                {
+                    "implementation_status": rec004b_report["implementation_status"],
+                    "paired_comparison_status": rec004b_report["paired_comparison_status"],
+                    "mirror_candidate_status": rec004b_report["mirror_candidate_status"],
+                    "rg3_recheck": rec004b_report["rg3_recheck"],
+                    "rec005_eligible": rec004b_report["rec005_eligible"],
+                },
+                indent=2,
+            )
+        )
+        print(
+            "STOP: only B-C005REC-004B was executed. B-C005REC-005 onward and "
+            "B-C006/Task Inference remain blocked pending an explicit next user "
+            "instruction."
+        )
+        return 0 if rec004b_report["rg3_recheck"] == "RG3_RECHECK_PASS" else 1
+    else:  # B-C005REC-004C
+        config_path = args.config or Path(
+            "configs/phase_b_b2_model_bundle_recovery_rec004c.yaml"
+        )
+        rec004c_config = _load_rec004c_config(config_path)
+        if args.output_dir is not None:
+            rec004c_config = dataclasses.replace(rec004c_config, output_dir=args.output_dir)
+        rec004c_report = run_mirror_position_initialization_diagnostic_task(rec004c_config)
+        print(
+            json.dumps(
+                {
+                    "implementation_status": rec004c_report["implementation_status"],
+                    "source_audit_status": rec004c_report["source_audit_status"],
+                    "execution_contract_status": rec004c_report["execution_contract_status"],
+                    "initialization_experiment_status": (
+                        rec004c_report["initialization_experiment_status"]
+                    ),
+                    "selected_init": rec004c_report["selected_init"],
+                    "child_bundle": rec004c_report["child_bundle"],
+                    "rg3_recheck": rec004c_report["rg3_recheck"],
+                    "rec005_eligible": rec004c_report["rec005_eligible"],
+                },
+                indent=2,
+            )
+        )
+        print(
+            "STOP: only B-C005REC-004C was executed (diagnostic only -- no candidate "
+            "selected, no child bundle, no RG3 recheck). B-C005REC-005 onward and "
+            "B-C006/Task Inference remain blocked pending an explicit next user "
+            "instruction."
+        )
+        return 0 if rec004c_report["execution_contract_status"] == "PASS" else 1
 
     next_blocked = {
         "B-C005REC-002": "B-C005REC-003 onward",
