@@ -93,14 +93,24 @@ from:
 > (immutable ModelBundle manifest/hash/fail-closed loader contract, CPU-only
 > fixtures, RG1 PASS, ADR-0093), `B-C005REC-003` (complete 16-primitive
 > build DAG and preregistered recovery protocol, CPU dry run + real-registry
-> structural checks only, RG2 PASS, ADR-0094), and `B-C005REC-004` (one-seed
+> structural checks only, RG2 PASS, ADR-0094), `B-C005REC-004` (one-seed
 > pilot restore/clean-build + fresh-process validation, real GPU training for
 > seed 10 only, **RG3 FAIL** -- Core and SHIFT restore validated, 11/15
 > non-SHIFT primitives clear the recovery floor but the existing
 > `INCREMENTAL_6_BUILD` recipe's 1000-step budget does not for 4 of 6
-> operations, ADR-0095) have been executed. No 5-model cohort has started.
-> `B-C005REC-005` onward remain unexecuted pending an explicit next user
-> instruction.
+> operations, ADR-0095), and the inserted `B-C005REC-004A` (incremental
+> primitive budget calibration: re-trained only the 4 failing operations,
+> fresh, on one continuous trajectory each with checkpoints at 1000/2000/
+> 4000/6000 steps against a fixed validation set, real GPU training for
+> seed 10 only, ADR-0096) have been executed. `B-C005REC-004A` result:
+> `calibration_status: VALIDATION_TARGET_NOT_MET` -- CYCLE_FOUR,
+> ROTATE_TRIPLETS, and SWAP_ENDS each select a passing checkpoint (steps
+> 1000/2000/2000) within the budget, but MIRROR_HALVES never reaches the
+> 0.95 floor even at 6000 steps (a length-dependent capacity limit, not a
+> generalization gap), so per the task's own all-or-nothing gate no child
+> bundle was built and `rg3_recheck: NOT_EXECUTED`. No 5-model cohort has
+> started. `B-C005REC-005` onward remain unexecuted pending an explicit
+> next user instruction.
 
 Implement **only the currently requested B-Cxxx task** unless the user explicitly asks to change scope.
 

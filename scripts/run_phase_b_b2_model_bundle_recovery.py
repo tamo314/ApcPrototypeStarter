@@ -24,6 +24,14 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
+from apc.evaluation.incremental_budget_calibration import (
+    REC004A_RECHECK_QUERY_EXAMPLES,
+    REC004A_STEP_LADDER,
+    REC004A_VALIDATION_EXAMPLES,
+    REC004A_VALIDATION_FLOOR,
+    IncrementalBudgetCalibrationConfig,
+    run_incremental_budget_calibration_task,
+)
 from apc.evaluation.model_bundle_recovery import (
     RECOVERY_PILOT_SEED,
     ModelBundleContractConfig,
@@ -34,7 +42,12 @@ from apc.evaluation.model_bundle_recovery import (
     run_recovery_build_plan_task,
 )
 
-_IMPLEMENTED_TASKS = ("B-C005REC-002", "B-C005REC-003", "B-C005REC-004")
+_IMPLEMENTED_TASKS = (
+    "B-C005REC-002",
+    "B-C005REC-003",
+    "B-C005REC-004",
+    "B-C005REC-004A",
+)
 
 
 def _load_rec002_config(config_path: Path) -> ModelBundleContractConfig:
@@ -73,6 +86,27 @@ def _load_rec004_config(config_path: Path) -> PilotRestoreBuildConfig:
             "direct_query_examples_per_operation", defaults.direct_query_examples_per_operation
         ),
         non_shift_floor=raw.get("non_shift_floor", defaults.non_shift_floor),
+    )
+
+
+def _load_rec004a_config(config_path: Path) -> IncrementalBudgetCalibrationConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+    defaults = IncrementalBudgetCalibrationConfig()
+    seed = raw.get("seed", defaults.seed)
+    if seed != RECOVERY_PILOT_SEED:
+        raise ValueError(
+            f"B-C005REC-004A's model seed is pre-registered as {RECOVERY_PILOT_SEED} "
+            f"(same seed10 Core as REC-004); config requested seed={seed}"
+        )
+    return IncrementalBudgetCalibrationConfig(
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+        seed=seed,
+        step_ladder=tuple(raw.get("step_ladder", REC004A_STEP_LADDER)),
+        validation_examples=raw.get("validation_examples", REC004A_VALIDATION_EXAMPLES),
+        validation_floor=raw.get("validation_floor", REC004A_VALIDATION_FLOOR),
+        recheck_query_examples=raw.get(
+            "recheck_query_examples", REC004A_RECHECK_QUERY_EXAMPLES
+        ),
     )
 
 
@@ -120,13 +154,37 @@ def main() -> int:
             rec003_config = dataclasses.replace(rec003_config, output_dir=args.output_dir)
         report = run_recovery_build_plan_task(rec003_config)
         expected_result = "RG2_PASS"
-    else:  # B-C005REC-004
+    elif args.task == "B-C005REC-004":
         config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004.yaml")
         rec004_config = _load_rec004_config(config_path)
         if args.output_dir is not None:
             rec004_config = dataclasses.replace(rec004_config, output_dir=args.output_dir)
         report = run_pilot_restore_build_task(rec004_config)
         expected_result = "RG3_PASS"
+    else:  # B-C005REC-004A
+        config_path = args.config or Path(
+            "configs/phase_b_b2_model_bundle_recovery_rec004a.yaml"
+        )
+        rec004a_config = _load_rec004a_config(config_path)
+        if args.output_dir is not None:
+            rec004a_config = dataclasses.replace(rec004a_config, output_dir=args.output_dir)
+        rec004a_report = run_incremental_budget_calibration_task(rec004a_config)
+        print(
+            json.dumps(
+                {
+                    "implementation_status": rec004a_report["implementation_status"],
+                    "calibration_status": rec004a_report["calibration_status"],
+                    "rg3_recheck": rec004a_report["rg3_recheck"],
+                },
+                indent=2,
+            )
+        )
+        print(
+            "STOP: only B-C005REC-004A was executed. B-C005REC-005 onward and "
+            "B-C006/Task Inference remain blocked pending an explicit next user "
+            "instruction."
+        )
+        return 0 if rec004a_report["rg3_recheck"] == "RG3_RECHECK_PASS" else 1
 
     next_blocked = {
         "B-C005REC-002": "B-C005REC-003 onward",
