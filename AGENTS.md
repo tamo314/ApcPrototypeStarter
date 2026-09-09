@@ -163,8 +163,99 @@ from:
 > at length 10 (the longest trained length), where P is flat-or-worse than
 > U in 4 of 5 inits even as lengths 6-9 improve sharply -- an open lead for
 > a future task, not yet investigated. No 5-model cohort has started.
-> `B-C005REC-005` onward remain unexecuted pending an explicit next user
-> instruction.
+> A user-supplied task `B-C005REC-004E`
+> (`docs/CODEX_TASKS_PHASE_B_B2_MIRROR_POSITION_SCORE_RESIDUAL_AUDIT.md`, ADR-0100)
+> then audited REC-004D's saved P/I01-I05 checkpoints with **zero new
+> optimizer updates**: replayed all 5 step=6000 checkpoints' predictions
+> exactly against REC-004D's own saved metrics (`source_replay: VERIFIED`);
+> verified a read-only "score observer" (a manual Q/K/V reconstruction,
+> used only where the public `attn_mask` API cannot isolate the existing
+> score term) against a CPU fixture, the real trained checkpoint on the
+> production device, and REC-004D's own `bias_ablation.json` ground truth
+> (`score_observer_parity: VERIFIED`); enumerated the full position-bias
+> grid for all 65 available (5 init x 13 checkpoint) snapshots (21450
+> scalars, 330 (i,j,n) pairs each, 0 missing); and ran the task's own
+> fixed, forward-only J0-J6 counterfactual matrix (34560 predictions)
+> against the pre-registered `intervention_results.jsonl`. Findings: the
+> learned bias term is consistently and increasingly anti-correlated with
+> the existing (pre-bias) attention score as length grows, in all 5
+> independently-initialized models (a new, previously unreported pattern);
+> at length 10 the correct position is still descriptively well-ranked on
+> average even as sequence EM stays low (`SCORE_COMPONENT_INTERACTION_
+> LEAD`); scaling the bias term away from its trained value hurts far more
+> at lengths 6-9 than at length 10 (`SCORE_BALANCE_SENSITIVITY_OBSERVED`);
+> substituting a neighboring length's normalized-length feature measurably
+> moves output (`LENGTH_FEATURE_SENSITIVITY_OBSERVED`); and the late-phase
+> training curve had not plateaued by step=6000 at any matched same-LR-
+> phase checkpoint pair across all 5 inits (`OPTIMIZATION_PROGRESS_
+> OBSERVED`). Per the task's own D1 table, `next_repair_contract.md`
+> proposes exactly one diagnostic-only next step (an oracle-attention-
+> substitution probe isolating whether the length-10 residual sits in the
+> attention distribution itself or downstream of it) with `status:
+> PROPOSED_NOT_AUTHORIZED` -- this file's existence is not authorization
+> to implement or train it. `selected_init: null`, `selected_intervention:
+> null`, `child_bundle: null`, `rg3_recheck: NOT_EXECUTED` per the task's
+> own charter. `B-C005REC-005` onward remain unexecuted pending an
+> explicit next user instruction.
+> The user then explicitly authorized exactly one next step -- running
+> REC-004E's own proposed (not more) `next_repair_contract.md` probe, and
+> nothing else -- as `B-C005REC-004F`
+> (`src/apc/evaluation/mirror_oracle_attention_substitution_probe.py`,
+> ADR-0101). **Zero new optimizer updates.** On the SAME 5 saved P/I01-I05
+> step=6000 checkpoints and the SAME length-balanced suite REC-004E used,
+> it substitutes the ORACLE one-hot `pi_n` attention distribution for the
+> model's own combined attention -- a deliberate, disclosed, one-time
+> exception to REC-004E's rule against feeding `pi_n` into a forward input,
+> confined to exactly one function and verified by its own source-scan
+> test -- through the SAME real value/`out_proj`/`attn_norm`/`ffn`/
+> `readout` weights, then compares paired EM against a freshly recomputed
+> J0 (verified to reproduce REC-004E's own saved J0 exactly, `status:
+> VERIFIED`, 25/25 checked). Result at length 10: `MIXED_ACROSS_INITS` --
+> 3 of 5 inits recover dramatically under oracle attention (I01 EM 0.070 ->
+> 0.898, I02 0.211 -> 1.000, I03 0.086 -> 1.000: the attention distribution
+> is their bottleneck), I04 recovers modestly (0.516 -> 0.660), and I05
+> gets WORSE under oracle attention (0.738 -> 0.617: its residual sits
+> downstream of the attention distribution, not in it). Lengths 7-9 show
+> the same mixed pattern (labels `MIXED_ACROSS_INITS`); only length 6 is
+> uniformly `RESIDUAL_IS_DOWNSTREAM_OF_ATTENTION` (already near-ceiling
+> under J0). Weights/Core/12 protected primitives/shared cache/the read
+> checkpoint file all confirmed byte-identical before and after
+> (`probe_nonmutation_audit`/`freeze_audit`/`side_effect_audit`). No label
+> selects, adopts, or trains anything; `selected_init: null`,
+> `selected_intervention: null`, `child_bundle: null`, `rg3_recheck:
+> NOT_EXECUTED`. `B-C005REC-005` onward, `B-C005R3-011`, `B-C006`, and Task
+> Inference remain unexecuted pending an explicit next user instruction.
+> The user then directly instructed a specific, limited next experiment --
+> formalized as `B-C005REC-004G` (continuing the inserted-lettering
+> convention of REC-004A-F; it does NOT consume the separate, pre-existing
+> `B-C005REC-005` "Five-Model Coherent Cohort" slot, which remains blocked)
+> (`docs/CODEX_TASKS_PHASE_B_B2_MIRROR_BUDGET_EXTENSION_12000.md`,
+> `src/apc/evaluation/mirror_budget_extension.py`, ADR-0102): resume each of
+> REC-004D's 5 saved P/I01-I05 step=6000 training states (weights + AdamW
+> optimizer state + `CosineAnnealingLR` scheduler state + CPU/CUDA RNG
+> state, never reset) and continue training 6000 MORE updates each (30000
+> new optimizer updates total) under the exact same recipe, testing whether
+> the already-effective P was simply under-converged at step=6000 -- not
+> re-testing position bias, and not retraining U. Source replay verified all
+> 5 resumed states exactly against REC-004D's own recorded hash/EM before
+> any new update ran. Result: all 5 inits improve substantially and
+> consistently (mean existing-validation EM 0.719 -> 0.910; I01 0.677 ->
+> 0.866, I02 0.707 -> 0.934, I03 0.571 -> 0.804, I04 0.737 -> 0.969, I05
+> 0.902 -> 0.977), confirming REC-004E's under-convergence observation was
+> real, with the gain concentrated specifically at length 10 (e.g. I04's
+> length-10 correct count rose from 95/206 to 203/206). Only 2 of 5 (I04,
+> I05) clear the pre-registered 0.95 floor; I02 comes close (0.934) but does
+> not, and I01/I03 remain further below -- so per REC-004D's own all-five
+> gate, `candidate_status_at_target_step:
+> VALIDATION_TARGET_NOT_MET_AT_STEP_12000`, and per this task's own charter
+> (unconditional, even had all 5 passed) `selected_init: null`,
+> `selected_intervention: null`, `child_bundle: null`, `rg3_recheck:
+> NOT_EXECUTED`. Core/12 protected primitives/REC-004A's 3 fixed
+> candidates/REC-004D's own `run_001` source files/shared cache all
+> confirmed byte-identical before and after. `B-C005REC-005` (the real
+> five-model cohort, unaffected by this task) onward, `B-C005R3-011`,
+> `B-C006`, and Task Inference remain unexecuted pending an explicit next
+> user instruction.
 
 Implement **only the currently requested B-Cxxx task** unless the user explicitly asks to change scope.
 

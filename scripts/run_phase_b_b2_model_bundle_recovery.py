@@ -32,6 +32,14 @@ from apc.evaluation.incremental_budget_calibration import (
     IncrementalBudgetCalibrationConfig,
     run_incremental_budget_calibration_task,
 )
+from apc.evaluation.mirror_budget_extension import (
+    MirrorBudgetExtensionConfig,
+    run_mirror_budget_extension_task,
+)
+from apc.evaluation.mirror_oracle_attention_substitution_probe import (
+    OracleAttentionSubstitutionProbeConfig,
+    run_oracle_attention_substitution_probe_task,
+)
 from apc.evaluation.mirror_position_bias_repair import (
     REC004D_CHECKPOINT_INTERVAL,
     REC004D_EXISTING_VALIDATION_EXAMPLES,
@@ -48,6 +56,10 @@ from apc.evaluation.mirror_position_initialization_diagnostic import (
     REC004C_SCHEDULE_VALIDATION_EXAMPLES,
     MirrorPositionInitializationDiagnosticConfig,
     run_mirror_position_initialization_diagnostic_task,
+)
+from apc.evaluation.mirror_position_score_residual_audit import (
+    MirrorPositionScoreResidualAuditConfig,
+    run_mirror_position_score_residual_audit_task,
 )
 from apc.evaluation.mirror_schedule_comparison import (
     REC004B_CHECKPOINT_INTERVAL,
@@ -76,6 +88,9 @@ _IMPLEMENTED_TASKS = (
     "B-C005REC-004B",
     "B-C005REC-004C",
     "B-C005REC-004D",
+    "B-C005REC-004E",
+    "B-C005REC-004F",
+    "B-C005REC-004G",
 )
 
 
@@ -205,6 +220,51 @@ def _load_rec004d_config(config_path: Path) -> MirrorPositionBiasRepairConfig:
         recheck_query_examples=raw.get("recheck_query_examples", REC004D_RECHECK_QUERY_EXAMPLES),
         checkpoint_interval=raw.get("checkpoint_interval", REC004D_CHECKPOINT_INTERVAL),
         max_updates_per_run=raw.get("max_updates_per_run", REC004D_MAX_UPDATES_PER_RUN),
+    )
+
+
+def _load_rec004e_config(config_path: Path) -> MirrorPositionScoreResidualAuditConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+    defaults = MirrorPositionScoreResidualAuditConfig()
+    seed = raw.get("seed", defaults.seed)
+    if seed != RECOVERY_PILOT_SEED:
+        raise ValueError(
+            f"B-C005REC-004E reads REC-004D artifacts pre-registered under seed "
+            f"{RECOVERY_PILOT_SEED}; config requested seed={seed}"
+        )
+    return MirrorPositionScoreResidualAuditConfig(
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+        seed=seed,
+    )
+
+
+def _load_rec004f_config(config_path: Path) -> OracleAttentionSubstitutionProbeConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+    defaults = OracleAttentionSubstitutionProbeConfig()
+    seed = raw.get("seed", defaults.seed)
+    if seed != RECOVERY_PILOT_SEED:
+        raise ValueError(
+            f"B-C005REC-004F reads REC-004D/REC-004E artifacts pre-registered under seed "
+            f"{RECOVERY_PILOT_SEED}; config requested seed={seed}"
+        )
+    return OracleAttentionSubstitutionProbeConfig(
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+        seed=seed,
+    )
+
+
+def _load_rec004g_config(config_path: Path) -> MirrorBudgetExtensionConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+    defaults = MirrorBudgetExtensionConfig()
+    seed = raw.get("seed", defaults.seed)
+    if seed != RECOVERY_PILOT_SEED:
+        raise ValueError(
+            f"B-C005REC-004G reads REC-004D artifacts pre-registered under seed "
+            f"{RECOVERY_PILOT_SEED}; config requested seed={seed}"
+        )
+    return MirrorBudgetExtensionConfig(
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+        seed=seed,
     )
 
 
@@ -341,7 +401,7 @@ def main() -> int:
             "instruction."
         )
         return 0 if rec004c_report["execution_contract_status"] == "PASS" else 1
-    else:  # B-C005REC-004D
+    elif args.task == "B-C005REC-004D":
         config_path = args.config or Path(
             "configs/phase_b_b2_model_bundle_recovery_rec004d.yaml"
         )
@@ -367,6 +427,98 @@ def main() -> int:
             "instruction."
         )
         return 0 if rec004d_report["rg3_recheck"] == "RG3_RECHECK_PASS" else 1
+    elif args.task == "B-C005REC-004E":
+        config_path = args.config or Path(
+            "configs/phase_b_b2_model_bundle_recovery_rec004e.yaml"
+        )
+        rec004e_config = _load_rec004e_config(config_path)
+        if args.output_dir is not None:
+            rec004e_config = dataclasses.replace(rec004e_config, output_dir=args.output_dir)
+        rec004e_report = run_mirror_position_score_residual_audit_task(rec004e_config)
+        print(
+            json.dumps(
+                {
+                    "implementation_status": rec004e_report["implementation_status"],
+                    "source_replay_status": rec004e_report["source_replay_status"],
+                    "position_grid_status": rec004e_report["position_grid_status"],
+                    "score_observation_status": rec004e_report["score_observation_status"],
+                    "intervention_status": rec004e_report["intervention_status"],
+                    "residual_diagnosis": rec004e_report["residual_diagnosis"],
+                    "next_repair_contract": rec004e_report["next_repair_contract"],
+                    "rg3_recheck": rec004e_report["rg3_recheck"],
+                    "rec005_eligible": rec004e_report["rec005_eligible"],
+                },
+                indent=2,
+            )
+        )
+        print(
+            "STOP: only B-C005REC-004E was executed (diagnostic + at-most-one proposed "
+            "repair contract -- no implementation, no training, no candidate, no child "
+            "bundle, no RG3 recheck). B-C005REC-005 onward and B-C006/Task Inference "
+            "remain blocked pending an explicit next user instruction."
+        )
+        return 0 if rec004e_report["implementation_status"] == "COMPLETE" else 1
+    elif args.task == "B-C005REC-004F":
+        config_path = args.config or Path(
+            "configs/phase_b_b2_model_bundle_recovery_rec004f.yaml"
+        )
+        rec004f_config = _load_rec004f_config(config_path)
+        if args.output_dir is not None:
+            rec004f_config = dataclasses.replace(rec004f_config, output_dir=args.output_dir)
+        rec004f_report = run_oracle_attention_substitution_probe_task(rec004f_config)
+        print(
+            json.dumps(
+                {
+                    "implementation_status": rec004f_report["implementation_status"],
+                    "probe_status": rec004f_report["probe_status"],
+                    "diagnosis": rec004f_report["diagnosis"],
+                    "rg3_recheck": rec004f_report["rg3_recheck"],
+                    "rec005_eligible": rec004f_report["rec005_eligible"],
+                },
+                indent=2,
+            )
+        )
+        print(
+            "STOP: only B-C005REC-004F was executed (the single diagnostic probe REC-004E's "
+            "own next_repair_contract.md proposed -- no implementation, no training, no "
+            "candidate, no child bundle, no RG3 recheck). B-C005REC-005 onward and "
+            "B-C006/Task Inference remain blocked pending an explicit next user "
+            "instruction."
+        )
+        return 0 if rec004f_report["implementation_status"] == "COMPLETE" else 1
+    else:  # B-C005REC-004G
+        config_path = args.config or Path(
+            "configs/phase_b_b2_model_bundle_recovery_rec004g.yaml"
+        )
+        rec004g_config = _load_rec004g_config(config_path)
+        if args.output_dir is not None:
+            rec004g_config = dataclasses.replace(rec004g_config, output_dir=args.output_dir)
+        rec004g_report = run_mirror_budget_extension_task(rec004g_config)
+        print(
+            json.dumps(
+                {
+                    "implementation_status": rec004g_report.get("implementation_status"),
+                    "source_replay_status": rec004g_report.get("source_replay_status"),
+                    "extension_training_status": rec004g_report.get(
+                        "extension_training_status"
+                    ),
+                    "candidate_status_at_target_step": rec004g_report.get(
+                        "candidate_status_at_target_step"
+                    ),
+                    "rg3_recheck": rec004g_report.get("rg3_recheck"),
+                },
+                indent=2,
+            )
+        )
+        print(
+            "STOP: only B-C005REC-004G was executed (a limited budget-extension "
+            "experiment on REC-004D's own saved P/I01-I05 checkpoints -- no candidate "
+            "selected, no child bundle, no RG3 recheck even if the floor is cleared). "
+            "B-C005REC-005 (the real five-model cohort) onward, B-C005R3-011, "
+            "B-C006, and Task Inference remain blocked pending an explicit next "
+            "user instruction."
+        )
+        return 0 if rec004g_report.get("implementation_status") == "COMPLETE" else 1
 
     next_blocked = {
         "B-C005REC-002": "B-C005REC-003 onward",
