@@ -296,6 +296,39 @@ from:
 > `B-C006`, and Task Inference remain unexecuted pending an explicit next
 > user instruction.
 
+> The user then instructed, in chat, a diagnostic-only task with **zero new
+> optimizer updates** -- formalized as `B-C005REC-004I`
+> (`docs/CODEX_TASKS_PHASE_B_B2_MIRROR_CONTAMINATION_FREE_CHECKPOINT_TRAJECTORY_AUDIT.md`,
+> `src/apc/evaluation/mirror_contamination_free_checkpoint_trajectory_audit.py`,
+> ADR-0104): build a new `clean_selection_validation_v2` set (1024 examples)
+> proven, by `(input_tokens, target_tokens)` digest, disjoint from the entire
+> training stream (steps 1-18000) and every other MIRROR_HALVES reference/
+> sealed split this lineage has ever generated (575143 protected digests
+> total), using a deterministic "keep drawing from the same continuing RNG
+> stream on collision" substitution rule; then forward-evaluate all 125
+> already-saved P/I01-I05 checkpoints spanning step=6000-18000 (500-step
+> interval, across REC-004D's/REC-004G's/REC-004H's own `run_001` trees, all
+> source-replay `VERIFIED`) against it, decomposing each init's full
+> trajectory rather than just its value at REC-004H's fixed endpoints. The
+> old-`rec004a_budget_validation` pass/fail reading reproduces EXACTLY on the
+> fully disjoint set for all 4 non-I03 inits (`invalidated_inits: []`) --
+> notably confirming I02's step=18000 pass independent of REC-004H's
+> disclosed train/validation overlap. **I03 never reaches the 0.95 floor on
+> either metric at any of the 25 checkpoints across the whole trajectory**
+> (own best: 0.8174 at step=17500, with lengths 6-9 at/near ceiling and
+> length 10 still only 44/230) -- directly answering the task's own question
+> that I03's failure is a structural, length-10-specific capacity limit, not
+> an artifact of evaluating every init at the same fixed step.
+> **I05's regression is pinpointed to a sudden, broad collapse at the single
+> final checkpoint** (sustains >=0.95 for 23 of 24 checkpoints from step=6500
+> through step=17500, then drops broadly across every length at step=18000),
+> sharpening REC-004H's coarser step=12000-to-18000 finding.
+> `pattern_classification: SOME_INITS_NEVER_CLEAR_CLEAN_V2`; per the task's
+> own charter `selected_init: null`, `selected_step: null`,
+> `child_bundle: null`, `rg3_recheck: NOT_EXECUTED` regardless. `B-C005REC-005`
+> onward, `B-C005R3-011`, `B-C006`, and Task Inference remain unexecuted
+> pending an explicit next user instruction.
+
 Implement **only the currently requested B-Cxxx task** unless the user explicitly asks to change scope.
 
 Do not continue automatically to the next task after completing one.

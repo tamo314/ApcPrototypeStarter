@@ -36,6 +36,10 @@ from apc.evaluation.mirror_budget_extension import (
     MirrorBudgetExtensionConfig,
     run_mirror_budget_extension_task,
 )
+from apc.evaluation.mirror_contamination_free_checkpoint_trajectory_audit import (
+    MirrorContaminationFreeCheckpointTrajectoryAuditConfig,
+    run_mirror_contamination_free_checkpoint_trajectory_audit_task,
+)
 from apc.evaluation.mirror_late_progress_conditional_extension import (
     MirrorLateProgressConditionalExtensionConfig,
     run_mirror_late_progress_conditional_extension_task,
@@ -96,6 +100,7 @@ _IMPLEMENTED_TASKS = (
     "B-C005REC-004F",
     "B-C005REC-004G",
     "B-C005REC-004H",
+    "B-C005REC-004I",
 )
 
 
@@ -283,6 +288,23 @@ def _load_rec004h_config(config_path: Path) -> MirrorLateProgressConditionalExte
             f"{RECOVERY_PILOT_SEED}; config requested seed={seed}"
         )
     return MirrorLateProgressConditionalExtensionConfig(
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+        seed=seed,
+    )
+
+
+def _load_rec004i_config(
+    config_path: Path,
+) -> MirrorContaminationFreeCheckpointTrajectoryAuditConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+    defaults = MirrorContaminationFreeCheckpointTrajectoryAuditConfig()
+    seed = raw.get("seed", defaults.seed)
+    if seed != RECOVERY_PILOT_SEED:
+        raise ValueError(
+            f"B-C005REC-004I reads REC-004D/G/H artifacts pre-registered under seed "
+            f"{RECOVERY_PILOT_SEED}; config requested seed={seed}"
+        )
+    return MirrorContaminationFreeCheckpointTrajectoryAuditConfig(
         output_dir=Path(raw.get("output_dir", defaults.output_dir)),
         seed=seed,
     )
@@ -539,7 +561,7 @@ def main() -> int:
             "user instruction."
         )
         return 0 if rec004g_report.get("implementation_status") == "COMPLETE" else 1
-    else:  # B-C005REC-004H
+    elif args.task == "B-C005REC-004H":
         config_path = args.config or Path(
             "configs/phase_b_b2_model_bundle_recovery_rec004h.yaml"
         )
@@ -573,6 +595,39 @@ def main() -> int:
             "an explicit next user instruction."
         )
         return 0 if rec004h_report.get("implementation_status") == "COMPLETE" else 1
+    else:  # B-C005REC-004I
+        config_path = args.config or Path(
+            "configs/phase_b_b2_model_bundle_recovery_rec004i.yaml"
+        )
+        rec004i_config = _load_rec004i_config(config_path)
+        if args.output_dir is not None:
+            rec004i_config = dataclasses.replace(rec004i_config, output_dir=args.output_dir)
+        rec004i_report = run_mirror_contamination_free_checkpoint_trajectory_audit_task(
+            rec004i_config
+        )
+        print(
+            json.dumps(
+                {
+                    "implementation_status": rec004i_report.get("implementation_status"),
+                    "source_replay_status": rec004i_report.get("source_replay_status"),
+                    "checkpoints_evaluated": rec004i_report.get("checkpoints_evaluated"),
+                    "new_optimizer_updates": rec004i_report.get("new_optimizer_updates"),
+                    "pattern_classification": rec004i_report.get("pattern_classification"),
+                    "rg3_recheck": rec004i_report.get("rg3_recheck"),
+                },
+                indent=2,
+            )
+        )
+        print(
+            "STOP: only B-C005REC-004I was executed (a forward-only, zero-new-update "
+            "trajectory audit of every saved P/I01-I05 checkpoint step=6000-18000 "
+            "against a newly built, contamination-checked clean_selection_validation_v2 "
+            "set -- no training, no candidate selected, no child bundle, no RG3 "
+            "recheck). B-C005REC-005 (the real five-model cohort) onward, "
+            "B-C005R3-011, B-C006, and Task Inference remain blocked pending an "
+            "explicit next user instruction."
+        )
+        return 0 if rec004i_report.get("implementation_status") == "COMPLETE" else 1
 
     next_blocked = {
         "B-C005REC-002": "B-C005REC-003 onward",
