@@ -1,0 +1,26 @@
+{
+  "sources": [
+    {
+      "snapshot_path": "docs/research/evidence/REC004G_ADR0102_SUPPLIED.md",
+      "source_conversation_filename": "貼り付けたマークダウン（1）(20260909-122806).md",
+      "sha256": "ae3d990521a376f761d04cfca7a6ec20e2b95be9e8048b8f04e8d3986a5c90bd",
+      "bytes": 12695,
+      "copy_policy": "EXACT_BYTES_UNMODIFIED"
+    },
+    {
+      "snapshot_path": "docs/research/evidence/REC004D_TASK_SUPPLIED.md",
+      "source_conversation_filename": "CODEX_TASKS_PHASE_B_B2_MIRROR_LENGTH_POSITION_BIAS.md",
+      "sha256": "33d85861d9d448ab8e4eb5d39279e09038b0adb4b6c619f56d691681aed7c386",
+      "bytes": 34872,
+      "copy_policy": "EXACT_BYTES_UNMODIFIED"
+    },
+    {
+      "snapshot_path": "docs/research/evidence/MODEL_BUNDLE_RECOVERY_TASKS_SUPPLIED.md",
+      "source_conversation_filename": "CODEX_TASKS_PHASE_B_B2_MODEL_BUNDLE_RECOVERY.md",
+      "sha256": "ebd34c93a4aa64e28af841e939ddd321972cb35989ca70db9446b6ea4d2711cb",
+      "bytes": 27464,
+      "copy_policy": "EXACT_BYTES_UNMODIFIED"
+    }
+  ],
+  "project_execution_performed": false
+}

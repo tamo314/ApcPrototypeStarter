@@ -36,6 +36,10 @@ from apc.evaluation.mirror_budget_extension import (
     MirrorBudgetExtensionConfig,
     run_mirror_budget_extension_task,
 )
+from apc.evaluation.mirror_late_progress_conditional_extension import (
+    MirrorLateProgressConditionalExtensionConfig,
+    run_mirror_late_progress_conditional_extension_task,
+)
 from apc.evaluation.mirror_oracle_attention_substitution_probe import (
     OracleAttentionSubstitutionProbeConfig,
     run_oracle_attention_substitution_probe_task,
@@ -91,6 +95,7 @@ _IMPLEMENTED_TASKS = (
     "B-C005REC-004E",
     "B-C005REC-004F",
     "B-C005REC-004G",
+    "B-C005REC-004H",
 )
 
 
@@ -263,6 +268,21 @@ def _load_rec004g_config(config_path: Path) -> MirrorBudgetExtensionConfig:
             f"{RECOVERY_PILOT_SEED}; config requested seed={seed}"
         )
     return MirrorBudgetExtensionConfig(
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+        seed=seed,
+    )
+
+
+def _load_rec004h_config(config_path: Path) -> MirrorLateProgressConditionalExtensionConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+    defaults = MirrorLateProgressConditionalExtensionConfig()
+    seed = raw.get("seed", defaults.seed)
+    if seed != RECOVERY_PILOT_SEED:
+        raise ValueError(
+            f"B-C005REC-004H reads REC-004G artifacts pre-registered under seed "
+            f"{RECOVERY_PILOT_SEED}; config requested seed={seed}"
+        )
+    return MirrorLateProgressConditionalExtensionConfig(
         output_dir=Path(raw.get("output_dir", defaults.output_dir)),
         seed=seed,
     )
@@ -486,7 +506,7 @@ def main() -> int:
             "instruction."
         )
         return 0 if rec004f_report["implementation_status"] == "COMPLETE" else 1
-    else:  # B-C005REC-004G
+    elif args.task == "B-C005REC-004G":
         config_path = args.config or Path(
             "configs/phase_b_b2_model_bundle_recovery_rec004g.yaml"
         )
@@ -519,6 +539,40 @@ def main() -> int:
             "user instruction."
         )
         return 0 if rec004g_report.get("implementation_status") == "COMPLETE" else 1
+    else:  # B-C005REC-004H
+        config_path = args.config or Path(
+            "configs/phase_b_b2_model_bundle_recovery_rec004h.yaml"
+        )
+        rec004h_config = _load_rec004h_config(config_path)
+        if args.output_dir is not None:
+            rec004h_config = dataclasses.replace(rec004h_config, output_dir=args.output_dir)
+        rec004h_report = run_mirror_late_progress_conditional_extension_task(rec004h_config)
+        print(
+            json.dumps(
+                {
+                    "implementation_status": rec004h_report.get("implementation_status"),
+                    "source_replay_status": rec004h_report.get("source_replay_status"),
+                    "late_audit_status": rec004h_report.get("late_audit_status"),
+                    "continuation_decision": rec004h_report.get("continuation_decision"),
+                    "extension_status": rec004h_report.get("extension_status"),
+                    "new_optimizer_updates": rec004h_report.get("new_optimizer_updates"),
+                    "terminal_floor_status": rec004h_report.get("terminal_floor_status"),
+                    "rg3_recheck": rec004h_report.get("rg3_recheck"),
+                },
+                indent=2,
+            )
+        )
+        print(
+            "STOP: only B-C005REC-004H was executed (a length-10 late-progress audit "
+            "plus, only if every below-floor init showed confirmed late-stage "
+            "progress, a conditional extension of all 5 P/I01-I05 inits from "
+            "REC-004G's saved step=12000 states to a common step=18000 -- no "
+            "candidate selected, no child bundle, no RG3 recheck even if all 5 clear "
+            "the floor at step=18000). B-C005REC-005 (the real five-model cohort) "
+            "onward, B-C005R3-011, B-C006, and Task Inference remain blocked pending "
+            "an explicit next user instruction."
+        )
+        return 0 if rec004h_report.get("implementation_status") == "COMPLETE" else 1
 
     next_blocked = {
         "B-C005REC-002": "B-C005REC-003 onward",

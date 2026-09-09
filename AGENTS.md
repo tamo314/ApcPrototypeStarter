@@ -256,6 +256,45 @@ from:
 > five-model cohort, unaffected by this task) onward, `B-C005R3-011`,
 > `B-C006`, and Task Inference remain unexecuted pending an explicit next
 > user instruction.
+> The user then supplied a new, self-contained written task
+> (`docs/CODEX_TASKS_PHASE_B_B2_MIRROR_LATE_PROGRESS_CONDITIONAL_EXTENSION.md`,
+> `src/apc/evaluation/mirror_late_progress_conditional_extension.py`,
+> ADR-0103): `B-C005REC-004H` first audited, at zero new optimizer updates,
+> REC-004G's own already-saved P/I01-I05 step=8000-12000 checkpoints (all 45
+> hash-verified against REC-004G's own `learning_curve.jsonl`), computing
+> NEW length-10 token-level statistics (token-error counts, mean valid-token
+> cross-entropy) REC-004G never recorded, and applied a newly-defined,
+> pre-registered `EM_PROGRESS`/`SOFT_PROGRESS` predicate at the LR-phase-
+> matched steps 8000/10000/12000 for the 3 below-floor inits (I01, I02, I03).
+> All 3 satisfied the predicate (monotonic length-10 correct-count increases
+> with falling token error/loss), so per the task's own rule all 5 inits
+> (not just the passing 3) were extended from their real step=12000 state to
+> a common step=18000 (30000 new optimizer updates, 0 diverged). Result at
+> step=18000: existing-validation EM I01 0.958, I02 0.956, I03 0.822, I04
+> 1.000, I05 0.906 -- only I01/I02/I04 individually clear the 0.95 floor,
+> so `terminal_floor_status: TARGET_NOT_MET_AT_18000`. Two findings stand
+> out: I05 (the prior best init, passing at both step=6000 and step=12000)
+> regressed broadly across every length, not only length 10, between
+> step=12000 and step=18000 (overall EM 0.977 -> 0.906) -- recorded as-is,
+> not smoothed over; and I03 remains the weakest specifically at length 10
+> (26/206 -> 38/206) even though its own progress predicate was satisfied.
+> A disclosed, bounded implementation gap is also recorded: the task's own
+> S5.4 protocol requires stopping extension training if the new
+> training-stream/validation content overlaps, and the run that produced
+> these results computed that check but did not gate on it before training
+> started; a post-hoc audit found 7 of 192000 new training examples (0.0036%,
+> all length <=7, none length 10) collide with 7 validation examples, all
+> answered correctly by all 5 inits, whose worst-case removal leaves I01/I04
+> still clearing the floor but flips I02 below it (I03/I05 fail either way)
+> -- `terminal_floor_status: TARGET_NOT_MET_AT_18000` is unaffected either
+> way. The code has been corrected to stop with zero new training on any
+> future detected overlap; see `runs/phase_b_b2_model_bundle_recovery/
+> rec004h/run_001/KNOWN_LIMITATIONS.md` for the full disclosure. Per this
+> task's own unconditional charter, `selected_init: null`, `selected_
+> intervention: null`, `child_bundle: null`, `rg3_recheck: NOT_EXECUTED`
+> regardless of the step=18000 result. `B-C005REC-005` onward, `B-C005R3-011`,
+> `B-C006`, and Task Inference remain unexecuted pending an explicit next
+> user instruction.
 
 Implement **only the currently requested B-Cxxx task** unless the user explicitly asks to change scope.
 
