@@ -44,6 +44,10 @@ from apc.evaluation.mirror_ffn_anchored_downstream_interaction_audit import (
     MirrorFfnAnchoredDownstreamInteractionAuditConfig,
     run_mirror_ffn_anchored_downstream_interaction_audit_task,
 )
+from apc.evaluation.mirror_ffn_value_path_subcomponent_attribution import (
+    MirrorFfnValuePathSubcomponentAttributionConfig,
+    run_mirror_ffn_value_path_subcomponent_attribution_task,
+)
 from apc.evaluation.mirror_late_progress_conditional_extension import (
     MirrorLateProgressConditionalExtensionConfig,
     run_mirror_late_progress_conditional_extension_task,
@@ -116,6 +120,7 @@ _IMPLEMENTED_TASKS = (
     "B-C005REC-004J",
     "B-C005REC-004K",
     "B-C005REC-004L",
+    "B-C005REC-004M",
 )
 
 
@@ -371,6 +376,23 @@ def _load_rec004l_config(
             f"{RECOVERY_PILOT_SEED}; config requested seed={seed}"
         )
     return MirrorFfnAnchoredDownstreamInteractionAuditConfig(
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+        seed=seed,
+    )
+
+
+def _load_rec004m_config(
+    config_path: Path,
+) -> MirrorFfnValuePathSubcomponentAttributionConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+    defaults = MirrorFfnValuePathSubcomponentAttributionConfig()
+    seed = raw.get("seed", defaults.seed)
+    if seed != RECOVERY_PILOT_SEED:
+        raise ValueError(
+            f"B-C005REC-004M reads REC-004D/H/K/L artifacts pre-registered under seed "
+            f"{RECOVERY_PILOT_SEED}; config requested seed={seed}"
+        )
+    return MirrorFfnValuePathSubcomponentAttributionConfig(
         output_dir=Path(raw.get("output_dir", defaults.output_dir)),
         seed=seed,
     )
@@ -780,7 +802,7 @@ def main() -> int:
             "user instruction."
         )
         return 0 if rec004k_report.get("implementation_status") == "COMPLETE" else 1
-    else:  # B-C005REC-004L
+    elif args.task == "B-C005REC-004L":
         config_path = args.config or Path(
             "configs/phase_b_b2_model_bundle_recovery_rec004l.yaml"
         )
@@ -821,6 +843,56 @@ def main() -> int:
             "remain blocked pending an explicit next user instruction."
         )
         return 0 if rec004l_report.get("implementation_status") == "COMPLETE" else 1
+    else:  # B-C005REC-004M
+        config_path = args.config or Path(
+            "configs/phase_b_b2_model_bundle_recovery_rec004m.yaml"
+        )
+        rec004m_config = _load_rec004m_config(config_path)
+        if args.output_dir is not None:
+            rec004m_config = dataclasses.replace(rec004m_config, output_dir=args.output_dir)
+        rec004m_report = run_mirror_ffn_value_path_subcomponent_attribution_task(
+            rec004m_config
+        )
+        print(
+            json.dumps(
+                {
+                    "implementation_status": rec004m_report.get("implementation_status"),
+                    "forward_graph_invariance_status": rec004m_report.get(
+                        "forward_graph_invariance_status"
+                    ),
+                    "qk_rollback_invariance_status": rec004m_report.get(
+                        "qk_rollback_invariance_status"
+                    ),
+                    "cross_check_status": rec004m_report.get("cross_check_status"),
+                    "decomposition_parity_status": rec004m_report.get(
+                        "decomposition_parity_status"
+                    ),
+                    "value_path_subcomponent_decision": rec004m_report.get(
+                        "value_path_subcomponent_decision"
+                    ),
+                    "safety_check_status": rec004m_report.get("safety_check_status"),
+                    "new_optimizer_updates": rec004m_report.get("new_optimizer_updates"),
+                    "rg3_recheck": rec004m_report.get("rg3_recheck"),
+                },
+                indent=2,
+            )
+        )
+        print(
+            "STOP: only B-C005REC-004M was executed (a forward-only, zero-new-update "
+            "attribution audit that further splits REC-004K/L's own VALUE_OUTPROJ "
+            "group into CONTENT_PREP/V_PROJECTION/ATTN_OUT_PROJ/SCORE_PROJECTION_"
+            "CONTROL by real state-dict key and, for the fused Q/K/V tensor, by "
+            "row-slice -- rolling FFN_BLOCK back jointly with exactly one such "
+            "subcomponent at a time from I03@17500 to I03@6000, on an in-memory, "
+            "evaluation-only merged primitive, across four datasets -- plus a "
+            "conditional safety check on I04/I05's own trajectories if the result "
+            "localizes to one subcomponent. No training, no candidate selected, no "
+            "child bundle, no RG3 recheck, no checkpoint file ever modified, no "
+            "combination beyond the fixed set. B-C005REC-005 (the real five-model "
+            "cohort) onward, B-C005R3-011, B-C006, and Task Inference remain blocked "
+            "pending an explicit next user instruction."
+        )
+        return 0 if rec004m_report.get("implementation_status") == "COMPLETE" else 1
 
     next_blocked = {
         "B-C005REC-002": "B-C005REC-003 onward",

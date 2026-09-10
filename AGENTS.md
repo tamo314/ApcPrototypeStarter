@@ -499,6 +499,53 @@ from:
 > proposed as authorized future work here -- this task's charter is
 > diagnosis only.
 
+> The user then instructed, in chat, the follow-up attribution task itself --
+> **`B-C005REC-004M`**
+> (`docs/CODEX_TASKS_PHASE_B_B2_FFN_VALUE_PATH_SUBCOMPONENT_ATTRIBUTION.md`,
+> ADR-0109): REC-004L's `FFN_VALUE_OUTPROJ_INTERACTION_SUFFICIENT` finding
+> used REC-004K's coarse `VALUE_OUTPROJ` group, which bundles four
+> functionally distinct roles and which REC-004K's own note had already
+> flagged as a disclosed confound when rolled back whole (its fused Q/K
+> slices also change J0's real attention pattern). **Stage A** split
+> `VALUE_OUTPROJ` into `CONTENT_PREP`, `V_PROJECTION`, `ATTN_OUT_PROJ`, and
+> `SCORE_PROJECTION_CONTROL` (Q/K, a negative control), assigned by real
+> state-dict key and, for the fused `cross_attn.in_proj_weight`/`in_proj_
+> bias` tensor, by row-slice rather than swapped whole -- self-verified
+> exhaustive against the real checkpoint, never assumed. `SCORE_PROJECTION_
+> CONTROL` was confirmed EXACTLY O1-invariant two ways: REC-004K's own
+> perturbation-based check, and a new rollback-based check on the real
+> weights (`F_QK`'s O1 forward was BYTE-IDENTICAL to `F`'s on every metric,
+> all four datasets). **Stage B/C/D** fixed `FFN_BLOCK` as the base and
+> tested it jointly with exactly one subcomponent at a time (`F_C`, `F_V`,
+> `F_O`, `F_QK`), plus `F_ALLV` (all four) and `EARLY`, across REC-004K's/
+> REC-004L's own three datasets plus one new disjoint
+> `length10_value_path_subcomponent_probe_v1` (512 examples, 0 collisions).
+> Result: `value_path_subcomponent_decision: DISTRIBUTED_WITHIN_VALUE_PATH`
+> -- `F_ALLV` reproduces REC-004L's own `F_V` exactly (oracle EM/position-
+> 4/5 all `1.0000`, decomposition parity `VERIFIED`), but no single
+> subcomponent clears the 0.95 floor alone. A new, previously unmeasured
+> finding: `F_C` (FFN+CONTENT_PREP alone) and `F_O` (FFN+ATTN_OUT_PROJ
+> alone) actively make things WORSE than `F` (FFN alone) -- oracle EM drops
+> to 0.55-0.60 and 0.80-0.82 respectively, versus `F`'s own 0.87-0.90 --
+> direct evidence of multi-component coadaptation within the value path,
+> not merely an insufficient single lever. Only `F_V` (FFN+V_PROJECTION)
+> stays roughly at `F`'s own level without clearing the floor. Per the
+> task's own pre-registered rule, `DISTRIBUTED_WITHIN_VALUE_PATH` does NOT
+> auto-propose freezing the entire value path: `CONTENT_PREP` feeds the
+> same `kv` tensor the real, learnable K path (`SCORE_PROJECTION_CONTROL`,
+> live under J0) also reads from, so freezing it would constrain real
+> attention-score learning, not just O1's oracle-substituted output. Stage E
+> (a conditional I04/I05 safety check) correctly did not run, since Stage D
+> did not localize to one subcomponent; `next_training_repair_contract.md`
+> records `status: NOT_PROPOSED`. Per the task's own unconditional charter,
+> `selected_init: null`, `selected_step: null`, `selected_value_
+> subcomponent: null`, `child_bundle: null`, `rg3_recheck: NOT_EXECUTED`,
+> `rec005_eligible: false` regardless. `B-C005REC-005` onward,
+> `B-C005R3-011`, `B-C006`, and Task Inference remain unexecuted pending an
+> explicit next user instruction. No repair, and no further diagnostic
+> narrower than this task's own four-way split, is proposed as authorized
+> future work here -- this task's charter is diagnosis only.
+
 Implement **only the currently requested B-Cxxx task** unless the user explicitly asks to change scope.
 
 Do not continue automatically to the next task after completing one.
