@@ -40,6 +40,10 @@ from apc.evaluation.mirror_contamination_free_checkpoint_trajectory_audit import
     MirrorContaminationFreeCheckpointTrajectoryAuditConfig,
     run_mirror_contamination_free_checkpoint_trajectory_audit_task,
 )
+from apc.evaluation.mirror_content_prep_release_pilot import (
+    MirrorContentPrepReleasePilotConfig,
+    run_mirror_content_prep_release_pilot_task,
+)
 from apc.evaluation.mirror_ffn_anchored_downstream_interaction_audit import (
     MirrorFfnAnchoredDownstreamInteractionAuditConfig,
     run_mirror_ffn_anchored_downstream_interaction_audit_task,
@@ -94,6 +98,10 @@ from apc.evaluation.mirror_schedule_comparison import (
     MirrorScheduleComparisonConfig,
     run_mirror_schedule_comparison_task,
 )
+from apc.evaluation.mirror_score_only_continuation_pilot import (
+    MirrorScoreOnlyContinuationPilotConfig,
+    run_mirror_score_only_continuation_pilot_task,
+)
 from apc.evaluation.mirror_temporal_mechanism_rollback_audit import (
     MirrorTemporalMechanismRollbackAuditConfig,
     run_mirror_temporal_mechanism_rollback_audit_task,
@@ -126,6 +134,8 @@ _IMPLEMENTED_TASKS = (
     "B-C005REC-004L",
     "B-C005REC-004M",
     "B-C005REC-004N",
+    "B-C005REC-004O",
+    "B-C005REC-004P",
 )
 
 
@@ -183,9 +193,7 @@ def _load_rec004a_config(config_path: Path) -> IncrementalBudgetCalibrationConfi
         step_ladder=tuple(raw.get("step_ladder", REC004A_STEP_LADDER)),
         validation_examples=raw.get("validation_examples", REC004A_VALIDATION_EXAMPLES),
         validation_floor=raw.get("validation_floor", REC004A_VALIDATION_FLOOR),
-        recheck_query_examples=raw.get(
-            "recheck_query_examples", REC004A_RECHECK_QUERY_EXAMPLES
-        ),
+        recheck_query_examples=raw.get("recheck_query_examples", REC004A_RECHECK_QUERY_EXAMPLES),
     )
 
 
@@ -420,6 +428,38 @@ def _load_rec004n_config(
     )
 
 
+def _load_rec004o_config(config_path: Path) -> MirrorScoreOnlyContinuationPilotConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+    defaults = MirrorScoreOnlyContinuationPilotConfig()
+    seed = raw.get("seed", defaults.seed)
+    if seed != RECOVERY_PILOT_SEED:
+        raise ValueError(
+            f"B-C005REC-004O is fixed to I03's pre-registered seed "
+            f"{RECOVERY_PILOT_SEED}; config requested seed={seed}"
+        )
+    return MirrorScoreOnlyContinuationPilotConfig(
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+        seed=seed,
+        checkpoint_interval=raw.get("checkpoint_interval", defaults.checkpoint_interval),
+    )
+
+
+def _load_rec004p_config(config_path: Path) -> MirrorContentPrepReleasePilotConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+    defaults = MirrorContentPrepReleasePilotConfig()
+    seed = raw.get("seed", defaults.seed)
+    if seed != RECOVERY_PILOT_SEED:
+        raise ValueError(
+            f"B-C005REC-004P is fixed to I03's pre-registered seed "
+            f"{RECOVERY_PILOT_SEED}; config requested seed={seed}"
+        )
+    return MirrorContentPrepReleasePilotConfig(
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+        seed=seed,
+        checkpoint_interval=raw.get("checkpoint_interval", defaults.checkpoint_interval),
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Phase B B2 model bundle recovery -- explicit single-task dispatch"
@@ -472,9 +512,7 @@ def main() -> int:
         report = run_pilot_restore_build_task(rec004_config)
         expected_result = "RG3_PASS"
     elif args.task == "B-C005REC-004A":
-        config_path = args.config or Path(
-            "configs/phase_b_b2_model_bundle_recovery_rec004a.yaml"
-        )
+        config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004a.yaml")
         rec004a_config = _load_rec004a_config(config_path)
         if args.output_dir is not None:
             rec004a_config = dataclasses.replace(rec004a_config, output_dir=args.output_dir)
@@ -496,9 +534,7 @@ def main() -> int:
         )
         return 0 if rec004a_report["rg3_recheck"] == "RG3_RECHECK_PASS" else 1
     elif args.task == "B-C005REC-004B":
-        config_path = args.config or Path(
-            "configs/phase_b_b2_model_bundle_recovery_rec004b.yaml"
-        )
+        config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004b.yaml")
         rec004b_config = _load_rec004b_config(config_path)
         if args.output_dir is not None:
             rec004b_config = dataclasses.replace(rec004b_config, output_dir=args.output_dir)
@@ -522,9 +558,7 @@ def main() -> int:
         )
         return 0 if rec004b_report["rg3_recheck"] == "RG3_RECHECK_PASS" else 1
     elif args.task == "B-C005REC-004C":
-        config_path = args.config or Path(
-            "configs/phase_b_b2_model_bundle_recovery_rec004c.yaml"
-        )
+        config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004c.yaml")
         rec004c_config = _load_rec004c_config(config_path)
         if args.output_dir is not None:
             rec004c_config = dataclasses.replace(rec004c_config, output_dir=args.output_dir)
@@ -554,9 +588,7 @@ def main() -> int:
         )
         return 0 if rec004c_report["execution_contract_status"] == "PASS" else 1
     elif args.task == "B-C005REC-004D":
-        config_path = args.config or Path(
-            "configs/phase_b_b2_model_bundle_recovery_rec004d.yaml"
-        )
+        config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004d.yaml")
         rec004d_config = _load_rec004d_config(config_path)
         if args.output_dir is not None:
             rec004d_config = dataclasses.replace(rec004d_config, output_dir=args.output_dir)
@@ -580,9 +612,7 @@ def main() -> int:
         )
         return 0 if rec004d_report["rg3_recheck"] == "RG3_RECHECK_PASS" else 1
     elif args.task == "B-C005REC-004E":
-        config_path = args.config or Path(
-            "configs/phase_b_b2_model_bundle_recovery_rec004e.yaml"
-        )
+        config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004e.yaml")
         rec004e_config = _load_rec004e_config(config_path)
         if args.output_dir is not None:
             rec004e_config = dataclasses.replace(rec004e_config, output_dir=args.output_dir)
@@ -611,9 +641,7 @@ def main() -> int:
         )
         return 0 if rec004e_report["implementation_status"] == "COMPLETE" else 1
     elif args.task == "B-C005REC-004F":
-        config_path = args.config or Path(
-            "configs/phase_b_b2_model_bundle_recovery_rec004f.yaml"
-        )
+        config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004f.yaml")
         rec004f_config = _load_rec004f_config(config_path)
         if args.output_dir is not None:
             rec004f_config = dataclasses.replace(rec004f_config, output_dir=args.output_dir)
@@ -639,9 +667,7 @@ def main() -> int:
         )
         return 0 if rec004f_report["implementation_status"] == "COMPLETE" else 1
     elif args.task == "B-C005REC-004G":
-        config_path = args.config or Path(
-            "configs/phase_b_b2_model_bundle_recovery_rec004g.yaml"
-        )
+        config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004g.yaml")
         rec004g_config = _load_rec004g_config(config_path)
         if args.output_dir is not None:
             rec004g_config = dataclasses.replace(rec004g_config, output_dir=args.output_dir)
@@ -651,9 +677,7 @@ def main() -> int:
                 {
                     "implementation_status": rec004g_report.get("implementation_status"),
                     "source_replay_status": rec004g_report.get("source_replay_status"),
-                    "extension_training_status": rec004g_report.get(
-                        "extension_training_status"
-                    ),
+                    "extension_training_status": rec004g_report.get("extension_training_status"),
                     "candidate_status_at_target_step": rec004g_report.get(
                         "candidate_status_at_target_step"
                     ),
@@ -672,9 +696,7 @@ def main() -> int:
         )
         return 0 if rec004g_report.get("implementation_status") == "COMPLETE" else 1
     elif args.task == "B-C005REC-004H":
-        config_path = args.config or Path(
-            "configs/phase_b_b2_model_bundle_recovery_rec004h.yaml"
-        )
+        config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004h.yaml")
         rec004h_config = _load_rec004h_config(config_path)
         if args.output_dir is not None:
             rec004h_config = dataclasses.replace(rec004h_config, output_dir=args.output_dir)
@@ -706,9 +728,7 @@ def main() -> int:
         )
         return 0 if rec004h_report.get("implementation_status") == "COMPLETE" else 1
     elif args.task == "B-C005REC-004I":
-        config_path = args.config or Path(
-            "configs/phase_b_b2_model_bundle_recovery_rec004i.yaml"
-        )
+        config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004i.yaml")
         rec004i_config = _load_rec004i_config(config_path)
         if args.output_dir is not None:
             rec004i_config = dataclasses.replace(rec004i_config, output_dir=args.output_dir)
@@ -739,9 +759,7 @@ def main() -> int:
         )
         return 0 if rec004i_report.get("implementation_status") == "COMPLETE" else 1
     elif args.task == "B-C005REC-004J":
-        config_path = args.config or Path(
-            "configs/phase_b_b2_model_bundle_recovery_rec004j.yaml"
-        )
+        config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004j.yaml")
         rec004j_config = _load_rec004j_config(config_path)
         if args.output_dir is not None:
             rec004j_config = dataclasses.replace(rec004j_config, output_dir=args.output_dir)
@@ -780,9 +798,7 @@ def main() -> int:
         )
         return 0 if rec004j_report.get("implementation_status") == "COMPLETE" else 1
     elif args.task == "B-C005REC-004K":
-        config_path = args.config or Path(
-            "configs/phase_b_b2_model_bundle_recovery_rec004k.yaml"
-        )
+        config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004k.yaml")
         rec004k_config = _load_rec004k_config(config_path)
         if args.output_dir is not None:
             rec004k_config = dataclasses.replace(rec004k_config, output_dir=args.output_dir)
@@ -794,12 +810,8 @@ def main() -> int:
                     "checkpoint_source_replay_status": rec004k_report.get(
                         "checkpoint_source_replay_status"
                     ),
-                    "rec004j_cross_check_status": rec004k_report.get(
-                        "rec004j_cross_check_status"
-                    ),
-                    "stage_a_temporal_decision": rec004k_report.get(
-                        "stage_a_temporal_decision"
-                    ),
+                    "rec004j_cross_check_status": rec004k_report.get("rec004j_cross_check_status"),
+                    "stage_a_temporal_decision": rec004k_report.get("stage_a_temporal_decision"),
                     "stage_c_status": rec004k_report.get("stage_c_status"),
                     "component_decomposition_parity_status": rec004k_report.get(
                         "component_decomposition_parity_status"
@@ -825,15 +837,11 @@ def main() -> int:
         )
         return 0 if rec004k_report.get("implementation_status") == "COMPLETE" else 1
     elif args.task == "B-C005REC-004L":
-        config_path = args.config or Path(
-            "configs/phase_b_b2_model_bundle_recovery_rec004l.yaml"
-        )
+        config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004l.yaml")
         rec004l_config = _load_rec004l_config(config_path)
         if args.output_dir is not None:
             rec004l_config = dataclasses.replace(rec004l_config, output_dir=args.output_dir)
-        rec004l_report = run_mirror_ffn_anchored_downstream_interaction_audit_task(
-            rec004l_config
-        )
+        rec004l_report = run_mirror_ffn_anchored_downstream_interaction_audit_task(rec004l_config)
         print(
             json.dumps(
                 {
@@ -866,15 +874,11 @@ def main() -> int:
         )
         return 0 if rec004l_report.get("implementation_status") == "COMPLETE" else 1
     elif args.task == "B-C005REC-004M":
-        config_path = args.config or Path(
-            "configs/phase_b_b2_model_bundle_recovery_rec004m.yaml"
-        )
+        config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004m.yaml")
         rec004m_config = _load_rec004m_config(config_path)
         if args.output_dir is not None:
             rec004m_config = dataclasses.replace(rec004m_config, output_dir=args.output_dir)
-        rec004m_report = run_mirror_ffn_value_path_subcomponent_attribution_task(
-            rec004m_config
-        )
+        rec004m_report = run_mirror_ffn_value_path_subcomponent_attribution_task(rec004m_config)
         print(
             json.dumps(
                 {
@@ -915,10 +919,8 @@ def main() -> int:
             "pending an explicit next user instruction."
         )
         return 0 if rec004m_report.get("implementation_status") == "COMPLETE" else 1
-    else:  # B-C005REC-004N
-        config_path = args.config or Path(
-            "configs/phase_b_b2_model_bundle_recovery_rec004n.yaml"
-        )
+    elif args.task == "B-C005REC-004N":
+        config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004n.yaml")
         rec004n_config = _load_rec004n_config(config_path)
         if args.output_dir is not None:
             rec004n_config = dataclasses.replace(rec004n_config, output_dir=args.output_dir)
@@ -939,9 +941,7 @@ def main() -> int:
                     "value_path_necessity_decision": rec004n_report.get(
                         "value_path_necessity_decision"
                     ),
-                    "value_path_necessity_tags": rec004n_report.get(
-                        "value_path_necessity_tags"
-                    ),
+                    "value_path_necessity_tags": rec004n_report.get("value_path_necessity_tags"),
                     "safety_check_status": rec004n_report.get("safety_check_status"),
                     "new_optimizer_updates": rec004n_report.get("new_optimizer_updates"),
                     "rg3_recheck": rec004n_report.get("rg3_recheck"),
@@ -964,6 +964,64 @@ def main() -> int:
             "user instruction."
         )
         return 0 if rec004n_report.get("implementation_status") == "COMPLETE" else 1
+    elif args.task == "B-C005REC-004O":
+        config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004o.yaml")
+        rec004o_config = _load_rec004o_config(config_path)
+        if args.output_dir is not None:
+            rec004o_config = dataclasses.replace(rec004o_config, output_dir=args.output_dir)
+        rec004o_report = run_mirror_score_only_continuation_pilot_task(rec004o_config)
+        print(
+            json.dumps(
+                {
+                    "implementation_status": rec004o_report.get("implementation_status"),
+                    "result_label": rec004o_report.get("result_label"),
+                    "joint_control_replay": rec004o_report.get("joint_control_replay", {}).get(
+                        "status"
+                    ),
+                    "frozen_downstream_exact": rec004o_report.get("decision", {}).get(
+                        "frozen_downstream_exact"
+                    ),
+                    "new_optimizer_updates": rec004o_report.get("cost_accounting", {}).get(
+                        "new_optimizer_updates"
+                    ),
+                    "rg3_recheck": rec004o_report.get("rg3_recheck"),
+                },
+                indent=2,
+            )
+        )
+        print(
+            "STOP: only B-C005REC-004O was executed (a single-init I03 score-only "
+            "continuation pilot with a mandatory historical 500-step joint replay and "
+            "a fail-closed fused-QKV V-row freeze contract). No candidate is selected, "
+            "no child bundle is built, and no RG3/REC-005/sealed evaluation runs."
+        )
+        return 0 if rec004o_report.get("implementation_status") == "COMPLETED" else 1
+    else:  # B-C005REC-004P
+        config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004p.yaml")
+        rec004p_config = _load_rec004p_config(config_path)
+        if args.output_dir is not None:
+            rec004p_config = dataclasses.replace(rec004p_config, output_dir=args.output_dir)
+        rec004p_report = run_mirror_content_prep_release_pilot_task(rec004p_config)
+        print(
+            json.dumps(
+                {
+                    "implementation_status": rec004p_report.get("implementation_status"),
+                    "result_label": rec004p_report.get("result_label"),
+                    "source_replay": rec004p_report.get("source_replay", {}).get("status"),
+                    "new_optimizer_updates": rec004p_report.get("cost_accounting", {}).get(
+                        "new_optimizer_updates"
+                    ),
+                    "rg3_recheck": rec004p_report.get("rg3_recheck"),
+                },
+                indent=2,
+            )
+        )
+        print(
+            "STOP: only B-C005REC-004P was executed (the single-init I03 "
+            "CONTENT_PREP-release score/value compatibility pilot). No candidate is "
+            "selected, no child bundle is built, and no RG3/REC-005/sealed evaluation runs."
+        )
+        return 0 if rec004p_report.get("implementation_status") == "COMPLETED" else 1
 
     next_blocked = {
         "B-C005REC-002": "B-C005REC-003 onward",
