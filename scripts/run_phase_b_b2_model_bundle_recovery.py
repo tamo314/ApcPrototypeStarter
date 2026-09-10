@@ -44,6 +44,10 @@ from apc.evaluation.mirror_ffn_anchored_downstream_interaction_audit import (
     MirrorFfnAnchoredDownstreamInteractionAuditConfig,
     run_mirror_ffn_anchored_downstream_interaction_audit_task,
 )
+from apc.evaluation.mirror_ffn_value_path_leave_one_out_necessity_audit import (
+    MirrorFfnValuePathLeaveOneOutNecessityAuditConfig,
+    run_mirror_ffn_value_path_leave_one_out_necessity_audit_task,
+)
 from apc.evaluation.mirror_ffn_value_path_subcomponent_attribution import (
     MirrorFfnValuePathSubcomponentAttributionConfig,
     run_mirror_ffn_value_path_subcomponent_attribution_task,
@@ -121,6 +125,7 @@ _IMPLEMENTED_TASKS = (
     "B-C005REC-004K",
     "B-C005REC-004L",
     "B-C005REC-004M",
+    "B-C005REC-004N",
 )
 
 
@@ -393,6 +398,23 @@ def _load_rec004m_config(
             f"{RECOVERY_PILOT_SEED}; config requested seed={seed}"
         )
     return MirrorFfnValuePathSubcomponentAttributionConfig(
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+        seed=seed,
+    )
+
+
+def _load_rec004n_config(
+    config_path: Path,
+) -> MirrorFfnValuePathLeaveOneOutNecessityAuditConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+    defaults = MirrorFfnValuePathLeaveOneOutNecessityAuditConfig()
+    seed = raw.get("seed", defaults.seed)
+    if seed != RECOVERY_PILOT_SEED:
+        raise ValueError(
+            f"B-C005REC-004N reads REC-004D/H/K/L/M artifacts pre-registered under "
+            f"seed {RECOVERY_PILOT_SEED}; config requested seed={seed}"
+        )
+    return MirrorFfnValuePathLeaveOneOutNecessityAuditConfig(
         output_dir=Path(raw.get("output_dir", defaults.output_dir)),
         seed=seed,
     )
@@ -843,7 +865,7 @@ def main() -> int:
             "remain blocked pending an explicit next user instruction."
         )
         return 0 if rec004l_report.get("implementation_status") == "COMPLETE" else 1
-    else:  # B-C005REC-004M
+    elif args.task == "B-C005REC-004M":
         config_path = args.config or Path(
             "configs/phase_b_b2_model_bundle_recovery_rec004m.yaml"
         )
@@ -893,6 +915,55 @@ def main() -> int:
             "pending an explicit next user instruction."
         )
         return 0 if rec004m_report.get("implementation_status") == "COMPLETE" else 1
+    else:  # B-C005REC-004N
+        config_path = args.config or Path(
+            "configs/phase_b_b2_model_bundle_recovery_rec004n.yaml"
+        )
+        rec004n_config = _load_rec004n_config(config_path)
+        if args.output_dir is not None:
+            rec004n_config = dataclasses.replace(rec004n_config, output_dir=args.output_dir)
+        rec004n_report = run_mirror_ffn_value_path_leave_one_out_necessity_audit_task(
+            rec004n_config
+        )
+        print(
+            json.dumps(
+                {
+                    "implementation_status": rec004n_report.get("implementation_status"),
+                    "source_replay_status": rec004n_report.get("source_replay_status"),
+                    "qk_rollback_invariance_status": rec004n_report.get(
+                        "qk_rollback_invariance_status"
+                    ),
+                    "j0_attention_score_path_invariant": rec004n_report.get(
+                        "j0_attention_score_path_invariant"
+                    ),
+                    "value_path_necessity_decision": rec004n_report.get(
+                        "value_path_necessity_decision"
+                    ),
+                    "value_path_necessity_tags": rec004n_report.get(
+                        "value_path_necessity_tags"
+                    ),
+                    "safety_check_status": rec004n_report.get("safety_check_status"),
+                    "new_optimizer_updates": rec004n_report.get("new_optimizer_updates"),
+                    "rg3_recheck": rec004n_report.get("rg3_recheck"),
+                },
+                indent=2,
+            )
+        )
+        print(
+            "STOP: only B-C005REC-004N was executed (a forward-only, zero-new-update "
+            "leave-one-out necessity audit -- starting from the already-established "
+            "sufficient set FFN_BLOCK+CONTENT_PREP+V_PROJECTION+ATTN_OUT_PROJ and "
+            "removing exactly one VALUE_OUTPROJ subcomponent at a time, on an "
+            "in-memory, evaluation-only merged primitive, across five datasets, plus "
+            "a J0 (real, non-oracle) attention-equivalence check for F_VO against "
+            "I03@17500 and a conditional I04/I05 safety check if F_VO passes. No "
+            "training, no candidate selected, no child bundle, no RG3 recheck, no "
+            "checkpoint file ever modified, no combination beyond the fixed set. "
+            "B-C005REC-005 (the real five-model cohort) onward, B-C005R3-011, "
+            "B-C006, and Task Inference remain blocked pending an explicit next "
+            "user instruction."
+        )
+        return 0 if rec004n_report.get("implementation_status") == "COMPLETE" else 1
 
     next_blocked = {
         "B-C005REC-002": "B-C005REC-003 onward",
