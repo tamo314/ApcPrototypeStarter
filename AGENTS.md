@@ -422,6 +422,83 @@ from:
 > not something introduced by `B-C005REC-004K`. See ADR-0106 Evidence 9 for
 > the full accounting.
 
+> **This environment gap is now repaired.** The user then instructed, in
+> chat, an environment/dependency-contract-only task -- formalized as
+> **`B-C005REC-004L-ENV1`**
+> (`docs/CODEX_TASKS_PHASE_B_B2_SCIPY_DEPENDENCY_REPAIR.md`, ADR-0107):
+> audit SciPy's real import graph, repair the authoritative dependency
+> metadata so a clean install resolves it automatically, prove that with a
+> from-scratch task-local venv built solely from the repository's own
+> documented install command, and re-verify. Live re-confirmation found the
+> 28 ADR-0106 failures split into two mechanisms, not one: 26 a direct
+> `ModuleNotFoundError` from `functional_metrics_v2.py`'s unconditional,
+> unguarded `_beta_quantile()` import (a deliberate design choice per its own
+> docstring, not made optional here), and 2 (`test_adequacy_verifier.py`) a
+> floating-point precision divergence in `adequacy_verifier.py`'s own
+> already-guarded fallback path -- both genuinely scipy-caused. Classified
+> `CORE_RUNTIME_REQUIRED` (the unconditional import is reached by normal,
+> non-test, non-optional imports of 4 other `src/apc/evaluation/*.py`
+> files); added a bare `"scipy"` entry (no invented version bound -- none is
+> evidenced) to `pyproject.toml`'s core dependencies, plus a new structural
+> (not textual) dependency-contract test. A fresh task-local venv built only
+> via `pip install -e ".[dev,plots]"` resolved `scipy==1.18.1` with zero
+> separate `pip install scipy` step, `pip check` clean. Full verification:
+> affected tests 131/131 passed, REC-004K's own 31 regression tests
+> 31/31 passed, **full-repo `pytest -q`: `2323 passed, 1 skipped, 0 failed`**
+> (the 1 skip is a pre-existing CUDA-only test, correctly skipping under
+> this clean env's CPU-only torch build -- unrelated to scipy), `ruff` and
+> `mypy` both clean. A disclosed, independently-reproduced-as-unrelated
+> finding: 3 fault-injection tests (`test_fresh_runtime_recurrence.py`,
+> `test_shadow_promotion.py`) each take 360-390s via a checkpoint-load-
+> failure fallback to full retraining in `_get_or_train_frozen_shared_core()`
+> -- reproduced identically in the host's own pre-existing `.venv` (GPU
+> torch, scipy absent), proving it predates and is unrelated to this task;
+> left untouched (out of scope). Core/primitives/meta/plastic/consolidation
+> and shared cache confirmed byte-identical before/after, including after
+> the full 26-minute run. `rec004l_environment_ready: true`,
+> **`rec004l_executed: false`** -- no REC-004L runner exists yet in this
+> checkout, and REC-004L Stage A onward was not started. This PASS means
+> only that the dependency/environment contract is now reproducible from a
+> clean install; it does not mean REC-004L has run, I03's downstream-
+> interaction problem is resolved, or `B-C005REC-005` is eligible.
+
+> The user then instructed, in chat, the follow-up diagnostic task itself --
+> **`B-C005REC-004L`**
+> (`docs/CODEX_TASKS_PHASE_B_B2_FFN_ANCHORED_DOWNSTREAM_INTERACTION_AUDIT.md`,
+> ADR-0108): Stage 0 re-verified the environment gate and found it was not
+> actually closed on this host's shared `.venv` despite `B-C005REC-004L-
+> ENV1`/ADR-0107 already declaring `scipy` in `pyproject.toml` -- with the
+> user's explicit permission, `pip install -e .` synced the venv, and a
+> full-repo `pytest -q` reconfirmed `2324 passed, 0 failed`. Stage A then
+> fixed `FFN_BLOCK` (REC-004K's strongest single lever) as the base and
+> tested it jointly with exactly one of REC-004K's other four component
+> groups at a time -- `VALUE_OUTPROJ`, `QUERY_RESIDUAL_PATH`, `POST_ATTN_
+> NORM`, `READOUT` -- never a 3-component or exhaustive search. Stage B
+> added one new disjoint, development-exposed dataset
+> (`length10_downstream_interaction_probe_v1`, 512 examples, digest frozen
+> before results) alongside REC-004K's own two datasets, reused
+> byte-identically. Stage C decided sufficiency on sequence EM and
+> position-4 accuracy `>= 0.95` across all three datasets: `FFN_BLOCK` +
+> `VALUE_OUTPROJ` (`F_V`) is the ONLY one of the four pairs that clears the
+> floor, and it clears it perfectly (oracle EM/position-4/5 accuracy all
+> `1.0000` on all three datasets), while `F_Q`/`F_N`/`F_R` are barely
+> distinguishable from `FFN_BLOCK` alone. The hidden-state diagnostic
+> (max-abs difference immediately after the O1 attention output, vs I03's
+> own real step=6000 forward) directly confirms the mechanism: `F_V`'s
+> hidden-state diff is exactly `0.0` on every dataset -- because O1's
+> oracle attention output is content-independent and depends only on
+> `VALUE_OUTPROJ`'s parameters, never on `FFN_BLOCK`/`QUERY_RESIDUAL_PATH`/
+> `POST_ATTN_NORM`/`READOUT`. Result: `ffn_interaction_decision: FFN_VALUE_
+> OUTPROJ_INTERACTION_SUFFICIENT`. Per the task's own unconditional
+> charter, `selected_init: null`, `selected_step: null`, `selected_
+> component: null`, `child_bundle: null`, `rg3_recheck: NOT_EXECUTED`,
+> `rec005_eligible: false` regardless. `B-C005REC-005` onward,
+> `B-C005R3-011`, `B-C006`, and Task Inference remain unexecuted pending an
+> explicit next user instruction. No repair, and no follow-up 3-component
+> or exhaustive ablation among `FFN_BLOCK`/`VALUE_OUTPROJ`/etc., is
+> proposed as authorized future work here -- this task's charter is
+> diagnosis only.
+
 Implement **only the currently requested B-Cxxx task** unless the user explicitly asks to change scope.
 
 Do not continue automatically to the next task after completing one.

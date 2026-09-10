@@ -40,6 +40,10 @@ from apc.evaluation.mirror_contamination_free_checkpoint_trajectory_audit import
     MirrorContaminationFreeCheckpointTrajectoryAuditConfig,
     run_mirror_contamination_free_checkpoint_trajectory_audit_task,
 )
+from apc.evaluation.mirror_ffn_anchored_downstream_interaction_audit import (
+    MirrorFfnAnchoredDownstreamInteractionAuditConfig,
+    run_mirror_ffn_anchored_downstream_interaction_audit_task,
+)
 from apc.evaluation.mirror_late_progress_conditional_extension import (
     MirrorLateProgressConditionalExtensionConfig,
     run_mirror_late_progress_conditional_extension_task,
@@ -111,6 +115,7 @@ _IMPLEMENTED_TASKS = (
     "B-C005REC-004I",
     "B-C005REC-004J",
     "B-C005REC-004K",
+    "B-C005REC-004L",
 )
 
 
@@ -349,6 +354,23 @@ def _load_rec004k_config(
             f"{RECOVERY_PILOT_SEED}; config requested seed={seed}"
         )
     return MirrorTemporalMechanismRollbackAuditConfig(
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+        seed=seed,
+    )
+
+
+def _load_rec004l_config(
+    config_path: Path,
+) -> MirrorFfnAnchoredDownstreamInteractionAuditConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+    defaults = MirrorFfnAnchoredDownstreamInteractionAuditConfig()
+    seed = raw.get("seed", defaults.seed)
+    if seed != RECOVERY_PILOT_SEED:
+        raise ValueError(
+            f"B-C005REC-004L reads REC-004D/H/K artifacts pre-registered under seed "
+            f"{RECOVERY_PILOT_SEED}; config requested seed={seed}"
+        )
+    return MirrorFfnAnchoredDownstreamInteractionAuditConfig(
         output_dir=Path(raw.get("output_dir", defaults.output_dir)),
         seed=seed,
     )
@@ -713,7 +735,7 @@ def main() -> int:
             "pending an explicit next user instruction."
         )
         return 0 if rec004j_report.get("implementation_status") == "COMPLETE" else 1
-    else:  # B-C005REC-004K
+    elif args.task == "B-C005REC-004K":
         config_path = args.config or Path(
             "configs/phase_b_b2_model_bundle_recovery_rec004k.yaml"
         )
@@ -758,6 +780,47 @@ def main() -> int:
             "user instruction."
         )
         return 0 if rec004k_report.get("implementation_status") == "COMPLETE" else 1
+    else:  # B-C005REC-004L
+        config_path = args.config or Path(
+            "configs/phase_b_b2_model_bundle_recovery_rec004l.yaml"
+        )
+        rec004l_config = _load_rec004l_config(config_path)
+        if args.output_dir is not None:
+            rec004l_config = dataclasses.replace(rec004l_config, output_dir=args.output_dir)
+        rec004l_report = run_mirror_ffn_anchored_downstream_interaction_audit_task(
+            rec004l_config
+        )
+        print(
+            json.dumps(
+                {
+                    "implementation_status": rec004l_report.get("implementation_status"),
+                    "forward_graph_invariance_status": rec004l_report.get(
+                        "forward_graph_invariance_status"
+                    ),
+                    "cross_check_status": rec004l_report.get("cross_check_status"),
+                    "component_decomposition_parity_status": rec004l_report.get(
+                        "component_decomposition_parity_status"
+                    ),
+                    "ffn_interaction_decision": rec004l_report.get("ffn_interaction_decision"),
+                    "new_optimizer_updates": rec004l_report.get("new_optimizer_updates"),
+                    "rg3_recheck": rec004l_report.get("rg3_recheck"),
+                },
+                indent=2,
+            )
+        )
+        print(
+            "STOP: only B-C005REC-004L was executed (a forward-only, zero-new-update "
+            "FFN-anchored downstream interaction audit -- fixing FFN_BLOCK as the base "
+            "and rolling it back jointly with exactly one partner component at a time "
+            "from I03@17500 to I03@6000, on an in-memory, evaluation-only merged "
+            "primitive, across REC-004K's own two datasets plus one new disjoint "
+            "development-exposed set -- no training, no candidate selected, no child "
+            "bundle, no RG3 recheck, no I03 checkpoint file ever modified, no "
+            "3-component or exhaustive combination search). B-C005REC-005 (the real "
+            "five-model cohort) onward, B-C005R3-011, B-C006, and Task Inference "
+            "remain blocked pending an explicit next user instruction."
+        )
+        return 0 if rec004l_report.get("implementation_status") == "COMPLETE" else 1
 
     next_blocked = {
         "B-C005REC-002": "B-C005REC-003 onward",
