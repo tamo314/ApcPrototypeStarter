@@ -824,3 +824,90 @@ The task doc pre-registers a strict, all-or-nothing adoption rule: only if **all
 
 - **Result label: `CONTENT_PREP_RELEASE_NOT_SUPPORTED`.** In this bounded I03 pilot, releasing shared content preparation does not materially improve normal length-10 score learning over the official score-only control, while it preserves O1 compatibility. It neither proves shared content preparation is harmless in general nor identifies it as the cause of the residual.
 - The result does not authorize the suggested K/score-vs-V/value content-prep split, any other architecture repair, candidate adoption, child bundle, RG3, REC-005, or sealed evaluation. `selected_init`, `selected_step`, and `child_bundle` remain null; `rg3_recheck` is `NOT_EXECUTED`; `rec005_eligible` remains false.
+
+---
+
+## ADR-0113: I03 Attention-Score Credit-Assignment Gradient Audit Corrects REC-004P's O1 Position-Field Mix-Up but Leaves the Cause Unresolved (Task B-C005REC-004Q, `result_label: SCORE_CREDIT_ASSIGNMENT_UNRESOLVED`)
+
+**Date:** 2026-09-11
+
+**Status:** Accepted (Task B-C005REC-004Q complete; diagnostic-only audit of six immutable checkpoints. It uses `torch.autograd.grad` on in-memory copies, reads saved AdamW state analytically, and performs zero optimizer updates. No repair training, candidate selection, child bundle, RG3 recheck, REC-005 work, sealed evaluation, or architectural change was run.)
+
+**Affects:** `src/apc/evaluation/mirror_attention_score_credit_assignment_audit.py` (new), `src/apc/evaluation/mirror_content_prep_release_pilot.py` (O1/J0 position-metric separation only), `scripts/run_phase_b_b2_model_bundle_recovery.py` (explicit `--task B-C005REC-004Q` dispatch), `configs/phase_b_b2_model_bundle_recovery_rec004q.yaml` (new), `tests/test_mirror_attention_score_credit_assignment_audit.py` (new CPU contracts), `docs/CODEX_TASKS_PHASE_B_B2_I03_ATTENTION_SCORE_CREDIT_ASSIGNMENT_GRADIENT_AUDIT.md` (new), `docs/DECISIONS.md`, and this ADR log. All I03/I04 checkpoint and historical run artifacts remain read-only.
+
+**Run artifacts:** `runs/phase_b_b2_model_bundle_recovery/rec004q/run_004/` (`source_checkpoint_manifest.json`, `score_credit_probe_manifest.json`, `attention_logit_gradient_metrics.jsonl`, `position4_credit_summary.json`, `score_parameter_gradient_summary.json`, `adamw_effective_update_audit.json`, `successful_trajectory_control.json`, `rec004p_metric_consistency_audit.json`, `rec004p_metric_erratum.json`, `credit_assignment_decision.json`, `freeze_audit.json`, `side_effect_audit.json`, `summary.json`, `report.md`). This is the final Python 3.12 environment run. Earlier `rec004q` namespaces are preserved and not used as decision evidence.
+
+### Evidence
+
+1. **The REC-004P O1 discrepancy is an evaluation field mix-up, not a model contradiction.** Re-evaluating the locked CP_SCORE endpoint data leaves O1 sequence EM at 1.0000 and yields O1 position-4/5 accuracy of 1.0000/1.0000 on both validation and confirmation. The values recorded beside O1 in ADR-0112 -- 0.8115/0.9863 and 0.1035/0.9980 -- are the J0 position fields. The prior main J0 result is therefore preserved, while this correction is recorded as `REC004P_EVALUATION_METRIC_BUG` without altering historical artifacts.
+2. **The audit split and frozen-state contracts pass.** `score_credit_assignment_probe_v1` contains 1,024 examples (128 each for lengths 6--9 and 512 for length 10) and its manifest records disjointness from the protected training, probe, and historical diagnostic registries. The source manifest pins I03 P@6000, SCORE_ONLY@12000, CP_SCORE@12000, JOINT@12000, I04 P@6000, and I04 P@7000. The final freeze audit reports Core, protected operations, all source files, and every canonical checkpoint state hash unchanged.
+3. **The pre-registered task-loss-misalignment branch is not supported.** At length-10 position 4, one infinitesimal standard-token-CE descent direction reduces the score margin for 44.14% of SCORE_ONLY head/examples and 43.51% of CP_SCORE head/examples, below the required 60% in each terminal arm. The successful I04 P@7000 control is 54.44%, also below 60%; the terminal arms nonetheless fail the required positive condition.
+4. **The saved-AdamW interaction branch is not supported.** Raw task descent improves the position-4 margin for 55.86% (SCORE_ONLY) and 56.49% (CP_SCORE), below the required 60%. The reconstructed actual AdamW next delta worsens the margin for only 25.00% and 32.32%, respectively, also below the required 60%. These deltas were computed from saved moments, step counters, hyperparameters, clipping, and decay; no optimizer object stepped.
+5. **The weak-signal fallback is not supported.** The pre-registered score-gradient-norm ratio ceiling is 0.10. Terminal ratios versus I04 P@7000 position 4 are 4.894 and 4.476, and versus the same checkpoint's length-6--9 aggregate are 1.862 and 1.517. Thus the narrow ratio criterion for `SCORE_SIGNAL_TOO_WEAK` is not met.
+6. **The task stopped at its diagnostic boundary.** `side_effect_audit.json` records `new_optimizer_updates: 0`, no `backward()` or `optimizer.step()`, no training, no child bundle, and no sealed/RG3 query. All terminal selection fields are null and `rec005_eligible` is false.
+
+### Consequences
+
+- **Result label: `SCORE_CREDIT_ASSIGNMENT_UNRESOLVED`.** The evidence supports neither task-loss misalignment, nor an actual-AdamW-direction failure, nor the pre-registered weak-signal alternative. It does not establish that attention-score credit assignment is healthy; it simply does not attribute the I03 terminal outcome to any of this audit's permitted explanations.
+- **The only recorded follow-up is a proposal, not authority:** attribute token-loss gradients by output position before changing architecture or loss. No repair is authorized by this ADR.
+- **No recovery or research gate changed.** `selected_init`, `selected_step`, `selected_objective`, `selected_optimizer_change`, and `child_bundle` remain null; `rg3_recheck` is `NOT_EXECUTED`; `rec005_eligible` is false. ADR-0112's conclusion about CP_SCORE's lack of J0 improvement remains intact, with only its erroneously-labelled O1 position fields corrected.
+
+---
+
+## ADR-0114: I03 Cross-Position / Cross-Length Score-Gradient Interference Audit Does Not Support a Shared-Parameter Aggregation Explanation (Task B-C005REC-004R, `result_label: SHARED_PARAMETER_GRADIENT_INTERFERENCE_NOT_SUPPORTED`)
+
+**Date:** 2026-09-11
+
+**Status:** Accepted (diagnostic-only). The audit regenerates a pre-fixed,
+unique 128-step census from the original deterministic I03 training stream and
+uses six immutable I03/I04 checkpoints. It performs no optimizer updates,
+parameter mutation, training, candidate selection, RG3, REC-005, or sealed
+evaluation. `run_001` is retained as an earlier completed artifact; the
+Python-3.12 final evidence is in the separate immutable namespace `run_002`.
+
+**Affects:** `src/apc/evaluation/mirror_cross_position_cross_length_score_gradient_interference_audit.py` (new), `scripts/run_phase_b_b2_model_bundle_recovery.py` (explicit `--task B-C005REC-004R` dispatch), `configs/phase_b_b2_model_bundle_recovery_rec004r.yaml` (new), `tests/test_mirror_cross_position_cross_length_score_gradient_interference_audit.py` (new), `docs/CODEX_TASKS_PHASE_B_B2_I03_CROSS_POSITION_CROSS_LENGTH_SCORE_GRADIENT_INTERFERENCE_AUDIT.md` (new), `docs/DECISIONS.md`, and this ADR log. Existing checkpoints and historical artifacts are read-only.
+
+**Run artifacts:** `runs/phase_b_b2_model_bundle_recovery/rec004r/run_002/`.
+The directory records source and census manifests, exact decomposition parity,
+per-position/per-length raw-gradient arrays with ordering/hash manifest,
+position-4/5 and cross-length summaries, fixed per-example results, freeze and
+side-effect audits, decision, and report.
+
+### Evidence
+
+1. **Exact live-loss decomposition passes.** For every one of the 128
+   regenerated batches and all six checkpoints, the direct gradient of the
+   live masked-token CE matches the sum of `(length, output-position)` weighted
+   contributions at absolute and relative error `0.0` under the pre-fixed
+   `1e-6`/`1e-4` tolerance. The decomposition therefore does not infer a
+   denominator or replace the training loss.
+2. **The pre-registered cross-position label is not met.** On the fixed
+   128-example stability subset, the negative same-length-other-position
+   fractions are 0.5078 for SCORE_ONLY and 0.6328 for CP_SCORE. Both terminal
+   arms must be at least 0.60; SCORE_ONLY misses. I04@7000 is 0.6250, which
+   also fails the required below-0.60 control condition.
+3. **The pre-registered cross-length label is not met.** The corresponding
+   fractions are 0.5000 (SCORE_ONLY), 0.6250 (CP_SCORE), and 0.3359
+   (I04@7000). SCORE_ONLY misses the two-terminal-arm requirement.
+4. **Strong aggregate suppression is not met.** The terminal median retention
+   ratios are 1.4568 (SCORE_ONLY) and -1.2095 (CP_SCORE); both would need to
+   be at most 0.25. I04@7000's median is 2.1843, above its control floor, but
+   it cannot rescue the terminal-arm failure.
+5. **No state changed.** The final freeze audit reports unchanged Core,
+   protected operations, and every source checkpoint; the side-effect audit
+   records `new_optimizer_updates: 0`, no optimizer step, no parameter
+   mutation, and no training or sealed/RG3 query.
+
+### Consequences
+
+- **Result label: `SHARED_PARAMETER_GRADIENT_INTERFERENCE_NOT_SUPPORTED`.**
+  This does not prove that all interference is absent; it says the fixed
+  shared-parameter position/length aggregation criteria did not reproducibly
+  identify the terminal I03 outcome.
+- The sole recorded next diagnostic is finite-step score-function change versus
+  local gradient prediction. It is not authorization to alter the score loss,
+  optimizer, gradient method, or architecture.
+- REC-004Q's `SCORE_CREDIT_ASSIGNMENT_UNRESOLVED` result is unchanged. No
+  recovery gate or research gate changes: all selection fields and
+  `child_bundle` remain null, `rg3_recheck` is `NOT_EXECUTED`, and
+  `rec005_eligible` remains false.

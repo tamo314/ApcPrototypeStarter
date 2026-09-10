@@ -256,7 +256,8 @@ def _evaluate(core: Any, primitive: Any, datasets: dict[str, list[Any]]) -> dict
         total = j0_correct = o1_correct = token_total = j0_tokens = o1_tokens = 0
         j0_loss_sum = o1_loss_sum = 0.0
         per_length: dict[str, Any] = {}
-        position_correct: dict[int, int] = {}
+        j0_position_correct: dict[int, int] = {}
+        oracle_position_correct: dict[int, int] = {}
         position_total: dict[int, int] = {}
         ranks: list[float] = []
         margins: list[float] = []
@@ -313,10 +314,16 @@ def _evaluate(core: Any, primitive: Any, datasets: dict[str, list[Any]]) -> dict
                     for position, (predicted, actual) in enumerate(
                         zip(j0_prediction, target, strict=True)
                     ):
-                        position_correct[position] = position_correct.get(position, 0) + int(
+                        j0_position_correct[position] = j0_position_correct.get(position, 0) + int(
                             predicted == actual
                         )
                         position_total[position] = position_total.get(position, 0) + 1
+                    for position, (predicted, actual) in enumerate(
+                        zip(o1_prediction, target, strict=True)
+                    ):
+                        oracle_position_correct[position] = oracle_position_correct.get(
+                            position, 0
+                        ) + int(predicted == actual)
                     for position in range(length):
                         correct_key = (
                             position + length // 2
@@ -373,12 +380,19 @@ def _evaluate(core: Any, primitive: Any, datasets: dict[str, list[Any]]) -> dict
             "per_length": per_length,
             "per_output_position": {
                 str(position): {
-                    "j0_accuracy": position_correct[position] / position_total[position]
+                    "j0_accuracy": j0_position_correct[position] / position_total[position],
+                    "oracle_accuracy": oracle_position_correct[position] / position_total[position],
                 }
                 for position in position_total
             },
-            "position4_accuracy": position_correct.get(4, 0) / position_total.get(4, 1),
-            "position5_accuracy": position_correct.get(5, 0) / position_total.get(5, 1),
+            # Retained as J0 names for compatibility with the historical endpoint
+            # schema.  O1 users must read the explicit oracle_* fields below.
+            "position4_accuracy": j0_position_correct.get(4, 0) / position_total.get(4, 1),
+            "position5_accuracy": j0_position_correct.get(5, 0) / position_total.get(5, 1),
+            "oracle_position4_accuracy": oracle_position_correct.get(4, 0)
+            / position_total.get(4, 1),
+            "oracle_position5_accuracy": oracle_position_correct.get(5, 0)
+            / position_total.get(5, 1),
             "correct_key_rank_margin": {
                 "descriptive_only": True,
                 "mean_rank": float(np.mean(ranks)),
@@ -595,8 +609,8 @@ def run_mirror_content_prep_release_pilot_task(
         comparator: {
             split: {
                 "sequence_em": metric[split]["oracle_sequence_exact_match"],
-                "position4_accuracy": metric[split]["position4_accuracy"],
-                "position5_accuracy": metric[split]["position5_accuracy"],
+                "position4_accuracy": metric[split]["oracle_position4_accuracy"],
+                "position5_accuracy": metric[split]["oracle_position5_accuracy"],
             }
             for split in datasets
         }

@@ -32,6 +32,10 @@ from apc.evaluation.incremental_budget_calibration import (
     IncrementalBudgetCalibrationConfig,
     run_incremental_budget_calibration_task,
 )
+from apc.evaluation.mirror_attention_score_credit_assignment_audit import (
+    MirrorAttentionScoreCreditAssignmentAuditConfig,
+    run_mirror_attention_score_credit_assignment_audit_task,
+)
 from apc.evaluation.mirror_budget_extension import (
     MirrorBudgetExtensionConfig,
     run_mirror_budget_extension_task,
@@ -43,6 +47,10 @@ from apc.evaluation.mirror_contamination_free_checkpoint_trajectory_audit import
 from apc.evaluation.mirror_content_prep_release_pilot import (
     MirrorContentPrepReleasePilotConfig,
     run_mirror_content_prep_release_pilot_task,
+)
+from apc.evaluation.mirror_cross_position_cross_length_score_gradient_interference_audit import (
+    MirrorCrossPositionCrossLengthScoreGradientInterferenceAuditConfig,
+    run_mirror_cross_position_cross_length_score_gradient_interference_audit_task,
 )
 from apc.evaluation.mirror_ffn_anchored_downstream_interaction_audit import (
     MirrorFfnAnchoredDownstreamInteractionAuditConfig,
@@ -136,6 +144,8 @@ _IMPLEMENTED_TASKS = (
     "B-C005REC-004N",
     "B-C005REC-004O",
     "B-C005REC-004P",
+    "B-C005REC-004Q",
+    "B-C005REC-004R",
 )
 
 
@@ -457,6 +467,37 @@ def _load_rec004p_config(config_path: Path) -> MirrorContentPrepReleasePilotConf
         output_dir=Path(raw.get("output_dir", defaults.output_dir)),
         seed=seed,
         checkpoint_interval=raw.get("checkpoint_interval", defaults.checkpoint_interval),
+    )
+
+
+def _load_rec004q_config(config_path: Path) -> MirrorAttentionScoreCreditAssignmentAuditConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+    defaults = MirrorAttentionScoreCreditAssignmentAuditConfig()
+    seed = raw.get("seed", defaults.seed)
+    if seed != RECOVERY_PILOT_SEED:
+        raise ValueError(
+            f"B-C005REC-004Q is fixed to I03's pre-registered seed "
+            f"{RECOVERY_PILOT_SEED}; config requested seed={seed}"
+        )
+    return MirrorAttentionScoreCreditAssignmentAuditConfig(
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+        seed=seed,
+    )
+
+
+def _load_rec004r_config(
+    config_path: Path,
+) -> MirrorCrossPositionCrossLengthScoreGradientInterferenceAuditConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+    defaults = MirrorCrossPositionCrossLengthScoreGradientInterferenceAuditConfig()
+    seed = raw.get("seed", defaults.seed)
+    if seed != RECOVERY_PILOT_SEED:
+        raise ValueError(
+            f"B-C005REC-004R is fixed to I03's pre-registered seed "
+            f"{RECOVERY_PILOT_SEED}; config requested seed={seed}"
+        )
+    return MirrorCrossPositionCrossLengthScoreGradientInterferenceAuditConfig(
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)), seed=seed
     )
 
 
@@ -996,7 +1037,7 @@ def main() -> int:
             "no child bundle is built, and no RG3/REC-005/sealed evaluation runs."
         )
         return 0 if rec004o_report.get("implementation_status") == "COMPLETED" else 1
-    else:  # B-C005REC-004P
+    elif args.task == "B-C005REC-004P":
         config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004p.yaml")
         rec004p_config = _load_rec004p_config(config_path)
         if args.output_dir is not None:
@@ -1022,6 +1063,62 @@ def main() -> int:
             "selected, no child bundle is built, and no RG3/REC-005/sealed evaluation runs."
         )
         return 0 if rec004p_report.get("implementation_status") == "COMPLETED" else 1
+    elif args.task == "B-C005REC-004Q":
+        config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004q.yaml")
+        rec004q_config = _load_rec004q_config(config_path)
+        if args.output_dir is not None:
+            rec004q_config = dataclasses.replace(rec004q_config, output_dir=args.output_dir)
+        rec004q_report = run_mirror_attention_score_credit_assignment_audit_task(rec004q_config)
+        print(
+            json.dumps(
+                {
+                    "implementation_status": rec004q_report.get("implementation_status"),
+                    "result_label": rec004q_report.get("result_label"),
+                    "rec004p_metric_audit": rec004q_report.get("rec004p_metric_audit"),
+                    "new_optimizer_updates": rec004q_report.get("cost_accounting", {}).get(
+                        "new_optimizer_updates"
+                    ),
+                    "rg3_recheck": rec004q_report.get("rg3_recheck"),
+                },
+                indent=2,
+            )
+        )
+        print(
+            "STOP: only B-C005REC-004Q was executed (a read-only I03 attention-score "
+            "credit-assignment and AdamW-state diagnostic). No optimizer step, training, "
+            "candidate selection, child bundle, RG3/REC-005, or sealed evaluation ran."
+        )
+        return 0 if rec004q_report.get("implementation_status") == "COMPLETED" else 1
+    else:  # B-C005REC-004R
+        config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004r.yaml")
+        rec004r_config = _load_rec004r_config(config_path)
+        if args.output_dir is not None:
+            rec004r_config = dataclasses.replace(rec004r_config, output_dir=args.output_dir)
+        rec004r_report = (
+            run_mirror_cross_position_cross_length_score_gradient_interference_audit_task(
+                rec004r_config
+            )
+        )
+        print(
+            json.dumps(
+                {
+                    "implementation_status": rec004r_report.get("implementation_status"),
+                    "result_label": rec004r_report.get("result_label"),
+                    "new_optimizer_updates": rec004r_report.get("cost_accounting", {}).get(
+                        "new_optimizer_updates"
+                    ),
+                    "rg3_recheck": rec004r_report.get("rg3_recheck"),
+                },
+                indent=2,
+            )
+        )
+        print(
+            "STOP: only B-C005REC-004R was executed (a read-only I03 shared-score "
+            "cross-position/cross-length gradient aggregation diagnostic). No optimizer "
+            "step, repair training, candidate selection, child bundle, RG3/REC-005, or "
+            "sealed evaluation ran."
+        )
+        return 0 if rec004r_report.get("implementation_status") == "COMPLETED" else 1
 
     next_blocked = {
         "B-C005REC-002": "B-C005REC-003 onward",
