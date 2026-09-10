@@ -44,6 +44,10 @@ from apc.evaluation.mirror_late_progress_conditional_extension import (
     MirrorLateProgressConditionalExtensionConfig,
     run_mirror_late_progress_conditional_extension_task,
 )
+from apc.evaluation.mirror_late_stage_attention_bottleneck_revalidation import (
+    MirrorLateStageAttentionBottleneckRevalidationConfig,
+    run_mirror_late_stage_attention_bottleneck_revalidation_task,
+)
 from apc.evaluation.mirror_oracle_attention_substitution_probe import (
     OracleAttentionSubstitutionProbeConfig,
     run_oracle_attention_substitution_probe_task,
@@ -78,6 +82,10 @@ from apc.evaluation.mirror_schedule_comparison import (
     MirrorScheduleComparisonConfig,
     run_mirror_schedule_comparison_task,
 )
+from apc.evaluation.mirror_temporal_mechanism_rollback_audit import (
+    MirrorTemporalMechanismRollbackAuditConfig,
+    run_mirror_temporal_mechanism_rollback_audit_task,
+)
 from apc.evaluation.model_bundle_recovery import (
     RECOVERY_PILOT_SEED,
     ModelBundleContractConfig,
@@ -101,6 +109,8 @@ _IMPLEMENTED_TASKS = (
     "B-C005REC-004G",
     "B-C005REC-004H",
     "B-C005REC-004I",
+    "B-C005REC-004J",
+    "B-C005REC-004K",
 )
 
 
@@ -305,6 +315,40 @@ def _load_rec004i_config(
             f"{RECOVERY_PILOT_SEED}; config requested seed={seed}"
         )
     return MirrorContaminationFreeCheckpointTrajectoryAuditConfig(
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+        seed=seed,
+    )
+
+
+def _load_rec004j_config(
+    config_path: Path,
+) -> MirrorLateStageAttentionBottleneckRevalidationConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+    defaults = MirrorLateStageAttentionBottleneckRevalidationConfig()
+    seed = raw.get("seed", defaults.seed)
+    if seed != RECOVERY_PILOT_SEED:
+        raise ValueError(
+            f"B-C005REC-004J reads REC-004H artifacts pre-registered under seed "
+            f"{RECOVERY_PILOT_SEED}; config requested seed={seed}"
+        )
+    return MirrorLateStageAttentionBottleneckRevalidationConfig(
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+        seed=seed,
+    )
+
+
+def _load_rec004k_config(
+    config_path: Path,
+) -> MirrorTemporalMechanismRollbackAuditConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+    defaults = MirrorTemporalMechanismRollbackAuditConfig()
+    seed = raw.get("seed", defaults.seed)
+    if seed != RECOVERY_PILOT_SEED:
+        raise ValueError(
+            f"B-C005REC-004K reads REC-004D/H/J artifacts pre-registered under seed "
+            f"{RECOVERY_PILOT_SEED}; config requested seed={seed}"
+        )
+    return MirrorTemporalMechanismRollbackAuditConfig(
         output_dir=Path(raw.get("output_dir", defaults.output_dir)),
         seed=seed,
     )
@@ -595,7 +639,7 @@ def main() -> int:
             "an explicit next user instruction."
         )
         return 0 if rec004h_report.get("implementation_status") == "COMPLETE" else 1
-    else:  # B-C005REC-004I
+    elif args.task == "B-C005REC-004I":
         config_path = args.config or Path(
             "configs/phase_b_b2_model_bundle_recovery_rec004i.yaml"
         )
@@ -628,6 +672,92 @@ def main() -> int:
             "explicit next user instruction."
         )
         return 0 if rec004i_report.get("implementation_status") == "COMPLETE" else 1
+    elif args.task == "B-C005REC-004J":
+        config_path = args.config or Path(
+            "configs/phase_b_b2_model_bundle_recovery_rec004j.yaml"
+        )
+        rec004j_config = _load_rec004j_config(config_path)
+        if args.output_dir is not None:
+            rec004j_config = dataclasses.replace(rec004j_config, output_dir=args.output_dir)
+        rec004j_report = run_mirror_late_stage_attention_bottleneck_revalidation_task(
+            rec004j_config
+        )
+        print(
+            json.dumps(
+                {
+                    "implementation_status": rec004j_report.get("implementation_status"),
+                    "checkpoint_source_replay_status": rec004j_report.get(
+                        "checkpoint_source_replay_status"
+                    ),
+                    "clean_v2_source_replay_status": rec004j_report.get(
+                        "clean_v2_source_replay_status"
+                    ),
+                    "i03_17500_decision": rec004j_report.get("i03_17500_decision"),
+                    "i05_collapse_classification": rec004j_report.get(
+                        "i05_collapse_classification"
+                    ),
+                    "new_optimizer_updates": rec004j_report.get("new_optimizer_updates"),
+                    "rg3_recheck": rec004j_report.get("rg3_recheck"),
+                },
+                indent=2,
+            )
+        )
+        print(
+            "STOP: only B-C005REC-004J was executed (a forward-only, zero-new-update "
+            "revalidation of REC-004F's oracle-attention-substitution finding at "
+            "step=17500/18000 for I03/I04/I05, on REC-004I's own clean_selection_"
+            "validation_v2 length-10 subset plus a new development-exposed "
+            "length10_mechanism_probe_v1 set -- no training, no candidate selected, "
+            "no child bundle, no RG3 recheck). B-C005REC-005 (the real five-model "
+            "cohort) onward, B-C005R3-011, B-C006, and Task Inference remain blocked "
+            "pending an explicit next user instruction."
+        )
+        return 0 if rec004j_report.get("implementation_status") == "COMPLETE" else 1
+    else:  # B-C005REC-004K
+        config_path = args.config or Path(
+            "configs/phase_b_b2_model_bundle_recovery_rec004k.yaml"
+        )
+        rec004k_config = _load_rec004k_config(config_path)
+        if args.output_dir is not None:
+            rec004k_config = dataclasses.replace(rec004k_config, output_dir=args.output_dir)
+        rec004k_report = run_mirror_temporal_mechanism_rollback_audit_task(rec004k_config)
+        print(
+            json.dumps(
+                {
+                    "implementation_status": rec004k_report.get("implementation_status"),
+                    "checkpoint_source_replay_status": rec004k_report.get(
+                        "checkpoint_source_replay_status"
+                    ),
+                    "rec004j_cross_check_status": rec004k_report.get(
+                        "rec004j_cross_check_status"
+                    ),
+                    "stage_a_temporal_decision": rec004k_report.get(
+                        "stage_a_temporal_decision"
+                    ),
+                    "stage_c_status": rec004k_report.get("stage_c_status"),
+                    "component_decomposition_parity_status": rec004k_report.get(
+                        "component_decomposition_parity_status"
+                    ),
+                    "i03_component_decision": rec004k_report.get("i03_component_decision"),
+                    "new_optimizer_updates": rec004k_report.get("new_optimizer_updates"),
+                    "rg3_recheck": rec004k_report.get("rg3_recheck"),
+                },
+                indent=2,
+            )
+        )
+        print(
+            "STOP: only B-C005REC-004K was executed (a forward-only, zero-new-update "
+            "matched-data temporal recheck of I03's oracle-attention finding at "
+            "step=6000 against REC-004J's own two length-10 datasets, plus -- only if "
+            "that recheck confirmed a genuine temporal mechanism shift -- a same-init "
+            "component rollback audit from step=17500 to step=6000 on an in-memory, "
+            "evaluation-only merged primitive -- no training, no candidate selected, "
+            "no child bundle, no RG3 recheck, no I03 checkpoint file ever modified). "
+            "B-C005REC-005 (the real five-model cohort) onward, B-C005R3-011, "
+            "B-C006, and Task Inference remain blocked pending an explicit next "
+            "user instruction."
+        )
+        return 0 if rec004k_report.get("implementation_status") == "COMPLETE" else 1
 
     next_blocked = {
         "B-C005REC-002": "B-C005REC-003 onward",

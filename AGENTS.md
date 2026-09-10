@@ -329,6 +329,99 @@ from:
 > onward, `B-C005R3-011`, `B-C006`, and Task Inference remain unexecuted
 > pending an explicit next user instruction.
 
+> The user then instructed, in chat, a further diagnostic-only task with
+> **zero new optimizer updates** -- formalized as `B-C005REC-004J`
+> (`docs/CODEX_TASKS_PHASE_B_B2_MIRROR_LATE_STAGE_ATTENTION_BOTTLENECK_REVALIDATION.md`,
+> `src/apc/evaluation/mirror_late_stage_attention_bottleneck_revalidation.py`,
+> ADR-0105): re-check REC-004F's step=6000 oracle-attention finding for I03
+> at REC-004I's own step=17500 trajectory peak, since a step=6000 mechanism
+> finding cannot be assumed to hold 11500 updates later. On 5 already-saved
+> `B-C005REC-004H` checkpoints (`I03@17500`, `I03@18000`, `I04@18000`,
+> `I05@17500`, `I05@18000`), it ran exactly two conditions -- J0 (normal
+> forward) and O1 (REC-004F's oracle `pi_n` substitution, imported
+> unmodified) -- against REC-004I's own `clean_selection_validation_v2`
+> length-10 subset (regenerated exactly, byte-identical) plus a NEW disjoint,
+> development-exposed `length10_mechanism_probe_v1` (512 examples). Result:
+> **`i03_17500_decision: LATE_STAGE_BOTTLENECK_MIXED_OR_DOWNSTREAM`** -- oracle
+> substitution produces a large paired recovery on both datasets (J0 EM
+> ~0.19-0.21 -> oracle EM ~0.75, delta +0.54 to +0.56, far above the
+> pre-registered 0.30 "large improvement" bar) but does NOT clear the
+> pre-registered 0.95 oracle-EM floor, failing the AND-gate -- a genuine
+> shift from REC-004F's step=6000 full recovery (0.086 -> 1.000) for the
+> same init. The residual concentrates almost entirely at output positions 4
+> and 5 (straddling MIRROR_HALVES's length-10 pivot), not spread across the
+> sequence. I04@18000 (a currently-succeeding control) gets WORSE under
+> oracle substitution (EM 1.0 -> ~0.82-0.87), reproducing I05's own step=6000
+> pattern from ADR-0101 -- a safety finding that an attention-score repair
+> aimed at I03 is not guaranteed harmless for I04. I05's step=18000 collapse
+> (J0 EM 1.0 -> ~0.74-0.78) is only partially rescued by oracle substitution
+> (oracle EM stays at ~0.89-0.90, not fully collapsing) --
+> `i05_collapse_contrast.classification:
+> ORACLE_ATTENTION_RESCUES_COLLAPSE_ATTENTION_DISTRIBUTION_IMPLICATED`,
+> sharpening REC-004I's coarser finding into a mechanism-level one: the
+> collapse is dominantly, though not completely, an attention-distribution
+> phenomenon. Per the task's own charter, `selected_init: null`,
+> `selected_step: null`, `child_bundle: null`, `rg3_recheck: NOT_EXECUTED`
+> regardless. `B-C005REC-005` onward, `B-C005R3-011`, `B-C006`, and Task
+> Inference remain unexecuted pending an explicit next user instruction. No
+> value/residual/readout-side diagnosis or attention-score-learning repair is
+> proposed as authorized future work here -- this task's charter is
+> diagnosis only.
+
+> The user then instructed, in chat, a further diagnostic-only task with
+> **zero new optimizer updates** -- formalized as `B-C005REC-004K`
+> (`docs/CODEX_TASKS_PHASE_B_B2_MIRROR_TEMPORAL_MECHANISM_ROLLBACK_AUDIT.md`,
+> `src/apc/evaluation/mirror_temporal_mechanism_rollback_audit.py`,
+> ADR-0106): a two-stage task to localize, on matched data within I03's own
+> trajectory, which learned component(s) changed between step=6000 and
+> step=17500 to produce the position-4 residual REC-004J found survives
+> oracle attention substitution. **Stage A** re-ran I03@6000 (alongside
+> I03@17500/18000) on REC-004J's own two length-10 datasets, unmodified --
+> confirming I03@6000's oracle EM is exactly 1.0000 on BOTH datasets (not
+> just the older, less strictly disjoint suite REC-004F used), while
+> I03@17500 clears neither (0.7478/0.7559, reproducing REC-004J's own numbers
+> exactly): `stage_a_temporal_decision: TEMPORAL_ORACLE_SUFFICIENCY_LOSS_
+> CONFIRMED` -- the mechanism genuinely shifted downstream, not a REC-004F-
+> vs-REC-004J dataset artifact. This authorized **Stage B/C/D**: reading the
+> real `_oracle_attention`/`run_oracle_forward` forward graph (REC-004F) to
+> partition `CrossPositionLengthBiasPrimitive`'s parameters into 5 groups
+> (`VALUE_OUTPROJ`, `QUERY_RESIDUAL_PATH`, `POST_ATTN_NORM`, `FFN_BLOCK`,
+> `READOUT`), empirically proving (by perturb-and-restore) that
+> `position_bias_hidden`/`position_bias_out` and the Q/K slices of
+> `cross_attn.in_proj_weight`/`in_proj_bias` are exactly inert under O1, then
+> rolling back ONE group at a time from I03@17500's real checkpoint to
+> I03@6000's, in-memory and evaluation-only, never touching a saved
+> checkpoint file. `FFN_BLOCK` alone had by far the largest single-component
+> effect (oracle EM 0.75 -> 0.89-0.90, still short of the 0.95 floor);
+> `VALUE_OUTPROJ` fully perfected position 5 without moving position 4 (while
+> destroying J0's own attention pattern via its fused Q/K slices -- a
+> disclosed confound); no single group cleared the pre-registered `oracle EM
+> >=0.95 AND position-4 accuracy >=0.95` bar. The positive control `R_ALL`
+> (all 5 groups rolled back) reached EM/position-4/5 accuracy of exactly
+> `1.0000` on both datasets and reproduced I03@6000's own real O1 forward
+> with `max_abs_logit_diff: 0.0` -- validating the 5-group decomposition as
+> exhaustive. Result: `i03_component_decision: DISTRIBUTED_DOWNSTREAM_
+> COADAPTATION` -- the residual is not attributable to any single component
+> changing alone; it requires several components' joint state. Per the
+> task's own unconditional charter, `selected_init: null`, `selected_step:
+> null`, `selected_component: null`, `child_bundle: null`, `rg3_recheck:
+> NOT_EXECUTED`, `rec005_eligible: false` regardless. `B-C005REC-005` onward,
+> `B-C005R3-011`, `B-C006`, and Task Inference remain unexecuted pending an
+> explicit next user instruction. No repair, and no follow-up ablation among
+> `FFN_BLOCK`/`VALUE_OUTPROJ`/etc., is proposed as authorized future work
+> here -- this task's charter is diagnosis only.
+>
+> **Environment note (unrelated to this task's own result):** this task's
+> full-repo `python -m pytest -q` run found 28 pre-existing failures, all
+> `ModuleNotFoundError: No module named 'scipy'` inside
+> `src/apc/evaluation/functional_metrics_v2.py` (an undeclared dependency --
+> not listed anywhere in `pyproject.toml`), surfacing through 4 unrelated
+> test files this task never touches. ADR-0105's own full-repo run reported
+> zero failures on the same test files, so `scipy` has gone missing from the
+> dev environment sometime since -- a pre-existing environment regression,
+> not something introduced by `B-C005REC-004K`. See ADR-0106 Evidence 9 for
+> the full accounting.
+
 Implement **only the currently requested B-Cxxx task** unless the user explicitly asks to change scope.
 
 Do not continue automatically to the next task after completing one.
