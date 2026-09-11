@@ -1070,5 +1070,51 @@ Task B-C005REC-004T established that historical JOINT attention score degradatio
 - **Next repair direction:** Focus shifts back to downstream trajectory drift (C / V / O / FFN) under joint batch updates, as specified in `next_repair_contract.md` (`DOWNSTREAM_COMPATIBILITY_LOSS_PERSISTS_UNDER_FIXED_ATTENTION`).
 - **Scope bounded:** No candidate training or candidate selection occurred. RG3/REC-005 remain blocked.
 
+## ADR-0118: I03 Attention-Clamped Downstream Freeze Necessity Replay: Single-Group Downstream Freezes Fail to Prevent Compatibility Collapse, but Joint Freezing of CONTENT_PREP, V_PROJECTION, ATTN_OUT_PROJ, and FFN_BLOCK Fully Preserves Step-8000 O1 Compatibility, Establishing Joint Downstream Drift as the Necessary Driver of Collapse (Task B-C005REC-004V, `causal_decision: CVOF_JOINT_DRIFT_NECESSARY_FOR_COLLAPSE`)
+
+**Date:** 2026-09-11
+
+**Status:** Accepted (Task B-C005REC-004V complete; causal diagnosis counterfactual training replay. Counterfactual optimizer updates = 2500 (replay) + 25 (Stage A parity) = 2525; new candidate training updates = 0. Model bundle recovery RG3/REC-005 remains blocked.)
+
+**Affects:** `src/apc/evaluation/mirror_downstream_freeze_causal_replay.py` (new), `configs/phase_b_b2_model_bundle_recovery_rec004v.yaml` (new), `tests/test_mirror_downstream_freeze_causal_replay.py` (new), `scripts/run_phase_b_b2_model_bundle_recovery.py` (`--task B-C005REC-004V` dispatch added), `docs/DECISIONS.md`, `docs/DECISIONS_PHASE_B_B2_MODEL_BUNDLE_RECOVERY.md`. No file under `src/apc/primitives/` or `src/apc/core/` was modified.
+
+**Run artifacts:** `runs/phase_b_b2_model_bundle_recovery/rec004v/run_001/`.
+The directory records source REC-004U manifest, Stage A baseline parity audit, downstream freeze protocol, fresh probe manifest (4 locked datasets), per-arm subdirectories (`D_C/`, `D_V/`, `D_O/`, `D_F/`, `D_CVOF/`) with respective trace/metrics/freeze-audit files, collated per-step freeze audit, collated training trace, collated 25-step functional metrics, oracle loss onset summary, clamped vs oracle tradeoff, single-group protection summary, CVOF joint protection summary, causal decision, next repair contract, freeze audit, side-effect audit, cost accounting, summary, and report.
+
+### Context
+
+Task B-C005REC-004U demonstrated that freezing the normal J0 attention distribution to step-7500 state ($A_{\text{ref}}$) failed to prevent downstream oracle-compatibility collapse ($T_{\text{oracle\_loss}} = 7525$), proving that attention score degradation was not the causal driver of downstream degradation. In historical backward-rollback diagnostics (REC-004L/M/N), rolling back the joint combination of `CONTENT_PREP`, `V_PROJECTION`, `ATTN_OUT_PROJ`, and `FFN_BLOCK` from step 17500 to step 6000 was necessary and sufficient for full recovery.
+Task B-C005REC-004V was commissioned to test forward counterfactual training during steps 7501–8000 under fixed attention clamp: evaluating which downstream group freeze ($D_C, D_V, D_O, D_F$) or joint freeze ($D_{CVOF}$) prevents oracle-compatibility collapse.
+
+### Evidence
+
+1. **Stage A Baseline Parity Verified:**
+   - 25 updates of `BASELINE_CLAMP` from step 7500 to step 7525 reproduced REC-004U baseline metrics within float tolerance: `loss_diff = 0.0 < 1e-4`, `cont1_o1_diff = 0.0 < 1e-4`, `cont1_p4_diff = 0.0 < 1e-4`, confirming exact code path parity.
+2. **Selective Freeze Contract Enforced:**
+   - At every step across all 5 arms (2500 total replay updates), frozen parameter values and AdamW 1st/2nd moments were preserved bitwise against step-7500 state (`max_frozen_diff = 0.0`). Fused QKV slicing correctly froze target rows (Q/K rows always; V rows in $D_V$ and $D_{CVOF}$) while allowing non-frozen rows and downstream components to train.
+3. **Single-Group Freezes All Fail ($T_{\text{oracle\_loss}} = 7525$):**
+   - In all four single-freeze arms ($D_C, D_V, D_O, D_F$), downstream oracle compatibility collapsed at the very first evaluation step ($T_{\text{oracle\_loss}} = 7525$), identical to unconstrained clamp baseline $D_0$.
+   - At step 8000, $O_1\text{ EM}$ remained degraded ($D_C: 0.682$, $D_V: 0.684$, $D_O: 0.576$, $D_F: 0.684$), and position-4 accuracy remained low ($\sim 0.58$–$0.69$). None satisfied Strong or Partial protection criteria.
+4. **Joint $D_{CVOF}$ Freeze Achieves Complete Strong Protection:**
+   - Freezing the joint 4-group set (`CONTENT_PREP` + `V_PROJECTION` + `ATTN_OUT_PROJ` + `FFN_BLOCK`) completely prevented compatibility collapse throughout all 500 updates:
+     - $T_{\text{oracle\_loss}}(D_{CVOF}) = \text{None}$ (never dropped below 0.95 across continuity splits).
+     - Step 8000 $O_1\text{ EM}$: Continuity 1 = **$0.9980$**, Continuity 2 = **$0.9980$**, Continuity 3 = **$1.0000$**, Fresh Confirmation (`downstream_freeze_causal_probe_v1`) = **$1.0000$**.
+     - Step 8000 Position-4 Accuracy: **$1.0000$** across all 4 datasets.
+5. **Causal Classification (Case B):**
+   - Diagnosis: `CVOF_JOINT_DRIFT_NECESSARY_FOR_COLLAPSE`.
+   - The breakdown of oracle compatibility cannot be attributed to any single downstream group alone, but is causally driven by the multi-component joint co-adaptation of C, V, O, and FFN under training batch exposure.
+6. **Auxiliary Tradeoff Label:**
+   - In single arms $D_C, D_V, D_O, D_F$, $A_{\text{ref}}$-clamped task performance improved slightly while $O_1$ compatibility collapsed, exhibiting `FIXED_ATTENTION_ADAPTATION_ORACLE_COMPATIBILITY_TRADEOFF`.
+7. **Audit and Resource Bounds:**
+   - Total updates: 2500 counterfactual + 25 Stage A parity = 2525 updates. `new_candidate_training_updates = 0`.
+   - Core and 12 protected primitives remained bitwise invariant. `candidate_selected = null`, `child_bundle = null`, `rg3_recheck = NOT_EXECUTED`, `rec005_eligible = false`.
+
+### Consequences
+
+- **Causal Mechanism Established:** Downstream oracle-compatibility collapse during transition is causally driven by joint drift across the four value-path and content components (CONTENT_PREP, V_PROJECTION, ATTN_OUT_PROJ, FFN_BLOCK). Stopping any single group update does not prevent collapse, whereas jointly stabilizing the four groups completely protects compatibility.
+- **Next Repair Direction:** Rather than an unprincipled permanent freeze of all 4 groups, the next task should design a consolidation / plasticity trade-off rule for CVOF joint parameters to enable learning new attention tasks while preserving oracle compatibility, as specified in `next_repair_contract.md` (`AUTHORIZED_JOINT_LEAD`).
+- **Scope Bounded:** No candidate training or candidate selection occurred. RG3/REC-005 remain blocked.
+
+
 
 

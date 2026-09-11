@@ -60,6 +60,10 @@ from apc.evaluation.mirror_dense_trajectory_transition_audit import (
     MirrorDenseTrajectoryTransitionAuditConfig,
     run_mirror_dense_trajectory_transition_audit_task,
 )
+from apc.evaluation.mirror_downstream_freeze_causal_replay import (
+    MirrorDownstreamFreezeCausalReplayConfig,
+    run_mirror_downstream_freeze_causal_replay_task,
+)
 from apc.evaluation.mirror_ffn_anchored_downstream_interaction_audit import (
     MirrorFfnAnchoredDownstreamInteractionAuditConfig,
     run_mirror_ffn_anchored_downstream_interaction_audit_task,
@@ -161,6 +165,7 @@ _IMPLEMENTED_TASKS = (
     "B-C005REC-004S",
     "B-C005REC-004T",
     "B-C005REC-004U",
+    "B-C005REC-004V",
 )
 
 
@@ -583,6 +588,34 @@ def _load_rec004u_config(
         sentinel_subset_per_dataset=raw.get(
             "sentinel_subset_per_dataset", defaults.sentinel_subset_per_dataset
         ),
+    )
+
+
+def _load_rec004v_config(
+    config_path: Path,
+) -> MirrorDownstreamFreezeCausalReplayConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+    defaults = MirrorDownstreamFreezeCausalReplayConfig()
+    seed = raw.get("seed", defaults.seed)
+    if seed != RECOVERY_PILOT_SEED:
+        raise ValueError(
+            f"B-C005REC-004V is fixed to I03's pre-registered seed "
+            f"{RECOVERY_PILOT_SEED}; config requested seed={seed}"
+        )
+    return MirrorDownstreamFreezeCausalReplayConfig(
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+        seed=seed,
+        oracle_em_threshold=raw.get("oracle_em_threshold", defaults.oracle_em_threshold),
+        max_replay_window_updates=raw.get(
+            "max_replay_window_updates", defaults.max_replay_window_updates
+        ),
+        full_probe_step_interval=raw.get(
+            "full_probe_step_interval", defaults.full_probe_step_interval
+        ),
+        sentinel_subset_per_dataset=raw.get(
+            "sentinel_subset_per_dataset", defaults.sentinel_subset_per_dataset
+        ),
+        parity_updates=raw.get("parity_updates", defaults.parity_updates),
     )
 
 
@@ -1261,7 +1294,7 @@ def main() -> int:
             "child bundle, RG3/REC-005, or sealed evaluation ran."
         )
         return 0 if rec004t_report.get("implementation_status") == "COMPLETE" else 1
-    else:  # B-C005REC-004U
+    elif args.task == "B-C005REC-004U":
         config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004u.yaml")
         rec004u_config = _load_rec004u_config(config_path)
         if args.output_dir is not None:
@@ -1295,6 +1328,40 @@ def main() -> int:
             "candidate selection, child bundle, RG3/REC-005, or sealed evaluation ran."
         )
         return 0 if rec004u_report.get("implementation_status") == "COMPLETE" else 1
+    else:  # B-C005REC-004V
+        config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004v.yaml")
+        rec004v_config = _load_rec004v_config(config_path)
+        if args.output_dir is not None:
+            rec004v_config = dataclasses.replace(rec004v_config, output_dir=args.output_dir)
+        rec004v_report = run_mirror_downstream_freeze_causal_replay_task(rec004v_config)
+        print(
+            json.dumps(
+                {
+                    "implementation_status": rec004v_report.get("implementation_status"),
+                    "baseline_parity": rec004v_report.get("baseline_parity"),
+                    "counterfactual_optimizer_updates": rec004v_report.get(
+                        "counterfactual_optimizer_updates"
+                    ),
+                    "new_candidate_training_updates": rec004v_report.get(
+                        "new_candidate_training_updates"
+                    ),
+                    "downstream_causal_diagnosis": rec004v_report.get(
+                        "downstream_causal_diagnosis"
+                    ),
+                    "decision_case": rec004v_report.get("decision_case"),
+                    "strong_single_groups": rec004v_report.get("strong_single_groups"),
+                    "cvof_strong": rec004v_report.get("cvof_strong"),
+                    "rg3_recheck": rec004v_report.get("rg3_recheck"),
+                },
+                indent=2,
+            )
+        )
+        print(
+            "STOP: only B-C005REC-004V was executed (an I03 attention-clamped downstream "
+            "freeze necessity replay). No candidate training, candidate selection, "
+            "child bundle, RG3/REC-005, or sealed evaluation ran."
+        )
+        return 0 if rec004v_report.get("implementation_status") == "COMPLETE" else 1
 
     next_blocked = {
         "B-C005REC-002": "B-C005REC-003 onward",
