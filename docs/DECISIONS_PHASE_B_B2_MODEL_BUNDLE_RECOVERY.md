@@ -1167,6 +1167,71 @@ Task B-C005REC-004W was commissioned as an I03-specific mechanism-repair pilot t
 - **Next Repair Direction:** Hard freezing is too restrictive. As authorized by Section 20 of the task contract, the next task should explore a **soft-stability / proximal-plasticity mechanism** (e.g. bounded trust region or proximal anchor regularization on CVOF updates) rather than a rigid freeze.
 - **Scope Bounded:** Diagnostic continuation pilot only. No candidate was selected, and RG3 / REC-005 remain blocked.
 
+## ADR-0120: I03 CVOF Pre-Transition Trust-Region Plasticity Pilot: Constraining CVOF Joint Drift to Pre-Transition (7000->7500) Radial Bounds (1.0x) Fails to Preserve Downstream Oracle Compatibility (O1 EM = 0.76–0.81 Across Length-10 Splits vs 0.95 Floor) and Produces No Substantial J0 Task Learning Gain Over Hard Freeze, Disconfirming the Pre-Transition Radius Trust-Region Hypothesis (Task B-C005REC-004X, `result_label: PRETRANSITION_RADIUS_TRUST_REGION_NOT_SUPPORTED`)
+
+**Date:** 2026-09-11
+
+**Status:** Accepted (Task B-C005REC-004X complete; mechanism-repair continuation pilot. Counterfactual intervention updates = 500, control parity updates = 25; new candidate training updates = 0. Model bundle recovery RG3/REC-005 remains blocked.)
+
+**Affects:** `src/apc/evaluation/mirror_cvof_trust_region_pilot.py` (new), `configs/phase_b_b2_model_bundle_recovery_rec004x.yaml` (new), `tests/test_mirror_cvof_trust_region_pilot.py` (new), `scripts/run_phase_b_b2_model_bundle_recovery.py` (`--task B-C005REC-004X` dispatch added), `docs/DECISIONS.md`, `docs/DECISIONS_PHASE_B_B2_MODEL_BUNDLE_RECOVERY.md`. No file under `src/apc/primitives/` or `src/apc/core/` was modified.
+
+**Run artifacts:** `runs/phase_b_b2_model_bundle_recovery/rec004x/run_001/`.
+The directory records source manifest (@7500 verified), pretransition radius calibration (VERIFIED), protocol manifest, initial parity audit (PASS), Stage A parity audit (PASS), fresh validation manifest (2 locked fresh datasets + 4 continuity datasets), CVOF boundary summary, per-step training trace, per-step trust region trace, per-25step dynamics, endpoint metrics, historical comparison, hard freeze comparison, O1 compatibility audit, plasticity audit, result decision, next repair contract, freeze audit, side-effect audit, cost accounting, summary, and report.
+
+### Context
+
+Task B-C005REC-004W proved that completely freezing the four CVOF groups (CONTENT_PREP, V_PROJECTION, ATTN_OUT_PROJ, FFN_BLOCK) under unconstrained normal forward execution perfectly preserves downstream $O_1$ compatibility ($O_1\text{ EM} \ge 0.998$ across all length-10 splits), but severely curtails task learning, producing sub-threshold J0 EM gains over the historical trajectory ($+0.038$ on normal validation, $+0.035$ on length-10 confirmation vs $+0.10$ floor).
+Task B-C005REC-004X was commissioned as an I03-specific mechanism-repair pilot testing a single intermediate approach between hard freeze and unconstrained training: **allowing CVOF to remain trainable while constraining cumulative drift from step 7500 within the pre-transition (steps 7000–7500) observed drift radius $R_g$ (multiplier 1.0x) via radial projection after each AdamW update**.
+The pilot investigated whether this pre-transition trust-region constraint preserves downstream $O_1$ compatibility ($\ge 0.95$ across all length-10 splits) while unlocking greater J0 task learning gain than hard freeze.
+
+### Evidence
+
+1. **Pre-Transition Radius Calibration and Baseline Parity Verified:**
+   - Evaluated step-7000 and step-7500 checkpoints across 4 length-10 continuity splits; all confirmed $O_1\text{ EM} \ge 0.9980$ and position-4 accuracy $= 1.0000$, validating calibration suitability.
+   - Calibrated pre-transition drift radii (Euclidean norm of parameter differences between step 7000 and step 7500):
+     - $R_C = 0.14780$ (`CONTENT_PREP`)
+     - $R_V = 0.07506$ (`V_PROJECTION`, rows 64:96 of `cross_attn.in_proj`)
+     - $R_O = 0.10736$ (`ATTN_OUT_PROJ`)
+     - $R_F = 0.21301$ (`FFN_BLOCK`)
+   - All radii strictly positive; multiplier locked at $1.0\times$.
+   - Initial parity at step 7500: PASS (`score_diff = 7.63e-6`, `prob_diff = 1.04e-6`, `final_logits_diff = 2.67e-5`, `pred_mismatches = 0` within $10^{-4}$ tolerance).
+   - Stage A parity: PASS (`loss_diff = 0.0 < 1e-4` against REC-004T at step 7525).
+2. **Trust-Region Dynamics and Boundary Activity:**
+   - Across 500 intervention updates (steps 7501–8000), all four parameter groups actively engaged the trust-region boundary:
+     - Group C: 75.80% boundary hit fraction (379/500 steps, max consecutive = 89)
+     - Group V: 74.20% boundary hit fraction (371/500 steps, max consecutive = 178)
+     - Group O: 77.20% boundary hit fraction (386/500 steps, max consecutive = 386)
+     - Group F: 69.20% boundary hit fraction (346/500 steps, max consecutive = 346)
+   - Unconstrained groups (Q/K rows, position bias, norms, readout) updated freely, while Core and 15 other primitives remained bitwise invariant.
+3. **Compatibility Gate: FAIL:**
+   - At step 8000, downstream $O_1$ compatibility collapsed across all 5 length-10 splits, falling well below the $0.95$ threshold:
+     - Continuity 1 (`length10_mechanism_probe_v1`): $O_1\text{ EM} = \mathbf{0.7891}$, pos4 acc = $\mathbf{0.7910}$
+     - Continuity 2 (`dense_trajectory_transition_probe_v1`): $O_1\text{ EM} = \mathbf{0.7617}$, pos4 acc = $\mathbf{0.7617}$
+     - Continuity 3 (`attention_clamp_causal_probe_v1`): $O_1\text{ EM} = \mathbf{0.8105}$, pos4 acc = $\mathbf{0.8105}$
+     - Continuity 4 (`downstream_freeze_causal_probe_v1`): $O_1\text{ EM} = \mathbf{0.8047}$, pos4 acc = $\mathbf{0.8047}$
+     - Fresh Length-10 Confirmation (`cvof_trust_region_length10_v1`): $O_1\text{ EM} = \mathbf{0.8027}$, pos4 acc = $\mathbf{0.8047}$
+4. **Plasticity Gate: FAIL:**
+   - Fresh normal validation (overall J0 EM, 1024 examples, lengths 2..10):
+     - Trust-R1 = **$0.7539$** vs Historical @8000 = **$0.7500$** ($\Delta = \mathbf{+0.0039}$), vs Hard Freeze @8000 = **$0.7637$** ($\Delta = \mathbf{-0.0098}$).
+     - Length-10 subset: Trust-R1 = **$0.0796$** vs Historical = **$0.0752$** ($\Delta = \mathbf{+0.0044}$), vs Hard Freeze = **$0.0885$** ($\Delta = \mathbf{-0.0088}$).
+   - Fresh length-10 confirmation (J0 EM, 512 examples):
+     - Trust-R1 = **$0.0488$** vs Historical @8000 = **$0.0547$** ($\Delta = \mathbf{-0.0059}$), vs Hard Freeze = **$0.0742$** ($\Delta = \mathbf{-0.0254}$).
+   - Constraining CVOF to radius $R_g$ not only failed to match hard freeze J0 performance, but actually degraded confirmation performance below the historical unconstrained baseline.
+5. **Decision Classification:**
+   - `result_label: PRETRANSITION_RADIUS_TRUST_REGION_NOT_SUPPORTED`.
+   - The pre-transition displacement radius $R_g$ observed during normal oracle-compatible trajectory is still far too large an envelope when applied as an isotropic radial constraint; allowing CVOF drift within this boundary is sufficient to destroy downstream $O_1$ compatibility while providing no plasticity gain for J0 task learning.
+6. **Cost and Scope Accounting:**
+   - `counterfactual_intervention_updates = 500`, `parity_updates = 25`, `new_candidate_training_updates = 0`.
+   - Core and 15 other primitives invariant. `candidate_selected = null`, `child_bundle = null`, `rg3_recheck = NOT_EXECUTED`, `rec005_eligible = false`.
+
+### Consequences
+
+- **Hypothesis Disconfirmed:** The hypothesis that "I03's failure is merely excessive drift beyond the safe local region observed pre-transition, and that confining CVOF updates within $R_g$ preserves compatibility while enabling learning" is refuted. The geometry of safe downstream representations cannot be captured by an isotropic parameter-norm ball calibrated from pre-transition drift.
+- **Trust-Region Pilot Concluded:** Per contract constraints, radius sweeps (e.g. 0.5x, 2.0x), anchor-free trust regions, or auxiliary penalty formulations are not authorized and are not pursued.
+- **Repair Implications:** Downstream compatibility protection requires either strict freezing of shared value/FFN components or architecture-level isolation (e.g. task-specific adapters, subspace decoupling, or downstream primitive recalibration) rather than parameter-space ball constraints on shared weights.
+- **Scope Bounded:** Diagnostic continuation pilot only. Candidate selection and RG3 / REC-005 recheck remain blocked.
+
+
 
 
 

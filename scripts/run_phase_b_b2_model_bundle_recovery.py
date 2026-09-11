@@ -56,6 +56,10 @@ from apc.evaluation.mirror_cross_position_cross_length_score_gradient_interferen
     MirrorCrossPositionCrossLengthScoreGradientInterferenceAuditConfig,
     run_mirror_cross_position_cross_length_score_gradient_interference_audit_task,
 )
+from apc.evaluation.mirror_cvof_trust_region_pilot import (
+    MirrorCVOFTrustRegionPilotConfig,
+    run_cvof_trust_region_pilot_task,
+)
 from apc.evaluation.mirror_dense_trajectory_transition_audit import (
     MirrorDenseTrajectoryTransitionAuditConfig,
     run_mirror_dense_trajectory_transition_audit_task,
@@ -171,6 +175,7 @@ _IMPLEMENTED_TASKS = (
     "B-C005REC-004U",
     "B-C005REC-004V",
     "B-C005REC-004W",
+    "B-C005REC-004X",
 )
 
 
@@ -640,6 +645,38 @@ def _load_rec004w_config(
         seed=seed,
         oracle_em_threshold=raw.get("oracle_em_threshold", defaults.oracle_em_threshold),
         j0_delta_floor=raw.get("j0_delta_floor", defaults.j0_delta_floor),
+        max_replay_window_updates=raw.get(
+            "max_replay_window_updates", defaults.max_replay_window_updates
+        ),
+        full_probe_step_interval=raw.get(
+            "full_probe_step_interval", defaults.full_probe_step_interval
+        ),
+        sentinel_subset_per_dataset=raw.get(
+            "sentinel_subset_per_dataset", defaults.sentinel_subset_per_dataset
+        ),
+        parity_updates=raw.get("parity_updates", defaults.parity_updates),
+    )
+
+
+def _load_rec004x_config(
+    config_path: Path,
+) -> MirrorCVOFTrustRegionPilotConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+    defaults = MirrorCVOFTrustRegionPilotConfig()
+    seed = raw.get("seed", defaults.seed)
+    if seed != RECOVERY_PILOT_SEED:
+        raise ValueError(
+            f"B-C005REC-004X is fixed to I03's pre-registered seed "
+            f"{RECOVERY_PILOT_SEED}; config requested seed={seed}"
+        )
+    return MirrorCVOFTrustRegionPilotConfig(
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+        seed=seed,
+        oracle_em_threshold=raw.get("oracle_em_threshold", defaults.oracle_em_threshold),
+        j0_delta_floor=raw.get("j0_delta_floor", defaults.j0_delta_floor),
+        j0_hard_freeze_delta_floor=raw.get(
+            "j0_hard_freeze_delta_floor", defaults.j0_hard_freeze_delta_floor
+        ),
         max_replay_window_updates=raw.get(
             "max_replay_window_updates", defaults.max_replay_window_updates
         ),
@@ -1396,7 +1433,7 @@ def main() -> int:
             "child bundle, RG3/REC-005, or sealed evaluation ran."
         )
         return 0 if rec004v_report.get("implementation_status") == "COMPLETE" else 1
-    else:  # B-C005REC-004W
+    elif args.task == "B-C005REC-004W":
         config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004w.yaml")
         rec004w_config = _load_rec004w_config(config_path)
         if args.output_dir is not None:
@@ -1443,6 +1480,38 @@ def main() -> int:
             "child bundle, RG3/REC-005, or sealed evaluation ran."
         )
         return 0 if rec004w_report.get("implementation_status") == "COMPLETE" else 1
+    else:  # B-C005REC-004X
+        config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004x.yaml")
+        rec004x_config = _load_rec004x_config(config_path)
+        if args.output_dir is not None:
+            rec004x_config = dataclasses.replace(rec004x_config, output_dir=args.output_dir)
+        rec004x_report = run_cvof_trust_region_pilot_task(rec004x_config)
+        print(
+            json.dumps(
+                {
+                    "implementation_status": rec004x_report.get("implementation_status"),
+                    "radius_calibration": rec004x_report.get("radius_calibration"),
+                    "trust_region_active": rec004x_report.get("trust_region_active"),
+                    "intervention_optimizer_updates": rec004x_report.get(
+                        "intervention_optimizer_updates"
+                    ),
+                    "new_candidate_training_updates": rec004x_report.get(
+                        "new_candidate_training_updates"
+                    ),
+                    "result_label": rec004x_report.get("result_label"),
+                    "ablation_tags": rec004x_report.get("ablation_tags"),
+                    "metrics": rec004x_report.get("metrics"),
+                    "rg3_recheck": rec004x_report.get("rg3_recheck"),
+                },
+                indent=2,
+            )
+        )
+        print(
+            "STOP: only B-C005REC-004X was executed (an I03 pre-transition CVOF "
+            "trust-region plasticity pilot). No candidate training, candidate selection, "
+            "child bundle, RG3/REC-005, or sealed evaluation ran."
+        )
+        return 0 if rec004x_report.get("implementation_status") == "COMPLETE" else 1
 
     next_blocked = {
         "B-C005REC-002": "B-C005REC-003 onward",

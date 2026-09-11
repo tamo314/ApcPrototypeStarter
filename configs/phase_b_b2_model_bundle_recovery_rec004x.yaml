@@ -1,0 +1,9 @@
+output_dir: runs/phase_b_b2_model_bundle_recovery/rec004x/run_001
+seed: 10
+oracle_em_threshold: 0.95
+j0_delta_floor: 0.10
+j0_hard_freeze_delta_floor: 0.05
+max_replay_window_updates: 500
+full_probe_step_interval: 25
+sentinel_subset_per_dataset: 64
+parity_updates: 25
