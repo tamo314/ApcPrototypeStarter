@@ -84,6 +84,10 @@ from apc.evaluation.mirror_late_stage_attention_bottleneck_revalidation import (
     MirrorLateStageAttentionBottleneckRevalidationConfig,
     run_mirror_late_stage_attention_bottleneck_revalidation_task,
 )
+from apc.evaluation.mirror_normal_cvof_protection_pilot import (
+    MirrorNormalCVOFProtectionPilotConfig,
+    run_mirror_normal_cvof_protection_pilot_task,
+)
 from apc.evaluation.mirror_oracle_attention_substitution_probe import (
     OracleAttentionSubstitutionProbeConfig,
     run_oracle_attention_substitution_probe_task,
@@ -166,6 +170,7 @@ _IMPLEMENTED_TASKS = (
     "B-C005REC-004T",
     "B-C005REC-004U",
     "B-C005REC-004V",
+    "B-C005REC-004W",
 )
 
 
@@ -606,6 +611,35 @@ def _load_rec004v_config(
         output_dir=Path(raw.get("output_dir", defaults.output_dir)),
         seed=seed,
         oracle_em_threshold=raw.get("oracle_em_threshold", defaults.oracle_em_threshold),
+        max_replay_window_updates=raw.get(
+            "max_replay_window_updates", defaults.max_replay_window_updates
+        ),
+        full_probe_step_interval=raw.get(
+            "full_probe_step_interval", defaults.full_probe_step_interval
+        ),
+        sentinel_subset_per_dataset=raw.get(
+            "sentinel_subset_per_dataset", defaults.sentinel_subset_per_dataset
+        ),
+        parity_updates=raw.get("parity_updates", defaults.parity_updates),
+    )
+
+
+def _load_rec004w_config(
+    config_path: Path,
+) -> MirrorNormalCVOFProtectionPilotConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+    defaults = MirrorNormalCVOFProtectionPilotConfig()
+    seed = raw.get("seed", defaults.seed)
+    if seed != RECOVERY_PILOT_SEED:
+        raise ValueError(
+            f"B-C005REC-004W is fixed to I03's pre-registered seed "
+            f"{RECOVERY_PILOT_SEED}; config requested seed={seed}"
+        )
+    return MirrorNormalCVOFProtectionPilotConfig(
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+        seed=seed,
+        oracle_em_threshold=raw.get("oracle_em_threshold", defaults.oracle_em_threshold),
+        j0_delta_floor=raw.get("j0_delta_floor", defaults.j0_delta_floor),
         max_replay_window_updates=raw.get(
             "max_replay_window_updates", defaults.max_replay_window_updates
         ),
@@ -1328,7 +1362,7 @@ def main() -> int:
             "candidate selection, child bundle, RG3/REC-005, or sealed evaluation ran."
         )
         return 0 if rec004u_report.get("implementation_status") == "COMPLETE" else 1
-    else:  # B-C005REC-004V
+    elif args.task == "B-C005REC-004V":
         config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004v.yaml")
         rec004v_config = _load_rec004v_config(config_path)
         if args.output_dir is not None:
@@ -1362,6 +1396,53 @@ def main() -> int:
             "child bundle, RG3/REC-005, or sealed evaluation ran."
         )
         return 0 if rec004v_report.get("implementation_status") == "COMPLETE" else 1
+    else:  # B-C005REC-004W
+        config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004w.yaml")
+        rec004w_config = _load_rec004w_config(config_path)
+        if args.output_dir is not None:
+            rec004w_config = dataclasses.replace(rec004w_config, output_dir=args.output_dir)
+        rec004w_report = run_mirror_normal_cvof_protection_pilot_task(rec004w_config)
+        print(
+            json.dumps(
+                {
+                    "implementation_status": rec004w_report.get("implementation_status"),
+                    "historical_source": rec004w_report.get("historical_source"),
+                    "initial_parity": rec004w_report.get("initial_parity"),
+                    "stage_a_parity": rec004w_report.get("stage_a_parity"),
+                    "intervention_optimizer_updates": rec004w_report.get(
+                        "intervention_optimizer_updates"
+                    ),
+                    "new_candidate_training_updates": rec004w_report.get(
+                        "new_candidate_training_updates"
+                    ),
+                    "result_label": rec004w_report.get("result_label"),
+                    "success_gate": rec004w_report.get("success_gate"),
+                    "fresh_normal_validation_overall_j0_em": rec004w_report.get(
+                        "fresh_normal_validation_overall_j0_em"
+                    ),
+                    "fresh_normal_validation_j0_delta_vs_historical": rec004w_report.get(
+                        "fresh_normal_validation_j0_delta_vs_historical"
+                    ),
+                    "fresh_length10_confirmation_j0_em": rec004w_report.get(
+                        "fresh_length10_confirmation_j0_em"
+                    ),
+                    "fresh_length10_confirmation_j0_delta_vs_historical": rec004w_report.get(
+                        "fresh_length10_confirmation_j0_delta_vs_historical"
+                    ),
+                    "o1_compatibility_all_length10": rec004w_report.get(
+                        "o1_compatibility_all_length10"
+                    ),
+                    "rg3_recheck": rec004w_report.get("rg3_recheck"),
+                },
+                indent=2,
+            )
+        )
+        print(
+            "STOP: only B-C005REC-004W was executed (an I03 normal-attention CVOF "
+            "protection continuation pilot). No candidate training, candidate selection, "
+            "child bundle, RG3/REC-005, or sealed evaluation ran."
+        )
+        return 0 if rec004w_report.get("implementation_status") == "COMPLETE" else 1
 
     next_blocked = {
         "B-C005REC-002": "B-C005REC-003 onward",

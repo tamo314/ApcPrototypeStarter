@@ -1115,6 +1115,59 @@ Task B-C005REC-004V was commissioned to test forward counterfactual training dur
 - **Next Repair Direction:** Rather than an unprincipled permanent freeze of all 4 groups, the next task should design a consolidation / plasticity trade-off rule for CVOF joint parameters to enable learning new attention tasks while preserving oracle compatibility, as specified in `next_repair_contract.md` (`AUTHORIZED_JOINT_LEAD`).
 - **Scope Bounded:** No candidate training or candidate selection occurred. RG3/REC-005 remain blocked.
 
+## ADR-0119: I03 Normal-Attention CVOF Protection Continuation Pilot: Freezing CVOF Joint Groups Under Unconstrained Normal Forward Perfectly Preserves Downstream Oracle Compatibility (O1 EM = 0.998–1.000) Across All Length-10 Splits, but Gains Over Historical J0 Task Trajectory Are Sub-Threshold (+0.038 on Normal Validation, +0.035 on Length-10 Confirmation vs +0.10 Floor), Establishing Hard CVOF Protection Blocks Sufficient Task Learning (Task B-C005REC-004W, `result_label: CVOF_PROTECTION_PRESERVES_COMPATIBILITY_BUT_BLOCKS_LEARNING`)
+
+**Date:** 2026-09-11
+
+**Status:** Accepted (Task B-C005REC-004W complete; mechanism-repair continuation pilot. Counterfactual intervention updates = 500, control parity updates = 25; new candidate training updates = 0. Model bundle recovery RG3/REC-005 remains blocked.)
+
+**Affects:** `src/apc/evaluation/mirror_normal_cvof_protection_pilot.py` (new), `configs/phase_b_b2_model_bundle_recovery_rec004w.yaml` (new), `tests/test_mirror_normal_cvof_protection_pilot.py` (new), `scripts/run_phase_b_b2_model_bundle_recovery.py` (`--task B-C005REC-004W` dispatch added), `docs/DECISIONS.md`, `docs/DECISIONS_PHASE_B_B2_MODEL_BUNDLE_RECOVERY.md`. No file under `src/apc/primitives/` or `src/apc/core/` was modified.
+
+**Run artifacts:** `runs/phase_b_b2_model_bundle_recovery/rec004w/run_001/`.
+The directory records source manifest (@7500 verified), historical control manifest (REC-004T verified), protocol manifest, initial parity audit (PASS), Stage A parity audit (PASS), fresh validation manifest (2 locked fresh datasets + 4 continuity datasets), selective freeze audit, training batch manifest, per-step training trace, per-25step dynamics, endpoint metrics, historical endpoint comparison, O1 compatibility audit, J0 learning audit, result decision, next repair contract, freeze audit, side-effect audit, cost accounting, summary, and report.
+
+### Context
+
+Task B-C005REC-004V proved that joint drift across CONTENT_PREP, V_PROJECTION, ATTN_OUT_PROJ, and FFN_BLOCK (CVOF) is the necessary causal driver of downstream compatibility collapse under an attention-clamped condition ($A_{\text{ref}}$ from step 7500).
+Task B-C005REC-004W was commissioned as an I03-specific mechanism-repair pilot to test the primary research question: **whether completely removing the attention clamp and returning to unconstrained production J0 forward while strictly freezing CVOF at step 7500 enables continued learning of score pathways (Q/K rows, position bias) while maintaining downstream $O_1$ compatibility and improving normal J0 performance over the historical trajectory**.
+
+### Evidence
+
+1. **Source State and Baseline Parities Verified:**
+   - Step 7500 source state verified bit-exact against REC-004T/U/V canonical hash (`7c71a7a43ec2ba766623a70cf4b62e18a8ad685bb1073657ef3fd54d676cb3cb`).
+   - Initial parity at step 7500 passed (`score_diff = 7.63e-6`, `prob_diff = 1.04e-6`, `final_logits_diff = 2.67e-5`, `pred_mismatches = 0` within $10^{-4}$ tolerance).
+   - Stage A historical control parity reproduced REC-004T step-7525 loss exactly (`loss_diff = 0.0 < 1e-4`).
+2. **Selective Freeze Contract Enforced:**
+   - Across all 500 optimizer updates (steps 7501–8000), CONTENT_PREP, V_PROJECTION (rows 64:96 of `cross_attn.in_proj`), ATTN_OUT_PROJ, and FFN_BLOCK parameter values and AdamW 1st/2nd moments remained bitwise identical to step 7500 (`max_freeze_diff = 0.0`).
+   - Trainable parameters (Q rows, K rows, position bias, query residual, post-attention norm, readout) actively updated throughout training (e.g. Q/K update norm $\sim 6\times 10^{-3}$ to $1.1\times 10^{-2}$, position-bias update norm $\sim 1.3\times 10^{-3}$ to $3.1\times 10^{-3}$).
+3. **Question A — Complete Downstream Oracle Compatibility Preservation (PASS):**
+   - At step 8000, $O_1\text{ EM}$ and position-4 accuracy remained at ceiling across all 5 length-10 splits:
+     - Continuity 1 (`length10_mechanism_probe_v1`): $O_1\text{ EM} = \mathbf{0.9980}$, pos4 acc = $\mathbf{1.0000}$
+     - Continuity 2 (`dense_trajectory_transition_probe_v1`): $O_1\text{ EM} = \mathbf{0.9980}$, pos4 acc = $\mathbf{1.0000}$
+     - Continuity 3 (`attention_clamp_causal_probe_v1`): $O_1\text{ EM} = \mathbf{1.0000}$, pos4 acc = $\mathbf{1.0000}$
+     - Continuity 4 (`downstream_freeze_causal_probe_v1`): $O_1\text{ EM} = \mathbf{1.0000}$, pos4 acc = $\mathbf{1.0000}$
+     - Fresh Length-10 Confirmation (`normal_cvof_protection_length10_v1`): $O_1\text{ EM} = \mathbf{1.0000}$, pos4 acc = $\mathbf{1.0000}$
+   - This decisively confirms that downstream compatibility collapse does **not** occur when score pathways train under unconstrained forward, provided CVOF is protected.
+4. **Questions B & C — Sub-Threshold Normal Task Learning Gain (FAIL):**
+   - On the fresh normal validation set (`normal_cvof_protection_validation_v1`, 1024 examples, lengths 2..10):
+     - Protected arm J0 EM = **$0.7861$** vs Historical @8000 = **$0.7480$** ($\Delta = \mathbf{+0.0381}$, below the $+0.10$ effect-size floor).
+     - Length-10 subset J0 EM = **$0.0853$** vs Historical @8000 = **$0.0569$** ($\Delta = \mathbf{+0.0284}$).
+   - On the fresh length-10 confirmation set (`normal_cvof_protection_length10_v1`, 512 examples):
+     - Protected arm J0 EM = **$0.0859$** vs Historical @8000 = **$0.0508$** ($\Delta = \mathbf{+0.0352}$, below the $+0.10$ floor).
+5. **Decision Classification (Section 15):**
+   - `result_label: CVOF_PROTECTION_PRESERVES_COMPATIBILITY_BUT_BLOCKS_LEARNING`.
+   - Hard permanent freezing of CVOF prevents oracle collapse, but severely restricts representation plasticity, blocking the model from learning the normal length-10 position correspondence task to the required $+0.10$ gain floor.
+6. **Cost and Scope Accounting:**
+   - `counterfactual_intervention_updates = 500`, `parity_updates = 25`, `new_candidate_training_updates = 0`.
+   - Core and 15 other primitives invariant. `candidate_selected = null`, `child_bundle = null`, `rg3_recheck = NOT_EXECUTED`, `rec005_eligible = false`.
+
+### Consequences
+
+- **Mechanistic Finding:** Hard CVOF protection successfully decouples downstream stability from attention training, entirely preventing downstream collapse under unconstrained normal forward. However, hard zero-gradient clamping of CVOF simultaneously impairs the value-projection and content representation adaptation necessary for full task learning.
+- **Next Repair Direction:** Hard freezing is too restrictive. As authorized by Section 20 of the task contract, the next task should explore a **soft-stability / proximal-plasticity mechanism** (e.g. bounded trust region or proximal anchor regularization on CVOF updates) rather than a rigid freeze.
+- **Scope Bounded:** Diagnostic continuation pilot only. No candidate was selected, and RG3 / REC-005 remain blocked.
+
+
 
 
 
