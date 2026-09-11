@@ -32,6 +32,10 @@ from apc.evaluation.incremental_budget_calibration import (
     IncrementalBudgetCalibrationConfig,
     run_incremental_budget_calibration_task,
 )
+from apc.evaluation.mirror_attention_clamp_causal_replay import (
+    MirrorAttentionClampCausalReplayConfig,
+    run_mirror_attention_clamp_causal_replay_task,
+)
 from apc.evaluation.mirror_attention_score_credit_assignment_audit import (
     MirrorAttentionScoreCreditAssignmentAuditConfig,
     run_mirror_attention_score_credit_assignment_audit_task,
@@ -51,6 +55,10 @@ from apc.evaluation.mirror_content_prep_release_pilot import (
 from apc.evaluation.mirror_cross_position_cross_length_score_gradient_interference_audit import (
     MirrorCrossPositionCrossLengthScoreGradientInterferenceAuditConfig,
     run_mirror_cross_position_cross_length_score_gradient_interference_audit_task,
+)
+from apc.evaluation.mirror_dense_trajectory_transition_audit import (
+    MirrorDenseTrajectoryTransitionAuditConfig,
+    run_mirror_dense_trajectory_transition_audit_task,
 )
 from apc.evaluation.mirror_ffn_anchored_downstream_interaction_audit import (
     MirrorFfnAnchoredDownstreamInteractionAuditConfig,
@@ -151,6 +159,8 @@ _IMPLEMENTED_TASKS = (
     "B-C005REC-004Q",
     "B-C005REC-004R",
     "B-C005REC-004S",
+    "B-C005REC-004T",
+    "B-C005REC-004U",
 )
 
 
@@ -519,6 +529,60 @@ def _load_rec004s_config(
         )
     return MirrorScoreFunctionFiniteStepDynamicsAuditConfig(
         output_dir=Path(raw.get("output_dir", defaults.output_dir)), seed=seed
+    )
+
+
+def _load_rec004t_config(
+    config_path: Path,
+) -> MirrorDenseTrajectoryTransitionAuditConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+    defaults = MirrorDenseTrajectoryTransitionAuditConfig()
+    seed = raw.get("seed", defaults.seed)
+    if seed != RECOVERY_PILOT_SEED:
+        raise ValueError(
+            f"B-C005REC-004T is fixed to I03's pre-registered seed "
+            f"{RECOVERY_PILOT_SEED}; config requested seed={seed}"
+        )
+    return MirrorDenseTrajectoryTransitionAuditConfig(
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+        seed=seed,
+        oracle_em_threshold=raw.get("oracle_em_threshold", defaults.oracle_em_threshold),
+        max_replay_window_updates=raw.get(
+            "max_replay_window_updates", defaults.max_replay_window_updates
+        ),
+        full_probe_step_interval=raw.get(
+            "full_probe_step_interval", defaults.full_probe_step_interval
+        ),
+        sentinel_subset_per_dataset=raw.get(
+            "sentinel_subset_per_dataset", defaults.sentinel_subset_per_dataset
+        ),
+    )
+
+
+def _load_rec004u_config(
+    config_path: Path,
+) -> MirrorAttentionClampCausalReplayConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+    defaults = MirrorAttentionClampCausalReplayConfig()
+    seed = raw.get("seed", defaults.seed)
+    if seed != RECOVERY_PILOT_SEED:
+        raise ValueError(
+            f"B-C005REC-004U is fixed to I03's pre-registered seed "
+            f"{RECOVERY_PILOT_SEED}; config requested seed={seed}"
+        )
+    return MirrorAttentionClampCausalReplayConfig(
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+        seed=seed,
+        oracle_em_threshold=raw.get("oracle_em_threshold", defaults.oracle_em_threshold),
+        max_replay_window_updates=raw.get(
+            "max_replay_window_updates", defaults.max_replay_window_updates
+        ),
+        full_probe_step_interval=raw.get(
+            "full_probe_step_interval", defaults.full_probe_step_interval
+        ),
+        sentinel_subset_per_dataset=raw.get(
+            "sentinel_subset_per_dataset", defaults.sentinel_subset_per_dataset
+        ),
     )
 
 
@@ -1140,16 +1204,12 @@ def main() -> int:
             "sealed evaluation ran."
         )
         return 0 if rec004r_report.get("implementation_status") == "COMPLETED" else 1
-    else:  # B-C005REC-004S
+    elif args.task == "B-C005REC-004S":
         config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004s.yaml")
         rec004s_config = _load_rec004s_config(config_path)
         if args.output_dir is not None:
             rec004s_config = dataclasses.replace(rec004s_config, output_dir=args.output_dir)
-        rec004s_report = (
-            run_mirror_score_function_finite_step_dynamics_audit_task(
-                rec004s_config
-            )
-        )
+        rec004s_report = run_mirror_score_function_finite_step_dynamics_audit_task(rec004s_config)
         print(
             json.dumps(
                 {
@@ -1169,6 +1229,72 @@ def main() -> int:
             "candidate selection, child bundle, RG3/REC-005, or sealed evaluation ran."
         )
         return 0 if rec004s_report.get("implementation_status") == "COMPLETED" else 1
+    elif args.task == "B-C005REC-004T":
+        config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004t.yaml")
+        rec004t_config = _load_rec004t_config(config_path)
+        if args.output_dir is not None:
+            rec004t_config = dataclasses.replace(rec004t_config, output_dir=args.output_dir)
+        rec004t_report = run_mirror_dense_trajectory_transition_audit_task(rec004t_config)
+        print(
+            json.dumps(
+                {
+                    "implementation_status": rec004t_report.get("implementation_status"),
+                    "coarse_localization": rec004t_report.get("coarse_localization"),
+                    "historical_dense_replay": rec004t_report.get("historical_dense_replay"),
+                    "trajectory_diagnosis": rec004t_report.get("trajectory_diagnosis"),
+                    "transition_window": rec004t_report.get("transition_window"),
+                    "temporal_peaks": rec004t_report.get("temporal_peaks"),
+                    "diagnostic_replay_optimizer_updates": rec004t_report.get(
+                        "diagnostic_replay_optimizer_updates"
+                    ),
+                    "new_candidate_training_updates": rec004t_report.get(
+                        "new_candidate_training_updates"
+                    ),
+                    "rg3_recheck": rec004t_report.get("rg3_recheck"),
+                },
+                indent=2,
+            )
+        )
+        print(
+            "STOP: only B-C005REC-004T was executed (an I03 dense trajectory transition replay "
+            "and oracle-compatibility onset audit). No candidate training, candidate selection, "
+            "child bundle, RG3/REC-005, or sealed evaluation ran."
+        )
+        return 0 if rec004t_report.get("implementation_status") == "COMPLETE" else 1
+    else:  # B-C005REC-004U
+        config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004u.yaml")
+        rec004u_config = _load_rec004u_config(config_path)
+        if args.output_dir is not None:
+            rec004u_config = dataclasses.replace(rec004u_config, output_dir=args.output_dir)
+        rec004u_report = run_mirror_attention_clamp_causal_replay_task(rec004u_config)
+        print(
+            json.dumps(
+                {
+                    "implementation_status": rec004u_report.get("implementation_status"),
+                    "historical_control_source": rec004u_report.get("historical_control_source"),
+                    "attention_clamp_initial_parity": rec004u_report.get(
+                        "attention_clamp_initial_parity"
+                    ),
+                    "counterfactual_optimizer_updates": rec004u_report.get(
+                        "counterfactual_optimizer_updates"
+                    ),
+                    "new_candidate_training_updates": rec004u_report.get(
+                        "new_candidate_training_updates"
+                    ),
+                    "causal_diagnosis": rec004u_report.get("causal_diagnosis"),
+                    "T_oracle_loss_historical": rec004u_report.get("T_oracle_loss_historical"),
+                    "T_oracle_loss_clamp": rec004u_report.get("T_oracle_loss_clamp"),
+                    "rg3_recheck": rec004u_report.get("rg3_recheck"),
+                },
+                indent=2,
+            )
+        )
+        print(
+            "STOP: only B-C005REC-004U was executed (an I03 pre-transition attention-clamp "
+            "causal replay & score-stability repair gate). No candidate training, "
+            "candidate selection, child bundle, RG3/REC-005, or sealed evaluation ran."
+        )
+        return 0 if rec004u_report.get("implementation_status") == "COMPLETE" else 1
 
     next_blocked = {
         "B-C005REC-002": "B-C005REC-003 onward",

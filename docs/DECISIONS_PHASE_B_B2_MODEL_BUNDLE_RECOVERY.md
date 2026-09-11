@@ -986,3 +986,89 @@ and side-effect audits, decision, next repair contract, summary, and report.
 - **No recovery or research gate changed:** all selection fields and `child_bundle`
   remain null, `rg3_recheck` is `NOT_EXECUTED`, and `rec005_eligible` remains false.
 
+## ADR-0116: I03 Dense Trajectory Transition Replay & Oracle-Compatibility Onset Audit: Transition Window Localized to [7500, 8000], Bit-Exact Parity Verified, and Early Score Margin Peak Precedes Downstream Compatibility Loss (Task B-C005REC-004T, `trajectory_diagnosis: SCORE_DEGRADATION_PRECEDES_DOWNSTREAM_COMPATIBILITY_LOSS`)
+
+**Date:** 2026-09-11
+
+**Status:** Accepted (Task B-C005REC-004T complete; historical dense trajectory transition replay and mechanism audit. No new candidate training; zero non-historical optimizer updates. Stage A mechanically localized the first transition window to steps [7500, 8000] from saved 500-step checkpoints. Stage B executed 500 updates of historical dense replay from step 7500 with bit-exact parity verified at step 8000 against the saved historical state. Stage C established temporal ordering across 25-update full probe probes and per-step dynamics, demonstrating that attention score margin degradation precedes downstream oracle compatibility loss. Stage D produced next repair contract proposal `PROPOSED_NOT_AUTHORIZED`.)
+
+**Affects:** `src/apc/evaluation/mirror_dense_trajectory_transition_audit.py` (new), `configs/phase_b_b2_model_bundle_recovery_rec004t.yaml` (new), `tests/test_mirror_dense_trajectory_transition_audit.py` (new), `scripts/run_phase_b_b2_model_bundle_recovery.py` (`--task B-C005REC-004T` dispatch added), `docs/CODEX_TASKS_PHASE_B_B2_MODEL_BUNDLE_RECOVERY.md`, `docs/EXPERIMENT_PLAN_PHASE_B_B2_MODEL_BUNDLE_RECOVERY.md`, `AGENTS.md`, `docs/DECISIONS.md`, `docs/DECISIONS_PHASE_B_B2_MODEL_BUNDLE_RECOVERY.md`. No file under `src/apc/primitives/` or `src/apc/core/` was modified.
+
+**Run artifacts:** `runs/phase_b_b2_model_bundle_recovery/rec004t/run_001/`.
+The directory records source trajectory manifest, probe dataset manifest, coarse checkpoint scan, transition window decision, dense replay protocol, dense replay parity audit, per-step training trace, per-step sentinel dynamics, 25-step full probe dynamics, internal stage dynamics NPZ and index, parameter group drift, position-4 transition summary, position-5 control summary, I04 success control, freeze audit, side-effect audit, cost accounting, trajectory transition decision, next repair contract proposal, summary, and report.
+
+### Context
+
+Prior diagnostics REC-004Q/R/S refuted isolated instantaneous hypotheses (gradient misdirection, AdamW state sign reversal, gradient interference, single-step overshoot, and strong score nonlinearity). Meanwhile, historical JOINT training exhibited a non-monotonic trajectory: early score margin improvement between steps 6000 and 7000 followed by severe oscillations, degradation toward step 12000, and an ultimate breakdown of downstream oracle compatibility ($O_1 \ge 0.95$ at step 6000 vs $\sim 0.75$ at step 17500).
+Task B-C005REC-004T was commissioned to reconstruct the historical dense trajectory, pinpoint the exact transition window where downstream oracle compatibility is first lost, and establish the temporal sequence connecting attention score dynamics, attention distributions, downstream outputs, and 10-parameter-group drift.
+
+### Evidence
+
+1. **Stage A: Coarse localization isolates transition to [7500, 8000].** Scanning all 25 historical checkpoints (steps 6000 to 18000 at 500-step intervals) on both continuity (128 examples) and fresh (128 examples) probe datasets identified step 7500 as the last common checkpoint with $O_1 \text{ EM} \ge 0.95$ ($0.998$ on both splits). At step 8000, $O_1 \text{ EM}$ plummeted to $0.576$ (continuity) and $0.592$ (fresh). The window was mechanically locked to $[7500, 8000]$ (500 updates, satisfying $\le 1000$ bound).
+2. **Stage B: Bit-exact historical dense replay achieved.** Replaying 500 updates from step 7500 using exact historical state (RNG states, batch sequence, AdamW optimizer, and cosine scheduler) achieved perfect parity at step 8000 against the historical saved checkpoint:
+   - `max_state_abs_diff`: $0.0$
+   - `replayed_canonical_state_hash`: `4836cea9d83d2b1af38e6c19b7e5135713b7ec5bfca5f3ed446cf4a0d4e31bc6` (byte-identical)
+   - `max_optimizer_moment_abs_diff`: $0.0$ ($< 10^{-6}$)
+   - `scheduler_epoch_matches`: `true`
+   - `status`: `BIT_EXACT`
+3. **Stage C: Score degradation precedes downstream oracle compatibility loss.**
+   - $T_{\text{score\_peak}} = 7500$ (best position-4 score margin: $-30.345$)
+   - $T_{\text{o1\_margin\_peak}} = 7500$
+   - $T_{\text{j0\_output\_peak}} = 7500$
+   - $T_{\text{oracle\_loss}} = 7525$ (first full probe step where $O_1 \text{ EM} < 0.95$)
+   The attention score margin began degrading immediately after step 7500, preceding the loss of downstream compatibility at step 7525. Diagnosis: `SCORE_DEGRADATION_PRECEDES_DOWNSTREAM_COMPATIBILITY_LOSS`.
+4. **Observer non-interference verified.** Manual decomposition of MultiheadAttention for internal stage extraction showed zero discrete prediction divergence and maximal absolute error of $\approx 2.5 \times 10^{-5}$ (within float32 precision limits, $\ll 5 \times 10^{-3}$).
+5. **Auxiliary control on I04 (successful trajectory).** Over the identical step range (6000 to 18000), I04 maintained $O_1 \text{ EM} \ge 0.95$ throughout without experiencing downstream compatibility breakdown or score margin collapse.
+6. **Strict isolation and zero new updates.** `side_effect_audit.json` verifies `diagnostic_replay_optimizer_updates = 500`, `new_candidate_training_updates = 0`, `candidate_selected = null`, `child_bundle = null`, `rg3_recheck = NOT_EXECUTED`, and `rec005_eligible = false`. `freeze_audit.json` confirms Core and all 12 protected operations remain bitwise unchanged.
+
+### Consequences
+
+- **Diagnosis established:** I03's failure is not an instantaneous single-step breakdown nor an initial downstream degradation, but an early loss of attention score stability (peaking at step 7500) that subsequently drags downstream components out of the oracle-compatible basin around step 7525.
+- **Next repair contract proposed (not authorized):** `short-horizon score-stability repair` focusing on stabilizing attention score margins around step 7500 without premature downstream component freezes.
+- **Scope bounded:** No candidate training or candidate selection occurred. RG3/REC-005 remain blocked.
+
+## ADR-0117: I03 Pre-Transition Attention-Clamp Causal Replay & Score-Stability Repair Gate: Fixing Step-7500 Attention Trajectory Fails to Prevent Downstream Oracle-Compatibility Collapse, Establishing Downstream Drift Is Autonomous and Refuting Score-Degradation as the Primary Causal Driver (Task B-C005REC-004U, `causal_diagnosis: DOWNSTREAM_COMPATIBILITY_LOSS_PERSISTS_UNDER_FIXED_ATTENTION`)
+
+**Date:** 2026-09-11
+
+**Status:** Accepted (Task B-C005REC-004U complete; causal diagnosis counterfactual training pilot. Counterfactual optimizer updates = 500; new candidate training updates = 0. Model bundle recovery RG3/REC-005 remains blocked.)
+
+**Affects:** `src/apc/evaluation/mirror_attention_clamp_causal_replay.py` (new), `configs/phase_b_b2_model_bundle_recovery_rec004u.yaml` (new), `tests/test_mirror_attention_clamp_causal_replay.py` (new), `scripts/run_phase_b_b2_model_bundle_recovery.py` (`--task B-C005REC-004U` dispatch added), `docs/DECISIONS.md`, `docs/DECISIONS_PHASE_B_B2_MODEL_BUNDLE_RECOVERY.md`. No file under `src/apc/primitives/` or `src/apc/core/` was modified.
+
+**Run artifacts:** `runs/phase_b_b2_model_bundle_recovery/rec004u/run_001/`.
+The directory records source and REC-004T control manifest, attention clamp protocol, attention reference manifest, initial parity audit, fused QKV freeze audit, training batch digests, counterfactual training trace, 25-step multi-dataset metrics, attention reference drift trace, O1 compatibility trajectory, fresh probe manifest, causal decision, next repair contract, freeze audit, side-effect audit, cost accounting, summary, and report.
+
+### Context
+
+Task B-C005REC-004T established that historical JOINT attention score degradation peaked at step 7500 and temporally preceded downstream oracle compatibility breakdown at step 7525. However, temporal precedence is not causation. To determine whether attention trajectory drift was the causal driver of downstream oracle compatibility collapse, Task B-C005REC-004U implemented a counterfactual training intervention (`ATTENTION_CLAMP_7500`): clamping the training-time attention distribution to the immutable normal J0 attention $A_{\text{ref}}$ produced by step-7500 I03, while training the downstream parameters (`CONTENT_PREP`, `V`, `ATTN_OUT_PROJ`, `QUERY_RESIDUAL`, `POST_ATTN_NORM`, `FFN`, `READOUT`) across the identical 500 historical batches (steps 7501–8000). Score-only parameters (Q, K rows and position bias) were frozen fail-closed, with exact weight and AdamW moment invariance verified at every step.
+
+### Evidence
+
+1. **Information boundary and initial parity verified:**
+   - Training APIs and clamped forward functions enforce zero access to oracle $\pi_n$, target tokens, or teacher positions.
+   - At step 7500, initial parity between normal J0 forward and clamped forward passed pre-declared tolerances (`attn_diff = 1.04e-6 < 1e-5`, `logits_diff = 2.03e-5 < 1e-4`, discrete predictions exactly matched).
+2. **Fail-closed Q/K and position-bias freeze maintained:**
+   - At every step of the 500 updates, Q and K rows of `cross_attn.in_proj_weight` and `in_proj_bias`, as well as `position_bias_hidden` and `position_bias_out`, remained strictly invariant to step-7500 parameters and AdamW moments (`max_state_diff = 0.0`).
+3. **Primary causal finding: downstream compatibility collapses identically under fixed attention:**
+   - $T_{\text{oracle\_loss\_clamp}} = 7525$ (identical to $T_{\text{oracle\_loss\_historical}} = 7525$).
+   - At step 7525, $O_1\text{ EM}$ plummeted below 0.95 across all three datasets (Continuity 1: $0.881$, Continuity 2: $0.904$, Fresh: $0.891$).
+   - At step 8000, $O_1\text{ EM}$ reached the identical collapsed level as historical replay:
+     - Continuity 1 (`length10_mechanism_probe_v1`): $0.5762$ vs historical $0.5762$ ($\Delta = +0.0000$).
+     - Continuity 2 (`dense_trajectory_transition_probe_v1`): $0.5918$ vs historical $0.5918$ ($\Delta = +0.0000$).
+     - Fresh Confirmation (`attention_clamp_causal_probe_v1`): $0.5938$.
+   - Position-4 accuracy also dropped identically to $0.5762$ / $0.5918$ / $0.5938$.
+4. **Classification:**
+   - Causal diagnosis: `DOWNSTREAM_COMPATIBILITY_LOSS_PERSISTS_UNDER_FIXED_ATTENTION`.
+   - The hypothesis that attention degradation causally drove downstream compatibility collapse is refuted. Downstream component drift occurs autonomously during joint batch exposure.
+5. **Auxiliary controls and strict boundaries:**
+   - Successful trajectory I04 displayed healthy compatibility ($O_1\text{ EM} \ge 0.70$–$0.75$, maintaining robust margin and J0 accuracy $\sim 0.88$–$0.96$).
+   - `side_effect_audit.json` confirms `counterfactual_optimizer_updates = 500`, `new_candidate_training_updates = 0`, `candidate_selected = null`, `child_bundle = null`, `rg3_recheck = NOT_EXECUTED`, and `rec005_eligible = false`.
+
+### Consequences
+
+- **Refutation of attention-score repair priority:** Attention-stability or score-regularization repairs around step 7500 cannot prevent downstream compatibility collapse, because downstream collapse occurs even when attention distribution drift is artificially eliminated.
+- **Next repair direction:** Focus shifts back to downstream trajectory drift (C / V / O / FFN) under joint batch updates, as specified in `next_repair_contract.md` (`DOWNSTREAM_COMPATIBILITY_LOSS_PERSISTS_UNDER_FIXED_ATTENTION`).
+- **Scope bounded:** No candidate training or candidate selection occurred. RG3/REC-005 remain blocked.
+
+
+

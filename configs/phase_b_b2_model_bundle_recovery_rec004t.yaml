@@ -1,0 +1,6 @@
+output_dir: runs/phase_b_b2_model_bundle_recovery/rec004t/run_001
+seed: 10
+oracle_em_threshold: 0.95
+max_replay_window_updates: 1000
+full_probe_step_interval: 25
+sentinel_subset_per_dataset: 64
