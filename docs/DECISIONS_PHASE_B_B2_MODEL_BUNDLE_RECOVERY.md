@@ -911,3 +911,78 @@ side-effect audits, decision, and report.
   recovery gate or research gate changes: all selection fields and
   `child_bundle` remain null, `rg3_recheck` is `NOT_EXECUTED`, and
   `rec005_eligible` remains false.
+
+---
+
+## ADR-0115: I03 Finite-Step Score-Function Dynamics vs Local Linear Prediction Audit Demonstrates Locally Faithful One-Step Dynamics, Excluding Single-Step Overshoot and Strong Non-Linearity (Task B-C005REC-004S, `result_label: ONE_STEP_SCORE_DYNAMICS_LOCALLY_FAITHFUL`)
+
+**Date:** 2026-09-11
+
+**Status:** Accepted (diagnostic-only). The audit reconstructs the analytical
+AdamW delta from saved optimizer moments on the actual next training batch (step
+6001, 7001, 12001) without optimizer steps, evaluates local linear score
+predictions via autograd JVP, and tests exact finite virtual steps ($\alpha=0.1$
+and $\alpha=1.0$) across six immutable checkpoints on continuity and fresh
+confirmation probe datasets (1024 examples each). No optimizer updates, parameter
+mutation, training, candidate selection, RG3, REC-005, or sealed evaluation ran.
+
+**Affects:** `src/apc/evaluation/mirror_score_function_finite_step_dynamics_audit.py` (new), `scripts/run_phase_b_b2_model_bundle_recovery.py` (explicit `--task B-C005REC-004S` dispatch), `configs/phase_b_b2_model_bundle_recovery_rec004s.yaml` (new), `tests/test_mirror_score_function_finite_step_dynamics_audit.py` (new), `docs/CODEX_TASKS_PHASE_B_B2_I03_FINITE_STEP_SCORE_FUNCTION_DYNAMICS_AUDIT.md` (new), `docs/DECISIONS.md`, and this ADR log. Existing checkpoints and historical artifacts are read-only.
+
+**Run artifacts:** `runs/phase_b_b2_model_bundle_recovery/rec004s/run_001/`.
+The directory records source and probe manifests, next-training-batch manifest,
+analytical AdamW delta manifest, score JVP and exact-step NPZ arrays with index
+manifest, position-4/5 and length-6--9 summaries, attention distribution changes,
+output translation summaries, locality parity check, historical score drift, freeze
+and side-effect audits, decision, next repair contract, summary, and report.
+
+### Evidence
+
+1. **Locality parity gate passes decisively.** At $\alpha=0.1$, the median cosine
+   similarity between JVP local linear prediction $\Delta S_{\text{linear}}$ and
+   the exact finite difference $\Delta S_{\text{exact}, 0.1}$ across all examples,
+   heads, and positions is $> 0.9986$ for every checkpoint on both probe datasets
+   (minimum median cosine $0.99868$, against threshold $\ge 0.95$). Local linear
+   perturbation is mathematically and computationally verified.
+2. **Optimizer-sized score overshoot is not supported.** For length-10 position 4
+   where local linear prediction indicates positive margin improvement
+   ($\Delta m_{\text{linear}} > 0$), the fraction of cases inverting to negative
+   margin change under full optimizer step size ($\alpha=1.0$) is only $0.0021$
+   ($0.21\%$) for `I03_SCORE_ONLY_12000` and $0.0022$ ($0.22\%$) for
+   `I03_CP_SCORE_12000` on the continuity set (and $0.0021$ / $0.0044$ on the fresh
+   probe), far below the $\ge 60\%$ overshoot condition.
+3. **Strong parameter-to-score non-linearity is not supported.** The median
+   linearization residual $r_{1.0}$ at full optimizer step size ($\alpha=1.0$) is
+   $0.00084$ for `I03_SCORE_ONLY_12000` and $0.00091$ for `I03_CP_SCORE_12000` (far
+   below the $\ge 1.0$ threshold). The median cosine similarity at $\alpha=1.0$ is
+   $> 0.99999$ for both terminal arms (far above the $\le 0.50$ non-linearity threshold).
+4. **One-step dynamics are locally faithful across the board.** Both terminal
+   arms exhibit median cosine $\ge 0.99999 \ge 0.80$, median $r_{1.0} < 0.001 < 0.50$,
+   and margin sign agreement $\ge 0.996 \ge 0.80$ on length-10 position 4. The
+   divergence between exact attention distribution and linearly predicted attention
+   is negligible (mean KL divergence $\approx 10^{-9}$--$10^{-10}$).
+5. **Historical drift context demonstrates multi-step trajectory accumulation.**
+   Tracing I03 JOINT across historical 500-step intervals reveals early margin
+   improvement ($6000 \to 7000$: $-0.746 \to -0.515$), followed by severe oscillations
+   and deepening negative drift ($7000 \to 12000$: $-0.515 \to -1.524$). Since
+   isolated single-step updates are locally faithful, the deficit is established as
+   a trajectory-level phenomenon across multiple updates.
+6. **Strict isolation maintained.** `side_effect_audit.json` records
+   `new_optimizer_updates: 0`, zero optimizer steps, no parameter mutation, and no
+   training. `freeze_audit.json` confirms Core, protected operations, source
+   checkpoints, and canonical hashes bitwise unchanged.
+
+### Consequences
+
+- **Result label: `ONE_STEP_SCORE_DYNAMICS_LOCALLY_FAITHFUL`.** Instantaneous
+  single-step diagnostics (gradient orientation in REC-004Q, gradient interference in
+  REC-004R, and finite-step score nonlinearity/overshoot in REC-004S) are formally
+  concluded. None of these isolated single-step hypotheses explain I03's failure.
+- **Next repair contract proposed (not authorized):** `short-horizon dense replay`.
+  From `I03@6000`, a bit-exact replay over a fixed short window (e.g. 128 updates)
+  recording score-function, attention, and downstream margins at every step to
+  pinpoint the exact transition into the unrecoverable basin.
+- **Prior negative results preserved:** REC-004Q (`SCORE_CREDIT_ASSIGNMENT_UNRESOLVED`)
+  and REC-004R (`SHARED_PARAMETER_GRADIENT_INTERFERENCE_NOT_SUPPORTED`) remain intact.
+- **No recovery or research gate changed:** all selection fields and `child_bundle`
+  remain null, `rg3_recheck` is `NOT_EXECUTED`, and `rec005_eligible` remains false.
+

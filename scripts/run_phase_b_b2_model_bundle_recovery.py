@@ -106,6 +106,10 @@ from apc.evaluation.mirror_schedule_comparison import (
     MirrorScheduleComparisonConfig,
     run_mirror_schedule_comparison_task,
 )
+from apc.evaluation.mirror_score_function_finite_step_dynamics_audit import (
+    MirrorScoreFunctionFiniteStepDynamicsAuditConfig,
+    run_mirror_score_function_finite_step_dynamics_audit_task,
+)
 from apc.evaluation.mirror_score_only_continuation_pilot import (
     MirrorScoreOnlyContinuationPilotConfig,
     run_mirror_score_only_continuation_pilot_task,
@@ -146,6 +150,7 @@ _IMPLEMENTED_TASKS = (
     "B-C005REC-004P",
     "B-C005REC-004Q",
     "B-C005REC-004R",
+    "B-C005REC-004S",
 )
 
 
@@ -497,6 +502,22 @@ def _load_rec004r_config(
             f"{RECOVERY_PILOT_SEED}; config requested seed={seed}"
         )
     return MirrorCrossPositionCrossLengthScoreGradientInterferenceAuditConfig(
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)), seed=seed
+    )
+
+
+def _load_rec004s_config(
+    config_path: Path,
+) -> MirrorScoreFunctionFiniteStepDynamicsAuditConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+    defaults = MirrorScoreFunctionFiniteStepDynamicsAuditConfig()
+    seed = raw.get("seed", defaults.seed)
+    if seed != RECOVERY_PILOT_SEED:
+        raise ValueError(
+            f"B-C005REC-004S is fixed to I03's pre-registered seed "
+            f"{RECOVERY_PILOT_SEED}; config requested seed={seed}"
+        )
+    return MirrorScoreFunctionFiniteStepDynamicsAuditConfig(
         output_dir=Path(raw.get("output_dir", defaults.output_dir)), seed=seed
     )
 
@@ -1089,7 +1110,7 @@ def main() -> int:
             "candidate selection, child bundle, RG3/REC-005, or sealed evaluation ran."
         )
         return 0 if rec004q_report.get("implementation_status") == "COMPLETED" else 1
-    else:  # B-C005REC-004R
+    elif args.task == "B-C005REC-004R":
         config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004r.yaml")
         rec004r_config = _load_rec004r_config(config_path)
         if args.output_dir is not None:
@@ -1119,6 +1140,35 @@ def main() -> int:
             "sealed evaluation ran."
         )
         return 0 if rec004r_report.get("implementation_status") == "COMPLETED" else 1
+    else:  # B-C005REC-004S
+        config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004s.yaml")
+        rec004s_config = _load_rec004s_config(config_path)
+        if args.output_dir is not None:
+            rec004s_config = dataclasses.replace(rec004s_config, output_dir=args.output_dir)
+        rec004s_report = (
+            run_mirror_score_function_finite_step_dynamics_audit_task(
+                rec004s_config
+            )
+        )
+        print(
+            json.dumps(
+                {
+                    "implementation_status": rec004s_report.get("implementation_status"),
+                    "result_label": rec004s_report.get("result_label"),
+                    "new_optimizer_updates": rec004s_report.get("cost_accounting", {}).get(
+                        "new_optimizer_updates"
+                    ),
+                    "rg3_recheck": rec004s_report.get("rg3_recheck"),
+                },
+                indent=2,
+            )
+        )
+        print(
+            "STOP: only B-C005REC-004S was executed (a read-only I03 finite-step score-function "
+            "dynamics vs local linear prediction audit). No optimizer step, repair training, "
+            "candidate selection, child bundle, RG3/REC-005, or sealed evaluation ran."
+        )
+        return 0 if rec004s_report.get("implementation_status") == "COMPLETED" else 1
 
     next_blocked = {
         "B-C005REC-002": "B-C005REC-003 onward",
