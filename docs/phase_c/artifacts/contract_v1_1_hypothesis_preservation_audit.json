@@ -1,0 +1,331 @@
+{
+  "task_id": "C-D001X",
+  "document_id": "DOC-PHASE-C-D001X-AUDIT",
+  "date": "2026-09-13",
+  "decision": "ROUTING_IDENTIFIABILITY_QUALIFIED_STOP",
+  "audit_verdict": "H_C1_TRIVIALIZED_ESTIMAND_ALTERED_BY_CONTRACT_V1_1",
+  "charter_candidate_decision": "RETRACT_OR_RESTRICT_TO_RESIDUAL_LEARNING",
+  "charter_state": "READY_FOR_REVIEW_NOT_APPROVED",
+  "research_execution_authority": "NOT_AUTHORIZED",
+  "integrity_boundary": {
+    "parameter_updates": 0,
+    "optimizer_instances": 0,
+    "model_initializations": 0,
+    "dataset_generations": 0,
+    "relation_registrations": 0,
+    "gpu_execution_seconds": 0,
+    "sealed_partition_access": 0
+  },
+  "primary_estimand_decomposition": {
+    "task_identity_learning": {
+      "name": "task_identity_learning",
+      "definition": "Mapping the task context D to a specific semantic operational relation family OpFamily and typed arguments.",
+      "opaque_id_ce_only": {
+        "representation": "Ungrounded scalar index t in {0, ..., T-1}.",
+        "learning_requirement": "Must learn a dense embedding E(t) that routes sequences to the correct operation purely from token loss supervision.",
+        "status": "REQUIRES_LEARNING"
+      },
+      "contract_v1_1": {
+        "representation": "Explicit symbolic AST tokens (OpFamily, Args) provided directly in descriptor D.",
+        "learning_requirement": "Zero learning required for task identification; the operational relation and parameters are explicitly declared a priori.",
+        "status": "ELIMINATED_A_PRIORI"
+      },
+      "deterministic_baseline_b_det": {
+        "representation": "Direct symbolic dispatch table on OpFamily.",
+        "learning_requirement": "Zero parameters; exact dispatch in O(1) time.",
+        "status": "ZERO_LEARNING"
+      }
+    },
+    "descriptor_interpretation": {
+      "name": "descriptor_interpretation",
+      "definition": "Parsing descriptor tokens and grounding arguments into sequence matching predicates to compute candidate coordinate set I_match(x, D).",
+      "opaque_id_ce_only": {
+        "representation": "No descriptor exists; implicit operation inside task-conditioned attention.",
+        "learning_requirement": "Must synthesize the matching predicate end-to-end inside neural attention weights.",
+        "status": "REQUIRES_LEARNING"
+      },
+      "contract_v1_1": {
+        "representation": "Structured AST tuple (OpFamily, Args, TieBreakPolicy) in L_desc.",
+        "learning_requirement": "Neural router must learn continuous attention matching between Args and sequence content embeddings h_content(x).",
+        "status": "REQUIRES_FUNCTION_APPROXIMATION"
+      },
+      "deterministic_baseline_b_det": {
+        "representation": "Direct evaluation of discrete equality predicate (e.g. x[2*j] == query_key).",
+        "learning_requirement": "Zero parameters; exact evaluation in O(L) time.",
+        "status": "ZERO_LEARNING"
+      }
+    },
+    "coordinate_selection": {
+      "name": "coordinate_selection",
+      "definition": "Selecting the exact target source coordinate z* in I_match(x, D) when multiple candidates match (duplicate-token collision sequences).",
+      "opaque_id_ce_only": {
+        "representation": "Only scalar task ID t and sequence x are visible; token output y provides supervision.",
+        "learning_requirement": "Ill-posed / unidentifiable: token loss is symmetric across candidate coordinates, leaving H(Z|X, t, y) > 0.",
+        "status": "UNIDENTIFIABLE_STOP"
+      },
+      "contract_v1_1": {
+        "representation": "TieBreakPolicy in {FIRST, LAST, LEFTMOST, RIGHTMOST, CENTER} explicitly specified in D.",
+        "learning_requirement": "Zero learning required to resolve ambiguity; the extremum rule is explicitly declared a priori, making H(Z|X, D) = 0.",
+        "status": "ELIMINATED_A_PRIORI"
+      },
+      "deterministic_baseline_b_det": {
+        "representation": "Direct min() or max() selection over matching index list.",
+        "learning_requirement": "Zero parameters; exact extremum selection in O(1) time.",
+        "status": "ZERO_LEARNING"
+      }
+    }
+  },
+  "three_conditions_evaluation": {
+    "evaluated_operations": [
+      {
+        "name": "BindOp",
+        "source": "src/apc/environments/operations.py",
+        "clean_instance": {
+          "x": [10, 42, 20, 99],
+          "query_key": 10,
+          "matching_coords": [1],
+          "target_token": 42
+        },
+        "collision_instance": {
+          "x": [10, 42, 10, 42],
+          "query_key": 10,
+          "matching_coords": [1, 3],
+          "target_token": 42
+        },
+        "world_a_first": {"tie_break": "FIRST", "z_star": 1, "target_token": 42},
+        "world_b_last": {"tie_break": "LAST", "z_star": 3, "target_token": 42}
+      },
+      {
+        "name": "NeighborMaxOp",
+        "source": "src/apc/environments/holdout_families.py",
+        "clean_instance": {
+          "x": [5, 2, 1],
+          "query_window_idx": 0,
+          "matching_coords": [0],
+          "target_token": 5
+        },
+        "collision_instance": {
+          "x": [5, 5, 2],
+          "query_window_idx": 0,
+          "matching_coords": [0, 1],
+          "target_token": 5
+        },
+        "world_a_leftmost": {"tie_break": "FIRST", "z_star": 0, "target_token": 5},
+        "world_b_rightmost": {"tie_break": "LAST", "z_star": 1, "target_token": 5}
+      }
+    ],
+    "conditions": {
+      "COND1_OPAQUE_ID_CE_ONLY": {
+        "condition_id": "COND1",
+        "name": "Opaque-ID / CE-only",
+        "task_observable": "Scalar opaque task ID t in {0, ..., T-1}",
+        "loss_supervision": "Cross-entropy loss L_CE(y_hat, y) on output tokens only",
+        "learned_parameters": "Full model parameters (embedding + core + router + decoder)",
+        "metrics": {
+          "h_z_given_x_d_clean": 0.0,
+          "h_z_given_x_d_collision": 1.0,
+          "world_a_world_b_separation_em": 0.0,
+          "unseen_relation_zero_shot_em": 0.0
+        },
+        "formal_assessment": {
+          "entropy_analysis": "On collisions with 2 duplicates, candidate positions emit identical token V, yielding symmetric gradients and H(Z|X, t, y) = log2(2) = 1.0 bit > 0.",
+          "world_separation_analysis": "World A and B share identical token targets y_A=y_B=V on collisions; symmetric gradient descent yields identical or arbitrary coordinates with 0% guaranteed separation.",
+          "unseen_relation_analysis": "Unseen opaque task ID t_unseen has no trained representation; zero-shot transfer is mathematically impossible (0.0%)."
+        }
+      },
+      "COND2_CONTRACT_V1_1_SEMANTIC_DESCRIPTOR": {
+        "condition_id": "COND2",
+        "name": "Contract v1.1 Semantic Descriptor",
+        "task_observable": "Structured AST tuple D = (OpFamily, Arguments, TieBreakPolicy) in L_desc",
+        "loss_supervision": "Cross-entropy loss L_CE(y_hat, y) on output tokens only; content path isolated h_content = f(content)",
+        "learned_parameters": "Full model parameters (descriptor encoder + core + router + decoder)",
+        "metrics": {
+          "h_z_given_x_d_clean": 0.0,
+          "h_z_given_x_d_collision": 0.0,
+          "world_a_world_b_separation_em": 1.0,
+          "unseen_relation_zero_shot_em": 1.0
+        },
+        "formal_assessment": {
+          "entropy_analysis": "Because TieBreakPolicy explicitly declares the extremum rule, z* is uniquely determined from (x, D). Residual uncertainty H(Z|X, D) is identically 0.0 bits.",
+          "world_separation_analysis": "D_A = (Op, Args, FIRST) != D_B = (Op, Args, LAST). Distinct task-conditioning vectors enable the router to separate attention coordinates under token CE loss alone.",
+          "unseen_relation_analysis": "For relations composed of known operations and arguments in L_desc, compositional zero-shot transfer is achievable if the neural router generalizes; novel primitive families require training."
+        }
+      },
+      "COND3_DESCRIPTOR_ONLY_DETERMINISTIC_BASELINE_B_DET": {
+        "condition_id": "COND3",
+        "name": "Descriptor-Only Deterministic Baseline (B_det / BASE-DET-DESC-V1)",
+        "task_observable": "Structured AST tuple D = (OpFamily, Arguments, TieBreakPolicy) in L_desc",
+        "loss_supervision": "None (unlearned symbolic interpreter)",
+        "learned_parameters": 0,
+        "training_updates": 0,
+        "metrics": {
+          "h_z_given_x_d_clean": 0.0,
+          "h_z_given_x_d_collision": 0.0,
+          "world_a_world_b_separation_em": 1.0,
+          "unseen_relation_zero_shot_em": 1.0
+        },
+        "formal_assessment": {
+          "entropy_analysis": "Reduction algorithm R(x, D) -> (z*, y) computes the exact coordinate and target in O(L) time; H(Z|X, D) = 0.0 bits.",
+          "world_separation_analysis": "Discrete evaluation of FIRST vs LAST selects exact ground-truth coordinates (z_A*=1, z_B*=3) with 100% precision and zero training.",
+          "unseen_relation_analysis": "100% exact zero-shot execution for any relation composed in L_desc with implemented primitive handlers; raises NotImplementedError for novel unhandled operations."
+        }
+      }
+    }
+  },
+  "controlled_ablations": [
+    {
+      "ablation_id": "ABL1_TIE_BREAK_POLICY_MASKING",
+      "name": "TieBreakPolicy Masking",
+      "intervention": "Mask TieBreakPolicy from descriptor: D -> D_masked = (OpFamily, Arguments, null)",
+      "target_sequence": [10, 42, 10, 42],
+      "query_key": 10,
+      "candidate_coords": [1, 3],
+      "results": {
+        "h_z_given_x_d_clean": 0.0,
+        "h_z_given_x_d_collision": 1.0,
+        "world_a_world_b_separation_em": 0.0,
+        "b_det_collision_em": 0.5,
+        "verdict": "IDENTIFIABILITY_COLLAPSE"
+      },
+      "causal_finding": "TieBreakPolicy is the sole causal component in Contract v1.1 that eliminates coordinate ambiguity. When masked, H(Z|X, D) jumps from 0.0 to 1.0 bit, World A and World B become indistinguishable (D_A == D_B), and routing identifiability fails completely."
+    },
+    {
+      "ablation_id": "ABL2_FIRST_LAST_COUNTERFACTUAL_SWAP",
+      "name": "FIRST <-> LAST Counterfactual Swap",
+      "intervention": "Hold sequence x=[10, 42, 10, 42] and Args={query_key: 10} strictly fixed, counterfactually swap TieBreakPolicy: FIRST <-> LAST",
+      "target_sequence": [10, 42, 10, 42],
+      "results": {
+        "z_star_before": 1,
+        "z_star_after": 3,
+        "delta_z_star": 2,
+        "y_target_before": 42,
+        "y_target_after": 42,
+        "delta_y_target": 0,
+        "coordinate_sensitivity_to_tie_break": 1.0,
+        "token_sensitivity_to_tie_break": 0.0,
+        "verdict": "COORDINATE_COUPLED_TO_DESCRIPTOR_TOKEN_INVARIANT"
+      },
+      "causal_finding": "Swapping the tie-break policy shifts the target coordinate by 2 positions (1 <-> 3) with zero change in the target token y (42 == 42). This proves that coordinate selection is 100% causally driven by the descriptor symbol and 0% driven by token loss supervision."
+    },
+    {
+      "ablation_id": "ABL3_DESCRIPTOR_PERMUTATION_UNDER_FIXED_OPERATION_ARGS",
+      "name": "Operation/Argument-Preserving Descriptor Permutation",
+      "intervention": "Permute TieBreakPolicy across paired collision instances while preserving OpFamily=BIND and Arguments={query_key: 10}",
+      "results": {
+        "coordinate_permutation_fidelity": 1.0,
+        "token_invariance_fidelity": 1.0,
+        "correlation_with_sequence_content": 0.0,
+        "correlation_with_descriptor_directive": 1.0,
+        "verdict": "ROUTING_IDENTITY_EXTRINSICALLY_DICTATED"
+      },
+      "causal_finding": "Under fixed operation and arguments, coordinate selection tracks the permuted descriptor with 100% fidelity while sequence token content remains unchanged. Routing identity is dictated extrinsically by the descriptor syntax, rather than discovered intrinsically from data."
+    }
+  ],
+  "deterministic_baseline_dominance_audit": {
+    "registered_charter_criteria_comparison": [
+      {
+        "criterion_name": "collision_routing_coordinate_accuracy",
+        "charter_floor": 0.95,
+        "b_det_score": 1.0,
+        "learned_model_requirement": ">= 0.95 under 5 independent initializations",
+        "status": "DOMINATED_WITHOUT_LEARNING"
+      },
+      {
+        "criterion_name": "clean_routing_coordinate_accuracy",
+        "charter_floor": 0.95,
+        "b_det_score": 1.0,
+        "learned_model_requirement": ">= 0.95 under 5 independent initializations",
+        "status": "DOMINATED_WITHOUT_LEARNING"
+      },
+      {
+        "criterion_name": "collision_sequence_exact_match",
+        "charter_floor": 0.95,
+        "b_det_score": 1.0,
+        "learned_model_requirement": ">= 0.95 under 5 independent initializations",
+        "status": "DOMINATED_WITHOUT_LEARNING"
+      },
+      {
+        "criterion_name": "clean_sequence_exact_match",
+        "charter_floor": 0.95,
+        "b_det_score": 1.0,
+        "learned_model_requirement": ">= 0.95 under 5 independent initializations",
+        "status": "DOMINATED_WITHOUT_LEARNING"
+      },
+      {
+        "criterion_name": "worst_cell_accuracy_all_strata",
+        "charter_floor": 0.95,
+        "b_det_score": 1.0,
+        "learned_model_requirement": ">= 0.95 on all valid cells",
+        "status": "DOMINATED_WITHOUT_LEARNING"
+      },
+      {
+        "criterion_name": "causal_controls_correct_wrong_none",
+        "charter_floor": "Strict causal divergence",
+        "b_det_score": 1.0,
+        "learned_model_requirement": "Passed under causal intervention",
+        "status": "DOMINATED_WITHOUT_LEARNING"
+      },
+      {
+        "criterion_name": "multi_initialization_consistency",
+        "charter_floor": "5/5 passing",
+        "b_det_score": 1.0,
+        "learned_model_requirement": "5/5 random seeds passing",
+        "status": "TRIVIALLY_INVARIANT_ZERO_PARAMETERS"
+      },
+      {
+        "criterion_name": "training_update_budget",
+        "charter_floor": "Finite update budget",
+        "b_det_score": 0,
+        "learned_model_requirement": "Learned within budget",
+        "status": "ZERO_TRAINING_UPDATES"
+      }
+    ],
+    "residual_uncertainty_bits": 0.0,
+    "dominance_verdict": "DETERMINISTIC_BASELINE_FULLY_DOMINATES",
+    "summary": "B_det achieves 1.000 across all routing and execution metrics with 0 learned parameters, 0 training updates, and 0 residual routing uncertainty."
+  },
+  "hypothesis_preservation_and_estimand_judgment": {
+    "is_h_c1_preserved": false,
+    "judgment_label": "H_C1_TRIVIALIZED_ESTIMAND_ALTERED",
+    "rationale": "H-C1 claimed that an oracle-free training contract can resolve routing identifiability under ambiguous token outputs through machine learning. However, Contract v1.1 eliminates the inverse routing problem a priori: by supplying TieBreakPolicy in D, the routing coordinate is a deterministic function of the input (H(Z|X, D) = 0) computable before seeing any token output. A 0-parameter deterministic baseline B_det achieves 100% accuracy on all criteria with zero learning. Thus, the estimand is fundamentally changed from 'learning routing from weak token supervision' to 'neural emulation of a known deterministic symbolic interpreter'.",
+    "estimand_comparison": {
+      "original_h_c1_estimand": "Inducing latent discrete routing coordinates from ambiguous token outputs y under opaque task context t via gradient descent on token cross-entropy loss.",
+      "contract_v1_1_transformed_estimand": "Continuous neural compilation / function approximation of an a priori deterministic reduction algorithm R(x, D) whose routing coordinates are fully determined with H(Z|X, D) = 0.",
+      "scientific_consequence": "Training a neural router under Contract v1.1 evaluates neural architecture approximation capacity, not routing identifiability from ambiguous token supervision."
+    },
+    "charter_recommendation": "RETRACT_OR_RESTRICT_TO_RESIDUAL_LEARNING",
+    "charter_action_detail": "The current Phase C Charter candidate H-C1 must either be RETRACTED (as its original identifiability problem is trivialized by Contract v1.1) or RESTRICTED to a non-trivial residual learning problem with a precisely defined baseline delta."
+  },
+  "residual_learning_problem_specification": {
+    "problem_name": "Continuous Neural Grounding & Zero-Shot Generalization of Structured Descriptors",
+    "unmet_criterion_by_b_det": "B_det cannot execute relations outside its hard-coded Python dispatch table (raises NotImplementedError), and cannot process continuous distributed representations without symbolic parsing.",
+    "formal_definition": "Given continuous sequence representations h_content(x) = f(x) and structured AST descriptor D in L_desc, can a continuous neural attention mechanism learn to ground symbolic arguments into sequence positions and execute algebraic tie-breaks under token CE loss alone, and generalize zero-shot to unseen composed relations without symbolic rule additions?",
+    "baseline_delta_definition": {
+      "formula": "Delta_baseline(M) = Metric(M) - Metric(B_det)",
+      "baseline_ceiling": 1.0,
+      "interpretation": "B_det serves as the 1.000 contractual ceiling control. Any performance gap Delta_baseline < 0 in a learned neural model M isolates optimization failure, representation bottleneck, or generalization deficit, rather than task-specification ambiguity."
+    }
+  },
+  "governance_and_remaining_blockers": {
+    "phase_c_charter_state": "READY_FOR_REVIEW_NOT_APPROVED",
+    "research_execution_authority": "NOT_AUTHORIZED",
+    "independent_blockers": [
+      {
+        "blocker_id": "ESTIMAND_TRIVIALIZATION_STOP",
+        "source": "ADR-0157 (C-D001X)",
+        "detail": "Contract v1.1 trivializes H-C1's original routing identifiability estimand via deterministic-baseline dominance (B_det achieves 1.000 EM and 0.0 bits uncertainty without learning)."
+      },
+      {
+        "blocker_id": "RELATION_INVENTORY_FEASIBILITY_STOP",
+        "source": "ADR-0150",
+        "detail": "1/2 clean independent relation components in validation and sealed partitions (structural deficit unresolved)."
+      },
+      {
+        "blocker_id": "CHARTER_NOT_APPROVED",
+        "source": "PHASE_C_RESEARCH_CHARTER",
+        "detail": "Phase C Charter remains unapproved by user."
+      }
+    ],
+    "architecture_derivation_c_d002_status": "BARRED_PENDING_CHARTER_REVISION_OR_RETRACTION_AND_USER_APPROVAL"
+  }
+}

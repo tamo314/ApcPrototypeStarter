@@ -303,4 +303,50 @@ Confirm **`ROUTING_IDENTIFIABILITY_QUALIFIED_STOP`** (ADR-0155 0/5 Determination
 - Audit Artifact: `docs/phase_c/artifacts/adversarial_mixed_control_validation.json`  
 - Verification Suite: `tests/test_adversarial_mixed_control_validation.py`
 
+---
+
+## ADR-0157: C-D001X Contract-v1.1 Hypothesis-Preservation & Deterministic-Baseline Dominance Audit Finds H-C1 Estimand Trivialized by Unlearned Deterministic Reduction
+
+**Date:** 2026-09-13  
+**Task:** C-D001X — Contract-v1.1 Hypothesis-Preservation & Deterministic-Baseline Dominance Audit  
+**Status:** Completed formal audit & controlled ablations; `execution_status: PASS`, `decision: ROUTING_IDENTIFIABILITY_QUALIFIED_STOP` (`audit_verdict: H_C1_TRIVIALIZED_ESTIMAND_ALTERED_BY_CONTRACT_V1_1`; `charter_recommendation: RETRACT_OR_RESTRICT_TO_RESIDUAL_LEARNING`).  
+Phase C charter status remains `READY_FOR_REVIEW_NOT_APPROVED`; research execution remains `NOT_AUTHORIZED`.  
+
+**Scope and Integrity Boundary:**  
+- Deconstructed H-C1's primary estimand into three distinct sub-problems: task identity learning, descriptor interpretation, and coordinate selection.
+- Evaluated three conditions (opaque-ID/CE-only, Contract v1.1 semantic descriptor, descriptor-only deterministic baseline $B_{\text{det}}$) over existing public operation semantics (`BindOp`, `NeighborMaxOp`) on conditional routing entropy $H(Z \mid X, D)$, World A/B separation, and unseen relation transfer.
+- Executed three controlled ablations: TieBreakPolicy masking, FIRST $\leftrightarrow$ LAST counterfactual swap, and operation/argument-preserving descriptor permutation.
+- Sealed partition data access count: **0**.
+- Zero training updates, zero optimizer construction, zero model initialization, zero dataset generation, zero relation registration, zero candidate construction, and zero GPU execution time.
+- No historical measurement, threshold, or Phase-B terminal state was modified.
+
+**Key Findings:**  
+1. **Estimand Deconstruction and Trivialization:**  
+   In Phase B (opaque ID $t$), coordinate selection under duplicate tokens was unidentifiable because token loss gradients are symmetric ($H(Z \mid X, t, y) = 1.0\text{ bit} > 0$). In Contract v1.1, task identity (`OpFamily`, `Args`) and coordinate selection (`TieBreakPolicy`) are both declared explicitly in descriptor $D \in \mathcal{L}_{\text{desc}}$. Given $(X, D)$, the routing coordinate $Z^*$ is a single-valued deterministic reduction computable before seeing any target token $y$, rendering residual uncertainty identically zero ($H(Z \mid X, D) = 0.0\text{ bits}$).
+2. **Deterministic Baseline Dominance ($B_{\text{det}}$ achieves 100% without learning):**  
+   The unlearned Descriptor-Only Deterministic Baseline ($B_{\text{det}}$ / `BASE-DET-DESC-V1`, 0 parameters, 0 training updates) satisfies **all registered routing and execution acceptance floors** ($\ge 0.95$) with 1.000 (100.0%) precision on clean and collision instances, passes all causal controls, and exhibits zero initialization variance.
+3. **Controlled Ablation Results:**  
+   - *TieBreakPolicy Masking:* Omitting the tie-break policy causes $H(Z \mid X, D)$ to jump from 0.0 to 1.0 bit, collapsing World A/B separation from 100% to 0.0%. This confirms TieBreakPolicy is the sole causal component resolving ambiguity.
+   - *FIRST $\leftrightarrow$ LAST Counterfactual Swap:* Swapping the tie-break policy shifts target coordinates ($\Delta z^* = 2$) with zero change in target tokens ($\Delta y = 0$), proving coordinate selection is 100% causally commanded by descriptor syntax and 0% driven by token output supervision.
+   - *Descriptor Permutation:* Coordinate selection tracks descriptor permutations with 100% fidelity while sequence token content remains invariant.
+4. **Estimand Transformation and Charter Verdict:**  
+   Because $B_{\text{det}}$ solves 100% of routing and execution without learning, Contract v1.1 **trivializes H-C1** and fundamentally alters the primary estimand from "learning latent routing identity from ambiguous token supervision" to "neural compilation / function approximation of an already-known 0-parameter deterministic reduction algorithm". The Phase C Charter candidate must be **retracted or restricted to a non-trivial residual learning objective**.
+5. **Specification of Single Residual Learning Problem & Baseline Delta:**  
+   Identified that $B_{\text{det}}$ cannot process continuous distributed embeddings and cannot execute unhandled relation families without code additions. Articulated the single residual learning problem: "Continuous Neural Grounding & Zero-Shot Generalization of Structured Descriptors under Token Supervision alone", with baseline delta $\Delta_{\text{baseline}}(M) = \text{Metric}(M) - \text{Metric}(B_{\text{det}})$, where $B_{\text{det}} = 1.000$ serves as the theoretical ceiling control.
+
+**Decision:**  
+Confirm **`ROUTING_IDENTIFIABILITY_QUALIFIED_STOP`** (`H_C1_TRIVIALIZED_ESTIMAND_ALTERED_BY_CONTRACT_V1_1`; `charter_recommendation: RETRACT_OR_RESTRICT_TO_RESIDUAL_LEARNING`).
+
+**Consequences:**  
+- Advancing H-C1 as originally formulated under Contract v1.1 is rejected as scientifically trivialized by deterministic baseline dominance.
+- Advancing Phase C requires revising the Charter to explicitly target continuous neural grounding / generalization against the $B_{\text{det}}$ ceiling, or retracting the Charter candidate.
+- Research execution remains strictly `NOT_AUTHORIZED` due to unresolved relation inventory deficit (ADR-0150: 1/2 clean components), unapproved charter status, and the estimand trivialization stop.
+- Architecture derivation (`C-D002`) remains strictly barred.
+
+**Primary Artifacts:**  
+- Review Document: `docs/phase_c/PHASE_C_C_D001X_CONTRACT_V1_1_HYPOTHESIS_PRESERVATION_AND_DETERMINISTIC_BASELINE_DOMINANCE_AUDIT.md`  
+- Audit Artifact: `docs/phase_c/artifacts/contract_v1_1_hypothesis_preservation_audit.json`  
+- Verification Suite: `tests/test_contract_v1_1_hypothesis_preservation_audit.py`
+
+
 
