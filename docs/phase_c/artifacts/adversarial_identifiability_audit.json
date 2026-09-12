@@ -1,0 +1,109 @@
+{
+  "task": "C-D001R",
+  "artifact": "adversarial_identifiability_audit",
+  "version": "v1.0",
+  "date": "2026-09-13",
+  "audit_type": "Adversarial Cross-Example/Cross-Relation Identifiability Falsification Audit",
+  "prior_decision": "RELATION_INVENTORY_FEASIBILITY_STOP (ADR-0150)",
+  "corrected_decision": "ROUTING_IDENTIFIABILITY_STOP (ADR-0151)",
+  "charter_state": "READY_FOR_REVIEW_NOT_APPROVED",
+  "research_execution": "NOT_AUTHORIZED",
+  "integrity_boundary": {
+    "parameters_updated": 0,
+    "optimizers_instantiated": 0,
+    "models_initialized": 0,
+    "datasets_generated": 0,
+    "relations_registered": 0,
+    "gpu_execution_seconds": 0,
+    "sealed_partition_inputs_read": 0,
+    "sealed_partition_labels_read": 0,
+    "sealed_partition_outputs_read": 0,
+    "sealed_partition_opened": false
+  },
+  "adversarial_worlds_construction": {
+    "collision_cell_counterexample": {
+      "status": "HOLDS_FALSIFIED",
+      "definition": {
+        "vocabulary": "V = {A, B, C, D, ...}",
+        "sequence_length": 5,
+        "query_index": 0,
+        "task_identifier": "t_first_vs_last",
+        "world_a_rule": "first_occurrence: z^*_A(x, k) = min { i in {0..L-1} | x_i == y_k }",
+        "world_b_rule": "last_occurrence: z^*_B(x, k) = max { i in {0..L-1} | x_i == y_k }"
+      },
+      "clean_training_history_analysis": {
+        "clean_instances_definition": "All x in V^L where for all i != j, x_i != x_j",
+        "clean_target_identity": "For any token v appearing in clean sequence x, |{ i | x_i == v }| <= 1. Hence min { i | x_i == v } == max { i | x_i == v } == i^*.",
+        "clean_observable_identity": "O(x_clean, y_clean, t, World A) == O(x_clean, y_clean, t, World B) identically.",
+        "duplicate_masked_gradient_identity": "Under Contract v1's duplicate-aware gradient masking, all collision-bearing examples receive grad_theta = 0. Clean examples receive identical gradients. Hence H_train(World A) == H_train(World B) bitwise across all training steps."
+      },
+      "test_collision_evaluation": {
+        "test_input": ["A", "B", "C", "D", "A"],
+        "target_token": "A",
+        "world_a_coordinate": 0,
+        "world_b_coordinate": 4,
+        "coordinate_divergence": "z^*_A = 0 != 4 = z^*_B",
+        "learner_distinguishability": "IMPOSSIBLE (H_train identical, endogenous parameters identical, cannot break symmetry)."
+      }
+    },
+    "unseen_relation_counterexample": {
+      "status": "HOLDS_FALSIFIED",
+      "definition": {
+        "held_out_relation": "t_unseen not in T_train",
+        "world_a_semantics": "identity_permutation: z^*_A(k, L) = k",
+        "world_b_semantics": "reversal_permutation: z^*_B(k, L) = L - 1 - k"
+      },
+      "zero_exposure_training_identity": "t_unseen receives 0 updates during training. Optimizer exposure is 0. H_train contains 0 bits of information distinguishing World A from World B for t_unseen.",
+      "support_derived_context_falsification": {
+        "symmetric_support_failure": "If support sequence is symmetric (e.g. palindrome x = [A, B, C, B, A]), z^*_A(0)=0 and z^*_B(0)=4 yield x_0 = x_4 = A. Target tokens are identical. Support context cannot distinguish identity from reversal.",
+        "insufficient_support_failure": "Without an oracle-supervised few-shot identifiability protocol, finite support sets under ambiguous token targets fail to uniquely identify routing coordinates."
+      }
+    }
+  },
+  "dimension_audit": {
+    "clean_support_coverage": {
+      "dimension": "Clean-support coverage across (t, L, k)",
+      "finding": "When vocabulary size |V| < L, the Pigeonhole Principle guarantees that zero clean sequences exist. Even when |V| >= L, natural task distributions do not guarantee uniform clean support for all valid (t, L, k) cells.",
+      "status": "FAIL_UNJUSTIFIED"
+    },
+    "content_independent_semantics": {
+      "dimension": "Content-independent semantics as a data contract",
+      "finding": "Assuming routing is a pure positional map g_theta(j, k, L, t) collapses APC's general semantic routing. Operations like SELECT, BIND, COUNT, and NEIGHBOR_* inherently require content-dependent addressing. Restricting the problem to positional permutations invalidates the Phase C charter objective.",
+      "status": "FAIL_UNJUSTIFIED"
+    },
+    "opaque_task_id_transfer": {
+      "dimension": "Transferability of opaque task IDs vs support-derived context",
+      "finding": "Opaque task identifiers (e.g. discrete embeddings) have zero transferability to held-out relations without parameter updates. Support-derived context encounters duplicate-token ambiguity in the support set itself.",
+      "status": "FAIL_UNJUSTIFIED"
+    },
+    "optimizer_zero_exposure_consistency": {
+      "dimension": "Alignment with zero-exposure requirements for held-out relations",
+      "finding": "Contract v1 relies on gradient descent updates on clean cells to converge routing parameters theta_route. Held-out relations are strictly prohibited from receiving optimizer updates, creating a direct operational contradiction.",
+      "status": "FAIL_INCOMPATIBLE"
+    },
+    "collision_predicate_validity": {
+      "dimension": "Collision predicate without reference to oracle coordinate z",
+      "finding": "Contract v1's predicate 'exists j != z: x_j == y_k == x_z' explicitly conditions on the ground-truth oracle coordinate z. Defining collision purely via observable targets (|{ i | x_i == y_k }| > 1) is uncomputable at inference time when y_k is unobserved, and breaks under indirect value addressing.",
+      "status": "FAIL_ORACLE_LEAKAGE"
+    }
+  },
+  "contract_v1_evaluation": {
+    "falsified": true,
+    "falsifying_worlds_exist": true,
+    "contract_v1_1_derivable_without_oracle": false,
+    "required_restrictive_axioms_for_contract_v1_1": [
+      "Axiom 1: Task semantics must be restricted exclusively to content-independent positional permutations.",
+      "Axiom 2: Vocabulary size |V| must strictly exceed sequence length L for all valid splits (|V| > L_max).",
+      "Axiom 3: Training distribution must strictly guarantee non-zero clean-sample frequency for every valid (t, L, k) cell.",
+      "Axiom 4: Held-out relations must be accompanied by an oracle-guaranteed clean support set, abandoning zero-shot transfer.",
+      "Axiom 5: Duplicate-token collision resolution at test time must be handled by external structural priors rather than learned data signals."
+    ],
+    "verdict_on_v1_1": "These restrictive axioms strip the APC research program of its core open-world semantic identity. Contract v1.1 is mathematically degenerative and scientifically unjustified."
+  },
+  "terminal_decision": "ROUTING_IDENTIFIABILITY_STOP",
+  "recommended_actions": [
+    "Formally record ADR-0151 superseding ADR-0150's stopping rationale.",
+    "Update Phase C Research Charter status from RELATION_INVENTORY_FEASIBILITY_STOP to ROUTING_IDENTIFIABILITY_STOP.",
+    "Cease all prospective Phase C architecture derivation and experimental design."
+  ]
+}
