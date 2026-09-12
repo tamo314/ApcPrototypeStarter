@@ -1782,3 +1782,23 @@ Decision: `I01_SPECIFIC_OR_MIXED_EFFECT_IDENTIFIED`.
 2. Candidate adoption and bundle promotion remain strictly BLOCKED (`candidate_selected: null`, `child_bundle: null`, `bundle_write: false`).
 3. RG3, REC-005, G1, and G4 remain uncleared and BLOCKED.
 4. Any future optimization strategy must account for initialization geometry heterogeneity rather than relying on uniform sampling heuristics.
+## ADR-0145: REC-004AS CD-DPCA Initialization-Geometry × Early-Data Basin Susceptibility Audit Identifies Interaction, Not a Generic Initialization Repair (`INITIALIZATION_DATA_INTERACTION_IDENTIFIED`)
+
+
+**Date:** 2026-09-13
+
+**Status:** Completed artifact-only post-mortem; `execution_status: PASS`, `decision: INITIALIZATION_DATA_INTERACTION_IDENTIFIED`. No learning pilot is authorized. Candidate adoption, bundle promotion, RG3, REC-005, G1, and G4 remain BLOCKED.
+
+**Scope and integrity boundary:**
+- Read only existing qualified REC-004AL/AM/AR checkpoints: five matched initializations, two arms, thirteen checkpoints each (130 source states), all 40 `(length, output_position)` routing cells for lengths 6..10.
+- Fixed step-0 geometry metrics and fixed step-1 standard/distinct CE batches were used. Correct-key information was limited to post-forward metrics and `M=S(correct)-max S(wrong)` directional derivatives; it was not an initialization, sampler, or loss input.
+- Source SHA-256 hashes before/after matched. `optimizer_updates=0`, Core/parent primitives unchanged, `candidate_selected=null`, `child_bundle=null`, `bundle_write=false`, `RG3=NOT_EXECUTED`, `REC-005=BLOCKED`, sealed-data access=0.
+
+**Findings:**
+1. Step-0 geometry did not supply a five-seed-consistent defect or uniquely predict terminal susceptibility. Matched arms have identical step-0 states but branch to different basins; I01/I02 include `10:4` in fixed low-margin/rank sets while I04/I05 have different dominant cells.
+2. The data intervention has no initialization-invariant direction. Step-0→500 basin differences span 6, 9, 5, 5, and 9 cells for I01..I05; the fixed step-1 gradient sign changes span 10, 13, 18, 19, and 12 cells respectively.
+3. I02 supplies the decisive adverse matched example: `10:4` starts from the same top-1 key 6, baseline reaches correct key 0 at step 500 and terminal, while warm-start reaches key 4 at step 500 and false key 5 terminally. Its fixed `-∇M·∇L` changes from -0.05480 to -0.01970.
+4. No parameter family is uniquely localized: one-family-only I02←I01 forward transplants change 23/40 (query position), 37/40 (key position), 32/40 (length), 34/40 (Wq), and 35/40 (Wk) top-1 cells; QK bias is unchanged. Therefore no generic oracle-free initialization constraint is identifiable.
+
+**Decision:**
+`INITIALIZATION_DATA_INTERACTION_IDENTIFIED`. Do not begin an initialization-only repair or a learning pilot. The only permissible follow-up category is a review of whether one fixed standard-token-output-CE optimization formulation can stabilize the identified interaction; it must be separately derived and authorized before execution. Stop architecture/init sweeps. Preserve all downstream blocks.
