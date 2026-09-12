@@ -44,6 +44,10 @@ from apc.evaluation.mirror_budget_extension import (
     MirrorBudgetExtensionConfig,
     run_mirror_budget_extension_task,
 )
+from apc.evaluation.mirror_compact_value_residual_pilot import (
+    MirrorCompactValueResidualPilotConfig,
+    run_mirror_compact_value_residual_pilot_task,
+)
 from apc.evaluation.mirror_contamination_free_checkpoint_trajectory_audit import (
     MirrorContaminationFreeCheckpointTrajectoryAuditConfig,
     run_mirror_contamination_free_checkpoint_trajectory_audit_task,
@@ -83,6 +87,10 @@ from apc.evaluation.mirror_ffn_value_path_leave_one_out_necessity_audit import (
 from apc.evaluation.mirror_ffn_value_path_subcomponent_attribution import (
     MirrorFfnValuePathSubcomponentAttributionConfig,
     run_mirror_ffn_value_path_subcomponent_attribution_task,
+)
+from apc.evaluation.mirror_kv_role_split_pilot import (
+    MirrorKVRoleSplitPilotConfig,
+    run_mirror_kv_role_split_pilot_task,
 )
 from apc.evaluation.mirror_late_progress_conditional_extension import (
     MirrorLateProgressConditionalExtensionConfig,
@@ -181,6 +189,8 @@ _IMPLEMENTED_TASKS = (
     "B-C005REC-004W",
     "B-C005REC-004X",
     "B-C005REC-004Y",
+    "B-C005REC-004Z",
+    "B-C005REC-004AA",
 )
 
 
@@ -717,6 +727,70 @@ def _load_rec004y_config(
             "n_length10_probe_examples", defaults.n_length10_probe_examples
         ),
         eps=raw.get("eps", defaults.eps),
+        parity_updates=raw.get("parity_updates", defaults.parity_updates),
+    )
+
+
+def _load_rec004z_config(
+    config_path: Path,
+) -> MirrorKVRoleSplitPilotConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+    defaults = MirrorKVRoleSplitPilotConfig()
+    seed = raw.get("seed", defaults.seed)
+    if seed != RECOVERY_PILOT_SEED:
+        raise ValueError(
+            f"B-C005REC-004Z is fixed to I03's pre-registered seed "
+            f"{RECOVERY_PILOT_SEED}; config requested seed={seed}"
+        )
+    return MirrorKVRoleSplitPilotConfig(
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+        seed=seed,
+        oracle_em_threshold=raw.get("oracle_em_threshold", defaults.oracle_em_threshold),
+        j0_delta_floor=raw.get("j0_delta_floor", defaults.j0_delta_floor),
+        hard_freeze_delta_floor=raw.get(
+            "hard_freeze_delta_floor", defaults.hard_freeze_delta_floor
+        ),
+        max_replay_window_updates=raw.get(
+            "max_replay_window_updates", defaults.max_replay_window_updates
+        ),
+        full_probe_step_interval=raw.get(
+            "full_probe_step_interval", defaults.full_probe_step_interval
+        ),
+        sentinel_subset_per_dataset=raw.get(
+            "sentinel_subset_per_dataset", defaults.sentinel_subset_per_dataset
+        ),
+        parity_updates=raw.get("parity_updates", defaults.parity_updates),
+    )
+
+
+def _load_rec004aa_config(
+    config_path: Path,
+) -> MirrorCompactValueResidualPilotConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+    defaults = MirrorCompactValueResidualPilotConfig()
+    seed = raw.get("seed", defaults.seed)
+    if seed != RECOVERY_PILOT_SEED:
+        raise ValueError(
+            f"B-C005REC-004AA is fixed to I03's pre-registered seed "
+            f"{RECOVERY_PILOT_SEED}; config requested seed={seed}"
+        )
+    return MirrorCompactValueResidualPilotConfig(
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+        seed=seed,
+        oracle_em_threshold=raw.get("oracle_em_threshold", defaults.oracle_em_threshold),
+        j0_delta_floor=raw.get("j0_delta_floor", defaults.j0_delta_floor),
+        hard_freeze_delta_floor=raw.get(
+            "hard_freeze_delta_floor", defaults.hard_freeze_delta_floor
+        ),
+        max_replay_window_updates=raw.get(
+            "max_replay_window_updates", defaults.max_replay_window_updates
+        ),
+        full_probe_step_interval=raw.get(
+            "full_probe_step_interval", defaults.full_probe_step_interval
+        ),
+        sentinel_subset_per_dataset=raw.get(
+            "sentinel_subset_per_dataset", defaults.sentinel_subset_per_dataset
+        ),
         parity_updates=raw.get("parity_updates", defaults.parity_updates),
     )
 
@@ -1543,7 +1617,7 @@ def main() -> int:
             "child bundle, RG3/REC-005, or sealed evaluation ran."
         )
         return 0 if rec004x_report.get("implementation_status") == "COMPLETE" else 1
-    else:  # B-C005REC-004Y
+    elif args.task == "B-C005REC-004Y":
         config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004y.yaml")
         rec004y_config = _load_rec004y_config(config_path)
         if args.output_dir is not None:
@@ -1572,6 +1646,75 @@ def main() -> int:
             "child bundle, RG3/REC-005, or sealed evaluation ran."
         )
         return 0 if rec004y_report.get("implementation_status") == "COMPLETE" else 1
+    elif args.task == "B-C005REC-004Z":
+        config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004z.yaml")
+        rec004z_config = _load_rec004z_config(config_path)
+        if args.output_dir is not None:
+            rec004z_config = dataclasses.replace(rec004z_config, output_dir=args.output_dir)
+        rec004z_report = run_mirror_kv_role_split_pilot_task(rec004z_config)
+        print(
+            json.dumps(
+                {
+                    "implementation_status": rec004z_report.get("implementation_status"),
+                    "legacy_forward_parity": rec004z_report.get("legacy_forward_parity"),
+                    "gradient_role_isolation": rec004z_report.get("gradient_role_isolation"),
+                    "intervention_optimizer_updates": rec004z_report.get(
+                        "intervention_optimizer_updates"
+                    ),
+                    "new_candidate_training_updates": rec004z_report.get(
+                        "new_candidate_training_updates"
+                    ),
+                    "architecture_pilot_result": rec004z_report.get("architecture_pilot_result"),
+                    "strong_functional_floor": rec004z_report.get("strong_functional_floor"),
+                    "key_branch_plasticity": rec004z_report.get("key_branch_plasticity"),
+                    "fresh_normal_val_em": rec004z_report.get("fresh_normal_val_em"),
+                    "fresh_length10_conf_em": rec004z_report.get("fresh_length10_conf_em"),
+                    "rg3_recheck": rec004z_report.get("rg3_recheck"),
+                },
+                indent=2,
+            )
+        )
+        print(
+            "STOP: only B-C005REC-004Z was executed (an I03 key/value content-prep "
+            "functional-role isolation pilot). No candidate training, candidate selection, "
+            "child bundle, RG3/REC-005, or sealed evaluation ran."
+        )
+        return 0 if rec004z_report.get("implementation_status") == "COMPLETE" else 1
+    else:  # B-C005REC-004AA
+        config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004aa.yaml")
+        rec004aa_config = _load_rec004aa_config(config_path)
+        if args.output_dir is not None:
+            rec004aa_config = dataclasses.replace(rec004aa_config, output_dir=args.output_dir)
+        rec004aa_report = run_mirror_compact_value_residual_pilot_task(rec004aa_config)
+        print(
+            json.dumps(
+                {
+                    "implementation_status": rec004aa_report.get("implementation_status"),
+                    "initial_parity": rec004aa_report.get("initial_parity"),
+                    "gradient_isolation": rec004aa_report.get("gradient_isolation"),
+                    "intervention_optimizer_updates": rec004aa_report.get(
+                        "intervention_optimizer_updates"
+                    ),
+                    "new_candidate_training_updates": rec004aa_report.get(
+                        "new_candidate_training_updates"
+                    ),
+                    "primary_decision": rec004aa_report.get("primary_decision"),
+                    "strong_functional_floor": rec004aa_report.get("strong_functional_floor"),
+                    "selected_architecture": rec004aa_report.get("selected_architecture"),
+                    "selected_rank": rec004aa_report.get("selected_rank"),
+                    "child_bundle": rec004aa_report.get("child_bundle"),
+                    "rg3_recheck": rec004aa_report.get("rg3_recheck"),
+                    "rec005_eligible": rec004aa_report.get("rec005_eligible"),
+                },
+                indent=2,
+            )
+        )
+        print(
+            "STOP: only B-C005REC-004AA was executed (an I03 frozen-base compact value-residual "
+            "plasticity pilot). No candidate training, candidate selection, child bundle, "
+            "RG3/REC-005, or sealed evaluation ran."
+        )
+        return 0 if rec004aa_report.get("implementation_status") == "COMPLETE" else 1
 
     next_blocked = {
         "B-C005REC-002": "B-C005REC-003 onward",

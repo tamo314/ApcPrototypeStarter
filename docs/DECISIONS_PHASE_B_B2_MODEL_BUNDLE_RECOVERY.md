@@ -298,3 +298,91 @@ The pilot investigated whether this pre-transition trust-region constraint prese
   - **Rejection/Replay Gates Ruled Out:** Methods relying on rejection sampling, replay loss thresholds, or functional trust regions during adaptation are structurally unviable because destructive updates are indistinguishable from safe progress in function space.
   - **Directs Focus Toward Architecture-Level Functional Separation:** Resolving the tension between plasticity and stability requires decoupling the functional roles within the primitive architecture (e.g. separating coordinate/key routing from value/content transformation, or ensuring score-adaptation cannot backpropagate into shared representation channels).
   - **Strict STOP Boundary Enforced:** B-C005REC-004Y completed. No candidate training, child bundle creation, or evaluation on sealed splits.
+
+
+## ADR-0122: I03 Key/Value Content-Prep Functional-Role Isolation Exact-Parity & Training Pilot — Separating Key/Value Content Preparation Verifies Exact Step-7500 Parity and Strict Gradient Isolation, Fully Preserving O1 Compatibility Across All Splits Under Unconstrained J0 Continuation (O1 EM = 0.996–1.000), but Key-Branch-Only Plasticity Remains Sub-Threshold for J0 Learning (Delta = +0.015 vs Historical, Delta = -0.026 vs Hard Freeze) (Task B-C005REC-004Z, `primary_decision: KEY_VALUE_ROLE_SPLIT_PRESERVES_STABILITY_BUT_KEY_PLASTICITY_INSUFFICIENT`)
+
+- **Context:** Following ADR-0121 (which established that non-oracle function-space monitoring M1–M5 cannot identify CVOF compatibility collapse at onset, de-activating the proposed replay acceptance gate and directing focus to architecture-level functional-role isolation), Task B-C005REC-004Z evaluated the minimal architectural separation of the shared `CONTENT_PREP` component in primitive I03 into two distinct role-specific subcomponents: `KEY_CONTENT_PREP` ($f_{\text{key}}(\text{content}, \text{pos})$) and `VALUE_CONTENT_PREP` ($f_{\text{val}}(\text{content}, \text{pos})$). Both were cloned bit-exactly from legacy `CONTENT_PREP@7500` (weights and AdamW first/second moments). The task executed in three stages:
+  1. **Stage A (Exact Parity Gate):** Verifying that at step 7500, forward predictions and probabilities match legacy I03 bit-identically ($\Delta_{\text{prob}} \le 10^{-5}$, $\Delta_{\text{logits}} \le 10^{-4}$, 0 discrete prediction mismatches).
+  2. **Stage B (Gradient-Path Isolation Gate):** Verifying that normal J0 backpropagation produces non-zero gradients on `KEY_CONTENT_PREP`, while downstream oracle substitution ($O_1$) backpropagation produces strictly zero gradient on `KEY_CONTENT_PREP` and key in-projection ($\le 10^{-12}$) while flowing normally through `VALUE_CONTENT_PREP`, $V$, $O$, and $F$.
+  3. **Stage C (Training Continuation Pilot):** Under the `KV_ROLE_SPLIT_PROTECTED_VALUE` regime, freezing `VALUE_CONTENT_PREP` along with $V$, $O$, and $FFN$ at their exact step-7500 values, while granting full plasticity to `KEY_CONTENT_PREP`, $Q/K$, position bias, and readout over 500 unconstrained normal forward J0 optimizer updates (steps 7501..8000).
+- **Decision:** Classify the outcome as `primary_decision: KEY_VALUE_ROLE_SPLIT_PRESERVES_STABILITY_BUT_KEY_PLASTICITY_INSUFFICIENT`. Set `strong_functional_floor: false`.
+- **Key Findings:**
+  1. **Stage A Parity Gate: PASS:**
+     - Maximum probability difference: $1.52 \times 10^{-6}$ (threshold $\le 1.0 \times 10^{-5}$).
+     - Maximum logits difference: $3.10 \times 10^{-5}$ (threshold $\le 1.0 \times 10^{-4}$).
+     - Discrete prediction mismatches across 512 probe examples: $0$.
+  2. **Stage B Gradient-Path Isolation Gate: PASS:**
+     - Normal J0 forward: `KEY_CONTENT_PREP` gradient norm $= 1.19 > 0$, `K_proj` gradient norm $= 0.45 > 0$.
+     - Downstream oracle ($O_1$) forward: `KEY_CONTENT_PREP` gradient norm $= 0.00 \le 10^{-12}$, `K_proj` gradient norm $= 0.00 \le 10^{-12}$.
+     - Downstream oracle ($O_1$) value path: `VALUE_CONTENT_PREP` gradient norm $= 4.11 > 0$, `V_proj` gradient norm $= 1.85 > 0$, `ATTN_OUT` gradient norm $= 1.42 > 0$, `FFN` gradient norm $= 3.55 > 0$.
+     - Functional role separation is strictly isolated: key-routing adaptations cannot directly backpropagate into the value/content transmission channel.
+  3. **Stage C Compatibility Gate: PASS:**
+     - All 4 continuity probes and fresh length-10 confirmation exhibited near-perfect $O_1$ downstream compatibility at step 8000:
+       - `length10_mechanism_probe_v1`: $O_1$ EM $= 0.998$, position-4 acc $= 1.000$.
+       - `dense_trajectory_transition_probe_v1`: $O_1$ EM $= 0.998$, position-4 acc $= 1.000$.
+       - `attention_clamp_causal_probe_v1`: $O_1$ EM $= 1.000$, position-4 acc $= 1.000$.
+       - `downstream_freeze_causal_probe_v1`: $O_1$ EM $= 1.000$, position-4 acc $= 1.000$.
+       - `fresh_length10_confirmation`: $O_1$ EM $= 0.996$, position-4 acc $= 1.000$.
+     - Freeze audit verified $0.0$ drift across all frozen subcomponents (`value_content_in_proj`, `v_projection`, `attn_out_proj`, `ffn`).
+  4. **Stage C Plasticity Gate: FAIL:**
+     - Key-branch plasticity was confirmed active: `KEY_CONTENT_PREP` in-projection weight displacement $= 0.5316$, divergence from value in-projection $= 0.5316$, cumulative gradient norm $= 646.25$ (`KEY_BRANCH_PLASTICITY_ACTIVE`).
+     - However, task learning gains remained severely sub-threshold:
+       - Fresh normal validation (overall J0 EM, 1024 examples): Role-split $= 0.7734$ vs Historical unconstrained @8000 $= 0.7588$ ($\Delta = +0.0146$ vs $+0.10$ floor); vs Hard Freeze (REC-004W) @8000 $= 0.7998$ ($\Delta = -0.0264$ vs $+0.05$ floor).
+       - Fresh length-10 confirmation (J0 EM, 512 examples): Role-split $= 0.0703$ vs Historical unconstrained @8000 $= 0.0547$ ($\Delta = +0.0156$ vs $+0.10$ floor); vs Hard Freeze (REC-004W) @8000 $= 0.0898$ ($\Delta = -0.0195$ vs $+0.05$ floor).
+     - At length 10, the model remained unable to route attention reliably to the correct key (position 4 accuracy $= 0.0938$, score margin median $= -30.82$, correct key rank mean $= 8.25$).
+  5. **Cost and Resource Accounting:**
+     - Added resident parameters: $7,200$ (cloned key content prep). Active trainable parameters: $24,490$.
+     - Optimization updates: $500$ intervention updates, $0$ new candidate training updates. Wall-clock training duration: $12.3$ seconds. Peak VRAM: $44.3$ MB.
+     - Stable Core and 15 other primitives invariant. `candidate_selected: null`, `child_bundle: null`, `rg3_recheck: NOT_EXECUTED`, `rec005_eligible: false`.
+- **Consequences:**
+  - **Structural Result:** Separating `CONTENT_PREP` into independent Key and Value channels provides complete architectural protection against downstream $O_1$ compatibility collapse when value-side parameters are frozen.
+  - **Plasticity Limitation:** Granting plasticity exclusively to the Key-content preparation and attention-routing mechanisms does not suffice to enable J0 task adaptation on challenging length-10 sequences; the model fails to overcome the attention-routing barrier without plastic downstream representation or plastic value-residual capacity.
+  - **Directs Subsequent Repair:** Architecture exploration must move beyond purely routing-side (Key) plasticity. Next investigations must consider compact task-blind plastic residual capacity (e.g. residual adapter over frozen base, or downstream plastic bypass) rather than relying on coordinate/key transformations alone.
+  - **Strict STOP Boundary Enforced:** B-C005REC-004Z completed. No candidate training, child bundle creation, candidate selection, or evaluation on sealed splits.
+
+
+## ADR-0123: I03 Frozen-Base Compact Value-Residual Plasticity Pilot — Adding an Independent Low-Rank Task-Blind Value Residual over Frozen Step-7500 CVOF Base Preserves Downstream O1 Compatibility (EM = 0.998–1.000) but Fails to Recover Normal J0 Plasticity (Delta = -0.023 vs Historical, Delta = -0.045 vs Hard Freeze) (Task B-C005REC-004AA, `primary_decision: COMPACT_VALUE_RESIDUAL_PRESERVES_STABILITY_BUT_CAPACITY_INSUFFICIENT`)
+
+- **Context:** Following ADR-0122 (which established that KEY/VALUE role-split with frozen CVOF base preserves downstream $O_1$ compatibility while KEY-branch plasticity alone is insufficient for J0 learning), Task B-C005REC-004AA evaluated whether introducing an independent, compact, task-blind low-rank value residual ($W_{\text{up}}(\text{GELU}(W_{\text{down}}(h)))$, $d=32, r=4$, 256 parameters, exact-zero initialized) immediately after `VALUE_CONTENT_PREP` and prior to $V$ projection could restore normal J0 learning without perturbing the step-7500 frozen base parameters (`VALUE_CONTENT_PREP`, $V$, $O$, and $FFN$).
+  The task executed in three stages:
+  1. **Stage A (Exact-Parity Gate):** Verifying bit-exact parity at step 7500 against the legacy I03 checkpoint ($\Delta_{\text{prob}} \le 10^{-5}$, $\Delta_{\text{logits}} \le 10^{-4}$, 0 discrete prediction mismatches).
+  2. **Stage B (Gradient-Path Isolation Gate):** Verifying that normal J0 backpropagation produces active gradients on $W_{\text{up}}$, $W_{\text{down}}$, and `KEY_CONTENT_PREP`, while downstream CVOF base parameters remain strictly zero-gradient frozen.
+  3. **Stage C (Training Continuation Pilot):** Training for 500 unconstrained normal forward J0 optimizer updates (steps 7501..8000) with active KEY branch, position bias, readout, and the compact value residual, while CVOF base parameters remain strictly frozen.
+- **Decision:** Classify the outcome as `primary_decision: COMPACT_VALUE_RESIDUAL_PRESERVES_STABILITY_BUT_CAPACITY_INSUFFICIENT`. Set `strong_functional_floor: false`.
+- **Key Findings:**
+  1. **Stage A Parity Gate: PASS:**
+     - Maximum probability difference: $1.79 \times 10^{-6}$ (threshold $\le 1.0 \times 10^{-5}$).
+     - Maximum logits difference: $2.77 \times 10^{-5}$ (threshold $\le 1.0 \times 10^{-4}$).
+     - Discrete prediction mismatches across 512 probe examples: $0$.
+  2. **Stage B Gradient-Path Isolation Gate: PASS:**
+     - Active gradients verified: $W_{\text{up}}$ gradient norm $= 1.61 \times 10^{-2} > 0$, `KEY_CONTENT_PREP` gradient norm $= 8.65 \times 10^{-1} > 0$.
+     - Base CVOF parameters remained frozen with zero gradient.
+  3. **Stage C Compatibility Gate: PASS:**
+     - All 4 continuity splits and fresh length-10 confirmation exhibited near-perfect $O_1$ downstream compatibility at step 8000:
+       - `length10_mechanism_probe_v1`: $O_1$ EM $= 0.998$, position-4 acc $= 1.000$.
+       - `dense_trajectory_transition_probe_v1`: $O_1$ EM $= 1.000$, position-4 acc $= 1.000$.
+       - `attention_clamp_causal_probe_v1`: $O_1$ EM $= 1.000$, position-4 acc $= 1.000$.
+       - `downstream_freeze_causal_probe_v1`: $O_1$ EM $= 1.000$, position-4 acc $= 1.000$.
+       - `fresh_length10_confirmation`: $O_1$ EM $= 1.000$, position-4 acc $= 1.000$.
+     - Freeze audit verified $0.0$ drift across all frozen base CVOF subcomponents.
+  4. **Stage C Plasticity Gate: FAIL:**
+     - Fresh normal validation (overall J0 EM, 1024 examples): Residual pilot $= 0.7607$ vs Historical unconstrained @8000 $= 0.7832$ ($\Delta = -0.0225$ vs $+0.10$ floor); vs Hard Freeze (REC-004W) @8000 $= 0.8057$ ($\Delta = -0.0449$ vs $+0.05$ floor); vs Role-Split (REC-004Z) @8000 $= 0.7842$ ($\Delta = -0.0234$).
+     - Fresh length-10 confirmation (J0 EM, 512 examples): Residual pilot $= 0.0781$ vs Historical unconstrained @8000 $= 0.0469$ ($\Delta = +0.0312$ vs $+0.10$ floor); vs Hard Freeze (REC-004W) @8000 $= 0.0840$ ($\Delta = -0.0059$ vs $+0.05$ floor); vs Role-Split (REC-004Z) @8000 $= 0.0801$ ($\Delta = -0.0020$).
+     - Attention routing at length 10 remained impaired (position 4 accuracy $= 0.1074$, score margin median $= -33.28$, correct key rank mean $= 8.51$).
+  5. **Residual Utilization Audit: ACTIVE:**
+     - $W_{\text{down}}$ L2 displacement $= 0.4098$, $W_{\text{up}}$ L2 displacement $= 0.3985$.
+     - Cumulative gradient norm $= 34.85$ ($W_{\text{up}}: 20.00, W_{\text{down}}: 14.85$).
+     - Effective output rank $= 4.0 / 4$ (singular values: $[14.80, 5.39, 1.14, 0.55]$).
+     - Mean residual-to-base ratio $= 0.0134$ (`VALUE_RESIDUAL_PLASTICITY_ACTIVE`).
+  6. **Cost and Resource Accounting:**
+     - Added residual parameters: $256$. Total added resident parameters vs legacy single primitive: $7,456$ ($7,200$ key split + $256$ residual). Active trainable parameters: $24,746$.
+     - Optimization updates: $500$ intervention updates, $0$ candidate training updates. Wall-clock training duration: $14.7$ seconds. Peak VRAM: $48.0$ MB.
+     - Stable Core and 15 other primitives invariant. `candidate_selected: null`, `child_bundle: null`, `rg3_recheck: NOT_EXECUTED`, `rec005_eligible: false`.
+- **Consequences:**
+  - **Stability Guaranteed:** Freezing the CVOF base at step 7500 completely isolates downstream oracle compatibility from degradation, even in the presence of an active plastic value-side residual.
+  - **Plasticity Insufficient:** A compact rank-4 value residual ($r=4, d=32$) prior to $V$ projection is actively trained but structurally insufficient to restore normal J0 learning or overcome the length-10 attention routing bottleneck.
+  - **Formal Outcome Classification:** Lands squarely in Section 20.B (`COMPACT_VALUE_RESIDUAL_PRESERVES_STABILITY_BUT_CAPACITY_INSUFFICIENT`).
+  - **Directs Subsequent Repair:** Further exploration of plastic capacity cannot rely on pre-$V$ low-rank value residuals alone. Next repairs must consider downstream residual bypasses (e.g. post-attention / output-projection bypass), higher rank or multi-stage adaptation, while preserving the task-blind invariant.
+  - **Strict STOP Boundary Enforced:** B-C005REC-004AA completed. No candidate training, child bundle creation, candidate selection, or evaluation on sealed splits.
+
