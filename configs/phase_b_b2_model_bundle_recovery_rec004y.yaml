@@ -1,0 +1,7 @@
+output_dir: runs/phase_b_b2_model_bundle_recovery/rec004y/run_001
+seed: 10
+separation_floor: 2.0
+n_normal_probe_examples: 512
+n_length10_probe_examples: 512
+eps: 1.0e-6
+parity_updates: 25

@@ -56,6 +56,10 @@ from apc.evaluation.mirror_cross_position_cross_length_score_gradient_interferen
     MirrorCrossPositionCrossLengthScoreGradientInterferenceAuditConfig,
     run_mirror_cross_position_cross_length_score_gradient_interference_audit_task,
 )
+from apc.evaluation.mirror_cvof_functional_stability_audit import (
+    MirrorCVOFFunctionalStabilityAuditConfig,
+    run_cvof_functional_stability_audit_task,
+)
 from apc.evaluation.mirror_cvof_trust_region_pilot import (
     MirrorCVOFTrustRegionPilotConfig,
     run_cvof_trust_region_pilot_task,
@@ -176,6 +180,7 @@ _IMPLEMENTED_TASKS = (
     "B-C005REC-004V",
     "B-C005REC-004W",
     "B-C005REC-004X",
+    "B-C005REC-004Y",
 )
 
 
@@ -686,6 +691,32 @@ def _load_rec004x_config(
         sentinel_subset_per_dataset=raw.get(
             "sentinel_subset_per_dataset", defaults.sentinel_subset_per_dataset
         ),
+        parity_updates=raw.get("parity_updates", defaults.parity_updates),
+    )
+
+
+def _load_rec004y_config(
+    config_path: Path,
+) -> MirrorCVOFFunctionalStabilityAuditConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+    defaults = MirrorCVOFFunctionalStabilityAuditConfig()
+    seed = raw.get("seed", defaults.seed)
+    if seed != RECOVERY_PILOT_SEED:
+        raise ValueError(
+            f"B-C005REC-004Y is fixed to I03's pre-registered seed "
+            f"{RECOVERY_PILOT_SEED}; config requested seed={seed}"
+        )
+    return MirrorCVOFFunctionalStabilityAuditConfig(
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+        seed=seed,
+        separation_floor=raw.get("separation_floor", defaults.separation_floor),
+        n_normal_probe_examples=raw.get(
+            "n_normal_probe_examples", defaults.n_normal_probe_examples
+        ),
+        n_length10_probe_examples=raw.get(
+            "n_length10_probe_examples", defaults.n_length10_probe_examples
+        ),
+        eps=raw.get("eps", defaults.eps),
         parity_updates=raw.get("parity_updates", defaults.parity_updates),
     )
 
@@ -1480,7 +1511,7 @@ def main() -> int:
             "child bundle, RG3/REC-005, or sealed evaluation ran."
         )
         return 0 if rec004w_report.get("implementation_status") == "COMPLETE" else 1
-    else:  # B-C005REC-004X
+    elif args.task == "B-C005REC-004X":
         config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004x.yaml")
         rec004x_config = _load_rec004x_config(config_path)
         if args.output_dir is not None:
@@ -1512,6 +1543,35 @@ def main() -> int:
             "child bundle, RG3/REC-005, or sealed evaluation ran."
         )
         return 0 if rec004x_report.get("implementation_status") == "COMPLETE" else 1
+    else:  # B-C005REC-004Y
+        config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004y.yaml")
+        rec004y_config = _load_rec004y_config(config_path)
+        if args.output_dir is not None:
+            rec004y_config = dataclasses.replace(rec004y_config, output_dir=args.output_dir)
+        rec004y_report = run_cvof_functional_stability_audit_task(rec004y_config)
+        print(
+            json.dumps(
+                {
+                    "implementation_status": rec004y_report.get("implementation_status"),
+                    "task_id": rec004y_report.get("task_id"),
+                    "primary_identifiability_decision": rec004y_report.get(
+                        "primary_identifiability_decision"
+                    ),
+                    "passing_metrics_full": rec004y_report.get("passing_metrics_full"),
+                    "verified_passing_metrics": rec004y_report.get("verified_passing_metrics"),
+                    "selected_metric": rec004y_report.get("selected_metric"),
+                    "cost_accounting": rec004y_report.get("cost_accounting"),
+                    "summary": rec004y_report.get("summary"),
+                },
+                indent=2,
+            )
+        )
+        print(
+            "STOP: only B-C005REC-004Y was executed (an I03 CVOF functional-stability "
+            "gate identifiability audit). No candidate training, candidate selection, "
+            "child bundle, RG3/REC-005, or sealed evaluation ran."
+        )
+        return 0 if rec004y_report.get("implementation_status") == "COMPLETE" else 1
 
     next_blocked = {
         "B-C005REC-002": "B-C005REC-003 onward",
