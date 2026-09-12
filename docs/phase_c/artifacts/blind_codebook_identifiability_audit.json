@@ -1,0 +1,156 @@
+{
+  "task_id": "C-D001Z",
+  "document_id": "DOC-PHASE-C-D001Z-AUDIT",
+  "date": "2026-09-13",
+  "decision": "ROUTING_IDENTIFIABILITY_QUALIFIED_STOP",
+  "audit_verdict": "BLIND_GROUNDING_IDENTIFIABILITY_IMPOSSIBILITY_PROVEN",
+  "charter_candidate_decision": "RETRACT_CHARTER_CANDIDATE",
+  "charter_state": "READY_FOR_REVIEW_NOT_APPROVED",
+  "research_execution_authority": "NOT_AUTHORIZED",
+  "integrity_boundary": {
+    "parameter_updates": 0,
+    "optimizer_instances": 0,
+    "model_initializations": 0,
+    "dataset_generations": 0,
+    "relation_registrations": 0,
+    "gpu_execution_seconds": 0,
+    "sealed_partition_access": 0
+  },
+  "formal_group_actions": {
+    "permutation_group": {
+      "group_symbol": "S_V",
+      "description": "Symmetric permutation group of discrete vocabulary labels acting on codebook assignments",
+      "orbit_size_formula": "V!",
+      "invariance_condition": "P(X) = P(pi(X)) implies identical continuous sequence distribution P(H_A) = P(H_B)"
+    },
+    "orthogonal_group": {
+      "group_symbol": "O(d)",
+      "description": "Orthogonal isometry group preserving Euclidean distance and inner products in embedding space",
+      "invariance_condition": "W' = W Q^-1 and c' = Q c implies W' c' = W c (isometric representation indistinguishability)"
+    }
+  },
+  "symmetric_world_construction": {
+    "world_a": "Canonical codebook assignment phi_A: V -> C",
+    "world_b": "Permuted codebook assignment phi_B = pi . phi_A with pi = (k_1 k_2)(v_1 v_2)",
+    "test_instance": {
+      "seq_a": [10, 100, 20, 200],
+      "seq_b": [20, 200, 10, 100],
+      "descriptor": {
+        "op": "BindOp",
+        "args": {
+          "query_key": 10
+        },
+        "tie_break": "FIRST"
+      },
+      "h_max_diff": 0.0,
+      "y_a": 100,
+      "y_b": 100,
+      "observables_match": true,
+      "z_star_a": 1,
+      "z_star_b": 3,
+      "coordinates_diverge": true,
+      "conditional_routing_entropy_bits": 1.0
+    }
+  },
+  "preregistered_controls": {
+    "control_1_no_anchor": {
+      "control_id": "CTRL-Z1-NO-ANCHOR",
+      "name": "No-Anchor (Pure Blind Grounding)",
+      "anchor_level": "NO_ANCHOR",
+      "anchor_count": 0,
+      "total_tokens": 8,
+      "anchored_keys": 0,
+      "unanchored_keys": 4,
+      "residual_equivalence_class_size": 24,
+      "h_z_given_observables_bits": 2.0,
+      "best_deterministic_baseline_upper_bound": 0.25,
+      "counterfactual_swap_covariance": 0.0,
+      "verdict": "IDENTIFIABILITY_IMPOSSIBLE",
+      "interpretation": "Complete permutation symmetry. All observables (H, D, y) are identical across symmetric worlds while z* diverges. Conditional entropy H(Z|obs) > 0 is mathematically unavoidable. Blind grounding is an identifiability impossibility."
+    },
+    "control_2_1_anchor": {
+      "control_id": "CTRL-Z2-1-ANCHOR",
+      "name": "Single Anchor Control",
+      "anchor_level": "ONE_ANCHOR",
+      "anchor_count": 1,
+      "total_tokens": 8,
+      "anchored_keys": 1,
+      "unanchored_keys": 3,
+      "residual_equivalence_class_size": 6,
+      "h_z_given_observables_bits": 1.1887218755408671,
+      "best_deterministic_baseline_upper_bound": 0.5,
+      "counterfactual_swap_covariance": 0.25,
+      "verdict": "PARTIALLY_UNIDENTIFIABLE_FAILS_FLOOR",
+      "interpretation": "Unanchored keys remain in an unbroken symmetry orbit with H(Z|obs) > 0. Mean baseline accuracy fails the 0.95 floor."
+    },
+    "control_3_partial_anchor": {
+      "control_id": "CTRL-Z3-PARTIAL-ANCHOR",
+      "name": "Partial Anchor Control",
+      "anchor_level": "PARTIAL_ANCHOR",
+      "anchor_count": 2,
+      "total_tokens": 8,
+      "anchored_keys": 2,
+      "unanchored_keys": 2,
+      "residual_equivalence_class_size": 2,
+      "h_z_given_observables_bits": 0.5,
+      "best_deterministic_baseline_upper_bound": 0.75,
+      "counterfactual_swap_covariance": 0.5,
+      "verdict": "PARTIALLY_UNIDENTIFIABLE_FAILS_FLOOR",
+      "interpretation": "Unanchored keys remain in an unbroken symmetry orbit with H(Z|obs) > 0. Mean baseline accuracy fails the 0.95 floor."
+    },
+    "control_4_full_codebook": {
+      "control_id": "CTRL-Z4-FULL-CODEBOOK",
+      "name": "Full Codebook Grounding",
+      "anchor_level": "FULL_CODEBOOK",
+      "anchor_count": 8,
+      "total_tokens": 8,
+      "anchored_keys": 4,
+      "unanchored_keys": 0,
+      "residual_equivalence_class_size": 1,
+      "h_z_given_observables_bits": 0.0,
+      "best_deterministic_baseline_upper_bound": 1.0,
+      "counterfactual_swap_covariance": 1.0,
+      "verdict": "CEILING_DOMINATED_BY_B_DET_EMB",
+      "interpretation": "Full codebook breaks all permutation symmetries (orbit=1, H=0.0). The unlearned deterministic baseline B_det_emb achieves 100% ceiling with 0 learned parameters, eliminating any non-trivial learning margin."
+    }
+  },
+  "symmetry_breaking_analysis": {
+    "minimal_lawful_anchor_set": {
+      "required_anchors": 3,
+      "information_content_bits": 4.584962500721156,
+      "five_dimensional_oracle_audit": {
+        "provenance": 0,
+        "example_specificity": 0,
+        "relation_specificity": 0,
+        "inference_time_availability": 0,
+        "counterfactual_invariance": 0,
+        "total_oracle_score": 0,
+        "threshold": 1,
+        "is_oracle": false,
+        "classification": "NON_ORACLE"
+      },
+      "baseline_dominance_interaction": {
+        "b_det_emb_performance_under_anchors": 1.0,
+        "neural_model_margin_delta": 0.0,
+        "delta_formula": "Delta_baseline(M) = Metric(M) - Metric(B_det_emb) <= 0.0"
+      }
+    }
+  },
+  "impossibility_dominance_dilemma": {
+    "theorem_name": "Impossibility-Dominance Dilemma for Blind Continuous Grounding",
+    "statement": "Let R be any continuous representation space under anchor information I_anchor. 1. If I_anchor < I_critical, the symmetry group G has non-trivial orbit, yielding H(Z | observables) > 0. Grounding is mathematically unidentifiable (Identifiability Impossibility). 2. If I_anchor >= I_critical, the symmetry is broken to the identity, yielding H(Z | observables) = 0. In this regime, the unlearned deterministic baseline B_det_emb achieves 1.000 accuracy with 0 learned parameters (Baseline Dominance). Therefore, the admissible hypothesis set H_residual = { R | H(Z|obs) = 0 and Acc(B_det_emb) < 0.95 } is identically EMPTY.",
+    "critical_anchor_information_bits": 4.584962500721156,
+    "residual_learning_margin_delta": 0.0,
+    "charter_verdict": "RETRACT_CHARTER_CANDIDATE",
+    "charter_recommendation": "Retract residual Charter candidate H-C1-Residual. Blind grounding is mathematically unidentifiable, and grounded continuous representations are completely dominated by unlearned deterministic baseline B_det_emb."
+  },
+  "governance_ledger": {
+    "blind_grounding_identifiability_impossibility": "CONFIRMED (H(Z|obs) > 0 unavoidable without anchors)",
+    "deterministic_baseline_dominance": "CONFIRMED (B_det_emb = 1.000 under complete anchors)",
+    "relation_inventory_deficit": "CONFIRMED (1/2 clean components in validation and sealed)",
+    "charter_status": "READY_FOR_REVIEW_NOT_APPROVED",
+    "charter_candidate_recommendation": "RETRACT_CHARTER_CANDIDATE",
+    "research_execution_authority": "NOT_AUTHORIZED",
+    "architecture_derivation_status": "STRICTLY_BARRED"
+  }
+}

@@ -390,6 +390,52 @@ Confirm **`ROUTING_IDENTIFIABILITY_QUALIFIED_STOP`** (`CONTINUOUS_GROUNDING_DOMI
 - Baseline Implementation: `src/apc/evaluation/embedding_aware_baseline.py`  
 - Verification Suite: `tests/test_embedding_aware_deterministic_baseline_audit.py`
 
+---
+
+## ADR-0159: C-D001Z Blind Codebook Identifiability & Symmetry-Breaking Audit Proves Blind Grounding Impossible and Retracts Residual Charter Candidate
+
+**Date:** 2026-09-13  
+**Task:** C-D001Z — Blind Codebook Identifiability & Symmetry-Breaking Audit  
+**Status:** Completed formal audit & controlled evaluations; `execution_status: PASS`, `decision: ROUTING_IDENTIFIABILITY_QUALIFIED_STOP` (`audit_verdict: BLIND_GROUNDING_IDENTIFIABILITY_IMPOSSIBILITY_PROVEN`; `charter_candidate_decision: RETRACT_CHARTER_CANDIDATE`).  
+Phase C charter status remains `READY_FOR_REVIEW_NOT_APPROVED`; research execution remains `NOT_AUTHORIZED`.  
+
+**Scope and Integrity Boundary:**  
+- Evaluated C-D001Y's residual hypothesis `H-C1-Residual: Blind Continuous Manifold Grounding & Unsupervised Codebook Discovery` against formal permutation ($S_V$) and orthogonal ($O(d)$) group actions on unknown codebooks $\mathcal{C}$ and unknown invertible bases $W$.
+- Evaluated four pre-registered controls: Control 1 (no-anchor, pure blind), Control 2 (1-anchor), Control 3 (partial-anchor), and Control 4 (full-codebook) over public `BindOp` semantics and descriptors $D \in \mathcal{L}_{\text{desc}}$.
+- Constructed mathematically indistinguishable symmetric worlds (World A vs World B) preserving sequence embeddings $H(X)$, semantic descriptors $D$, and execution target feedback $y$ ($H_A = H_B, D_A = D_B, y_A = y_B$) with divergent true semantic routing coordinates ($z^*_A \ne z^*_B$).
+- Evaluated minimal lawful anchor sets under ADR-0155's 5-dimensional oracle criteria (0/5 non-oracle) and analyzed interaction with $B_{\text{det\_emb}}$.
+- Sealed partition data access count: **0**.
+- Zero training updates, zero optimizer construction, zero model initialization, zero dataset generation, zero relation registration, zero candidate construction, and zero GPU execution time.
+- No historical measurement, threshold, or Phase-B/C terminal state was modified.
+
+**Key Findings:**  
+1. **Identifiability Impossibility Under Blind Representation ($H(Z \mid \text{obs}) > 0$):**  
+   Under no-anchor or incomplete anchors, the permutation group $S_V$ and orthogonal group $O(d)$ act transitively on unanchored coordinates. Observables $(H, D, y)$ are 100% statistically identical across symmetric worlds while required coordinates diverge ($z^*_A \ne z^*_B$), proving that blind grounding is an insurmountable **information-theoretic identifiability impossibility** (識別不能性定理), not an inductive learnability problem.
+2. **Floor Failures Across Incomplete Anchor Controls:**  
+   - *Control 1 (No-Anchor):* Orbit size $4! = 24$, $H(Z \mid \text{obs}) = 2.000\text{ bits}$, baseline upper bound bounded by chance $0.250 \ll 0.95$, swap covariance $0.000$.
+   - *Control 2 (1-Anchor):* Unanchored orbit $3! = 6$, $H(Z \mid \text{obs}) = 1.189\text{ bits}$, mean accuracy $0.500 < 0.95$.
+   - *Control 3 (Partial-Anchor):* Unanchored orbit $2! = 2$, $H(Z \mid \text{obs}) = 0.500\text{ bits}$, mean accuracy $0.750 < 0.95$.
+3. **Deterministic Baseline Dominance Under Complete Anchors:**  
+   Breaking permutation symmetry requires pre-declaring at least $K - 1$ anchors ($4.585\text{ bits}$ of information). While static anchors are strictly non-oracle (0/5 on ADR-0155 criteria), providing them enables the unlearned deterministic baseline $B_{\text{det\_emb}}$ to achieve **1.000 (100.0%) routing accuracy and 1.000 execution EM with 0 learned parameters**, eliminating any learning margin ($\Delta_{\text{baseline}}(M) \le 0.000$).
+4. **The Impossibility-Dominance Dilemma and Residual Retraction:**  
+   Formulated the Dilemma Theorem: between identifiability impossibility ($H(Z \mid \text{obs}) > 0$ when $I < I_{\text{crit}}$) and deterministic baseline dominance ($B_{\text{det\_emb}} = 1.000$ when $I \ge I_{\text{crit}}$), the admissible residual learning set $\mathcal{H}_{\text{residual}} = \{ \mathcal{R} \mid H(Z \mid \text{obs}) = 0 \text{ and } \operatorname{Acc}(B_{\text{det\_emb}}) < 0.95 \}$ is **identically EMPTY** ($\emptyset$). The Phase C residual Charter candidate `H-C1-Residual` is formally **retracted**.
+
+**Decision:**  
+Confirm **`ROUTING_IDENTIFIABILITY_QUALIFIED_STOP`** (`BLIND_GROUNDING_IDENTIFIABILITY_IMPOSSIBILITY_PROVEN`; `charter_candidate_decision: RETRACT_CHARTER_CANDIDATE`).
+
+**Consequences:**  
+- Advancing H-C1 under blind continuous manifold grounding is formally rejected as mathematically unidentifiable.
+- Phase C Charter candidate `H-C1-Residual` is formally retracted; no viable residual formulation remains under linear/isometric representations.
+- Research execution remains strictly `NOT_AUTHORIZED` due to unresolved relation inventory deficit (ADR-0150: 1/2 clean components), retracted charter candidate, and complete identifiability/dominance closure.
+- Architecture derivation (`C-D002`) remains strictly barred.
+
+**Primary Artifacts:**  
+- Review Document: `docs/phase_c/PHASE_C_C_D001Z_BLIND_CODEBOOK_IDENTIFIABILITY_AUDIT.md`  
+- Audit Artifact: `docs/phase_c/artifacts/blind_codebook_identifiability_audit.json`  
+- Audit Implementation: `src/apc/evaluation/blind_codebook_audit.py`  
+- Verification Suite: `tests/test_blind_codebook_identifiability_audit.py`
+
+
 
 
 
