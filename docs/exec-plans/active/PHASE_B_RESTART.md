@@ -1,6 +1,6 @@
 # Phase B 再開計画 — 現在地と実行順の正本
 
-版: 2026-09-12 / ADR-0127〜0131。
+版: 2026-09-12 / ADR-0127〜0133。
 
 ## 1. 目的と今回の実行権限
 
@@ -46,6 +46,8 @@
 | 再開: score-scale precheck | 完了 | 固定4条件すべてFAIL_STOP | 全体的な拡縮だけでは当該endpointを回復できなかった |
 | 再開: REC-004AE | 完了（§7） | `INSUFFICIENT_EVIDENCE_STOP` | routing失敗は局在したが、QK対position biasの単一修復標的は未分離 |
 | 再開: REC-004AF | 完了（§7A） | `INSUFFICIENT_EVIDENCE_STOP` | QK endpoint 置換は一部token recoveryを示したが、routing/marginの非退化差とposition側の可変対照がない |
+| 再開: REC-004AG | 完了（§7B） | `POSITION_ROUTING_TARGET_NOT_SUPPORTED` | 座標空間transportはEM=0へ崩壊し、位置bias単独標的を反証 |
+| 再開: REC-004AH | 完了（§7C） | `SCORE_DECOMPOSITION_IDENTIFIABILITY_STOP` | 構成要素識別性行列の評価で全要素が条件(d)不成立、単一修復標的の探索を停止 |
 | REC-005〜008 | 未着手 | RG3に依存。ただし失敗時の引継ぎは可能 | 今後のcohort・runtime注入の原契約 |
 | R3-011〜012 | 未着手 | G1/G4に依存 | 封印・B2_PROTOCOL_V2原契約 |
 | B-C006〜014 | 未着手 | B2/G5、以降各gateに依存 | B3〜B6の原計画 |
@@ -266,6 +268,29 @@ coefficient sweep、複数recipe比較、学習pilotを開始しない。`run_00
 float precision/parity guardで安全に停止した未qualified artifactであり、いずれもsource不変・optimizer
 非構築で保存した。`run_005`だけをqualified resultとして参照する。
 
+## 7B. 実行契約: B-C005REC-004AG — 非退化位置routing transport因果診断
+
+**状態: 完了、`POSITION_ROUTING_TARGET_NOT_SUPPORTED`（ADR-0132）。評価専用であり、repair target、学習、candidate、RG3、REC-005、sealed評価は開始しない。**
+目的は、REC-004AFで判明した同一長さ内の位置bias例間不変性（分散0.0）に対し、アーキテクチャ座標に基づく長さ9から長さ10への非退化transport反実仮想を用いて、位置bias単独が修復標的として支持されるか判定することである。
+
+- endpoint/data/freeze: immutable AC I03@8000 checkpoint、metric_v2 `run_003`入力、qualified REC-004AE/AF artifactのみ使用。全パラメータ凍結、optimizer禁止（`RuntimeError`）。
+- 介入: 正解token・oracleを参照せず、正規化座標 $u(k, L) = k / (L - 1)$ で長さ9から長さ10へマッピング。Frobenius差 9.500572 の非退化介入を構成。
+- 実行結果: `runs/phase_b_restart/rec004ag/run_001/`。normal validation長さ10およびconfirmationの双方でsequence EMは0.08→0.00へ崩壊、top-1 routingは0.45→0.30へ悪化（$\Delta = -0.15$ vs $+0.05$閾値）、marginは$-7.15$→$-7.54$へ悪化（$\Delta = -0.38$ vs $+0.25$閾値）。位置bias単独標的は反証され、`POSITION_ROUTING_TARGET_NOT_SUPPORTED` と判定。
+
+## 7C. 実行契約: B-C005REC-004AH — Score分解の構造的識別性レビュー
+
+**状態: 完了、`SCORE_DECOMPOSITION_IDENTIFIABILITY_STOP`（ADR-0133）。評価・監査専用であり、学習、candidate、RG3、REC-005、sealed評価は開始しない。**
+目的は、immutable AC I03@8000 scorer実装およびqualified REC-004AE/AF/AG成果物の構造的識別性をレビューし、単一構成要素に対する許容介入が修復標的を分離可能か判定することである。
+
+- 監査範囲: 学習0、順伝播修復介入0、係数探索0。計算グラフ、事前登録識別性行列、ハッシュ台帳、機械可読報告書、ADRを記録。
+- 判定規則: 4条件（(a) アーキテクチャ固有、(b) target/oracle/baseline非依存、(c) 他要素・下流経路保持、(d) OOD破壊でない局所修復摂動）を同時に満たす構成要素と許容介入が厳密に1つ存在する場合のみ `SCORE_DECOMPOSITION_IDENTIFIABLE_FOR_REPAIR`、それ以外は `SCORE_DECOMPOSITION_IDENTIFIABILITY_STOP`。
+- 実行結果: `runs/phase_b_restart/rec004ah/run_001/`。
+  1. $S_{QK}$: 条件(d)不成立。token依存変動はpermutationタスクに対して無相関なノイズであり、top-1 routing差（$[-0.0016, +0.0005]$）およびmargin差（$[-0.0025, +0.0034]$）は閾値未達（REC-004AF）。
+  2. $S_{\text{position\_bias}}$: 同一長さ内置換は退化（$\Delta=0$）。長さ間transportは離散座標衝突によりEM=0へ崩壊するOOD破壊（REC-004AG）であり、条件(d)不成立。
+  3. $S_{\text{residual}}$: 容量不足（norm比0.00039、margin寄与$-0.00029$）。全体拡縮は全floor未達（ADR-0129）で条件(d)不成立。
+  4. Softmax全結合: 加法結合後のSoftmax競合結合により、単一要素の孤立した修復標的化は不可能。
+- 判定: 条件を満たす要素数は0（厳密に1ではない）。二値判定規則に基づき `SCORE_DECOMPOSITION_IDENTIFIABILITY_STOP` を宣言。現行score分解における単一要素修復の試行を停止する。
+
 ## 8. 実行記録
 
 - 2026-09-12: 本計画へ状態を集約。過去文書を仕様/証拠へ位置づけ直した（ADR-0127）。
@@ -274,6 +299,8 @@ float precision/parity guardで安全に停止した未qualified artifactであ�
 - 2026-09-12: `mirror_score_scale_precheck/run_001` 実行完了、研究判定FAIL_STOP（ADR-0129）。4条件固定、学習0、候補選択0。
 - 2026-09-12: REC-004AE `run_004` 実行完了、`INSUFFICIENT_EVIDENCE_STOP`（ADR-0130）。length10の誤りはoracleで回復するrouting誤りだが、QKとposition biasを単一標的へ分離できなかった。修復学習・係数探索・RG3・sealedは0。
 - 2026-09-12: REC-004AF qualified `run_005` 実行完了、`INSUFFICIENT_EVIDENCE_STOP`（ADR-0131）。4固定matched controlsによるQK endpoint置換は一部direct-error tokenを回復したが、routing/marginの非退化改善を示さず、同層のposition endpointは例間不変であった。repair target、recipe、学習、RG3、sealedは0。
+- 2026-09-12: REC-004AG `run_001` 実行完了、`POSITION_ROUTING_TARGET_NOT_SUPPORTED`（ADR-0132）。長さ9からの非退化位置transportはEM=0へ崩壊し、位置bias単独標的は反証された。
+- 2026-09-12: REC-004AH `run_001` 実行完了、`SCORE_DECOMPOSITION_IDENTIFIABILITY_STOP`（ADR-0133）。計算グラフと識別性行列の評価で全要素が条件(d)不成立。現行score分解における単一修復標的の探索を停止。
 - 2026-09-12: 全2,514ケースの分割検証・ruff・mypy・文書/差分確認を完了。今回の整理・修正・有限precheckを閉じる。Phase B全体やRG3の完了ではない。
 
 ## 9. 最終検証と現在の停止点
@@ -294,10 +321,6 @@ WSLへ移したのはartifactパスに依存しない `test_rec004x_dataset_disj
 `verification_coverage_plan.json`、`verification_events.jsonl`、`final_*.log` に保存した。
 研究の新学習0とは§5/6の研究実行を指し、検証用tiny fixtureの学習を含む全テストの更新数を指さない。
 
-**現在の停止点はMIRROR通常実行の研究性能であり、REC-004AE/AFは`INSUFFICIENT_EVIDENCE_STOP`で閉じた。**
-計測と親ロードの障害は修正済み。global score拡縮は失敗として終了し、AEはrouting誤りを局在化した。AFは
-QK endpoint置換の一部token recoveryを示したが、QK競合とposition routing不足を一意に分離しなかった。
-追加係数・学習・全init展開・RG3・REC-005は実行しない。次に修復を再開する契約には、position endpointの
-例間不変性を説明した上で非退化な因果対照により正しいkey順位の失敗源を一つに分け、動作しているvalue経路を
-保持すること、既棄却仮説と重複しないこと、有限pilotから全init、固定I01採用、full-bundle RG3へ接続する
-条件を事前固定することが必要である。これは新しい連番タスクの予約ではない。G1/G4は別の未解決条件として保持する。
+**現在の停止点はMIRROR通常実行の研究性能であり、REC-004AE/AF/AG/AHの診断・識別性評価系列は`SCORE_DECOMPOSITION_IDENTIFIABILITY_STOP`で閉じた。**
+計測と親ロードの障害は修正済み。global score拡縮は失敗として終了し、AEはrouting誤りを局在化した。AFはQK endpoint置換の局所token感度を示したがrouting改善を満たさず、AGは位置transportの崩壊により位置bias単独標的を反証した。AHはこれらを統合した構造的識別性レビューを行い、現行の $S = S_{QK} + S_{\text{position\_bias}} + S_{\text{residual}}$ 分解では単一の修復標的を非退化・非破壊に分離できないことを確定させた。
+追加係数・学習・全init展開・RG3・REC-005・sealed評価は実行しない。G1/G4は別の未解決条件として保持する。

@@ -833,3 +833,121 @@ The non-qualified `run_001`--`run_004` artifacts preserve fail-closed baseline-p
 stops caused by diagnostic aggregation precision checks; their side-effect audits show
 unchanged sources and zero optimizer construction. They are not scientific comparison
 results. G1 and G4 remain uncleared and independent of this diagnosis.
+
+## ADR-0132: REC-004AG Non-Degenerate Position-Routing Transport Disconfirms Position Bias as Unique Score-Routing Repair Target
+
+**Date:** 2026-09-12
+
+**Status:** Completed diagnostic; `execution_status: PASS`,
+`decision: POSITION_ROUTING_TARGET_NOT_SUPPORTED`.
+
+**Contract and boundary:** REC-004AG used only the immutable AC I03@8000 checkpoint,
+metric_v2 `run_003` development inputs, and qualified REC-004AE/AF artifacts. It froze
+Core, parent bank, target primitive, value path, FFN, and readout; optimizer construction
+was patched to fail-closed (`RuntimeError`). Zero parameter updates, parameter additions,
+candidate or bundle writes, architecture/coefficient sweeps, RG3 checks, REC-005 actions,
+or sealed-data reads occurred. Correct position map, oracle attention, and baseline
+correctness were withheld from intervention construction and runtime inputs, being used
+strictly post-forward for metric evaluation.
+
+**Preregistered transport causal intervention:** Prior to model forward, the source
+profile was deterministically preregistered to relation `MIRROR_HALVES`, sequence length 9
+(minimal difference $|10 - 9| = 1$ from target length 10), and mapped via
+architecture-native normalized coordinates $u(k, L) = k / (L - 1)$ (defined by
+$\phi(i, j, n) = [i/d, j/d, (j-i)/d, n/\text{length\_ref}]$). Ties were broken to the
+smaller index, producing deterministic mappings `[0, 1, 2, 3, 4, 4, 5, 6, 7, 8]` for both
+output and input coordinates. `S_position_bias` was replaced with the transported profile
+while holding saved $S_{QK}$, $S_{residual}$, value vectors, FFN, and readout bitwise
+identical.
+
+**Pre-intervention non-degeneracy audit:** Profile analysis verified that within-stratum
+example-level variance at length 10 is strictly 0.0 (confirming REC-004AF's position
+degeneration mechanism), while cross-length variance (0.0147) and cross-position variance
+(16.6426) are non-zero. The transported position bias differed substantially from baseline
+length-10 bias (Frobenius norm difference 9.500572, max absolute difference 2.258081),
+establishing a non-degenerate intervention.
+
+**Evidence:** Qualified artifacts are in `runs/phase_b_restart/rec004ag/run_001/`. Baseline
+sequence EM reproduced exactly: normal validation length-10 0.081340 and length-10
+confirmation 0.080078. All state and source hashes matched.
+Under `POSITION_TRANSPORT_CF`:
+- On `length10_confirmation`: Sequence EM dropped from 0.080078 to 0.000000; token
+  accuracy dropped from 0.888867 to 0.588867. While a small fraction of baseline direct
+  errors recovered (recovery rate 0.033392, 19 tokens), 1555 previously correct tokens
+  worsened (worsening rate 0.341683). Top-1 correct-key routing rate degraded from
+  0.447754 to 0.297119 ($\Delta = -0.150635$ vs $+0.05$ threshold), and correct-key margin
+  deteriorated from -7.154024 to -7.538437 ($\Delta = -0.384413$ vs $+0.25$ threshold).
+- On `normal_validation_length10`: Sequence EM dropped from 0.081340 to 0.000000; token
+  accuracy dropped from 0.890909 to 0.586603; recovery rate was 0.039474 (9 tokens) while
+  645 tokens worsened (worsening rate 0.346402). Top-1 correct-key routing degraded from
+  0.448565 to 0.295574 ($\Delta = -0.152990$), and correct-key margin deteriorated from
+  -7.158134 to -7.544068 ($\Delta = -0.385934$).
+
+**Decision:** The non-degenerate position transport intervention decisively fails all
+selection thresholds across both primary strata, severely worsening sequence EM, top-1
+correct-key routing, and correct-key margin. Therefore, `POSITION_ROUTING_TARGET_SUPPORTED`
+is rejected, and the result is `POSITION_ROUTING_TARGET_NOT_SUPPORTED`.
+Per execution rules, QK repair is not resumed because REC-004AF already failed the QK
+routing target selection thresholds.
+Conclusion: Neither QK-content competition nor position-routing bias can be isolated as a
+unique repair target under the current score-component decomposition.
+No learning pilot, recipe selection, coefficient sweep, or architecture search may follow.
+The next phase must be a structural/identifiability review of the score decomposition
+itself. G1 and G4 remain uncleared and independent blocks.
+
+## ADR-0133: REC-004AH Score-Decomposition Structural Identifiability Review Stops Single-Component Repair
+
+**Date:** 2026-09-12
+
+**Status:** Completed review; `execution_status: PASS`,
+`decision: SCORE_DECOMPOSITION_IDENTIFIABILITY_STOP`.
+
+**Contract and boundary:** REC-004AH is an analytical and artifact-auditing review of the
+immutable AC I03@8000 scorer implementation and qualified REC-004AE/AF/AG artifacts.
+Zero optimizer construction, zero parameter updates, zero parameter additions, zero candidate
+or bundle writes, zero architecture or coefficient sweeps, zero RG3 checks, zero REC-005
+cohort executions, and zero sealed-data accesses occurred. The review evaluated the scorer
+computation graph and tested pre-registered candidate interventions against a binary decision
+rule under four necessary identifiability conditions.
+
+**Scorer computation graph analysis:** The runtime score decomposition
+$S = S_{QK} + S_{\text{position\_bias}} + S_{\text{residual}}$ was mapped across all upstream
+and downstream dependencies:
+1. $S_{QK} = (q k^T) / \sqrt{d_k}$: Driven by $k_{in}$ which couples directly to content token
+   representations from Core. Because the target relation `MIRROR_HALVES` requires a pure index
+   permutation $\pi(i) = (L-1) - i$, content token variance is task-orthogonal and acts as
+   routing interference.
+2. $S_{\text{position\_bias}} = W_{out}\text{ReLU}(W_h \phi(i, j, n))$: Computed from continuous
+   normalized coordinates $\phi(i, j, n) = [i/d, j/d, (j-i)/d, n/\text{length\_ref}]$.
+   Within-stratum example-level variance is identically 0.0 at any fixed sequence length.
+3. $S_{\text{residual}} = (q_r k_r^T) / \sqrt{r}$: Low-rank ($r=4$) parallel score residual
+   sharing upstream $k_{in}$ and `query`, with a tiny trained norm ratio ($0.00039$) and negative
+   correct-key margin contribution ($-0.00029$).
+4. Downstream losslessness: REC-004AE proved that downstream pathways (attention output projection,
+   LayerNorm, FFN, and readout) achieve 100% sequence EM and 0.0% downstream persistent error
+   under oracle attention. The failure resides entirely within the score decomposition and
+   competitive Softmax normalization.
+
+**Component identifiability matrix evaluation:** Each component was evaluated against four
+pre-registered conditions: (a) architecture-native, (b) target/oracle-independent, (c) preserves
+other score components and downstream paths, and (d) tests a repair-relevant local perturbation
+rather than an out-of-distribution destructive transport.
+- $S_{QK}$: Satisfies (a), (b), (c). Fails (d) because matched-endpoint donor substitution
+  produces near-zero routing improvement ($\Delta \text{top-1} \in [-0.001555, +0.000488]$,
+  $\Delta \text{margin} \in [-0.002519, +0.003447]$, REC-004AF). Content variance cannot provide
+  a directional routing signal for an index permutation task.
+- $S_{\text{position\_bias}}$: Within-stratum substitution is degenerate ($\Delta = 0.0$).
+  Cross-length architecture coordinate transport (length 9 to 10) satisfies (a), (b), (c), but
+  fails (d) due to catastrophic out-of-distribution collapse (EM dropped to 0.00, top-1 routing
+  dropped by $-0.150635$, margin dropped by $-0.384413$, REC-004AG). Discrete coordinate grid
+  mismatch (target positions 4 and 5 colliding onto source position 4) destroys permutation routing.
+- $S_{\text{residual}}$: Satisfies (a), (b), (c). Fails (d) because global scaling fails all execution
+  floors (ADR-0129) and donor substitution yields sub-millivolt perturbations.
+- Joint Softmax Coupling: Additive composition followed by competitive all-to-all Softmax
+  normalization couples all key logits. No individual component can be isolated as a unique repair
+  target under permitted target-independent interventions.
+
+**Decision:** Exactly zero components satisfy all four conditions. Under the pre-registered
+binary decision rule, `SCORE_DECOMPOSITION_IDENTIFIABILITY_STOP` is declared.
+No single-component repair intervention, learning pilot, coefficient sweep, or architecture search
+may proceed under the current score decomposition. G1 and G4 remain uncleared and independent blocks.
