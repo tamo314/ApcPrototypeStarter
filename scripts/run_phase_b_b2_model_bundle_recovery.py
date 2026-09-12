@@ -108,6 +108,10 @@ from apc.evaluation.mirror_oracle_attention_substitution_probe import (
     OracleAttentionSubstitutionProbeConfig,
     run_oracle_attention_substitution_probe_task,
 )
+from apc.evaluation.mirror_parallel_score_residual_pilot import (
+    MirrorParallelScoreResidualPilotConfig,
+    run_mirror_parallel_score_residual_pilot_task,
+)
 from apc.evaluation.mirror_position_bias_repair import (
     REC004D_CHECKPOINT_INTERVAL,
     REC004D_EXISTING_VALIDATION_EXAMPLES,
@@ -196,6 +200,7 @@ _IMPLEMENTED_TASKS = (
     "B-C005REC-004Z",
     "B-C005REC-004AA",
     "B-C005REC-004AB",
+    "B-C005REC-004AC",
 )
 
 
@@ -812,6 +817,38 @@ def _load_rec004ab_config(
             f"{RECOVERY_PILOT_SEED}; config requested seed={seed}"
         )
     return MirrorPostAttnResidualPilotConfig(
+        output_dir=Path(raw.get("output_dir", defaults.output_dir)),
+        seed=seed,
+        oracle_em_threshold=raw.get("oracle_em_threshold", defaults.oracle_em_threshold),
+        j0_delta_floor=raw.get("j0_delta_floor", defaults.j0_delta_floor),
+        hard_freeze_delta_floor=raw.get(
+            "hard_freeze_delta_floor", defaults.hard_freeze_delta_floor
+        ),
+        max_replay_window_updates=raw.get(
+            "max_replay_window_updates", defaults.max_replay_window_updates
+        ),
+        full_probe_step_interval=raw.get(
+            "full_probe_step_interval", defaults.full_probe_step_interval
+        ),
+        sentinel_subset_per_dataset=raw.get(
+            "sentinel_subset_per_dataset", defaults.sentinel_subset_per_dataset
+        ),
+        parity_updates=raw.get("parity_updates", defaults.parity_updates),
+    )
+
+
+def _load_rec004ac_config(
+    config_path: Path,
+) -> MirrorParallelScoreResidualPilotConfig:
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+    defaults = MirrorParallelScoreResidualPilotConfig()
+    seed = raw.get("seed", defaults.seed)
+    if seed != RECOVERY_PILOT_SEED:
+        raise ValueError(
+            f"B-C005REC-004AC is fixed to I03's pre-registered seed "
+            f"{RECOVERY_PILOT_SEED}; config requested seed={seed}"
+        )
+    return MirrorParallelScoreResidualPilotConfig(
         output_dir=Path(raw.get("output_dir", defaults.output_dir)),
         seed=seed,
         oracle_em_threshold=raw.get("oracle_em_threshold", defaults.oracle_em_threshold),
@@ -1752,7 +1789,7 @@ def main() -> int:
             "RG3/REC-005, or sealed evaluation ran."
         )
         return 0 if rec004aa_report.get("implementation_status") == "COMPLETE" else 1
-    else:  # B-C005REC-004AB
+    elif args.task == "B-C005REC-004AB":
         config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004ab.yaml")
         rec004ab_config = _load_rec004ab_config(config_path)
         if args.output_dir is not None:
@@ -1787,6 +1824,42 @@ def main() -> int:
             "RG3/REC-005, or sealed evaluation ran."
         )
         return 0 if rec004ab_report.get("implementation_status") == "COMPLETE" else 1
+    else:  # B-C005REC-004AC
+        config_path = args.config or Path("configs/phase_b_b2_model_bundle_recovery_rec004ac.yaml")
+        rec004ac_config = _load_rec004ac_config(config_path)
+        if args.output_dir is not None:
+            rec004ac_config = dataclasses.replace(rec004ac_config, output_dir=args.output_dir)
+        rec004ac_report = run_mirror_parallel_score_residual_pilot_task(rec004ac_config)
+        print(
+            json.dumps(
+                {
+                    "implementation_status": rec004ac_report.get("implementation_status"),
+                    "initial_parity": rec004ac_report.get("initial_parity"),
+                    "score_path_isolation": rec004ac_report.get("score_path_isolation"),
+                    "o1_score_isolation": rec004ac_report.get("o1_score_isolation"),
+                    "intervention_optimizer_updates": rec004ac_report.get(
+                        "intervention_optimizer_updates"
+                    ),
+                    "new_candidate_training_updates": rec004ac_report.get(
+                        "new_candidate_training_updates"
+                    ),
+                    "primary_decision": rec004ac_report.get("primary_decision"),
+                    "score_capacity_advantage": rec004ac_report.get("score_capacity_advantage"),
+                    "strong_functional_floor": rec004ac_report.get("strong_functional_floor"),
+                    "selected_architecture": rec004ac_report.get("selected_architecture"),
+                    "child_bundle": rec004ac_report.get("child_bundle"),
+                    "rg3_recheck": rec004ac_report.get("rg3_recheck"),
+                    "rec005_eligible": rec004ac_report.get("rec005_eligible"),
+                },
+                indent=2,
+            )
+        )
+        print(
+            "STOP: only B-C005REC-004AC was executed (an I03 parallel low-rank score-residual "
+            "routing pilot). No candidate training, candidate selection, child bundle, "
+            "RG3/REC-005, or sealed evaluation ran."
+        )
+        return 0 if rec004ac_report.get("implementation_status") == "COMPLETE" else 1
 
     next_blocked = {
         "B-C005REC-002": "B-C005REC-003 onward",

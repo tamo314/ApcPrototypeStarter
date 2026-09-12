@@ -437,4 +437,61 @@ The pilot investigated whether this pre-transition trust-region constraint prese
   - **Cease Simple Residual-Location Search:** Per Section 26.3, simple residual-location exploration is terminated. Further investigations must directly address the score/routing capacity bottleneck or architecture re-design rather than downstream compensation.
   - **Strict STOP Boundary Enforced:** Task B-C005REC-004AB completed. No candidate training, child bundle creation, candidate selection, RG3, or REC-005.
 
+## ADR-0125: I03 Parallel Low-Rank Score-Residual Routing Pilot — Adding Independent Low-Rank Score Residual (r=4, d=32) Preserves O1 Compatibility (EM = 0.998–1.000) and Structural Score Isolation, but Confirms Plasticity Insufficiency Due to Dominant Base Score Attractor (Task B-C005REC-004AC, `primary_decision: PARALLEL_SCORE_RESIDUAL_PRESERVES_STABILITY_BUT_ROUTING_INSUFFICIENT`, `score_capacity_advantage: false`)
+
+- **Context:** Following ADR-0124 (which disconfirmed residual location advantage, demonstrating that neither pre-V nor post-attention compact residuals can compensate for broken attention routing), Task B-C005REC-004AC directly evaluated the score/routing-side architecture hypothesis: adding an independent, task-blind, low-rank score residual channel ($\Delta S = q_r k_r^T / \sqrt{r}$, $r=4, d=32$, 256 parameters, exact-zero initialized on $W_{kr}$) directly to pre-softmax cross-attention scores ($S_{\text{total}} = S_{\text{base}} + \Delta S$), while keeping the base CVOF parameters strictly frozen at step 7500.
+  The task tested whether directly augmenting the pre-softmax score matrix with compact plastic capacity could overcome the length-10 attention routing bottleneck without destabilizing downstream stability or modifying downstream value/FFN pathways.
+  Stages:
+  1. **Stage A (Exact-Parity Gate):** Verifying bit-exact parity at step 7500 ($\Delta S = 0$).
+  2. **Stage B1 (Score-Path Functional Gradient Flow Isolation Gate):** Verifying active gradient flow through $\Delta S$ to $W_{kr}$ and Key content prep.
+  3. **Stage B2 ($O_1$ Structural Score Isolation Gate):** Verifying live-graph zero gradient and perturbation invariance under oracle $O_1$ execution.
+  4. **Stage C (Training Continuation Pilot):** 500 unconstrained normal forward J0 optimizer updates (7501..8000) with frozen CVOF base and active Key/Q/K/score-residual.
+- **Decision:** Classify outcome as `primary_decision: PARALLEL_SCORE_RESIDUAL_PRESERVES_STABILITY_BUT_ROUTING_INSUFFICIENT`. Set `score_capacity_advantage: false` and `strong_functional_floor: false`.
+- **Key Findings:**
+  1. **Stage A Exact-Parity Gate: PASS:**
+     - Maximum $\Delta S = 0.00$.
+     - Maximum attention probability difference: $1.43 \times 10^{-6} \le 1.0 \times 10^{-5}$.
+     - Maximum final logits difference: $2.67 \times 10^{-5} \le 1.0 \times 10^{-4}$.
+     - Prediction mismatches: $0$.
+  2. **Stage B1 Score-Path Isolation Gate: PASS:**
+     - Gradient norms: `KEY_CONTENT_PREP` $= 1.45$, K projection $= 1.30$, $W_{kr} = 0.179$, $W_{qr} = 0.0$ (exact zero init on $W_{kr}$).
+  3. **Stage B2 $O_1$ Structural Score Isolation Gate: PASS:**
+     - Live-graph $O_1$ gradient $\max |d(\text{logits}_{O_1})/d(\theta_{\Delta S})| = 0.0 \le 1.0 \times 10^{-7}$.
+     - Perturbed logit difference: $0.0 \le 1.0 \times 10^{-7}$. Prediction mismatches: $0$.
+  4. **Stage C Compatibility Gate: PASS:**
+     - Ceiling $O_1$ downstream compatibility maintained across all evaluation splits:
+       - `length10_mechanism_probe_v1`: $O_1$ EM $= 0.998$, position-4 acc $= 1.000$.
+       - `dense_trajectory_transition_probe_v1`: $O_1$ EM $= 0.998$, position-4 acc $= 1.000$.
+       - `attention_clamp_causal_probe_v1`: $O_1$ EM $= 1.000$, position-4 acc $= 1.000$.
+       - `downstream_freeze_causal_probe_v1`: $O_1$ EM $= 1.000$, position-4 acc $= 1.000$.
+       - `fresh_length10_confirmation`: $O_1$ EM $= 1.000$, position-4 acc $= 1.000$.
+     - Freeze audit verified $0.0$ drift across frozen base CVOF subcomponents.
+  5. **Stage C Plasticity Gate: FAIL:**
+     - Fresh normal validation (overall J0 EM, 1024 examples): Score residual $= 0.7646$ vs Historical unconstrained @8000 $= 0.7500$ ($\Delta = +0.0146$ vs $+0.10$ floor); vs Hard Freeze (REC-004W) @8000 $= 0.7861$ ($\Delta = -0.0215$ vs $+0.05$ floor).
+     - Fresh length-10 confirmation (J0 EM, 512 examples): Score residual $= 0.0801$ vs Historical unconstrained @8000 $= 0.0605$ ($\Delta = +0.0195$ vs $+0.10$ floor); vs Hard Freeze (REC-004W) @8000 $= 0.0879$ ($\Delta = -0.0078$ vs $+0.05$ floor).
+  6. **Matched-Capacity Location Comparison: NOT SUPPORTED:**
+     - Best Downstream 256 (max of pre-V REC-004AA and post-attn REC-004AB): Normal J0 EM $= 0.7334$, Length-10 J0 EM $= 0.0742$.
+     - $\Delta_{\text{location\_normal}} = 0.7646 - 0.7334 = +0.0312 < +0.05$.
+     - $\Delta_{\text{location\_length10}} = 0.0801 - 0.0742 = +0.0059 < +0.05$.
+     - Score residual architecture fails to achieve the $+0.05$ capacity advantage floor (`score_capacity_advantage: false`).
+  7. **Score Decomposition & Residual Utilization Audit:**
+     - Plasticity active: $W_{kr}$ displacement $= 0.0278$, $W_{qr}$ displacement $= 0.1340$, cumulative gradient accumulation $= 37.85$, effective rank $= 3.67 / 4.0$ (`SCORE_RESIDUAL_PLASTICITY_ACTIVE`).
+     - Base score margin median: $-18.36$; Total score margin median: $-18.36$; Residual contribution median: $+0.0021$.
+     - $\Delta S$ RMS mean: $0.0034$; Max abs mean: $0.0194$; Norm ratio $\|\Delta S\| / \|S_{\text{base}}\| = 0.00011$ ($0.01\%$).
+     - Correct key rank at pos 4 remained at mean $5.01$ (median $5.0$), correct key probability remained at median $0.0005$, top-1 recall $= 0.0$, top-3 recall $= 0.0$, top-5 recall $= 1.0$.
+     - Root cause: The frozen base attention score attractor ($-18.4$ margin) dominates the unscaled low-rank linear perturbation by orders of magnitude, preventing meaningful routing re-direction within standard optimization dynamics.
+  8. **Cost and Resource Accounting:**
+     - Added resident parameters: $256$. Total model parameters: $7,456$. Active trainable parameters: $24,746$.
+     - 500 intervention updates, 0 candidate updates. Training duration: $32.53$ seconds. Peak VRAM: $50.7$ MB.
+     - Core and 15 primitives strictly invariant. `candidate_selected: null`, `child_bundle: null`, `rg3_recheck: NOT_EXECUTED`, `rec005_eligible: false`.
+- **Consequences:**
+  - **Tripartite Architecture Pilot Closure (AA, AB, AC):**
+    1. Pre-V residual (AA): Stability PASS, Plasticity FAIL ($-0.045$ vs freeze).
+    2. Post-Attn residual (AB): Stability PASS, Plasticity FAIL ($-0.077$ vs freeze, no location advantage).
+    3. Parallel Score residual (AC): Stability PASS, Plasticity FAIL ($-0.021$ vs freeze, $+0.031$ vs downstream, $< +0.05$ floor).
+  - **Scientific Implication:** Compact rank-4 ($256$-parameter) linear residual adaptations—whether applied pre-V, post-attention, or directly to attention scores—are structurally incapable of overcoming the strong negative attractor formed during early pre-7500 training while base CVOF weights are held frozen.
+  - **Directs Next Research Stage:** Pure low-rank linear bypasses are exhausted. Next repair design must consider temperature/scale modulation of base scores, non-linear score routing gates, or structured multi-stage unfreezing schedules under task-blind constraints.
+  - **Strict STOP Boundary Enforced:** Task B-C005REC-004AC completed. No candidate training, child bundle creation, candidate selection, RG3 recheck, or REC-005 transition.
+
+
 
