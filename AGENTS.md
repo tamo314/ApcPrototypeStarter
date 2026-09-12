@@ -112,6 +112,11 @@ search, dense-teacher circuit extraction, or neuromorphic work.
 
 - Evaluate the requested acceptance criteria explicitly. Distinguish task
   completion, recovery-gate status, and research-gate status.
+- Once all required verifications and task criteria pass, commit the completed
+  task artifacts to git with a concise and descriptive commit message. Check
+  `git status` and diffs before staging to avoid including transient files,
+  caches, or unrelated changes. Keep commits local; do not push to remote
+  unless explicitly instructed.
 - Record commit/config/seeds, data and compute budgets, hardware/time/memory,
   parameter accounting, relevant controls, and metrics for meaningful runs as
   specified in the research rules and active experiment contract.
