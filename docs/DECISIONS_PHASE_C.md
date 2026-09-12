@@ -87,6 +87,50 @@ Formally correct the stoppage rationale from `RELATION_INVENTORY_FEASIBILITY_STO
 - Phase C research execution remains strictly blocked (`NOT_AUTHORIZED`), and architecture task `C-D002` is permanently barred under this premise.
 
 **Primary Artifacts:**  
-- Audit Document: `docs/phase_c/PHASE_C_C_D001R_ADVERSARIAL_IDENTIFIABILITY_FALSIFICATION_AUDIT.md`
-- Audit Artifact: `docs/phase_c/artifacts/adversarial_identifiability_audit.json`
+- Audit Document: `docs/phase_c/PHASE_C_C_D001R_ADVERSARIAL_IDENTIFIABILITY_FALSIFICATION_AUDIT.md`  
+- Audit Artifact: `docs/phase_c/artifacts/adversarial_identifiability_audit.json`  
+
+---
+
+## ADR-0152: C-D001S Quantifier-Complete Task-Side/Support Identifiability Boundary Audit Confirms `ROUTING_IDENTIFIABILITY_STOP` across Permitted Observable Space
+
+**Date:** 2026-09-13  
+**Task:** C-D001S — Quantifier-Complete Task-Side/Support Identifiability Boundary Audit  
+**Status:** Completed non-experimental mathematical boundary audit; `execution_status: PASS`, `decision: ROUTING_IDENTIFIABILITY_STOP (CONFIRMED_QUANTIFIER_COMPLETE)`.  
+Phase C charter status remains `READY_FOR_REVIEW_NOT_APPROVED`; research execution remains `NOT_AUTHORIZED`.  
+
+**Scope and Integrity Boundary:**  
+- Evaluated all permitted task-side observables partitioned into Opaque ID ($t$), Compositional Semantic Descriptor ($D$), and Finite Output-Labeled Support Set ($\mathcal{S}$).
+- Evaluated bounded separating support set pre-fixability over finite relation hypothesis classes.
+- Sealed partition data (inputs, labels, model outputs) access count: **0**.
+- Zero training updates, zero optimizer construction, zero model initialization, zero dataset generation, zero relation registration, zero candidate construction, and zero GPU execution time.
+- No historical measurement, threshold, or Phase-B terminal state was modified.
+
+**Key Findings:**  
+1. **Permitted Observable Taxonomy:**  
+   Exhaustively partitioned permitted oracle-free task-side signals under `h_content = f(content)` into: (1) Opaque ID, (2) Pre-declared Compositional Semantic Descriptor, and (3) Finite Output-Labeled Support Set.
+2. **Counterexamples across All Classifications:**  
+   - *Opaque ID:* Constructed World A (first-occurrence) and World B (last-occurrence) sharing identical ID $t_0$. On clean training instances, $y_A = y_B$, losses, and gradients are bitwise identical; on collision test inputs ($x=[A, B, C, D, A]$, $y_0=A$), true coordinates diverge ($z^*_A = 0 \neq 4 = z^*_B$). (**FAIL**)  
+   - *Compositional Descriptor:* Structured AST descriptor $D$ declares operation type and argument slots. Under the charter's non-leakage invariant, $D$ cannot be a hard-coded coordinate lookup table. Worlds A and B both truthfully satisfy $D$, yielding identical training histories and identical descriptors, but divergent test coordinates. (**FAIL**)  
+   - *Finite Output-Labeled Support Set:* Proved Theorem 1 (Universal Token Output Identity): for any sequence $x \in \mathcal{V}^L$, $x_{\min \{i \mid x_i = y_k\}} = y_k = x_{\max \{i \mid x_i = y_k\}}$. Thus $f_A(x) \equiv f_B(x)$ identically on all inputs. For any finite support set $\mathcal{S}$, observed output tokens $y^{(m)}$ are bitwise identical across World A and World B. Support sets cannot break coordinate symmetry. (**FAIL**)  
+3. **Audit of Bounded Separating Support Set Hypothesis:**  
+   Audited whether a bounded separating support set pre-fixed without oracle coordinates over a finite relation hypothesis class $\mathcal{H}_{\text{rel}}$ can resolve routing ambiguity:
+   - *Extensional vs Intensional Gap:* A bounded separating support set can identify which extensional function $f_m$ is active if hypotheses differ in output behavior on clean inputs. However, it cannot separate intensionally distinct routing coordinate rules ($f_A \equiv f_B$, yet $z^*_A \neq z^*_B$).
+   - *Charter Invariant Violation:* Restricting $\mathcal{H}_{\text{rel}}$ to exclude alternative routing rules requires hard-coding canonical routing maps into hypothesis definitions, violating the non-negotiable charter prohibition against hard-coded routing maps.
+   - *Open-World Contradiction:* G1 relation transfer requires transfer to unseen open-world relations, where the hypothesis class is unbounded, making a pre-fixed bounded separating support set mathematically impossible.
+4. **Resolution of ADR-0151 Scope:**  
+   Because counterexamples hold across all three classifications, ADR-0151's stoppage rationale is not an artifact of Contract v1 or adversarial palindrome support sets. It is strengthened into a Quantifier-Complete Impossibility Theorem across all permitted oracle-free observables for hypothesis H-C1. ADR-0151 is not narrowed to Contract-v1.
+
+**Decision:**  
+Definitively confirm **`ROUTING_IDENTIFIABILITY_STOP`** as a quantifier-complete impossibility proof over all permitted observables for H-C1.
+
+**Consequences:**  
+- Phase C research execution remains strictly `NOT_AUTHORIZED`.
+- Architecture derivation (`C-D002`) and training formulation are permanently barred under the oracle-free premise of H-C1.
+- All candidate, bundle, and sealed evaluation prerequisites remain permanently stopped.
+
+**Primary Artifacts:**  
+- Audit Document: `docs/phase_c/PHASE_C_C_D001S_QUANTIFIER_COMPLETE_IDENTIFIABILITY_AUDIT.md`  
+- Audit Artifact: `docs/phase_c/artifacts/quantifier_complete_identifiability_audit.json`  
+
 

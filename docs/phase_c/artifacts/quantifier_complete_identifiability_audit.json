@@ -1,0 +1,99 @@
+{
+  "task": "C-D001S",
+  "artifact": "quantifier_complete_identifiability_audit",
+  "version": "v1.0",
+  "date": "2026-09-13",
+  "audit_type": "Quantifier-Complete Task-Side/Support Identifiability Boundary Audit",
+  "prior_decisions": [
+    "RELATION_INVENTORY_FEASIBILITY_STOP (ADR-0150)",
+    "ROUTING_IDENTIFIABILITY_STOP (ADR-0151)"
+  ],
+  "terminal_decision": "ROUTING_IDENTIFIABILITY_STOP (CONFIRMED_QUANTIFIER_COMPLETE)",
+  "charter_state": "READY_FOR_REVIEW_NOT_APPROVED",
+  "research_execution": "NOT_AUTHORIZED",
+  "integrity_boundary": {
+    "parameters_updated": 0,
+    "optimizers_instantiated": 0,
+    "models_initialized": 0,
+    "datasets_generated": 0,
+    "relations_registered": 0,
+    "gpu_execution_seconds": 0,
+    "sealed_partition_inputs_read": 0,
+    "sealed_partition_labels_read": 0,
+    "sealed_partition_outputs_read": 0,
+    "sealed_partition_opened": false
+  },
+  "observable_classifications": {
+    "opaque_id": {
+      "classification_name": "Classification 1: Opaque Task Identifier",
+      "formal_definition": "O_task = t in T = {1, ..., T}",
+      "provenance": "Declared task index via separate task path",
+      "world_a_definition": "first_occurrence: z^*_A(x, k) = min { i | x_i == y_k }",
+      "world_b_definition": "last_occurrence: z^*_B(x, k) = max { i | x_i == y_k }",
+      "training_history_identity": "On all clean instances x in X_clean, |{i | x_i == y_k}| <= 1, so min == max. Clean token targets, cross-entropy losses, and gradients are bitwise identical. Under duplicate-masked training, duplicate cells receive zero gradient.",
+      "test_collision_divergence": "On test input x_test = [A, B, C, D, A] with y_0 = A, z^*_A = 0 != 4 = z^*_B. Learner parameters are identical, coordinate accuracy is bounded by 0.5 < 0.95 floor.",
+      "counterexample_status": "HOLDS_FALSIFIED"
+    },
+    "compositional_semantic_descriptor": {
+      "classification_name": "Classification 2: Pre-declared Compositional Semantic Descriptor",
+      "formal_definition": "O_task = D = (OpFamily, ArgSlots, Schema) in D_comp",
+      "provenance": "Pre-declared structured AST / schema provided model-visible at inference time",
+      "charter_boundary_constraint": "Per Phase C Charter and AGENTS.md, D cannot contain hard-coded correct routing map tables z^*(k) and must not bypass primitive execution through decoder.",
+      "world_a_definition": "Satisfies D with first-occurrence tie-breaking rule z^*_A(x, k) = min { i | x_i == y_k }",
+      "world_b_definition": "Satisfies D with last-occurrence tie-breaking rule z^*_B(x, k) = max { i | x_i == y_k }",
+      "training_history_identity": "Both worlds fully and truthfully satisfy descriptor D. On all clean training instances, outputs, losses, and gradients are identical.",
+      "test_collision_divergence": "On collision sequence x_test = [A, B, C, D, A] with y_0 = A, z^*_A = 0 != 4 = z^*_B. Model observing identical D cannot distinguish coordinates.",
+      "counterexample_status": "HOLDS_FALSIFIED"
+    },
+    "finite_output_labeled_support_set": {
+      "classification_name": "Classification 3: Finite Output-Labeled Support Set",
+      "formal_definition": "O_task = S = {(x^(1), y^(1)), ..., (x^(K), y^(K))} in (V^L x V^L_out)^K",
+      "provenance": "In-context demonstrations or few-shot support batch via separate task path",
+      "charter_boundary_constraint": "Support set contains token labels y in V, never oracle routing coordinates z in {0, ..., L-1}.",
+      "world_a_definition": "z^*_A(x, k) = min { i | x_i == y_k }, f_A(x)_k = x_{z^*_A(x, k)}",
+      "world_b_definition": "z^*_B(x, k) = max { i | x_i == y_k }, f_B(x)_k = x_{z^*_B(x, k)}",
+      "universal_token_identity_theorem": "For all x in V^L and all k, x_{min {i | x_i == y_k}} == y_k == x_{max {i | x_i == y_k}}. Hence f_A(x) == f_B(x) identically across all sequences.",
+      "support_set_observation_identity": "For any support set S = {(x^(m), y^(m))}, y_A^(m) == y_B^(m) for all m in {1, ..., K}. Observed support set is bitwise identical in World A and World B.",
+      "training_history_identity": "All training inputs, targets, CE losses, and gradients are bitwise identical across all training steps.",
+      "test_collision_divergence": "On test input x_test = [A, B, C, D, A] with y_0 = A, z^*_A = 0 != 4 = z^*_B. Model observing identical support set S and identical training history cannot break symmetry.",
+      "counterexample_status": "HOLDS_FALSIFIED"
+    }
+  },
+  "bounded_separating_support_set_audit": {
+    "audit_question": "Can an oracle-free pre-fixed bounded separating support set uniquely identify a finite relation hypothesis class to resolve routing ambiguity?",
+    "extensional_separation_feasibility": {
+      "feasible": true,
+      "condition": "If hypothesis class H_rel = {R_1, ..., R_M} consists of relations with distinct extensional mappings f_i != f_j, a bounded support set S_sep = {x_ij} of size at most M(M-1)/2 distinguishes which extensional mapping f is active."
+    },
+    "intensional_routing_separation_feasibility": {
+      "feasible": false,
+      "failure_mechanisms": [
+        {
+          "mechanism": "Intra-relation coordinate ambiguity under identical extensional mapping",
+          "detail": "World A (min occurrence) and World B (max occurrence) have f_A == f_B on all inputs. No token-labeled support set can ever separate them because output tokens are identical."
+        },
+        {
+          "mechanism": "Hard-coded routing map charter violation",
+          "detail": "Restricting H_rel to exclude alternative routing rules requires hard-coding a canonical routing map z^* into the hypothesis definition, violating the non-negotiable rule that task-side identifiers cannot become hard-coded correct routing maps."
+        },
+        {
+          "mechanism": "Open-world holdout contradiction",
+          "detail": "Phase C Charter and G1 require transfer to unseen open-world relation components. An open-world hypothesis class is unbounded, making a pre-fixed bounded separating support set impossible."
+        }
+      ]
+    },
+    "verdict": "FAIL (Separating support set resolves extensional function identity, but fails to identify semantic routing coordinates on collision cells without hard-coded oracle priors)."
+  },
+  "adr_0151_scope_resolution": {
+    "narrowing_warranted": false,
+    "quantifier_complete_impossibility_established": true,
+    "rationale": "Counterexamples hold across all three canonical task-side observable classifications (opaque ID, compositional descriptor, and finite output-labeled support set). ADR-0151's stoppage rationale is not limited to Contract-v1, but represents a quantifier-complete impossibility theorem for H-C1 under all permitted oracle-free observables."
+  },
+  "terminal_governance": {
+    "decision": "ROUTING_IDENTIFIABILITY_STOP",
+    "phase_c_charter_status": "READY_FOR_REVIEW_NOT_APPROVED",
+    "research_execution_status": "NOT_AUTHORIZED",
+    "task_c_d002_status": "PERMANENTLY_BLOCKED",
+    "sealed_evaluation_status": "NOT_AUTHORIZED"
+  }
+}
