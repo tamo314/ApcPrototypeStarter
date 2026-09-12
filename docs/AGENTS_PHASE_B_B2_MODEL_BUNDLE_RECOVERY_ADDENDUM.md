@@ -2,7 +2,9 @@
 
 ## 一タスク・一目的
 
-指定された`B-C005REC-xxx`だけを実施する。重い学習を伴うREC-004／005はunit testから呼ばない。`--all`、暗黙next-task、自動sealed評価は禁止。
+本書はModel Bundle Recoveryの研究実装・実行に適用する。通常の文書・tooling修正の読書範囲と検証は[root AGENTS.md](../AGENTS.md)に従う。
+
+ユーザーが指定した`B-C005REC-xxx`または明示的な継続範囲だけを実施する。現在地と継続範囲は[再開計画](exec-plans/active/PHASE_B_RESTART.md)の該当節を参照し、許可済み範囲ではtask完了ごとの再承認を求めない。完了や診断成功だけで新しい研究介入を許可されたとみなさない。重い学習を伴うREC-004／005はunit testから呼ばない。`--all`、暗黙next-task、自動sealed評価は禁止。失敗STOP GATEは依存作業を止める。
 
 ## 不変条件
 
@@ -42,6 +44,6 @@ validation15～19、sealed30～34という既存名はデータ区分として�
 
 task completion、復旧Gate、研究Gateを別欄で示す。`COMPLETE`を性能PASSの代わりにしない。欠損／未実行／reference未確定はnullや専用statusにし、0失敗として埋めない。
 
-全タスクでfocused test、`python -m pytest -q`、`python -m ruff check .`、`python -m mypy src/apc`を記録する。repoが新canonical commandを定めていれば従う。共有環境の他processを停止しない。未実行・resource不足は明示する。
+検証コマンドと文書のみの変更の扱いは[root AGENTS.md](../AGENTS.md#implementation-and-verification)に従い、該当task固有の確認も実行する。実行した確認と未実行・resource不足を区別して記録する。共有環境の他processを停止しない。
 
 一つの失敗が次タスクの前提を壊すなら停止する。報告のみのREC-008は失敗地点から作成可能だが、未完taskを通過扱いにしない。

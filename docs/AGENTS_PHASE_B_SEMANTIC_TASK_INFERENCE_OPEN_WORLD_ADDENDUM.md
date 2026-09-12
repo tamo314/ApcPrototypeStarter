@@ -2,15 +2,16 @@
 
 ## Authority
 
-This file adds Phase B-specific rules.
-
-It does not replace root `AGENTS.md`.
+This file adds rules for Phase B research implementation and execution. Routine
+documentation/tooling changes use the reading and verification scope in
+[root AGENTS.md](../AGENTS.md).
 
 If there is a conflict:
 
 1. user instruction for the current task;
 2. root `AGENTS.md`;
-3. active Phase B execution/task/experiment documents;
+3. [restart plan](exec-plans/active/PHASE_B_RESTART.md) for current status and
+   continuation scope, with the applicable Phase B task/experiment contracts;
 4. this addendum;
 5. historical documents.
 
@@ -18,11 +19,13 @@ Do not let historical Phase A/A.1/A.2 plans override the active Phase B plan.
 
 ---
 
-## 1. Work on one task only
+## 1. Stay within authorized research scope
 
-Implement only the explicitly requested `B-Cxxx` task.
+Implement the requested `B-Cxxx` task or explicitly authorized continuation scope.
+Proceed through already authorized tasks when their prerequisites pass without
+requesting approval again at each task boundary.
 
-Completion of one task does not authorize starting the next.
+Completion alone does not authorize additional research interventions.
 
 If a STOP GATE fails, stop dependent work.
 
@@ -206,7 +209,8 @@ Do not add distributed training.
 
 ## 13. Required completion report for each task
 
-After editing, report:
+For a research task, report the applicable evidence below; routine documentation
+and tooling changes use the root guide's completion requirements:
 
 1. task ID;
 2. files changed;

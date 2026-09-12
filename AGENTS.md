@@ -6,33 +6,43 @@ APC (Adaptive Primitive Consolidation) is a continual-learning research prototyp
 separating stable sparse execution, reusable primitives, temporary plastic capacity,
 and functional consolidation. This file is the agent entry point, not a run log.
 
-- Complete the user's requested work without silently broadening scope.
-- Execute only the explicitly requested research task. Completing a task does not
-  authorize the next task, training, candidate selection, or a sealed evaluation.
+- Complete the authorized work, including necessary fixes, verification, and local
+  commit, without asking again for steps already covered by the user's instruction.
+  Explicit user instructions take precedence over repository workflow conventions
+  and skill guidelines; do not infer new research authorization from task completion.
+- Research execution must stay within the task or continuation scope explicitly
+  authorized by the user. Existing continuation permission covers its named work
+  when prerequisites pass; it does not implicitly authorize additional training,
+  candidate selection, or sealed evaluation.
 - On a failed STOP GATE, preserve artifacts, report the failed criterion, record
   an ADR, and stop dependent work. Negative results are valid outputs.
 - Preserve existing uncommitted work and historical measurements.
+- If an instruction blocks requested work, cite its file and exact clause, explain
+  the unmet prerequisite, and continue independent authorized work. Distinguish
+  a scientific STOP GATE from missing permission or an optional recommendation.
 
 ## Find the applicable contract
 
-Find current Phase B progress, active work, and blocked prerequisites first in
-[the restart plan](docs/exec-plans/active/PHASE_B_RESTART.md), then its linked
-task contracts and [decision index](docs/DECISIONS.md), not in this file. A diagnostic
-success or proposed follow-up document does not authorize further work or satisfy
-a recovery/research gate. Verify the applicable prerequisites before execution.
+For routine documentation, tooling, or a local fix that does not change research
+behavior, read the affected files and relevant references. No full research-plan
+review or experiment execution is required.
 
-For research work, identify the exact requested task and read its task-specific
-contract, applicable execution plan, experiment criteria, and agent addendum
-before editing or running experiments. Inserted REC-004 lettered tasks have their
-own contracts; locate them through the decision index. Read relevant prior ADRs
-and adjacent code/tests. Routine documentation or tooling work does not start a
-research task.
+For research implementation, execution, or a status review, start with the relevant
+sections of [the restart plan](docs/exec-plans/active/PHASE_B_RESTART.md) for current
+progress, authorization, and prerequisites. Follow its links to the exact task
+contract, acceptance criteria, and applicable addendum before changing research
+behavior or running experiments. Use the [decision index](docs/DECISIONS.md) for
+relevant prior decisions and inserted REC-004 lettered contracts; do not read the
+entire history by default. A diagnostic success or proposed follow-up alone does
+not authorize execution or satisfy a recovery/research gate.
 
-| Scope | Entry point and reading order |
+Read only the applicable branch and the parent requirements it incorporates:
+
+| Scope | Detailed contract entry point |
 | --- | --- |
-| Model Bundle Recovery | [Execution plan](docs/exec-plans/active/PHASE_B_B2_MODEL_BUNDLE_RECOVERY.md), [tasks](docs/CODEX_TASKS_PHASE_B_B2_MODEL_BUNDLE_RECOVERY.md), [experiment plan](docs/EXPERIMENT_PLAN_PHASE_B_B2_MODEL_BUNDLE_RECOVERY.md), [bundle contract](docs/design-docs/B2_MODEL_BUNDLE_RECOVERY_CONTRACT.md), [agent addendum](docs/AGENTS_PHASE_B_B2_MODEL_BUNDLE_RECOVERY_ADDENDUM.md), [source notes](docs/research/B2_MODEL_BUNDLE_RECOVERY_SOURCE_NOTES.md) |
-| Parent Post-D2 Repair | [Execution plan](docs/exec-plans/active/PHASE_B_B2_POST_D2_REPAIR.md), [tasks](docs/CODEX_TASKS_PHASE_B_B2_POST_D2_REPAIR.md), [experiment plan](docs/EXPERIMENT_PLAN_PHASE_B_B2_POST_D2_REPAIR.md), [agent addendum](docs/AGENTS_PHASE_B_B2_POST_D2_REPAIR_ADDENDUM.md) |
-| Parent Phase B | [Execution plan](docs/exec-plans/active/PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD.md), [tasks](docs/CODEX_TASKS_PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD.md), [experiment plan](docs/EXPERIMENT_PLAN_PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD.md), [agent addendum](docs/AGENTS_PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD_ADDENDUM.md) |
+| Model Bundle Recovery | [Execution plan](docs/exec-plans/active/PHASE_B_B2_MODEL_BUNDLE_RECOVERY.md), [agent addendum](docs/AGENTS_PHASE_B_B2_MODEL_BUNDLE_RECOVERY_ADDENDUM.md) |
+| Parent Post-D2 Repair | [Execution plan](docs/exec-plans/active/PHASE_B_B2_POST_D2_REPAIR.md), [agent addendum](docs/AGENTS_PHASE_B_B2_POST_D2_REPAIR_ADDENDUM.md) |
+| Parent Phase B | [Execution plan](docs/exec-plans/active/PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD.md), [agent addendum](docs/AGENTS_PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD_ADDENDUM.md) |
 
 Parent requirements still apply; recovery does not relax R3/G4 thresholds.
 Phase A/A.1/A.2 documents are historical evidence unless an active contract
@@ -86,9 +96,11 @@ readable Python, explicit serializable configuration, deterministic seeds, and
 concise public API docstrings. Avoid hidden global state, unrelated refactors,
 and optimization without measurements. Preserve CPU-testable logic.
 
-For implementation changes, add meaningful invariant/regression coverage and run
-focused tests while iterating. Before completion, run the standard checks and any
-additional checks required by the active task:
+For implementation changes, use focused tests while iterating and add regression
+coverage for changed behavior or invariants where needed. Before completion, run
+the standard checks below and any checks required by the active task. Running
+these checks and fixing failures caused by the requested change are authorized
+parts of implementation work; they do not authorize research experiments.
 
 ```bash
 python -m pytest -q
@@ -98,8 +110,9 @@ python -m mypy src/apc
 
 For documentation-only changes, check links, consistency, and the diff; no model
 training or full Python suite is needed unless a task explicitly requires it.
-Do not add tests that merely mirror reversible, low-impact edits. Report checks
-not run and their reasons; never present an unexecuted check as passing.
+Do not add tests that merely mirror reversible, low-impact edits. Once required
+checks pass, repeat or broaden testing only for new changes, failures, or unresolved
+concerns. Report checks not run and their reasons; never label them as passing.
 
 Default experiments must fit the single RTX 5060 Ti (16 GB VRAM), 64 GB RAM
 workstation. Keep unit tests lightweight; multi-hour sweeps belong only to explicit
@@ -117,6 +130,9 @@ search, dense-teacher circuit extraction, or neuromorphic work.
   `git status` and diffs before staging to avoid including transient files,
   caches, or unrelated changes. Keep commits local; do not push to remote
   unless explicitly instructed.
+- A failed scientific gate still requires an evidence handoff and a local commit
+  of the task's tracked code/documentation when verification is complete. Preserve
+  gitignored run artifacts in place and report the gate as FAIL, not PASS.
 - Record commit/config/seeds, data and compute budgets, hardware/time/memory,
   parameter accounting, relevant controls, and metrics for meaningful runs as
   specified in the research rules and active experiment contract.
@@ -137,3 +153,8 @@ blocker lists, or chronological histories here. Maintain those in execution plan
 task documents, ADRs, and run artifacts. Keep detailed scientific rules in
 `docs/RESEARCH_EXECUTION_RULES.md` and link to specialized contracts rather than
 duplicating them here.
+
+Keep project skills limited to reusable APC workflows that need non-obvious
+guidance. Use a short, precise description and link conditional detail from
+`SKILL.md`; do not duplicate this guide or turn historical task recipes into
+automatic instructions. Shared installed skills are not project-owned files.

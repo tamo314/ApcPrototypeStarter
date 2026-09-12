@@ -1578,3 +1578,56 @@ Decision: `WARM_START_PILOT_VIABILITY_MET`.
 1. Next authorized step: REC-004AM multi-initialization validation (5 inits under this fixed warm-start recipe) may now be planned and considered.
 2. Candidate adoption and bundle creation remain strictly BLOCKED (`candidate_selected: null`, `child_bundle: null`).
 3. RG3, REC-005, G1, and G4 remain uncleared and BLOCKED.
+
+## ADR-0142: Scope agent guidance to the requested work and preserve research gates
+
+**Date:** 2026-09-13
+
+**Status:** Accepted — documentation and agent-guidance maintenance only.
+
+**Context:** The user requested an audit of project skills and `AGENTS.md` against
+OpenAI's [Rethinking skills and prompts for GPT-6 Astra](https://developers.openai.com/blog/rethinking-skills-and-prompts-for-gpt-6-astra).
+The article recommends precise skill triggers, conditional reference reading,
+and explicit completion and authorization boundaries. The root guide's opening
+research-reading requirement was not clearly scoped away from routine edits.
+Its single-task wording and the three Phase B addenda could also conflict with
+the restart plan's existing explicit continuation permission. Recovery's
+all-task test requirement obscured the root's documentation-only exception.
+
+**Decision:**
+
+- Scope research-contract reading to research implementation, execution, and
+  status review; use affected files and relevant references for routine edits.
+  Route through the applicable execution plan instead of listing every document
+  as an apparent mandatory reading sequence.
+- Honor explicit user scope and existing continuation permission without repeated
+  task-boundary approval. Completion or a diagnostic success alone grants no new
+  research authority. Explain an actual blocker with its file and exact clause.
+- Keep all causal invariants, STOP GATEs, sealed-data boundaries, historical
+  evidence, implementation verification commands, and task-specific checks.
+  A negative research result still receives an evidence handoff; it is never
+  relabeled PASS to satisfy a completion instruction.
+- Centralize verification scope in the root guide. Documentation-only edits need
+  link/consistency/diff checks; new behavior needs appropriate regression coverage.
+  Passing checks need repeating only for new changes or unresolved concerns.
+- No project-owned `SKILL.md` was found in the active checkout, including hidden
+  instruction locations (excluding other worktrees, environments, caches, and
+  generated outputs). Do not create a redundant skill merely to package these
+  repository rules. Shared installed plugin/system skills remain outside this
+  project's ownership. Future project skills should have narrow descriptions and
+  conditional references without duplicating `AGENTS.md`.
+
+**Validation:** Relative file links and anchors in the root and addendum guides
+were checked (23 references across 13 files). The root's entire scientific
+invariants section is unchanged from the preceding commit, and all three standard
+implementation-check commands remain present. Manual scenario review covered a
+documentation edit, an implementation fix, an already authorized continuation,
+a failed scientific gate, and a request with no applicable project skill.
+`git diff --check` passed for the guidance changes. These are static checks and
+instruction review, not a behavioral model evaluation. Pytest, Ruff, mypy,
+training, and evaluations were not run because this change only edits Markdown.
+
+**Consequences:** This maintenance task does not start a research task, change
+any acceptance threshold, clear any recovery/research gate, or expand the user's
+research authorization. Existing changes to `config.json` and `prompts/planner.md`
+are excluded from this commit. Historical contracts and measurements are preserved.

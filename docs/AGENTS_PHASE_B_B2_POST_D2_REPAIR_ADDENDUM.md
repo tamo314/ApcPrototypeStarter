@@ -2,11 +2,11 @@
 
 ## 適用
 
-root `AGENTS.md`を入口とし、本系列のtask / experiment / design文書を現在の詳細仕様とする。古い修正文書の「点推定で早期ACCEPT」「未確定を強制二択」「平均support<64」は本系列の新primary仕様ではない。旧baselineを再現する場合だけ、`legacy`という明示名で保持する。
+[root AGENTS.md](../AGENTS.md)を入口とし、本書はPost-D2 Repairの研究実装・実行に適用する。通常の文書・tooling修正では該当する参照だけを読む。現在地と継続範囲は[再開計画](exec-plans/active/PHASE_B_RESTART.md)、詳細仕様は該当するtask / experiment / design文書を参照する。古い修正文書の「点推定で早期ACCEPT」「未確定を強制二択」「平均support<64」は本系列の新primary仕様ではない。旧baselineを再現する場合だけ、`legacy`という明示名で保持する。
 
 ## 必須規則
 
-1. 一度に一タスク。次へ自動継続しない。未実行・FAIL・UNRESOLVEDをPASSと混ぜない。
+1. 指定taskまたは明示的な継続範囲内で実施する。許可済みの次taskは前提成立を確認して進め、再承認を求めない。範囲外の研究介入や失敗STOP GATEに依存する作業へ進まない。未実行・FAIL・UNRESOLVEDをPASSと混ぜない。
 2. 局所学習はdevelopment、選択はvalidation。封印testでの候補比較・モデル選択・予算調整は禁止。
 3. 既に見た失敗relationは「新しい未見relation」ではない。新seedは独立checkpointの証拠にもならない。
 4. 元のsealed runは診断記録として保存。そこに含まれたsupport/queryをtrainingに再利用しない。既知の失敗構造は新規development例を生成する仮説に使えるが、露出台帳に記録する。
@@ -40,4 +40,4 @@ ADR appended:
 Blocked downstream tasks:
 ```
 
-標準確認は `python -m pytest -q`、`python -m ruff check .`、`python -m mypy src/apc`。実リポジトリに新しいcanonical commandがある場合はそちらを使う。全体pytestが未完了なら完了と書かない。実験結果の定義と分母の検証もコードテストに含める。
+検証コマンドと文書のみの変更の扱いは[root AGENTS.md](../AGENTS.md#implementation-and-verification)に従う。上記報告項目は研究taskに適用し、該当しない項目に架空の値を埋めない。未実行の全体pytestを完了と書かない。実験結果の定義や分母を変更する場合は、その検証もコードテストに含める。
