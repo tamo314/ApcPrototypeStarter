@@ -187,12 +187,37 @@ def test_conditional_promotion_and_release_contract() -> None:
     assert temp_released_b is False
 
 
-def test_shadow_promotion_fault_injection_core_mutation() -> None:
-    ckpt_dir = Path("runs/phase_a1_overcomplete_distillation/checkpoints")
-    ckpt = ckpt_dir / "distill_candidate_SWAP_PAIRS_seed_0.pt"
-    core_ckpt = Path("runs/phase_a1_discovery_capacity_harness/shared_encoder.pt")
-    if not ckpt.exists() or not core_ckpt.exists():
-        pytest.skip("Required checkpoints not found for fault injection test")
+def test_shadow_promotion_fault_injection_core_mutation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apc.evaluation import shadow_promotion as shadow
+    from apc.evaluation import unified_oracle_causal_benchmark as unified
+
+    model = {"d_model": 32, "n_layer": 1, "n_head": 4, "d_ff": 64,
+             "max_seq_len": 48, "dropout": 0.0}
+    arch = unified.build_shared_encoder_architecture(
+        unified.SharedEncoderArchitectureConfig(model=model, device="cpu")
+    )
+    core_ckpt = tmp_path / "core.pt"
+    torch.save(arch.core.model.state_dict(), core_ckpt)
+    bank, _ = unified._build_heterogeneous_bank(
+        unified.UnifiedBenchmarkConfig(model=model, device="cpu")
+    )
+    bank_ckpt = tmp_path / "bank.pt"
+    torch.save(bank.state_dict(), bank_ckpt)
+    candidate = CrossPositionPrimitive(8, CrossPositionPrimitiveConfig(
+        operation="SWAP_PAIRS", d_model=32, d_operator=32, n_head=4,
+        d_operator_ff=64, vocab_size=10,
+        max_sequence_length=ShadowPromotionConfig().max_sequence_length,
+    ))
+    ckpt = tmp_path / "candidate.pt"
+    torch.save({"state_dict": candidate.state_dict()}, ckpt)
+
+    def forbid_training(*args, **kwargs):
+        pytest.fail("Shadow invariant tests must load fixtures without training fallback")
+
+    monkeypatch.setattr(unified, "_train_shared", forbid_training)
+    monkeypatch.setattr(shadow, "_train_single_primitive", forbid_training)
 
     cfg = ShadowPromotionConfig(
         seeds=(0,),
@@ -201,6 +226,9 @@ def test_shadow_promotion_fault_injection_core_mutation() -> None:
         num_composition_eval_examples=5,
         num_novel_eval_examples=5,
         shared_encoder_checkpoint=str(core_ckpt),
+        plastic_bank_checkpoint_pattern=str(bank_ckpt),
+        distill_checkpoint_pattern=str(ckpt),
+        model=model,
         device="cpu",
     )
 
@@ -213,4 +241,3 @@ def test_shadow_promotion_fault_injection_core_mutation() -> None:
     assert report.bank_size_after == report.bank_size_before == 8
     assert report.temp_released_completely is False
     assert report.overall_passed is False
-

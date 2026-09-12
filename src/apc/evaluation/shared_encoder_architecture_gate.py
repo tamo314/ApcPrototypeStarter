@@ -267,12 +267,16 @@ def _build_tokens(config: SharedEncoderArchitectureConfig) -> SharedCoreTokens:
     )
 
 
-def _build_shared_encoder(config: SharedEncoderArchitectureConfig) -> SharedContentEncoder:
+def _build_shared_encoder(
+    config: SharedEncoderArchitectureConfig, *, tokens: SharedCoreTokens | None = None,
+) -> SharedContentEncoder:
     """Construct the ONE fresh, unfrozen content encoder -- called exactly
     once by `build_shared_encoder_architecture`, never once per operation
     (Work item 2)."""
     device = resolve_device(config.device)
-    tokens = _build_tokens(config)
+    tokens = _build_tokens(config) if tokens is None else tokens
+    if tokens.env_vocab_size != config.vocab_size:
+        raise ValueError("Explicit token schema and environment vocabulary disagree")
     model_config = TransformerConfig(vocab_size=tokens.model_vocab_size, **config.model)
     model = DecoderOnlyTransformer(model_config).to(device)
     return SharedContentEncoder(model=model, tokens=tokens, device=device)
@@ -309,12 +313,14 @@ class SharedEncoderArchitecture:
 
 def build_shared_encoder_architecture(
     config: SharedEncoderArchitectureConfig,
+    *,
+    tokens: SharedCoreTokens | None = None,
 ) -> SharedEncoderArchitecture:
     """Build exactly one shared content encoder and one compact operator per
     operation in `config.operation_names`, all wired to that single
-    encoder."""
+    encoder. A verified bundle may supply its original token schema explicitly."""
     set_seed(config.seed)
-    core = _build_shared_encoder(config)
+    core = _build_shared_encoder(config, tokens=tokens)
     # Re-anchor the shared global RNG stream after core construction (ADR-0016
     # pattern), so operator initialization is deterministic regardless of the
     # core's own parameter count.

@@ -220,6 +220,9 @@ def test_valid_bundle_loads_nominal(tmp_path: Path) -> None:
     assert loaded.manifest.bundle_id == bundle.manifest.bundle_id
     assert set(loaded.primitive_state_dicts.keys()) == set(_PRIMITIVE_IDS)
     assert "core_integrity" in loaded.checks_performed
+    assert mb.canonical_state_hash(loaded.vocabulary_state_dict) == (
+        loaded.manifest.vocabulary.canonical_state_hash
+    )
     assert "primitive_integrity_and_core_dependency" in loaded.checks_performed
 
 

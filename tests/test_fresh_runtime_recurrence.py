@@ -6,6 +6,7 @@ import pytest
 import torch
 
 from apc.core.tokens import build_special_tokens
+from apc.evaluation import unified_oracle_causal_benchmark as unified
 from apc.evaluation.fresh_runtime_recurrence import (
     EXPECTED_BANK_SIZE,
     EXPECTED_NOVEL_PRIMITIVE_ID,
@@ -137,12 +138,36 @@ def test_expected_constants() -> None:
     assert UNCONSOLIDATED_CEILING_THRESHOLD == 0.05
 
 
-def test_fresh_runtime_recurrence_fault_injection_core_mutation() -> None:
-    promoted_ckpt = Path("runs/phase_a1_shadow_promotion/seed_0/promoted_bank.pt")
-    core_ckpt = Path("runs/phase_a1_discovery_capacity_harness/shared_encoder.pt")
-    if not promoted_ckpt.exists() or not core_ckpt.exists():
-        pytest.skip("Required checkpoints not found for fault injection test")
+@pytest.mark.parametrize("mutation", [None, "core", "bank"])
+def test_fresh_runtime_recurrence_fault_injection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mutation: str | None,
+) -> None:
+    """Exercise real serialization/evaluation with a tiny, coherent local fixture."""
+    model = {"d_model": 32, "n_layer": 1, "n_head": 4, "d_ff": 64,
+             "max_seq_len": 48, "dropout": 0.0}
+    arch_config = unified.SharedEncoderArchitectureConfig(model=model, device="cpu")
+    arch = unified.build_shared_encoder_architecture(arch_config)
+    core_ckpt = tmp_path / "core.pt"
+    torch.save(arch.core.model.state_dict(), core_ckpt)
+    bank, _ = unified._build_heterogeneous_bank(
+        unified.UnifiedBenchmarkConfig(model=model, device="cpu")
+    )
+    bank.add_primitive(CrossPositionPrimitive(
+        primitive_id=8,
+        config=CrossPositionPrimitiveConfig(
+            operation="SWAP_PAIRS", d_model=32, d_operator=32, n_head=4,
+            d_operator_ff=64, vocab_size=10,
+            max_sequence_length=FreshRuntimeRecurrenceConfig().max_sequence_length,
+        ),
+        status=PrimitiveStatus.STABLE,
+    ))
+    promoted_ckpt = tmp_path / "promoted.pt"
+    torch.save(bank.state_dict(), promoted_ckpt)
 
+    def forbid_training(*args, **kwargs):
+        pytest.fail("Recurrence invariant tests must load the fixture without training fallback")
+
+    monkeypatch.setattr(unified, "_train_shared", forbid_training)
     cfg = FreshRuntimeRecurrenceConfig(
         seeds=(0,),
         novel_operation="SWAP_PAIRS",
@@ -151,36 +176,20 @@ def test_fresh_runtime_recurrence_fault_injection_core_mutation() -> None:
         num_canonical_eval_examples=5,
         num_composition_eval_examples=5,
         shared_encoder_checkpoint=str(core_ckpt),
+        promoted_bank_checkpoint_pattern=str(promoted_ckpt),
+        op_to_id_checkpoint_pattern=str(tmp_path / "absent_op_to_id.json"),
+        plastic_bank_checkpoint_pattern=str(tmp_path / "absent_plastic.pt"),
+        model=model,
         device="cpu",
     )
-
-    # Inject core mutation: should fail invariant and overall pass should be False
-    report = run_fresh_runtime_recurrence_seed(cfg, 0, inject_core_mutation=True)
-    assert report.core_unchanged is False
-    assert report.overall_passed is False
-
-
-def test_fresh_runtime_recurrence_fault_injection_bank_mutation() -> None:
-    promoted_ckpt = Path("runs/phase_a1_shadow_promotion/seed_0/promoted_bank.pt")
-    core_ckpt = Path("runs/phase_a1_discovery_capacity_harness/shared_encoder.pt")
-    if not promoted_ckpt.exists() or not core_ckpt.exists():
-        pytest.skip("Required checkpoints not found for fault injection test")
-
-    cfg = FreshRuntimeRecurrenceConfig(
-        seeds=(0,),
-        novel_operation="SWAP_PAIRS",
-        num_recurrence_eval_examples=5,
-        num_unconsolidated_eval_examples=5,
-        num_canonical_eval_examples=5,
-        num_composition_eval_examples=5,
-        shared_encoder_checkpoint=str(core_ckpt),
-        device="cpu",
+    report = run_fresh_runtime_recurrence_seed(
+        cfg, 0, inject_core_mutation=mutation == "core", inject_bank_mutation=mutation == "bank",
     )
-
-    # Inject bank mutation: should fail bank invariant and overall pass should be False
-    report = run_fresh_runtime_recurrence_seed(cfg, 0, inject_bank_mutation=True)
-    assert report.bank_unchanged is False
-    assert report.overall_passed is False
+    assert report.core_unchanged is (mutation != "core")
+    assert report.bank_unchanged is (mutation != "bank")
+    assert report.adaptation_steps == report.allocated_temporary_parameters == 0
+    if mutation:
+        assert report.overall_passed is False
 
 
 

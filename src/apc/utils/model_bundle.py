@@ -441,6 +441,7 @@ class LoadedModelBundle:
 
     manifest: ModelBundleManifest
     core_state_dict: Mapping[str, torch.Tensor]
+    vocabulary_state_dict: Mapping[str, torch.Tensor]
     primitive_state_dicts: Mapping[int, Mapping[str, torch.Tensor]]
     router_state_dict: Mapping[str, torch.Tensor]
     argument_scorer_state_dict: Mapping[str, torch.Tensor]
@@ -938,6 +939,7 @@ def load_bundle(
     return LoadedModelBundle(
         manifest=manifest,
         core_state_dict=core_state_dict,
+        vocabulary_state_dict=vocab_state_dict,
         primitive_state_dicts=primitive_state_dicts,
         router_state_dict=router_state_dict,
         argument_scorer_state_dict=argument_scorer_state_dict,

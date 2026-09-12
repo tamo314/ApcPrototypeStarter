@@ -78,6 +78,21 @@ This keeps the runtime used for tests aligned with `pyproject.toml`'s
 `requires-python = ">=3.12"`. Recreate `.venv-wsl` with Python 3.12 and
 install `-e ".[dev,plots]"` if its dependencies are absent or stale.
 
+### Restart verification on 2026-09-12
+
+The native `.venv/Scripts/python.exe` now also satisfies Python 3.12 (3.12.13,
+PyTorch 2.13.0+cu130). Saved recovery manifests currently contain absolute Windows
+artifact paths; tests loading those manifests must use the native environment.
+Do not rewrite immutable manifests to make a WSL test pass. The WSL interpreter
+is 3.12.14; its missing declared SciPy dependency was restored to 1.18.1 and
+`uv pip check --python .venv-wsl/bin/python` passed (53 packages).
+
+Use a new, dedicated `--basetemp` under `runs/` when the default pytest temporary
+directory is inaccessible. Windows owner-only temporary-directory permissions
+can also require execution outside the restricted token. These are environment
+constraints, not permission to skip failing tests. Exact verification outcomes
+and commands belong in the [restart plan](exec-plans/active/PHASE_B_RESTART.md).
+
 Minimum verification script:
 
 ```python

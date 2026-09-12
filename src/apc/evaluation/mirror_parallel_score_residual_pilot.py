@@ -42,6 +42,11 @@ from apc.evaluation import mirror_position_bias_repair as mpbr
 from apc.evaluation import mirror_position_initialization_diagnostic as mpid
 from apc.evaluation import mirror_post_attn_residual_pilot as rec004ab
 from apc.evaluation.compact_cross_position_operator_probe import _labels_for_examples
+from apc.evaluation.mirror_attention_metrics import (
+    cvof_parameter_accounting,
+    matched_score_norms,
+    position_statistics,
+)
 from apc.evaluation.model_bundle_recovery import (
     RECOVERY_PILOT_SEED,
     _guard_not_frozen,
@@ -111,8 +116,8 @@ REC004AC_LOCATION_ADVANTAGE_FLOOR: Final = 0.05
 
 REC004AC_POSITION_4: Final = 4
 REC004AC_POSITION_5: Final = 5
-REC004AC_CORRECT_KEY_P4: Final = 4
-REC004AC_CORRECT_KEY_P5: Final = 5
+REC004AC_CORRECT_KEY_P4: Final = mpid.mirror_halves_position_map(10)[REC004AC_POSITION_4]
+REC004AC_CORRECT_KEY_P5: Final = mpid.mirror_halves_position_map(10)[REC004AC_POSITION_5]
 
 REC004AC_PARITY_FIXTURE_EXAMPLES: Final = 512
 REC004AC_FRESH_VALIDATION_EXAMPLES: Final = 1024
@@ -1255,6 +1260,7 @@ def evaluate_length10_metrics(
     delta_s_rms_list: list[float] = []
     delta_s_max_abs_list: list[float] = []
     norm_ratio_list: list[float] = []
+    uncentered_norm_ratio_list: list[float] = []
 
     # Key recall
     top1_correct_count = 0
@@ -1313,34 +1319,24 @@ def evaluate_length10_metrics(
             delta_s = j0_out["delta_s"]  # [b, out_max, lmax]
             s_total = j0_out["s_total"]
 
-            # Norm ratio ||Delta_S|| / ||S_base||
-            delta_s_norm = float(delta_s.norm().item())
-            s_base_norm = float(s_base.norm().item())
-            if s_base_norm > 0:
-                norm_ratio_list.append(delta_s_norm / s_base_norm)
+            norms = matched_score_norms(s_base, delta_s, c_lens)
+            norm_ratio_list.extend(norms["centered"].tolist())
+            uncentered_norm_ratio_list.extend(norms["uncentered"].tolist())
+            position = position_statistics(j0_scores, j0_probs, c_lens, REC004AC_POSITION_4)
+            base_position = position_statistics(s_base, j0_probs, c_lens, REC004AC_POSITION_4)
+            total_position = position_statistics(s_total, j0_probs, c_lens, REC004AC_POSITION_4)
+            ranks = position["rank"]
+            top1_correct_count += int((ranks <= 1).sum().item())
+            top3_correct_count += int((ranks <= 3).sum().item())
+            top5_correct_count += int((ranks <= 5).sum().item())
 
             delta_s_rms_list.append(float(torch.sqrt(torch.mean(delta_s**2)).item()))
             delta_s_max_abs_list.append(float(torch.max(torch.abs(delta_s)).item()))
 
             for b in range(b_size):
-                p4_scores = j0_scores[b, :, REC004AC_POSITION_4, :]
-                p4_correct_score = p4_scores[:, REC004AC_CORRECT_KEY_P4]
-                p4_wrong = p4_scores.clone()
-                p4_wrong[:, REC004AC_CORRECT_KEY_P4] = -torch.inf
-                p4_margin = (p4_correct_score - torch.max(p4_wrong, dim=-1).values).mean().item()
-                j0_p4_score_margins.append(float(p4_margin))
-                p4_prob = j0_probs[b, :, REC004AC_POSITION_4, REC004AC_CORRECT_KEY_P4].mean().item()
-                j0_p4_score_probs.append(float(p4_prob))
-                p4_ranks = (p4_wrong > p4_correct_score.unsqueeze(-1)).sum(dim=-1) + 1
-                mean_p4_rank = float(p4_ranks.float().mean().item())
-                j0_p4_correct_key_ranks.append(mean_p4_rank)
-
-                if mean_p4_rank <= 1.5:
-                    top1_correct_count += 1
-                if mean_p4_rank <= 3.5:
-                    top3_correct_count += 1
-                if mean_p4_rank <= 5.5:
-                    top5_correct_count += 1
+                j0_p4_score_margins.append(float(position["margin"][b].mean().item()))
+                j0_p4_score_probs.append(float(position["probability"][b].mean().item()))
+                j0_p4_correct_key_ranks.append(float(position["rank"][b].float().mean().item()))
 
                 # Attention entropy for position 4
                 p_dist = j0_probs[b, :, REC004AC_POSITION_4, :]  # [n_head, lmax]
@@ -1357,19 +1353,10 @@ def evaluate_length10_metrics(
                 j0_output_token_margins.append(float(tok_margin))
 
                 # Score decomposition for position 4
-                base_p4 = s_base[b, :, REC004AC_POSITION_4, :]
-                base_c = base_p4[:, REC004AC_CORRECT_KEY_P4]
-                base_w = base_p4.clone()
-                base_w[:, REC004AC_CORRECT_KEY_P4] = -torch.inf
-                base_m = (base_c - torch.max(base_w, dim=-1).values).mean().item()
-                base_margins.append(float(base_m))
-
-                tot_p4 = s_total[b, :, REC004AC_POSITION_4, :]
-                tot_c = tot_p4[:, REC004AC_CORRECT_KEY_P4]
-                tot_w = tot_p4.clone()
-                tot_w[:, REC004AC_CORRECT_KEY_P4] = -torch.inf
-                tot_m = (tot_c - torch.max(tot_w, dim=-1).values).mean().item()
-                total_margins.append(float(tot_m))
+                base_m = float(base_position["margin"][b].mean().item())
+                tot_m = float(total_position["margin"][b].mean().item())
+                base_margins.append(base_m)
+                total_margins.append(tot_m)
                 residual_margin_contributions.append(float(tot_m - base_m))
 
     return {
@@ -1381,9 +1368,9 @@ def evaluate_length10_metrics(
         "j0_p4_score_prob_median": float(np.median(j0_p4_score_probs)),
         "j0_p4_correct_key_rank_mean": float(np.mean(j0_p4_correct_key_ranks)),
         "j0_p4_correct_key_rank_median": float(np.median(j0_p4_correct_key_ranks)),
-        "j0_p4_top1_key_recall": top1_correct_count / n_total,
-        "j0_p4_top3_key_recall": top3_correct_count / n_total,
-        "j0_p4_top5_key_recall": top5_correct_count / n_total,
+        "j0_p4_top1_key_recall": top1_correct_count / (n_total * primitive.n_head),
+        "j0_p4_top3_key_recall": top3_correct_count / (n_total * primitive.n_head),
+        "j0_p4_top5_key_recall": top5_correct_count / (n_total * primitive.n_head),
         "j0_p4_attention_entropy_mean": float(np.mean(j0_attn_entropies)),
         "j0_p4_output_token_margin_mean": float(np.mean(j0_output_token_margins)),
         "o1_sequence_em": o1_seq_matches / n_total,
@@ -1398,7 +1385,11 @@ def evaluate_length10_metrics(
             "residual_margin_contribution_median": float(np.median(residual_margin_contributions)),
             "delta_s_rms_mean": float(np.mean(delta_s_rms_list)),
             "delta_s_max_abs_mean": float(np.mean(delta_s_max_abs_list)),
-            "norm_ratio_mean": float(np.mean(norm_ratio_list)) if norm_ratio_list else 0.0,
+            "norm_ratio_mean": float(np.mean(norm_ratio_list)) if norm_ratio_list else None,
+            "uncentered_matched_norm_ratio_mean": (
+                float(np.mean(uncentered_norm_ratio_list))
+                if uncentered_norm_ratio_list else None
+            ),
         },
     }
 
@@ -2310,11 +2301,7 @@ def run_mirror_parallel_score_residual_pilot_task(
     # Cost accounting
     cost_accounting = {
         "task_id": REC004AC_TASK_ID,
-        "added_resident_parameters": 256,
-        "total_resident_parameters_model": sum(p.numel() for p in residual_model.parameters()),
-        "active_trainable_parameters": sum(
-            p.numel() for p in residual_model.parameters() if p.requires_grad
-        ),
+        **cvof_parameter_accounting(residual_model),
         "wall_clock_training_seconds": train_duration,
         "peak_vram_mb": (
             float(torch.cuda.max_memory_allocated(device) / (1024 * 1024))

@@ -493,5 +493,227 @@ The pilot investigated whether this pre-transition trust-region constraint prese
   - **Directs Next Research Stage:** Pure low-rank linear bypasses are exhausted. Next repair design must consider temperature/scale modulation of base scores, non-linear score routing gates, or structured multi-stage unfreezing schedules under task-blind constraints.
   - **Strict STOP Boundary Enforced:** Task B-C005REC-004AC completed. No candidate training, child bundle creation, candidate selection, RG3 recheck, or REC-005 transition.
 
+## ADR-0126: Phase B Blocker Audit Finds REC-004AC Attention Metric Coordinate Error
+
+**Date:** 2026-09-12
+
+**Status:** Accepted (user-requested inspection of Phase B progress and unblock strategy;
+documentation and read-only evidence audit, not execution of REC-004AD or another research task).
+
+**Decision:** Prioritize correction and artifact-only reanalysis of REC-004AC's attention
+metrics before selecting another repair intervention. Preserve its EM-based negative
+result and all recovery/research blocks. Narrow ADR-0125's causal and representational
+claims to the conditions actually measured; do not rewrite its historical entry.
+
+**Evidence:** At source commit `6f54fdfe1639d44a466f05eab7061d813034749e`,
+`mirror_parallel_score_residual_pilot.py:114-115` declares correct keys at output
+positions 4/5 as 4/5. The actual MIRROR_HALVES operation on length 10 maps those
+positions to input keys 0/9. The independent operation call on unique input tokens
+and comparison with Z/AA/AB's correct constants confirm the mismatch. AC's
+`evaluate_length10_metrics` uses the erroneous P4 key for score margin, probability,
+rank, recall and base/total/residual margin decomposition. A synthetic ideal score
+row with true margin +10 is reported as -10 under AC's coordinate. P5's erroneous
+constant is currently unused outside its declaration.
+
+J0/O1 sequence EM and token accuracy use target tokens, and O1 constructs attention
+with the correct `mirror_halves_position_map`. Compatibility/plasticity/strong-floor
+and location-advantage predicates use these EM/accuracy fields. Thus the coordinate
+bug does not itself invalidate their measured failure: AC normal EM=0.7646484375,
+length-10 J0 EM=0.080078125, O1 EM=1.0, plasticity gate=false. Corrected checkpoint
+attention metrics are NOT_RECOMPUTED in this inspection.
+
+Two further reporting issues were verified: thresholding the mean of head ranks
+at 1.5/3.5/5.5 is not ordinary top-k recall; and counting `requires_grad` includes
+parameters zeroed/restored by the freeze procedure. The saved AC primitive has
+24,746 resident scalars, of which 13,568 correspond to frozen/restored CVOF masks,
+leaving 11,178 update-eligible scalars. These are primitive-only counts, excluding
+Core and the other 15 primitives. Legacy-relative added capacity 7,456 is not the
+model total. The raw score norm ratio also compares a headless residual with a
+four-head base; functional comparison should use matched shapes/masks and row
+centering. Q/K, Key prep and position bias train, so `S_base` itself is not frozen.
+
+**Consequences:** The wrong-key score margin cannot establish a base-score attractor
+or a repair priority. A single I03 rank-4, 500-update negative pilot does not prove
+low-rank adaptations structurally incapable in general. Earlier evidence for
+downstream compatibility preservation and J0 insufficiency remains useful. Proposed
+follow-up: correct the observer and accounting, reproduce stored inputs/checkpoints
+without optimizer updates, then preregister one supported repair hypothesis. Any
+new recipe must explicitly connect pilot validation to all-init validation,
+candidate adoption, full-bundle RG3 and the separate REC-005 cohort; diagnostic
+completion alone is not admission to those steps. No threshold or selection rule
+is relaxed, no passing initialization is cherry-picked, and G1 relation sufficiency
+and G4 integration remain independent prerequisites for the eventual sealed G5.
+
+**Artifacts and validation:**
+`runs/phase_b_blocker_audit/20260912/run_001/{audit.py,audit.json}` records 28 historical
+summary files plus selected source/decision/checkpoint hashes, the operation and
+recall counterexamples, and tensor-count audit. Executed with Python 3.12.13;
+assertions pass and hashed historical files remain unchanged. Zero model forward
+calls, optimizer updates, candidate selections, bundle writes or sealed-data reads.
+Documentation links and diff checked; full pytest/ruff/mypy not run because no
+product implementation changed.
+
+**Affected documents:**
+[audit and proposed unblock sequence](research/PHASE_B_BLOCKER_AUDIT_2026_09_12.md),
+[active recovery plan](exec-plans/active/PHASE_B_B2_MODEL_BUNDLE_RECOVERY.md), and
+[decision index](DECISIONS.md). RG3/REC-005 onward, R3-011/012, B-C006 and Task
+Inference remain blocked. This ADR authorizes no follow-on experiment.
 
 
+## ADR-0127: Consolidate Phase B Planning and Resume Under Explicit User Instruction
+
+**Date:** 2026-09-12
+
+**Status:** Accepted; planning reorganization and REC-004AC metric_v2 correction authorized by the user's instruction to reorganize Phase B and then resume it.
+
+**Decision:** Use [PHASE_B_RESTART.md](exec-plans/active/PHASE_B_RESTART.md) as the single current status/dependency ledger. Existing Phase B, R3, and REC plans remain technical and historical contracts. Completed REC-004 lettered diagnostics are evidence, not an automatic execution queue. The user's continuation instruction supersedes historical per-task reauthorization wording for work explicitly specified in the restart plan, while all scientific STOP GATEs, sealed boundaries, thresholds, and source-preservation rules remain in force.
+
+**Immediate work:** Correct REC-004AC attention-coordinate/recall/norm/accounting metrics and reanalyze existing endpoints on manifest-identical data without optimization or candidate selection. Only after that evidence is available may a bounded intervention be preregistered in the same plan. Its scientific failure stops dependent work; this decision does not promise a passing recovery or permit unlimited search.
+
+**Consequences:** Separate MIRROR/bundle recovery, integration quality, and relation-holdout sufficiency. Preserve previous outcomes and uncommitted audit work. Add navigation pointers to parent plans/task packs and update AGENTS only for the canonical document entry point. No historical task IDs are renumbered, no old runs are overwritten, and no research gate is relaxed.
+
+## ADR-0128: Correct AC Measurements and Pin Parent Vocabulary During Runtime Reconstruction
+
+**Date:** 2026-09-12
+
+**Status:** Accepted. Measurement reanalysis and focused regressions PASS; final repository
+verification is recorded in the [restart plan](exec-plans/active/PHASE_B_RESTART.md).
+
+**Decision:** Correct REC-004AC's evaluation-only coordinates, head-level recall,
+matched/centered score norm ratio, and parameter accounting. Preserve the model forward,
+stored weights, original development splits and EM-based negative result. Reconstruct
+the content runtime with the vocabulary state already verified by the strict bundle
+loader, rather than sizing its vocabulary from the current global operation registry.
+
+**Measurement evidence:**
+`runs/phase_b_restart/rec004ac_metric_v2/run_002/` reproduces the complete original AC
+data manifest and evaluates AC@8000, historical/W/Z/AA/AB comparators and the specified
+AC@7500 migration. All comparator EMs match their historical JSONs. Old/new AC
+predictions are identical. The reanalysis took 379.19 seconds with Python 3.12.13,
+PyTorch 2.13.0+cu130 and the RTX 5060 Ti. No optimizer was constructed; source hashes,
+Core/bank weights and target weights remain unchanged. The failed `run_001` (a
+comparator evaluator method-name error) remains preserved.
+
+On the 512-example length-10 confirmation set, corrected P4 key 0 gives margin
+median −30.8355989456, correct-key probability median 1.0562095554e−7, mean head
+rank 8.4541015625, and top-1/top-3/top-5 head recall all zero. The median residual
+margin contribution is −0.0002880096; the centered, matched-head norm ratio is
+0.0003876730. Normal EM remains 0.7646484375, length-10 J0 EM 0.080078125, and O1 EM
+1.0. The target has 24,746 resident/execution parameters; the original CVOF recipe
+freezes/restores 13,568 and leaves 11,178 update-eligible. Added capacity is 256
+relative to Z, or 7,456 relative to the legacy primitive. These are target-only
+counts; the read-only reanalysis updates no parameters.
+
+The explicit initial forward-parity supplement has zero discrete mismatches,
+zero residual, maximum probability difference 1.55e−6 and maximum logit difference
+3.10e−5, within the original tolerances. It was executed after the main run and is
+identified separately by `initial_parity.json` and `supplemental_validation.json`.
+`report.md` is a later rendering of saved results, not a rerun or replacement of
+the main run's source snapshot.
+
+**Runtime/verification defects discovered:** Full test collection imports
+`holdout_families`, registering five additional operations. The old constructor
+therefore built a 49-token Core for a verified 44-token parent (18 recorded
+operations versus 23 currently registered). This affected 17 artifact-dependent
+checks while isolated execution passed. The strict loader now exposes its already
+verified vocabulary state, and REC-004 reconstruction validates its integer fields,
+offsets and Core row counts before explicitly injecting that schema. It does not
+resize checkpoint tensors, relax loading, modify the registry or infer missing data.
+A CPU regression demonstrates unchanged content states under registry growth and
+rejects missing/inconsistent schemas. This is a content-runtime fix; it does not
+certify the future learned router's operation-token mapping or complete REC-006.
+
+The complete reanalysis was repeated with `holdout_families` imported after this
+fix: `runs/phase_b_restart/rec004ac_metric_v2/run_003/` PASS in 359.38 seconds.
+Its runtime check records 23 globally registered operations, 18 parent operations
+and a 44-token Core. The complete original data manifest, every comparator EM,
+initial migration and source/weight preservation checks pass again; the corrected
+metrics above are unchanged. This is the current reanalysis result. An earlier
+supplement initialization attempt passed a checkpoint container instead of its
+`primitive_state_dict`; it performed no metric forward and remains recorded as
+`runtime_schema_supplement_001/summary.json` with `FAIL_INITIALIZATION`.
+
+Older Phase A recurrence/shadow fault-injection tests also silently retrained when
+a 39-token historical Core was loaded under a newer vocabulary. They now serialize
+small coherent local fixtures, exercise the actual invariant/promotion paths and
+forbid training fallback. The historical experiments are unchanged. A directory
+enumeration assertion now sorts both sides instead of assuming Windows ordering.
+Pre-existing Z lint violations were formatted without changing its AST, including
+string contents (`runs/phase_b_restart/format_equivalence.json`). The WSL SciPy
+dependency was restored; Windows-manifest tests use qualified native Python 3.12.
+
+Final verification covers all 2,514 collected cases: 977 native passes before an
+interpreter access violation, 1,536 native passes in a resumed process, and the
+interrupted pure-data test passing in WSL. The case-ID union was checked exactly;
+no case was omitted. The monolithic native run itself did not pass, and its crash
+cause remains unresolved. Full collection was retained on resume to preserve
+registry-import effects. Ruff, mypy (162 files), local links and diff checks pass.
+Logs and the qualified result are recorded under
+`runs/phase_b_restart/verification_coverage_result.json` and restart plan §8.
+
+**Interpretation and boundary:** The corrected residual has a negative contribution
+at the failing key. Small norm alone is not proof that amplification repairs it,
+nor that low-rank learning is impossible. The restart plan preregisters four fixed
+global scale conditions as a no-training precheck. Candidate selection, child
+bundles, all-init expansion, RG3 and REC-005 remain unexecuted. G1 relation
+sufficiency and G4 integration are independent unresolved requirements.
+
+## ADR-0129: Fixed Global Score Rescaling Fails MIRROR Endpoint Recovery
+
+**Date:** 2026-09-12
+
+**Status:** Completed negative precheck; `execution_status: PASS`, `research_gate: FAIL_STOP`.
+
+**Contract:** The [restart plan §6](exec-plans/active/PHASE_B_RESTART.md#6-次の介入-mirror-score-scale-precheck事前登録)
+fixed four conditions before execution: `S = alpha * S_base + beta * DeltaS`
+on saved AC I03@8000, with all parameters frozen and no optimizer. It uses only
+the seven already reproduced development datasets, including normal validation
+1024 and length-10 confirmation 512. No new split, sealed evaluation, coefficient
+search or training was permitted. The execution-order note was changed before
+observing these results to allow this read-only precheck alongside the remaining
+full repository suite, after the complete metric_v2 rerun and schema regressions
+passed. Scientific thresholds and conditions were unchanged; final repository
+verification remains required for closing the restart work.
+
+**Results:**
+
+| Condition | alpha | beta | Normal J0 EM | Length-10 J0 EM | Minimum O1 EM |
+|---|---:|---:|---:|---:|---:|
+| Baseline | 1 | 1 | 0.7646484375 | 0.080078125 | 0.998046875 |
+| Base temperature | 0.125 | 1 | 0.0 | 0.0 | 0.998046875 |
+| Residual amplification | 1 | 1000 | 0.0419921875 | 0.0 | 0.998046875 |
+| Combined | 0.125 | 1000 | 0.0 | 0.0 | 0.998046875 |
+
+No condition meets the simultaneous 0.95 normal/length-10 execution floors.
+Baseline discrete predictions and historical EMs agree; maximum baseline logit
+difference is 3.7431717e−5, within 1e−4. O1 predictions are identical across
+conditions. Core, the parent bank and the separate AC primitive retain their
+state hashes; all input/source hashes are unchanged. The registered study used
+zero optimizer updates, zero new parameters and zero selections, taking 2.3864
+seconds with peak allocated VRAM 60,725,760 bytes (about 57.9 MiB). The target has
+24,746 resident/execution scalars; the Core has 1,797,504 resident scalars and the
+parent bank 280,080 resident scalars, with no parent-bank execution.
+
+**Interpretation:** These three fixed rescalings degrade this endpoint. The
+measured small residual norm does not justify treating its amplification as a
+repair. This finite inference precheck does not rule out other coefficients,
+training with a different scale, or a different score representation, and it
+does not establish that rank-4 learning is impossible. Those possibilities are
+unexecuted hypotheses, not successful recovery evidence.
+
+**Stop and remaining work:** Close this fixed-global-scale repair attempt.
+Do not append more coefficients or auto-launch 500-step training. A subsequent
+repair contract would need to explain how it changes the failing key ordering
+while preserving the working value path, and connect a bounded pilot to all-init
+validation, the fixed I01 adoption rule and full-bundle RG3. No candidate,
+child bundle, RG3 recheck or REC-005 was produced. G1 and G4 remain independent
+unresolved requirements in the single restart plan.
+
+**Artifacts:** `runs/phase_b_restart/mirror_score_scale_precheck/run_001/`
+contains the preregistration/source hashes, data digests and counts, source
+snapshot, system record, all condition/split metrics, summary, side-effect audit
+and report. Historical AC artifacts and ADR-0125 were preserved.
+The separately labelled `post_run_source/manifest.json` records the final source
+snapshot and working-tree patch after report/guard additions. It does not replace
+the original preregistration hashes or claim those later additions were executed
+in the recorded precheck.

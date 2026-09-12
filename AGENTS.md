@@ -15,8 +15,9 @@ and functional consolidation. This file is the agent entry point, not a run log.
 
 ## Find the applicable contract
 
-Find current progress, active work, and blocked prerequisites in the execution
-plans and [decision index](docs/DECISIONS.md), not in this file. A diagnostic
+Find current Phase B progress, active work, and blocked prerequisites first in
+[the restart plan](docs/exec-plans/active/PHASE_B_RESTART.md), then its linked
+task contracts and [decision index](docs/DECISIONS.md), not in this file. A diagnostic
 success or proposed follow-up document does not authorize further work or satisfy
 a recovery/research gate. Verify the applicable prerequisites before execution.
 

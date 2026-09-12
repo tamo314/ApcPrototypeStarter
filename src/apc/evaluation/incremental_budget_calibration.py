@@ -51,6 +51,7 @@ import torch
 import torch.nn.functional as F
 
 from apc.core.data import IGNORE_INDEX, collate_content_only_batch
+from apc.core.tokens import SharedCoreTokens, build_shared_core_tokens
 from apc.environments.generator import Example, OracleMetadata, Program, ProgramStep
 from apc.environments.interpreter import run_program
 from apc.environments.operations import (
@@ -335,6 +336,27 @@ def _single_bank_path(manifest: mb.ModelBundleManifest) -> str:
     return next(iter(artifacts))
 
 
+def _tokens_from_loaded_bundle(loaded: mb.LoadedModelBundle) -> SharedCoreTokens:
+    """Use the verified parent vocabulary, independent of later operation imports."""
+    values: dict[str, int] = {}
+    for name in ("vocab_size", "num_operations", "arg_span", "op_base", "arg_base"):
+        tensor = loaded.vocabulary_state_dict.get(name)
+        if tensor is None or tensor.numel() != 1 or tensor.dtype not in (torch.int32, torch.int64):
+            raise mb.SchemaMismatchError(f"parent vocabulary has no integer scalar {name}")
+        values[name] = int(tensor.item())
+    if values["vocab_size"] != 10 or values["num_operations"] < 1 or values["arg_span"] < 1:
+        raise mb.SchemaMismatchError("invalid vocabulary for the REC-004 content runtime")
+    tokens = build_shared_core_tokens(
+        values["vocab_size"], num_operations=values["num_operations"], arg_span=values["arg_span"],
+    )
+    if tokens.op_base != values["op_base"] or tokens.arg_base != values["arg_base"]:
+        raise mb.SchemaMismatchError("parent vocabulary offsets disagree with its token schema")
+    for name in ("token_emb.weight", "head.weight"):
+        if loaded.core_state_dict[name].shape[0] != tokens.model_vocab_size:
+            raise mb.SchemaMismatchError(f"parent vocabulary size disagrees with Core {name}")
+    return tokens
+
+
 def _reconstruct_parent_runtime(
     config: IncrementalBudgetCalibrationConfig, parent_manifest: mb.ModelBundleManifest
 ) -> tuple[Any, Any, dict[str, int]]:
@@ -346,7 +368,7 @@ def _reconstruct_parent_runtime(
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     arch_cfg = SharedEncoderArchitectureConfig(seed=config.seed, vocab_size=10, device=str(device))
-    arch = build_shared_encoder_architecture(arch_cfg)
+    arch = build_shared_encoder_architecture(arch_cfg, tokens=_tokens_from_loaded_bundle(loaded))
     core = arch.core
     core.model.load_state_dict(loaded.core_state_dict)
     core.model.to(device)

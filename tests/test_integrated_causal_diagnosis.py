@@ -476,4 +476,4 @@ def test_run_integrated_causal_diagnosis_without_output_dir_writes_nothing(tmp_p
     )
     report = run_integrated_causal_diagnosis(config)
     assert report["task_id"] == "B-C005D2-006"
-    assert list(tmp_path.iterdir()) == [tmp_path / name for name in sorted(fixtures)]
+    assert sorted(tmp_path.iterdir()) == [tmp_path / name for name in sorted(fixtures)]

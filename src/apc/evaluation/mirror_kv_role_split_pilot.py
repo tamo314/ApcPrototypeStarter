@@ -217,12 +217,12 @@ class RoleSplitCrossPositionLengthBiasPrimitive(CrossPositionLengthBiasPrimitive
 
         content_lengths_t = torch.tensor(content_lengths, device=device).view(batch, 1, 1)
         p_idx_long = torch.arange(lmax, device=device).view(1, 1, lmax)
-        pad_mask = (p_idx_long >= content_lengths_t).unsqueeze(1).expand(
-            batch, self.n_head, out_max, lmax
+        pad_mask = (
+            (p_idx_long >= content_lengths_t).unsqueeze(1).expand(batch, self.n_head, out_max, lmax)
         )
-        attn_mask = torch.where(
-            pad_mask, torch.tensor(float("-inf"), device=device), bias
-        ).reshape(batch * self.n_head, out_max, lmax)
+        attn_mask = torch.where(pad_mask, torch.tensor(float("-inf"), device=device), bias).reshape(
+            batch * self.n_head, out_max, lmax
+        )
 
         attn_out, _ = self.cross_attn(query, k_in, v_in, attn_mask=attn_mask, need_weights=False)
         hidden = self.attn_norm(query + attn_out)
@@ -243,9 +243,9 @@ def evaluate_role_split_forward_with_stages(
     out_max = max(output_lengths)
 
     content_position_ids = torch.arange(lmax, device=device).unsqueeze(0).expand(batch, lmax)
-    k_in = primitive.key_content_in_proj(content_features) + primitive.key_content_position_embedding(
-        content_position_ids
-    )
+    k_in = primitive.key_content_in_proj(
+        content_features
+    ) + primitive.key_content_position_embedding(content_position_ids)
     v_in = primitive.content_in_proj(content_features) + primitive.content_position_embedding(
         content_position_ids
     )
@@ -466,7 +466,10 @@ def prepare_rec004z_datasets(seed: int) -> tuple[dict[str, list[Example]], dict[
         "task_id": REC004Z_TASK_ID,
         "seed": seed,
         "continuity_splits": {
-            s: {"n_examples": len(datasets[s]), "dataset_digest": _dataset_digest(_digest_examples(datasets[s]))}
+            s: {
+                "n_examples": len(datasets[s]),
+                "dataset_digest": _dataset_digest(_digest_examples(datasets[s])),
+            }
             for s in REC004Z_CONTINUITY_SPLITS
         },
         "parity_fixture": {
@@ -601,11 +604,21 @@ def create_role_split_primitive_and_optimizer(
             {
                 "source_parameter": src_name,
                 "target_parameter": dst_name,
-                "source_param_hash": hashlib.sha256(src_p.detach().cpu().numpy().tobytes()).hexdigest(),
-                "target_param_hash": hashlib.sha256(dst_p.detach().cpu().numpy().tobytes()).hexdigest(),
-                "source_exp_avg_hash": hashlib.sha256(src_st["exp_avg"].detach().cpu().numpy().tobytes()).hexdigest(),
-                "target_exp_avg_hash": hashlib.sha256(optimizer.state[dst_p]["exp_avg"].detach().cpu().numpy().tobytes()).hexdigest(),
-                "step_counter": int(src_st["step"].item()) if isinstance(src_st["step"], torch.Tensor) else int(src_st["step"]),
+                "source_param_hash": hashlib.sha256(
+                    src_p.detach().cpu().numpy().tobytes()
+                ).hexdigest(),
+                "target_param_hash": hashlib.sha256(
+                    dst_p.detach().cpu().numpy().tobytes()
+                ).hexdigest(),
+                "source_exp_avg_hash": hashlib.sha256(
+                    src_st["exp_avg"].detach().cpu().numpy().tobytes()
+                ).hexdigest(),
+                "target_exp_avg_hash": hashlib.sha256(
+                    optimizer.state[dst_p]["exp_avg"].detach().cpu().numpy().tobytes()
+                ).hexdigest(),
+                "step_counter": int(src_st["step"].item())
+                if isinstance(src_st["step"], torch.Tensor)
+                else int(src_st["step"]),
                 "status": "EXACT_CLONED",
             }
         )
@@ -661,11 +674,21 @@ def verify_role_split_initial_parity(
             direct_ref_logits = reference_7500(h, c_lens, o_lens, None)
             direct_role_logits = role_split_model(h, c_lens, o_lens, None)
 
-            s_diff = float(torch.max(torch.abs(role_out["score_logits"] - ref_out["score_logits"])).item())
-            p_diff = float(torch.max(torch.abs(role_out["attn_probs"] - ref_out["attn_probs"])).item())
+            s_diff = float(
+                torch.max(torch.abs(role_out["score_logits"] - ref_out["score_logits"])).item()
+            )
+            p_diff = float(
+                torch.max(torch.abs(role_out["attn_probs"] - ref_out["attn_probs"])).item()
+            )
             ao_diff = float(torch.max(torch.abs(role_out["attn_out"] - ref_out["attn_out"])).item())
-            pf_diff = float(torch.max(torch.abs(role_out["post_ffn_rep"] - ref_out["post_ffn_rep"])).item())
-            l_diff = float(torch.max(torch.abs(role_out["final_token_logits"] - ref_out["final_token_logits"])).item())
+            pf_diff = float(
+                torch.max(torch.abs(role_out["post_ffn_rep"] - ref_out["post_ffn_rep"])).item()
+            )
+            l_diff = float(
+                torch.max(
+                    torch.abs(role_out["final_token_logits"] - ref_out["final_token_logits"])
+                ).item()
+            )
             direct_diff = float(torch.max(torch.abs(direct_role_logits - direct_ref_logits)).item())
 
             max_score_diff = max(max_score_diff, s_diff)
@@ -748,12 +771,16 @@ def verify_role_split_gradient_path_isolation(
 
     j0_key_in_proj_grad_norm = float(model.key_content_in_proj.weight.grad.norm().item())
     j0_key_pos_emb_grad_norm = float(model.key_content_position_embedding.weight.grad.norm().item())
-    j0_k_proj_grad_norm = float(model.cross_attn.in_proj_weight.grad[embed_dim : 2 * embed_dim].norm().item())
+    j0_k_proj_grad_norm = float(
+        model.cross_attn.in_proj_weight.grad[embed_dim : 2 * embed_dim].norm().item()
+    )
     j0_val_in_proj_grad_norm = float(model.content_in_proj.weight.grad.norm().item())
 
     # 2. O1 Oracle Attention forward gradients
     model.zero_grad(set_to_none=True)
-    o1_out = evaluate_role_split_forward_with_stages(model, h, c_lens, o_lens, oracle_attention=True)
+    o1_out = evaluate_role_split_forward_with_stages(
+        model, h, c_lens, o_lens, oracle_attention=True
+    )
     o1_logits = o1_out["final_token_logits"]
     o1_loss = F.cross_entropy(
         o1_logits.reshape(-1, o1_logits.size(-1)), labels.reshape(-1), ignore_index=IGNORE_INDEX
@@ -791,7 +818,9 @@ def verify_role_split_gradient_path_isolation(
         if model.cross_attn.out_proj.weight.grad is not None
         else 0.0
     )
-    o1_ffn_grad_norm = float(sum(p.grad.norm().item() for p in model.ffn.parameters() if p.grad is not None))
+    o1_ffn_grad_norm = float(
+        sum(p.grad.norm().item() for p in model.ffn.parameters() if p.grad is not None)
+    )
 
     tolerance = 1e-12
     j0_key_active = (j0_key_in_proj_grad_norm > 0.0) and (j0_k_proj_grad_norm > 0.0)
@@ -890,10 +919,26 @@ def evaluate_length10_metrics_role_split(
 
             j0_seq_matches += int(torch.all(j0_preds == target_tokens, dim=-1).sum().item())
             o1_seq_matches += int(torch.all(o1_preds == target_tokens, dim=-1).sum().item())
-            j0_p4_matches += int((j0_preds[:, REC004Z_POSITION_4] == target_tokens[:, REC004Z_POSITION_4]).sum().item())
-            j0_p5_matches += int((j0_preds[:, REC004Z_POSITION_5] == target_tokens[:, REC004Z_POSITION_5]).sum().item())
-            o1_p4_matches += int((o1_preds[:, REC004Z_POSITION_4] == target_tokens[:, REC004Z_POSITION_4]).sum().item())
-            o1_p5_matches += int((o1_preds[:, REC004Z_POSITION_5] == target_tokens[:, REC004Z_POSITION_5]).sum().item())
+            j0_p4_matches += int(
+                (j0_preds[:, REC004Z_POSITION_4] == target_tokens[:, REC004Z_POSITION_4])
+                .sum()
+                .item()
+            )
+            j0_p5_matches += int(
+                (j0_preds[:, REC004Z_POSITION_5] == target_tokens[:, REC004Z_POSITION_5])
+                .sum()
+                .item()
+            )
+            o1_p4_matches += int(
+                (o1_preds[:, REC004Z_POSITION_4] == target_tokens[:, REC004Z_POSITION_4])
+                .sum()
+                .item()
+            )
+            o1_p5_matches += int(
+                (o1_preds[:, REC004Z_POSITION_5] == target_tokens[:, REC004Z_POSITION_5])
+                .sum()
+                .item()
+            )
 
             j0_scores = j0_out["score_logits"]
             j0_probs = j0_out["attn_probs"]
@@ -904,7 +949,9 @@ def evaluate_length10_metrics_role_split(
                 p4_wrong[:, REC004Z_CORRECT_KEY_P4] = -torch.inf
                 p4_margin = (p4_correct_score - torch.max(p4_wrong, dim=-1).values).mean().item()
                 j0_p4_score_margins.append(float(p4_margin))
-                j0_p4_score_probs.append(float(j0_probs[b, :, REC004Z_POSITION_4, REC004Z_CORRECT_KEY_P4].mean().item()))
+                j0_p4_score_probs.append(
+                    float(j0_probs[b, :, REC004Z_POSITION_4, REC004Z_CORRECT_KEY_P4].mean().item())
+                )
                 p4_ranks = (p4_wrong > p4_correct_score.unsqueeze(-1)).sum(dim=-1) + 1
                 j0_p4_correct_key_ranks.append(float(p4_ranks.float().mean().item()))
 
@@ -932,9 +979,7 @@ def evaluate_variable_length_metrics_role_split(
     device = core.device
     n_total = len(examples)
     sequence_correct_all = 0
-    by_length: dict[int, dict[str, Any]] = {
-        length: {"n": 0, "exact": 0} for length in range(2, 11)
-    }
+    by_length: dict[int, dict[str, Any]] = {length: {"n": 0, "exact": 0} for length in range(2, 11)}
 
     len10_examples = [ex for ex in examples if len(ex.input_tokens) == 10]
 
@@ -1107,7 +1152,9 @@ def get_or_replay_rec004w_step8000_model(
             freeze_model.ffn_norm.bias.data.copy_(init_p["ffn_norm.bias"])
 
     ckpt_path.parent.mkdir(parents=True, exist_ok=True)
-    torch.save({"step": REC004Z_END_STEP, "primitive_state_dict": freeze_model.state_dict()}, ckpt_path)
+    torch.save(
+        {"step": REC004Z_END_STEP, "primitive_state_dict": freeze_model.state_dict()}, ckpt_path
+    )
     freeze_model.eval()
     return freeze_model
 
@@ -1151,7 +1198,9 @@ def run_mirror_kv_role_split_pilot_task(config: MirrorKVRoleSplitPilotConfig) ->
     source_hash = mb.canonical_state_hash(start_ts["primitive_state_dict"])
     expected_step7500_hash = "7c71a7a43ec2ba766623a70cf4b62e18a8ad685bb1073657ef3fd54d676cb3cb"
     if source_hash != expected_step7500_hash:
-        raise RuntimeError(f"SOURCE_7500_STATE_MISMATCH: hash {source_hash} != {expected_step7500_hash}")
+        raise RuntimeError(
+            f"SOURCE_7500_STATE_MISMATCH: hash {source_hash} != {expected_step7500_hash}"
+        )
 
     source_manifest = {
         "task_id": REC004Z_TASK_ID,
@@ -1179,7 +1228,9 @@ def run_mirror_kv_role_split_pilot_task(config: MirrorKVRoleSplitPilotConfig) ->
     reference_7500 = mpbr._new_arm_primitive(core, REC004Z_ARM)
     assert isinstance(reference_7500, CrossPositionLengthBiasPrimitive)
     reference_7500.to(device)
-    reference_7500.load_state_dict({k: v.to(device) for k, v in start_ts["primitive_state_dict"].items()})
+    reference_7500.load_state_dict(
+        {k: v.to(device) for k, v in start_ts["primitive_state_dict"].items()}
+    )
     reference_7500.eval()
     for p in reference_7500.parameters():
         p.requires_grad_(False)
@@ -1194,8 +1245,16 @@ def run_mirror_kv_role_split_pilot_task(config: MirrorKVRoleSplitPilotConfig) ->
         "arm_name": "KV_ROLE_SPLIT_PROTECTED_VALUE",
         "base_class": "CrossPositionLengthBiasPrimitive",
         "split_class": "RoleSplitCrossPositionLengthBiasPrimitive",
-        "value_content_prep_params": ["content_in_proj.weight", "content_in_proj.bias", "content_position_embedding.weight"],
-        "key_content_prep_params": ["key_content_in_proj.weight", "key_content_in_proj.bias", "key_content_position_embedding.weight"],
+        "value_content_prep_params": [
+            "content_in_proj.weight",
+            "content_in_proj.bias",
+            "content_position_embedding.weight",
+        ],
+        "key_content_prep_params": [
+            "key_content_in_proj.weight",
+            "key_content_in_proj.bias",
+            "key_content_position_embedding.weight",
+        ],
         "parameter_cloning": "EXACT_CLONE_AT_7500",
         "fused_qkv_rows": {
             "Q_rows": "0:32 (trainable)",
@@ -1218,15 +1277,38 @@ def run_mirror_kv_role_split_pilot_task(config: MirrorKVRoleSplitPilotConfig) ->
     legacy_to_split_mapping = {
         "task_id": REC004Z_TASK_ID,
         "mappings": [
-            {"legacy_name": "content_in_proj.weight", "role_split_names": ["content_in_proj.weight (VALUE)", "key_content_in_proj.weight (KEY)"]},
-            {"legacy_name": "content_in_proj.bias", "role_split_names": ["content_in_proj.bias (VALUE)", "key_content_in_proj.bias (KEY)"]},
-            {"legacy_name": "content_position_embedding.weight", "role_split_names": ["content_position_embedding.weight (VALUE)", "key_content_position_embedding.weight (KEY)"]},
-            {"legacy_name": "cross_attn.in_proj_weight", "role_split_names": ["cross_attn.in_proj_weight (Q:0-32, K:32-64, V:64-96)"]},
+            {
+                "legacy_name": "content_in_proj.weight",
+                "role_split_names": [
+                    "content_in_proj.weight (VALUE)",
+                    "key_content_in_proj.weight (KEY)",
+                ],
+            },
+            {
+                "legacy_name": "content_in_proj.bias",
+                "role_split_names": [
+                    "content_in_proj.bias (VALUE)",
+                    "key_content_in_proj.bias (KEY)",
+                ],
+            },
+            {
+                "legacy_name": "content_position_embedding.weight",
+                "role_split_names": [
+                    "content_position_embedding.weight (VALUE)",
+                    "key_content_position_embedding.weight (KEY)",
+                ],
+            },
+            {
+                "legacy_name": "cross_attn.in_proj_weight",
+                "role_split_names": ["cross_attn.in_proj_weight (Q:0-32, K:32-64, V:64-96)"],
+            },
         ],
     }
     _write_json(output_dir / "legacy_to_role_split_mapping.json", legacy_to_split_mapping)
 
-    parity_eval_examples = datasets[REC004Z_PARITY_FIXTURE] + datasets[REC004Z_CONTINUITY_SPLITS[0]][:64]
+    parity_eval_examples = (
+        datasets[REC004Z_PARITY_FIXTURE] + datasets[REC004Z_CONTINUITY_SPLITS[0]][:64]
+    )
     stage_a_report = verify_role_split_initial_parity(
         core, role_split_model, reference_7500, parity_eval_examples, device
     )
@@ -1290,7 +1372,10 @@ def run_mirror_kv_role_split_pilot_task(config: MirrorKVRoleSplitPilotConfig) ->
     _ = _eval_probe_point(start_step)
     role_split_model.train()
 
-    print(f"\n>>> Executing Stage C: KV_ROLE_SPLIT_PROTECTED_VALUE [{start_step + 1} -> {REC004Z_END_STEP}] <<<")
+    print(
+        f"\n>>> Executing Stage C: KV_ROLE_SPLIT_PROTECTED_VALUE "
+        f"[{start_step + 1} -> {REC004Z_END_STEP}] <<<"
+    )
     t_train_start = time.time()
     batch_digests_list: list[dict[str, Any]] = []
     key_prep_grad_accum = 0.0
@@ -1304,10 +1389,14 @@ def run_mirror_kv_role_split_pilot_task(config: MirrorKVRoleSplitPilotConfig) ->
             sequence_length_range=REC004Z_SEQUENCE_LENGTH_RANGE,
         )
         batch_digests = sorted(_digest_examples(examples))
-        batch_digests_list.append({"step": step, "batch_digest": _dataset_digest(set(batch_digests))})
+        batch_digests_list.append(
+            {"step": step, "batch_digest": _dataset_digest(set(batch_digests))}
+        )
 
         content_lengths = [len(ex.input_tokens) for ex in examples]
-        output_lengths = [get_operation(REC004Z_TARGET_OPERATION).output_length(n) for n in content_lengths]
+        output_lengths = [
+            get_operation(REC004Z_TARGET_OPERATION).output_length(n) for n in content_lengths
+        ]
         out_max = max(output_lengths)
         labels = _labels_for_examples(examples, output_lengths, out_max, device)
 
@@ -1325,24 +1414,35 @@ def run_mirror_kv_role_split_pilot_task(config: MirrorKVRoleSplitPilotConfig) ->
         loss.backward()
 
         if role_split_model.key_content_in_proj.weight.grad is not None:
-            key_prep_grad_accum += float(role_split_model.key_content_in_proj.weight.grad.norm().item())
+            key_prep_grad_accum += float(
+                role_split_model.key_content_in_proj.weight.grad.norm().item()
+            )
 
         # Zero out gradients strictly for CVOF parameter groups
         if role_split_model.content_in_proj.weight.grad is not None:
             role_split_model.content_in_proj.weight.grad.zero_()
-        if role_split_model.content_in_proj.bias is not None and role_split_model.content_in_proj.bias.grad is not None:
+        if (
+            role_split_model.content_in_proj.bias is not None
+            and role_split_model.content_in_proj.bias.grad is not None
+        ):
             role_split_model.content_in_proj.bias.grad.zero_()
         if role_split_model.content_position_embedding.weight.grad is not None:
             role_split_model.content_position_embedding.weight.grad.zero_()
 
         if role_split_model.cross_attn.in_proj_weight.grad is not None:
             role_split_model.cross_attn.in_proj_weight.grad[2 * embed_dim : 3 * embed_dim].zero_()
-        if role_split_model.cross_attn.in_proj_bias is not None and role_split_model.cross_attn.in_proj_bias.grad is not None:
+        if (
+            role_split_model.cross_attn.in_proj_bias is not None
+            and role_split_model.cross_attn.in_proj_bias.grad is not None
+        ):
             role_split_model.cross_attn.in_proj_bias.grad[2 * embed_dim : 3 * embed_dim].zero_()
 
         if role_split_model.cross_attn.out_proj.weight.grad is not None:
             role_split_model.cross_attn.out_proj.weight.grad.zero_()
-        if role_split_model.cross_attn.out_proj.bias is not None and role_split_model.cross_attn.out_proj.bias.grad is not None:
+        if (
+            role_split_model.cross_attn.out_proj.bias is not None
+            and role_split_model.cross_attn.out_proj.bias.grad is not None
+        ):
             role_split_model.cross_attn.out_proj.bias.grad.zero_()
 
         for p in role_split_model.ffn.parameters():
@@ -1350,10 +1450,15 @@ def run_mirror_kv_role_split_pilot_task(config: MirrorKVRoleSplitPilotConfig) ->
                 p.grad.zero_()
         if role_split_model.ffn_norm.weight.grad is not None:
             role_split_model.ffn_norm.weight.grad.zero_()
-        if role_split_model.ffn_norm.bias is not None and role_split_model.ffn_norm.bias.grad is not None:
+        if (
+            role_split_model.ffn_norm.bias is not None
+            and role_split_model.ffn_norm.bias.grad is not None
+        ):
             role_split_model.ffn_norm.bias.grad.zero_()
 
-        torch.nn.utils.clip_grad_norm_(role_split_model.parameters(), mbe.REC004G_OPERATOR_GRAD_CLIP)
+        torch.nn.utils.clip_grad_norm_(
+            role_split_model.parameters(), mbe.REC004G_OPERATOR_GRAD_CLIP
+        )
         optimizer.step()
         scheduler.step()
 
@@ -1361,11 +1466,16 @@ def run_mirror_kv_role_split_pilot_task(config: MirrorKVRoleSplitPilotConfig) ->
         role_split_model.content_in_proj.weight.data.copy_(init_params["content_in_proj.weight"])
         if role_split_model.content_in_proj.bias is not None:
             role_split_model.content_in_proj.bias.data.copy_(init_params["content_in_proj.bias"])
-        role_split_model.content_position_embedding.weight.data.copy_(init_params["content_position_embedding.weight"])
+        role_split_model.content_position_embedding.weight.data.copy_(
+            init_params["content_position_embedding.weight"]
+        )
         for c_name, c_param in [
             ("content_in_proj.weight", role_split_model.content_in_proj.weight),
             ("content_in_proj.bias", role_split_model.content_in_proj.bias),
-            ("content_position_embedding.weight", role_split_model.content_position_embedding.weight),
+            (
+                "content_position_embedding.weight",
+                role_split_model.content_position_embedding.weight,
+            ),
         ]:
             if c_param is not None and c_param in optimizer.state:
                 optimizer.state[c_param]["exp_avg"].copy_(init_adamw_exp_avg[c_name])
@@ -1386,9 +1496,13 @@ def run_mirror_kv_role_split_pilot_task(config: MirrorKVRoleSplitPilotConfig) ->
             init_adamw_exp_avg_sq["cross_attn.in_proj_weight"][2 * embed_dim : 3 * embed_dim]
         )
 
-        role_split_model.cross_attn.out_proj.weight.data.copy_(init_params["cross_attn.out_proj.weight"])
+        role_split_model.cross_attn.out_proj.weight.data.copy_(
+            init_params["cross_attn.out_proj.weight"]
+        )
         if role_split_model.cross_attn.out_proj.bias is not None:
-            role_split_model.cross_attn.out_proj.bias.data.copy_(init_params["cross_attn.out_proj.bias"])
+            role_split_model.cross_attn.out_proj.bias.data.copy_(
+                init_params["cross_attn.out_proj.bias"]
+            )
         for o_name, o_param in [
             ("cross_attn.out_proj.weight", role_split_model.cross_attn.out_proj.weight),
             ("cross_attn.out_proj.bias", role_split_model.cross_attn.out_proj.bias),
@@ -1418,7 +1532,9 @@ def run_mirror_kv_role_split_pilot_task(config: MirrorKVRoleSplitPilotConfig) ->
             "step": step,
             "loss": float(loss.item()),
             "lr": lr_used,
-            "key_prep_grad_norm": float(role_split_model.key_content_in_proj.weight.grad.norm().item())
+            "key_prep_grad_norm": float(
+                role_split_model.key_content_in_proj.weight.grad.norm().item()
+            )
             if role_split_model.key_content_in_proj.weight.grad is not None
             else 0.0,
         }
@@ -1428,16 +1544,20 @@ def run_mirror_kv_role_split_pilot_task(config: MirrorKVRoleSplitPilotConfig) ->
             role_split_model.eval()
             probe_rec = _eval_probe_point(step)
             role_split_model.train()
-            pos4_acc = probe_rec["continuity_splits"][REC004Z_CONTINUITY_SPLITS[0]]["j0_position4_acc"]
+            pos4_acc = probe_rec["continuity_splits"][REC004Z_CONTINUITY_SPLITS[0]][
+                "j0_position4_acc"
+            ]
             o1_em = probe_rec["continuity_splits"][REC004Z_CONTINUITY_SPLITS[0]]["o1_sequence_em"]
-            print(f"Step {step:4d} | Loss: {loss.item():.4f} | Pos4 Acc: {pos4_acc:.3f} | O1 EM: {o1_em:.3f}")
+            print(
+                f"Step {step:4d} | Loss: {loss.item():.4f} | "
+                f"Pos4 Acc: {pos4_acc:.3f} | O1 EM: {o1_em:.3f}"
+            )
 
     t_train_end = time.time()
     train_duration = t_train_end - t_train_start
     training_trace_f.close()
     metrics_25step_f.close()
     print(f"Training finished in {train_duration:.2f}s")
-
 
     _write_json(output_dir / "training_batch_manifest.json", {"batches": batch_digests_list})
 
@@ -1452,11 +1572,33 @@ def run_mirror_kv_role_split_pilot_task(config: MirrorKVRoleSplitPilotConfig) ->
         ckpt_path,
     )
 
-    val_in_proj_diff = float(torch.max(torch.abs(role_split_model.content_in_proj.weight.data - init_params["content_in_proj.weight"])).item())
-    v_proj_diff = float(torch.max(torch.abs(role_split_model.cross_attn.in_proj_weight.data[2*embed_dim:3*embed_dim] - init_params["cross_attn.in_proj_weight"][2*embed_dim:3*embed_dim])).item())
-    out_proj_diff = float(torch.max(torch.abs(role_split_model.cross_attn.out_proj.weight.data - init_params["cross_attn.out_proj.weight"])).item())
+    val_in_proj_diff = float(
+        torch.max(
+            torch.abs(
+                role_split_model.content_in_proj.weight.data - init_params["content_in_proj.weight"]
+            )
+        ).item()
+    )
+    v_proj_diff = float(
+        torch.max(
+            torch.abs(
+                role_split_model.cross_attn.in_proj_weight.data[2 * embed_dim : 3 * embed_dim]
+                - init_params["cross_attn.in_proj_weight"][2 * embed_dim : 3 * embed_dim]
+            )
+        ).item()
+    )
+    out_proj_diff = float(
+        torch.max(
+            torch.abs(
+                role_split_model.cross_attn.out_proj.weight.data
+                - init_params["cross_attn.out_proj.weight"]
+            )
+        ).item()
+    )
     ffn_linear_0 = cast(nn.Linear, role_split_model.ffn[0])
-    ffn_diff = float(torch.max(torch.abs(ffn_linear_0.weight.data - init_params["ffn.0.weight"])).item())
+    ffn_diff = float(
+        torch.max(torch.abs(ffn_linear_0.weight.data - init_params["ffn.0.weight"])).item()
+    )
 
     freeze_audit = {
         "task_id": REC004Z_TASK_ID,
@@ -1464,15 +1606,30 @@ def run_mirror_kv_role_split_pilot_task(config: MirrorKVRoleSplitPilotConfig) ->
         "v_projection_diff": v_proj_diff,
         "attn_out_proj_diff": out_proj_diff,
         "ffn_diff": ffn_diff,
-        "all_frozen_diffs_zero": bool(max(val_in_proj_diff, v_proj_diff, out_proj_diff, ffn_diff) == 0.0),
-        "status": "PASS" if max(val_in_proj_diff, v_proj_diff, out_proj_diff, ffn_diff) == 0.0 else "FAIL",
+        "all_frozen_diffs_zero": bool(
+            max(val_in_proj_diff, v_proj_diff, out_proj_diff, ffn_diff) == 0.0
+        ),
+        "status": "PASS"
+        if max(val_in_proj_diff, v_proj_diff, out_proj_diff, ffn_diff) == 0.0
+        else "FAIL",
     }
     _write_json(output_dir / "stable_value_freeze_audit.json", freeze_audit)
     _write_json(output_dir / "freeze_audit.json", freeze_audit)
 
-    key_in_proj_delta = float(torch.norm(role_split_model.key_content_in_proj.weight.data - key_prep_init_weight).item())
-    key_pos_emb_delta = float(torch.norm(role_split_model.key_content_position_embedding.weight.data - key_prep_init_pos_emb).item())
-    key_val_divergence = float(torch.norm(role_split_model.key_content_in_proj.weight.data - role_split_model.content_in_proj.weight.data).item())
+    key_in_proj_delta = float(
+        torch.norm(role_split_model.key_content_in_proj.weight.data - key_prep_init_weight).item()
+    )
+    key_pos_emb_delta = float(
+        torch.norm(
+            role_split_model.key_content_position_embedding.weight.data - key_prep_init_pos_emb
+        ).item()
+    )
+    key_val_divergence = float(
+        torch.norm(
+            role_split_model.key_content_in_proj.weight.data
+            - role_split_model.content_in_proj.weight.data
+        ).item()
+    )
 
     key_branch_active = key_in_proj_delta > 1e-4 and key_prep_grad_accum > 0.0
     key_plasticity_audit = {
@@ -1482,7 +1639,9 @@ def run_mirror_kv_role_split_pilot_task(config: MirrorKVRoleSplitPilotConfig) ->
         "key_vs_value_in_proj_divergence": key_val_divergence,
         "key_content_prep_grad_accumulation": key_prep_grad_accum,
         "key_branch_active": key_branch_active,
-        "status": "KEY_BRANCH_PLASTICITY_ACTIVE" if key_branch_active else "KEY_BRANCH_PLASTICITY_INACTIVE",
+        "status": "KEY_BRANCH_PLASTICITY_ACTIVE"
+        if key_branch_active
+        else "KEY_BRANCH_PLASTICITY_INACTIVE",
     }
     _write_json(output_dir / "key_branch_plasticity_audit.json", key_plasticity_audit)
 
@@ -1517,8 +1676,12 @@ def run_mirror_kv_role_split_pilot_task(config: MirrorKVRoleSplitPilotConfig) ->
     hist_model.load_state_dict({k: v.to(device) for k, v in hist_state.items()})
     hist_model.eval()
 
-    hist_fresh_val = rec004w.evaluate_variable_length_dataset(core, hist_model, datasets[REC004Z_FRESH_NORMAL_VALIDATION])
-    hist_fresh_conf = rec004w.evaluate_length10_dataset_metrics(core, hist_model, datasets[REC004Z_FRESH_LENGTH10_CONFIRMATION])
+    hist_fresh_val = rec004w.evaluate_variable_length_dataset(
+        core, hist_model, datasets[REC004Z_FRESH_NORMAL_VALIDATION]
+    )
+    hist_fresh_conf = rec004w.evaluate_length10_dataset_metrics(
+        core, hist_model, datasets[REC004Z_FRESH_LENGTH10_CONFIRMATION]
+    )
     hist_comparison = {
         "comparator": "HISTORICAL_I03_STEP8000",
         "fresh_normal_validation": hist_fresh_val,
@@ -1528,8 +1691,12 @@ def run_mirror_kv_role_split_pilot_task(config: MirrorKVRoleSplitPilotConfig) ->
 
     freeze_model = get_or_replay_rec004w_step8000_model(core, start_ts, seed, device)
 
-    freeze_fresh_val = rec004w.evaluate_variable_length_dataset(core, freeze_model, datasets[REC004Z_FRESH_NORMAL_VALIDATION])
-    freeze_fresh_conf = rec004w.evaluate_length10_dataset_metrics(core, freeze_model, datasets[REC004Z_FRESH_LENGTH10_CONFIRMATION])
+    freeze_fresh_val = rec004w.evaluate_variable_length_dataset(
+        core, freeze_model, datasets[REC004Z_FRESH_NORMAL_VALIDATION]
+    )
+    freeze_fresh_conf = rec004w.evaluate_length10_dataset_metrics(
+        core, freeze_model, datasets[REC004Z_FRESH_LENGTH10_CONFIRMATION]
+    )
     freeze_comparison = {
         "comparator": "HARD_CVOF_FREEZE_REC004W_STEP8000",
         "fresh_normal_validation": freeze_fresh_val,
@@ -1542,15 +1709,23 @@ def run_mirror_kv_role_split_pilot_task(config: MirrorKVRoleSplitPilotConfig) ->
     for s_name, m_res in endpoint_continuity.items():
         o1_em = m_res["o1_sequence_em"]
         p4_acc = m_res["o1_position4_acc"]
-        passed = bool((o1_em >= config.oracle_em_threshold) and (p4_acc >= config.oracle_em_threshold))
+        passed = bool(
+            (o1_em >= config.oracle_em_threshold) and (p4_acc >= config.oracle_em_threshold)
+        )
         compat_audit[s_name] = {"o1_em": o1_em, "p4_acc": p4_acc, "pass": passed}
         if not passed:
             compatibility_passed = False
 
     conf_o1_em = endpoint_fresh_length10["o1_sequence_em"]
     conf_p4_acc = endpoint_fresh_length10["o1_position4_acc"]
-    conf_passed = bool((conf_o1_em >= config.oracle_em_threshold) and (conf_p4_acc >= config.oracle_em_threshold))
-    compat_audit["fresh_length10_confirmation"] = {"o1_em": conf_o1_em, "p4_acc": conf_p4_acc, "pass": conf_passed}
+    conf_passed = bool(
+        (conf_o1_em >= config.oracle_em_threshold) and (conf_p4_acc >= config.oracle_em_threshold)
+    )
+    compat_audit["fresh_length10_confirmation"] = {
+        "o1_em": conf_o1_em,
+        "p4_acc": conf_p4_acc,
+        "pass": conf_passed,
+    }
     if not conf_passed:
         compatibility_passed = False
 
@@ -1568,8 +1743,14 @@ def run_mirror_kv_role_split_pilot_task(config: MirrorKVRoleSplitPilotConfig) ->
     conf_delta_hist = role_conf_j0_em - hist_conf_j0_em
     conf_delta_freeze = role_conf_j0_em - freeze_conf_j0_em
 
-    val_plasticity_passed = bool((val_delta_hist >= config.j0_delta_floor) and (val_delta_freeze >= config.hard_freeze_delta_floor))
-    conf_plasticity_passed = bool((conf_delta_hist >= config.j0_delta_floor) and (conf_delta_freeze >= config.hard_freeze_delta_floor))
+    val_plasticity_passed = bool(
+        (val_delta_hist >= config.j0_delta_floor)
+        and (val_delta_freeze >= config.hard_freeze_delta_floor)
+    )
+    conf_plasticity_passed = bool(
+        (conf_delta_hist >= config.j0_delta_floor)
+        and (conf_delta_freeze >= config.hard_freeze_delta_floor)
+    )
     plasticity_passed = val_plasticity_passed and conf_plasticity_passed
 
     strong_functional_floor = bool(
@@ -1582,7 +1763,9 @@ def run_mirror_kv_role_split_pilot_task(config: MirrorKVRoleSplitPilotConfig) ->
     if compatibility_passed and plasticity_passed:
         primary_decision = "KEY_VALUE_ROLE_SPLIT_RESTORES_STABILITY_PLASTICITY"
     elif compatibility_passed and not plasticity_passed:
-        primary_decision = "KEY_VALUE_ROLE_SPLIT_PRESERVES_STABILITY_BUT_KEY_PLASTICITY_INSUFFICIENT"
+        primary_decision = (
+            "KEY_VALUE_ROLE_SPLIT_PRESERVES_STABILITY_BUT_KEY_PLASTICITY_INSUFFICIENT"
+        )
     elif not compatibility_passed and plasticity_passed:
         primary_decision = "ROLE_SPLIT_LEARNING_WITH_COMPATIBILITY_FAILURE"
     else:
@@ -1612,7 +1795,9 @@ def run_mirror_kv_role_split_pilot_task(config: MirrorKVRoleSplitPilotConfig) ->
 
     resident_added = 7200
     active_params_per_call = sum(p.numel() for p in role_split_model.parameters())
-    active_trainable_params = sum(p.numel() for p in role_split_model.parameters() if p.requires_grad)
+    active_trainable_params = sum(
+        p.numel() for p in role_split_model.parameters() if p.requires_grad
+    )
     peak_vram = torch.cuda.max_memory_allocated(device) if device.type == "cuda" else 0
 
     cost_accounting = {
@@ -1643,12 +1828,12 @@ def run_mirror_kv_role_split_pilot_task(config: MirrorKVRoleSplitPilotConfig) ->
 ## Primary Outcome
 - **Decision:** {primary_decision}
 - **Strong Functional Floor:** {strong_functional_floor}
-- **Compatibility Gate:** {'PASS' if compatibility_passed else 'FAIL'}
-- **Plasticity Gate:** {'PASS' if plasticity_passed else 'FAIL'}
+- **Compatibility Gate:** {"PASS" if compatibility_passed else "FAIL"}
+- **Plasticity Gate:** {"PASS" if plasticity_passed else "FAIL"}
 
 ## Interpretation & Next Task Branch
-{'Propose REC-004AA: Cross-Init Role-Split Generalization Pilot across I01-I05.' if primary_decision == 'KEY_VALUE_ROLE_SPLIT_RESTORES_STABILITY_PLASTICITY' else 'K/V content-prep isolation alone is insufficient to restore plasticity. Next step: explore compact task-blind plastic residual over stable base.' if primary_decision == 'KEY_VALUE_ROLE_SPLIT_PRESERVES_STABILITY_BUT_KEY_PLASTICITY_INSUFFICIENT' else 'Investigate potential forward-graph isolation or downstream drift outside CVOF.'}
-"""
+{"Propose REC-004AA: Cross-Init Role-Split Generalization Pilot across I01-I05." if primary_decision == "KEY_VALUE_ROLE_SPLIT_RESTORES_STABILITY_PLASTICITY" else "K/V content-prep isolation alone is insufficient to restore plasticity. Next step: explore compact task-blind plastic residual over stable base." if primary_decision == "KEY_VALUE_ROLE_SPLIT_PRESERVES_STABILITY_BUT_KEY_PLASTICITY_INSUFFICIENT" else "Investigate potential forward-graph isolation or downstream drift outside CVOF."}
+"""  # noqa: E501 -- preserve historical generated Markdown verbatim
     (output_dir / "next_repair_contract.md").write_text(next_repair_contract, encoding="utf-8")
 
     summary = {
@@ -1676,24 +1861,24 @@ def run_mirror_kv_role_split_pilot_task(config: MirrorKVRoleSplitPilotConfig) ->
 
 ## Executive Summary
 - **Result:** {primary_decision}
-- **Legacy Forward Parity:** {stage_a_report['status']} (max logit diff: {stage_a_report['final_logits_max_abs_diff']:.2e})
-- **Gradient Isolation:** {stage_b_report['status']} (O1 key grad: {stage_b_report['o1_key_in_proj_grad_norm']:.2e})
-- **Compatibility Gate:** {'PASS' if compatibility_passed else 'FAIL'}
-- **Plasticity Gate:** {'PASS' if plasticity_passed else 'FAIL'}
+- **Legacy Forward Parity:** {stage_a_report["status"]} (max logit diff: {stage_a_report["final_logits_max_abs_diff"]:.2e})
+- **Gradient Isolation:** {stage_b_report["status"]} (O1 key grad: {stage_b_report["o1_key_in_proj_grad_norm"]:.2e})
+- **Compatibility Gate:** {"PASS" if compatibility_passed else "FAIL"}
+- **Plasticity Gate:** {"PASS" if plasticity_passed else "FAIL"}
 
 ## Metrics Comparison
 | Metric | Historical @8000 | Hard-Freeze @8000 (REC-004W) | Role-Split @8000 (REC-004Z) | Target Floor |
 | --- | --- | --- | --- | --- |
 | Fresh Normal J0 EM | {hist_val_j0_em:.4f} | {freeze_val_j0_em:.4f} | {role_val_j0_em:.4f} | >= {hist_val_j0_em + 0.10:.4f} / >= {freeze_val_j0_em + 0.05:.4f} |
 | Fresh Length10 J0 EM | {hist_conf_j0_em:.4f} | {freeze_conf_j0_em:.4f} | {role_conf_j0_em:.4f} | >= {hist_conf_j0_em + 0.10:.4f} / >= {freeze_conf_j0_em + 0.05:.4f} |
-| Fresh Length10 O1 EM | {hist_fresh_conf['o1_sequence_em']:.4f} | {freeze_fresh_conf['o1_sequence_em']:.4f} | {conf_o1_em:.4f} | >= 0.9500 |
-| Fresh Length10 O1 Pos4 Acc | {hist_fresh_conf['o1_position4_acc']:.4f} | {freeze_fresh_conf['o1_position4_acc']:.4f} | {conf_p4_acc:.4f} | >= 0.9500 |
+| Fresh Length10 O1 EM | {hist_fresh_conf["o1_sequence_em"]:.4f} | {freeze_fresh_conf["o1_sequence_em"]:.4f} | {conf_o1_em:.4f} | >= 0.9500 |
+| Fresh Length10 O1 Pos4 Acc | {hist_fresh_conf["o1_position4_acc"]:.4f} | {freeze_fresh_conf["o1_position4_acc"]:.4f} | {conf_p4_acc:.4f} | >= 0.9500 |
 
 ## Cost Accounting
 - Resident parameters added: {resident_added}
-- Peak VRAM: {peak_vram / (1024*1024):.2f} MB
+- Peak VRAM: {peak_vram / (1024 * 1024):.2f} MB
 - Training duration: {train_duration:.2f} s
-"""
+"""  # noqa: E501 -- table rows retain their historical single-line output
     (output_dir / "report.md").write_text(report_md, encoding="utf-8")
 
     print("\n=== Task B-C005REC-004Z Completed ===")

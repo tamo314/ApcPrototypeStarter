@@ -1,5 +1,8 @@
 # AI Coding Tasks — Phase B / B2 Model Bundle Recovery
 
+> **現在地・実行順の正本:** [Phase B 再開計画](exec-plans/active/PHASE_B_RESTART.md)（2026-09-12、ADR-0127）。
+> 本文は既存の仕様・作成当時の状態を保持する。現在の進捗と今回の継続指示は再開計画を参照。
+
 **正式ID：B-C005REC-001～B-C005REC-008**  
 **版：1.0 / 2026-09-07 / 状態：実装前の復旧指示**  
 **最初はREC-001のみ。R3-011／012、B-C006、Task Inferenceはblocked。**

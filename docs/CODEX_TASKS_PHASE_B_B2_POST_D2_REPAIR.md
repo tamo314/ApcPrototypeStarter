@@ -1,5 +1,8 @@
 # AI Coding Tasks — Phase B / B2 Post-D2 Repair
 
+> **現在地・実行順の正本:** [Phase B 再開計画](exec-plans/active/PHASE_B_RESTART.md)（2026-09-12、ADR-0127）。
+> 本文は既存の仕様・作成当時の状態を保持する。現在の進捗と今回の継続指示は再開計画を参照。
+
 **Task IDs：B-C005R3-001～B-C005R3-012**  
 **状態：実装前の指示書。B-C006 / Task Inferenceはblocked。**
 

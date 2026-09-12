@@ -1,5 +1,8 @@
 # Codex Task Queue — Phase B Semantic Task Inference & Open-World Extension
 
+> **現在地・実行順の正本:** [Phase B 再開計画](exec-plans/active/PHASE_B_RESTART.md)（2026-09-12、ADR-0127）。
+> 本文は既存の仕様・作成当時の状態を保持する。現在の進捗と今回の継続指示は再開計画を参照。
+
 ## Operating rule
 
 Implement **only the task explicitly requested by the user**.
