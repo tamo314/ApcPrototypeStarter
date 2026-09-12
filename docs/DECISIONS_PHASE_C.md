@@ -215,3 +215,48 @@ Definitively reconfirm **`ROUTING_IDENTIFIABILITY_STOP`** across the entire lawf
 **Primary Artifacts:**  
 - Audit Document: `docs/phase_c/PHASE_C_C_D001U_SEMANTIC_DESCRIPTOR_ORACLE_EQUIVALENCE_AND_MINIMALITY_AUDIT.md`  
 - Audit Artifact: `docs/phase_c/artifacts/semantic_descriptor_oracle_equivalence_audit.json`
+
+---
+
+## ADR-0155: C-D001V Non-Circular Oracle-Equivalence Falsification Experiment Retracts ADR-0154 Universal STOP to `ROUTING_IDENTIFIABILITY_QUALIFIED_STOP`
+
+**Date:** 2026-09-13  
+**Task:** C-D001V — Non-Circular Oracle-Equivalence Falsification Experiment  
+**Status:** Completed non-experimental falsification experiment; `execution_status: PASS`, `decision: ROUTING_IDENTIFIABILITY_QUALIFIED_STOP`.  
+Phase C charter status remains `READY_FOR_REVIEW_NOT_APPROVED`; research execution remains `NOT_AUTHORIZED`.  
+
+**Scope and Integrity Boundary:**  
+- Established a 5-dimensional non-circular oracle-supervision criterion (provenance, example specificity, relation specificity, inference-time availability, counterfactual invariance) calibrated against two negative controls (pre-declared semantic rule, opaque task ID) and two positive controls (per-example coordinate label, relation lookup map).
+- Applied registered criteria to `FIRST/LAST`, `LEFTMOST/RIGHTMOST`, and `procedural composition`.
+- Sealed partition data (inputs, labels, model outputs) access count: **0**.
+- Zero training updates, zero optimizer construction, zero model initialization, zero dataset generation, zero relation registration, zero candidate construction, and zero GPU execution time.
+- No historical measurement, threshold, or Phase-B terminal state was modified.
+
+**Key Findings:**  
+1. **Circularity Defect of ADR-0154:**  
+   Identified that ADR-0154 equated deterministic $z$-computability ($R(x, D) \to z^*$) with oracle supervision. In any formal deterministic task semantics, target behaviors and intermediate states are mathematically computable from input and task specification. Equating computability with oracle supervision renders all valid semantic specifications tautologically "oracle", producing an unfalsifiable circular criterion.
+2. **Pre-Registered Multi-Dimensional Criteria & Control Calibration:**  
+   Pre-registered five criteria before evaluation:
+   - Positive Controls (coordinate label, relation lookup map) score 5/5 as ORACLE (empirical evaluator provenance, instance-dependent, brittle under counterfactual mutation, forbidden at inference).
+   - Negative Controls (pre-declared semantic rule, opaque ID) score 0/5 as ORACLE (a priori formal grammar, $x$-invariant universal rules, domain-general, legitimate prompt inputs, counterfactually robust).
+3. **Candidate Primitives Evaluated as Strictly Non-Oracle:**  
+   `FIRST/LAST`, `LEFTMOST/RIGHTMOST`, and `procedural composition` score **0/5 as ORACLE**, matching Negative Controls in 100% of dimensions and Positive Controls in 0% of dimensions. They specify the intensional operational objective (what relation to compute), leaving the router to dynamically search sequence $x$ to resolve coordinates.
+4. **Falsification and Retraction of ADR-0154 Universal STOP:**  
+   Because lawful, non-oracle general semantic descriptors exist and separate World A and World B ($D_A \neq D_B \implies \mathcal{O}_A \neq \mathcal{O}_B$ on duplicate-token collisions), ADR-0154's universal claim that all separating descriptors are oracle-equivalent is **falsified and retracted**.
+5. **Reclassification of Stoppage Rationale:**  
+   Stoppage is formally reclassified to **`ROUTING_IDENTIFIABILITY_QUALIFIED_STOP`**:
+   - Under opaque task IDs ($t$) and CE-only token supervision, routing coordinates remain unidentifiable on collision tokens (`ROUTING_IDENTIFIABILITY_STOP` strictly maintained).
+   - Under lawful general semantic descriptors ($\mathcal{L}_{\text{desc}}$), routing identifiability is mathematically achievable without oracle supervision.
+
+**Decision:**  
+Reclassify the stoppage rationale from `ROUTING_IDENTIFIABILITY_STOP (RECONFIRMED)` to **`ROUTING_IDENTIFIABILITY_QUALIFIED_STOP`**.
+
+**Consequences:**  
+- Phase C routing identifiability is mathematically achievable under lawful general semantic descriptors ($\mathcal{L}_{\text{desc}}$).
+- Research execution remains strictly `NOT_AUTHORIZED` due to the unresolved relation inventory deficit from ADR-0150 (`RELATION_INVENTORY_FEASIBILITY_STOP`: 1/2 clean components in validation and sealed) and unapproved charter status.
+- Advancing to architecture derivation (`C-D002`) requires a formal Charter amendment incorporating $\mathcal{L}_{\text{desc}}$ and user approval.
+
+**Primary Artifacts:**  
+- Audit Document: `docs/phase_c/PHASE_C_C_D001V_ORACLE_EQUIVALENCE_FALSIFICATION_EXPERIMENT.md`  
+- Audit Artifact: `docs/phase_c/artifacts/oracle_equivalence_falsification_experiment.json`
+

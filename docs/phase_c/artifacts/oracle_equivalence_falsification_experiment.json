@@ -1,0 +1,181 @@
+{
+  "task_id": "C-D001V",
+  "document_id": "DOC-PHASE-C-D001V-AUDIT",
+  "date": "2026-09-13",
+  "decision": "ROUTING_IDENTIFIABILITY_QUALIFIED_STOP",
+  "decision_status": "ADR-0154_UNIVERSAL_STOP_RETRACTED_AND_RESTRICTED",
+  "charter_state": "READY_FOR_REVIEW_NOT_APPROVED",
+  "research_execution_authority": "NOT_AUTHORIZED",
+  "integrity_boundary": {
+    "parameter_updates": 0,
+    "optimizer_instances": 0,
+    "model_initializations": 0,
+    "dataset_generations": 0,
+    "relation_registrations": 0,
+    "gpu_execution_seconds": 0,
+    "sealed_partition_access": 0
+  },
+  "epistemic_defect_in_adr_0154": {
+    "identified_circularity": "ADR-0154 equated z-computability (existence of deterministic R(x, D) -> z*) with oracle-equivalent supervision. In any formal deterministic task semantics, the target behavior/coordinate is mathematically computable from the input and task definition. Treating all computable specifications as oracle supervision renders non-oracle semantic specification impossible by tautology, creating an unfalsifiable circular criterion.",
+    "resolution": "Establish a multi-dimensional oracle-supervision criterion independent of z-computability alone, pre-calibrated against positive and negative controls."
+  },
+  "criteria_pre_registration": {
+    "provenance": {
+      "definition": "Origin of the information signal: whether it originates from empirical ground-truth measurements, evaluator scoring, or teacher trajectories (Oracle), or from a priori formal grammatical definitions of the task language (Non-Oracle).",
+      "oracle_indicator": "DERIVED_FROM_GROUND_TRUTH_EVALUATOR_OR_TARGET_TRAJECTORY",
+      "non_oracle_indicator": "A_PRIORI_FORMAL_GRAMMATICAL_DEFINITION"
+    },
+    "example_specificity": {
+      "definition": "Instance-dependence of the signal: whether the signal varies point-wise with each input sequence x or contains sequence-specific coordinate constants (Oracle), or is an x-invariant universal rule (Non-Oracle).",
+      "oracle_indicator": "INSTANCE_DEPENDENT_OR_EXPLICIT_COORDINATES",
+      "non_oracle_indicator": "X_INVARIANT_UNIVERSAL_RULE"
+    },
+    "relation_specificity": {
+      "definition": "Generality and reusability of the signal: whether the signal is an ad-hoc coordinate patch tailored to a specific dataset/relation (Oracle), or a domain-general compositional operator across relations (Non-Oracle).",
+      "oracle_indicator": "RELATION_TAILORED_AD_HOC_COORDINATE_PATCH",
+      "non_oracle_indicator": "DOMAIN_GENERAL_REUSABLE_OPERATOR"
+    },
+    "inference_time_availability": {
+      "definition": "Legitimacy of signal exposure during open-world testing: whether the signal relies on evaluator privilege/secret target tokens (Oracle), or is legitimately part of the visible task query/prompt at inference time (Non-Oracle).",
+      "oracle_indicator": "EVALUATOR_PRIVILEGE_FORBIDDEN_AT_TEST_TIME",
+      "non_oracle_indicator": "LEGITIMATE_INFERENCE_TIME_PROMPT_INPUT"
+    },
+    "counterfactual_invariance": {
+      "definition": "Robustness under input sequence perturbations: whether the signal breaks when sequence layout, key positions, or lengths change (Oracle), or dynamically preserves semantic meaning across counterfactual variations (Non-Oracle).",
+      "oracle_indicator": "BREAKS_UNDER_SEQUENCE_MUTATION",
+      "non_oracle_indicator": "ROBUST_ACROSS_COUNTERFACTUAL_VARIATIONS"
+    }
+  },
+  "calibration_controls": [
+    {
+      "control_id": "NC1",
+      "type": "NEGATIVE_CONTROL",
+      "name": "pre_declared_semantic_rule",
+      "description": "Task/relation-wide pre-declared semantic operational rule in formal grammar (e.g. key matching predicate and offset).",
+      "provenance": "A_PRIORI_FORMAL_GRAMMATICAL_DEFINITION",
+      "example_specificity": "X_INVARIANT_UNIVERSAL_RULE",
+      "relation_specificity": "DOMAIN_GENERAL_REUSABLE_OPERATOR",
+      "inference_time_availability": "LEGITIMATE_INFERENCE_TIME_PROMPT_INPUT",
+      "counterfactual_invariance": "ROBUST_ACROSS_COUNTERFACTUAL_VARIATIONS",
+      "oracle_score": "0/5_ORACLE",
+      "classification": "LAWFUL_NON_ORACLE"
+    },
+    {
+      "control_id": "NC2",
+      "type": "NEGATIVE_CONTROL",
+      "name": "opaque_task_id",
+      "description": "Arbitrary integer task identifier (e.g. task_id = 42).",
+      "provenance": "A_PRIORI_FORMAL_GRAMMATICAL_DEFINITION",
+      "example_specificity": "X_INVARIANT_UNIVERSAL_RULE",
+      "relation_specificity": "TASK_BOUND",
+      "inference_time_availability": "LEGITIMATE_INFERENCE_TIME_PROMPT_INPUT",
+      "counterfactual_invariance": "ROBUST_ACROSS_COUNTERFACTUAL_VARIATIONS",
+      "oracle_score": "0/5_ORACLE",
+      "classification": "LAWFUL_NON_ORACLE (Under-informative on collision)"
+    },
+    {
+      "control_id": "PC1",
+      "type": "POSITIVE_CONTROL",
+      "name": "per_example_coordinate_label",
+      "description": "Explicit ground-truth target routing coordinate z*(x) supplied per sequence.",
+      "provenance": "DERIVED_FROM_GROUND_TRUTH_EVALUATOR_OR_TARGET_TRAJECTORY",
+      "example_specificity": "INSTANCE_DEPENDENT_OR_EXPLICIT_COORDINATES",
+      "relation_specificity": "INSTANCE_LEVEL_COORDINATE",
+      "inference_time_availability": "EVALUATOR_PRIVILEGE_FORBIDDEN_AT_TEST_TIME",
+      "counterfactual_invariance": "BREAKS_UNDER_SEQUENCE_MUTATION",
+      "oracle_score": "5/5_ORACLE",
+      "classification": "FORBIDDEN_ORACLE_SUPERVISION"
+    },
+    {
+      "control_id": "PC2",
+      "type": "POSITIVE_CONTROL",
+      "name": "relation_specific_lookup_map",
+      "description": "Hard-coded coordinate lookup map k -> z* or (x, k) -> z* tailored to relation.",
+      "provenance": "DERIVED_FROM_GROUND_TRUTH_EVALUATOR_OR_TARGET_TRAJECTORY",
+      "example_specificity": "INSTANCE_DEPENDENT_OR_EXPLICIT_COORDINATES",
+      "relation_specificity": "RELATION_TAILORED_AD_HOC_COORDINATE_PATCH",
+      "inference_time_availability": "EVALUATOR_PRIVILEGE_FORBIDDEN_AT_TEST_TIME",
+      "counterfactual_invariance": "BREAKS_UNDER_SEQUENCE_MUTATION",
+      "oracle_score": "5/5_ORACLE",
+      "classification": "FORBIDDEN_HARD_CODED_ROUTING_MAP"
+    }
+  ],
+  "candidate_evaluations": [
+    {
+      "candidate_id": "CAND1",
+      "primitive": "FIRST_LAST",
+      "syntax": "TieBreakPolicy in {FIRST, LAST}",
+      "provenance": "A_PRIORI_FORMAL_GRAMMATICAL_DEFINITION",
+      "example_specificity": "X_INVARIANT_UNIVERSAL_RULE",
+      "relation_specificity": "DOMAIN_GENERAL_REUSABLE_OPERATOR",
+      "inference_time_availability": "LEGITIMATE_INFERENCE_TIME_PROMPT_INPUT",
+      "counterfactual_invariance": "ROBUST_ACROSS_COUNTERFACTUAL_VARIATIONS",
+      "oracle_score": "0/5_ORACLE",
+      "oracle_determination": "LAWFUL_NON_ORACLE",
+      "control_matching": "100% matches Negative Controls (NC1); 0% matches Positive Controls (PC1/PC2)",
+      "separates_world_a_and_b": true,
+      "separation_mechanism": "D_A = (BIND, {query_key: K}, FIRST) != (BIND, {query_key: K}, LAST) = D_B. Observables strictly distinct on duplicate-token collisions."
+    },
+    {
+      "candidate_id": "CAND2",
+      "primitive": "LEFTMOST_RIGHTMOST",
+      "syntax": "TieBreakPolicy in {LEFTMOST, RIGHTMOST}",
+      "provenance": "A_PRIORI_FORMAL_GRAMMATICAL_DEFINITION",
+      "example_specificity": "X_INVARIANT_UNIVERSAL_RULE",
+      "relation_specificity": "DOMAIN_GENERAL_REUSABLE_OPERATOR",
+      "inference_time_availability": "LEGITIMATE_INFERENCE_TIME_PROMPT_INPUT",
+      "counterfactual_invariance": "ROBUST_ACROSS_COUNTERFACTUAL_VARIATIONS",
+      "oracle_score": "0/5_ORACLE",
+      "oracle_determination": "LAWFUL_NON_ORACLE",
+      "control_matching": "100% matches Negative Controls (NC1); 0% matches Positive Controls (PC1/PC2)",
+      "separates_world_a_and_b": true,
+      "separation_mechanism": "D_A = (NEIGHBOR_MAX, {}, LEFTMOST) != (NEIGHBOR_MAX, {}, RIGHTMOST) = D_B. Observables strictly distinct on local window duplicate maxima."
+    },
+    {
+      "candidate_id": "CAND3",
+      "primitive": "procedural_composition",
+      "syntax": "PROCEDURE(ScopeSpec, MatchPredicate, ReductionOp, TieBreakPolicy)",
+      "provenance": "A_PRIORI_FORMAL_GRAMMATICAL_DEFINITION",
+      "example_specificity": "X_INVARIANT_UNIVERSAL_RULE",
+      "relation_specificity": "DOMAIN_GENERAL_REUSABLE_OPERATOR",
+      "inference_time_availability": "LEGITIMATE_INFERENCE_TIME_PROMPT_INPUT",
+      "counterfactual_invariance": "ROBUST_ACROSS_COUNTERFACTUAL_VARIATIONS",
+      "oracle_score": "0/5_ORACLE",
+      "oracle_determination": "LAWFUL_NON_ORACLE",
+      "control_matching": "100% matches Negative Controls (NC1); 0% matches Positive Controls (PC1/PC2)",
+      "separates_world_a_and_b": true,
+      "separation_mechanism": "Provides a general algorithmic framework specifying procedural task semantics; distinguishes distinct compositional procedures without hard-coding runtime coordinates."
+    }
+  ],
+  "falsification_audit_verdict": {
+    "falsification_rule": "If at least one lawful general semantic description is non-oracle under pre-registered criteria AND separates World A/B, retract/qualify ADR-0154 universal STOP. Only if all are oracle-equivalent reconfirm STOP.",
+    "lawful_non_oracle_candidates_count": 3,
+    "separating_candidates_count": 3,
+    "adr_0154_universal_stop_status": "RETRACTED_AND_RESTRICTED",
+    "stoppage_reclassification": "ROUTING_IDENTIFIABILITY_QUALIFIED_STOP",
+    "scope_breakdown": {
+      "opaque_task_id_and_token_supervision_alone": {
+        "routing_identifiable": false,
+        "stop_status": "ROUTING_IDENTIFIABILITY_STOP_CONFIRMED"
+      },
+      "lawful_general_semantic_descriptors": {
+        "routing_identifiable": true,
+        "non_oracle_status": "CONFIRMED_NON_ORACLE",
+        "stop_status": "RETRACTED"
+      }
+    },
+    "independent_blockers_remaining": [
+      {
+        "blocker_id": "RELATION_INVENTORY_FEASIBILITY_STOP",
+        "source": "ADR-0150",
+        "detail": "1/2 clean independent relation components in validation and sealed partitions (deficit unresolved)."
+      },
+      {
+        "blocker_id": "CHARTER_NOT_APPROVED",
+        "source": "PHASE_C_RESEARCH_CHARTER",
+        "detail": "Phase C Charter remains READY_FOR_REVIEW_NOT_APPROVED; research execution NOT_AUTHORIZED."
+      }
+    ],
+    "architecture_derivation_c_d002_status": "BARRED_PENDING_CHARTER_AMENDMENT_AND_USER_APPROVAL"
+  }
+}

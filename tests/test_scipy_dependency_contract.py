@@ -19,7 +19,10 @@ again) fails loudly here instead of only inside the 28 downstream tests.
 
 from __future__ import annotations
 
-import tomllib
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib  # type: ignore[no-redef]
 from pathlib import Path
 
 import pytest
