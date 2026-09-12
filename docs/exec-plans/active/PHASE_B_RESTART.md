@@ -524,6 +524,48 @@ float precision/parity guardで安全に停止した未qualified artifactであ�
   - ADR-0139の「損失勾配不整合」は、標準損失固有の表現幾何不具合ではなく、**トークン重複によるcredit assignmentの錯覚（Token-Aliasing Credit Dilution）**が主因であり、末期に**Softmax飽和飢餓**が加わって固定化された二段階メカニズムとして解釈が限定・確定された。
   - 新規学習パイロットは認可されず（`next_learning_pilot_authorized: false`）、全init検証（REC-004AM）、候補採択、およびModelBundle出力は厳格に遮断を継続。
 
+## 7K. 実行契約: B-C005REC-004AQ — CD-DPCA系列内非復元抽出warm-start単一レシピ因果パイロット
+
+**状態: 完了、`WARM_START_PILOT_VIABILITY_MET`（ADR-0141）。系列完全一致精度 0.9854（1009/1024例）、長さ10 EM 1.0000（206/206例）を達成し、終端実行性基準（EM≥0.95）および位置4偽アトラクタ解消を完全クリア。全init検証（REC-004AM）の検討が認可。候補採択・bundle出力・RG3・REC-005は厳格に遮断を継続。**
+目的は、ADR-0138〜0140で特定された「初期500ステップにおけるトークン重複（Stratum C）によるcredit dilutionが位置4の偽アトラクタ固着を引き起こす」という因果仮説を検証するため、初期500ステップのみ系列内非復元抽出（pairwise-distinct）を適用する単一介入を行い、通常トークン損失のみでCD-DPCAが終端実行性基準（EM≥0.95）を達成し位置4の偽アトラクタを脱出できるかを実証することである。
+
+- 実行境界 & 厳格対照要件:
+  - REC-004AL (I01) との完全一致: step-0 model/canonical hash (`045d85cae86d54ce1caca1947a805f2f424df55c34fba4cde11cafa6bbec49dc`)、AdamW (`lr = 0.0008, weight_decay = 0.0001, grad_clip = 1.0`)、CosineAnnealingLR (`T_max = 1000, eta_min = 1e-5`, mechanical extension)、バッチサイズ（32例/step）、総6,000 updates、評価頻度（500 stepごと全13 checkpoints）、固定開発validation（1,024例）をビット・プロトコル一致。
+  - 唯一の介入: steps 1–500 では各入力系列のトークンを非復元抽出して系列内を pairwise-distinct にし、steps 501–6000 では REC-004AL の元 sampler と per-step seed 式 (`ibc._generate_step_training_examples`) へ正確に戻す。500-step 境界は事前固定（sweep禁止）。全 length・全 position へ同じ規則を適用（特定 length や position の選別禁止）。
+  - 損失関数 & アーキテクチャ: 通常トークン損失 (CE) のみ。oracle/teacher routing loss、補助損失、エントロピー/温度変更、LR変更は禁止。新規 MIRROR temporary primitive (id 12) のみを更新し、Core および 15 non-MIRROR primitives は完全凍結。
+  - 副作用厳格遮断: candidate選定0 (`candidate_selected: null`), bundle write0 (`child_bundle: null`, `bundle_write: false`), RG3未実行 (`rg3: NOT_EXECUTED`), `rec005_eligible: false`。G1/G4は未解除の独立ブロックとして保持。
+- 実行結果（`runs/phase_b_restart/rec004aq/run_001/`）:
+  1. 検証指標（ステップ 6,000）:
+     - 系列EM: `0.985352` (1009 / 1024例) vs ベースライン `0.793945` (+0.1914)。終端基準（>=0.95）をクリア。
+     - トークン精度: `0.998168` (8235 / 8250トークン) vs ベースライン `0.973254`。
+  2. 系列長別EM内訳（ステップ 6,000）:
+     - 長さ 6: `196 / 204` (EM = `0.9608`, トークン精度 = `0.9935`)
+     - 長さ 7: `210 / 214` (EM = `0.9813`, トークン精度 = `0.9973`)
+     - 長さ 8: `194 / 194` (EM = `1.0000`, トークン精度 = `1.0000`)
+     - 長さ 9: `203 / 206` (EM = `0.9854`, トークン精度 = `0.9984`)
+     - 長さ 10: `206 / 206` (EM = **`1.0000`**, トークン精度 = **`1.0000`**) $\to$ REC-004ALの 0.3398 から完全回復！
+     - 全5系列長が 0.95 の基準を達成。
+  3. 位置4ルーティング軌道 & 偽アトラクタ完全解消:
+     - step 0: top-1 key 3, margin $-0.60$, 精度 $0.0777$。
+     - step 500 (warm-start完了時): top-1 key **0** (正解), $p(0) = 0.4083$, $p(7) = 0.1627$, margin **$+0.55$**, 精度 $0.3495$（REC-004ALでは key 7 に margin $-6.47$ で固着していた）。
+     - step 1000 (通常データ復帰後): top-1 key 0, margin **$+2.97$**, 精度 $0.8252$。
+     - step 1500..6000: margin は $+3.59$ から **$+5.38$** へ単調拡大。step 2000 以降は精度 **`1.0000`** (206/206) を完全維持。
+     - 端末 step 6000: 206例中206例（100.0%）が正解 key 0 を選択。偽アトラクタ key 7 の選択数は **0件**（0.0%）。
+  4. 層別勾配アライメント軌道:
+     - warm-start 中 (steps 1..500) は非復元抽出により Stratum C の破壊的偽報酬がゼロとなり、正解アトラクターへの引き込みが成功。
+     - 通常復元抽出データへの復帰後 (steps 501..6000) も、一度形成された正解アトラクターが壊れることなく維持され、Stratum C の破壊的勾配はほぼゼロ（$-0.0050$）へと収束。
+  5. 他位置への回帰なし:
+     - 全系列長・全出力位置においてトークン精度が 0.96 以上を維持（失点は全体でわずか 15 トークン）。
+  6. 因果対照（ステップ 6,000）:
+     - 正解制御 EM: `0.9854`、逆族制御 (`REVERSE`) EM: `0.0000`、未ルーティング制御 (`None`) EM: `0.0000`、因果ギャップ: `0.9854`（極めて有意な演算子依存性）。
+  7. 整合性 & 副作用監査:
+     - パディングマスク検証 PASS、フリーズ監査 PASS、副作用監査 PASS。
+- 判定と影響:
+  - 判定: `WARM_START_PILOT_VIABILITY_MET`。
+  - 単一介入（初期500ステップのpairwise-distinctサンプリング）のみで、位置4の偽アトラクタが解消され、終端実行性基準（EM≥0.95）が完全に達成された。
+  - 次段階として、REC-004AM（この warm-start 単一レシピを用いた独立5初期化の検証）の計画・実行を検討することが認可される。
+  - 候補採択・bundle出力・RG3・REC-005は未認可であり、厳格に遮断を継続。
+
 ## 8. 実行記録
 
 - 2026-09-12: 本計画へ状態を集約。過去文書を仕様/証拠へ位置づけ直した（ADR-0127）。
@@ -541,6 +583,7 @@ float precision/parity guardで安全に停止した未qualified artifactであ�
 - 2026-09-13: REC-004AN `run_001` 実行完了、`LENGTH10_LOCAL_OPTIMIZATION_FAILURE_IDENTIFIED`（ADR-0138）。13 checkpoint全軌道再評価、位置局在、transplant、勾配衝突、露出監査を実施。失点の89.4%（位置3-4合計で99.3%）が出力位置4の偽アトラクタ固着（key 7）に局在することを確認。追加学習0、candidate0、bundle0、RG3未実行。
 - 2026-09-13: REC-004AO `run_001` 実行完了、`LOCAL_LOSS_GRADIENT_MISALIGNMENT_IDENTIFIED`（ADR-0139）。13 checkpoint勾配到達性診断を実施。ルーティング勾配ノルムは十分（0.2707）だが正解マージン予測変化は84.6%で非正（端末-0.6976、cos=-0.1116）、key 0への勾配はsoftmax飽和により極小飢餓。追加学習0、candidate0、bundle0、RG3未実行。
 - 2026-09-13: REC-004AP `run_001` 実行完了、`TOKEN_ALIASING_DILUTION_AND_LATE_SATURATION_IDENTIFIED`（ADR-0140）。13 checkpointトークン識別性層別化勾配診断を実施。非重複/他重複例（86.9%）では正解改善勾配が供給される一方、key 7重複例（13.1%）の12.4倍巨大破壊勾配が全体を反転させ、端末でsoftmax飢餓が固定化するメカニズムを特定。追加学習0、candidate0、bundle0、RG3未実行。
+- 2026-09-13: REC-004AQ `run_001` 実行完了、`WARM_START_PILOT_VIABILITY_MET`（ADR-0141）。初期500ステップの系列内非復元抽出warm-start単一レシピ因果パイロットを実行。決定ステップ6000で系列EM=0.985352（1009/1024例）、長さ10 EM=1.0000（206/206例）、位置4トークン精度=1.0000（206/206例、top-1 key 0, margin +5.38）を達成し、終端実行性基準（≥0.95）を大幅クリア。全init検証（REC-004AM）の検討が認可。候補採択・bundle出力・RG3・REC-005は未認可・遮断を継続。
 - 2026-09-12: 全2,514ケースの分割検証・ruff・mypy・文書/差分確認を完了。今回の整理・修正・有限precheckを閉じる。Phase B全体やRG3の完了ではない。
 
 ## 9. 最終検証と現在の停止点
@@ -548,10 +591,10 @@ float precision/parity guardで安全に停止した未qualified artifactであ�
 | 検証 | 結果 | 証拠・制約 |
 |---|---|---|
 | pytest 全収集ケース | 分割実行で2,514件PASS | Windows先行977件＋再開1,536件＋WSL1件。全node IDの和集合と全収集IDが一致 |
-| REC-004AJ〜AP 回帰テスト | 45件PASS | REC-004AJ/AK/AL/AN/AO/APの全45件PASS（4.2秒） |
+| REC-004AJ〜AQ 回帰テスト | 51件PASS | REC-004AJ/AK/AL/AN/AO/AP/AQの全51件PASS（3.4秒） |
 | Windows単一プロセスの全件実行 | 異常終了、PASSではない | 長いXデータ検証中のPythonアクセス違反。原因未確定。既通過分を保存し、残りを再開 |
 | ruff check . | PASS | 終了コード0（全ファイル通過） |
-| mypy src/apc | PASS | 166 source files、終了コード0 |
+| mypy src/apc | PASS | 167 source files、終了コード0 |
 | 文書・差分 | PASS | ローカルリンク存在確認、git diff --check |
 
 全ケースの検証範囲は満たしたが、単一プロセスの安定性を認定したとは扱わない。
@@ -562,10 +605,14 @@ WSLへ移したのはartifactパスに依存しない `test_rec004x_dataset_disj
 `verification_coverage_plan.json`、`verification_events.jsonl`、`final_*.log` に保存した。
 研究の新学習0とは§5/6の研究実行を指し、検証用tiny fixtureの学習を含む全テストの更新数を指さない。
 
-**現在の停止点はREC-004APによるCD-DPCA位置4トークン識別性層別化勾配アライメント診断の完了およびトークン重複credit dilutionと端末softmax飽和の二段階同定（`TOKEN_ALIASING_DILUTION_AND_LATE_SATURATION_IDENTIFIED`）である。**
-全13チェックポイント・3相互排他層（Stratum A: 唯一正解 77例/37.4%、Stratum B: 他キー重複 102例/49.5%、Stratum C: key 7重複 27例/13.1%）の厳密なスコア空間・パラメータ空間勾配測定により、ADR-0139の勾配不整合パラドックスが完全に解明された。
-訓練中期のステップ 500〜5000 において、全体の 86.9% を占める Strata A & B はパラメータ空間で正解マージンを改善する正常なシグナル（$-g_{\text{margin}} \cdot g_{\text{loss}} > 0$）を一貫して出していた。しかし、わずか 13.1% の Stratum C（key 7 に偶発的に正解トークンが存在する例）において、標準トークン損失は key 7 を正解と誤認して平均ノルム・大きさで 12.4倍（$-31$ 〜 $-43$）に達する極大の破壊的勾配を放出し、全体の勾配（pooled）を負に引きずり倒していた（Token-Aliasing Credit Dilution）。
-そして末期（step 5500〜6000）において、長年の key 7 固定により正解 key 0 の softmax 確率が $10^{-4}$ にまで餓死した結果、Stratum A でも正解マージン改善シグナルが減衰・反転して固定化した。
-したがって、ADR-0139の勾配不整合は標準損失固有の表現幾何不具合ではなく、トークン重複による信用割り当て希釈とsoftmax飽和飢餓の複合作用であると確定された。
-新規学習パイロットは認可されず（`next_learning_pilot_authorized: false`）、全init検証（REC-004AM）、候補採択、およびModelBundle出力は厳格に遮断（`candidate_selected: null`, `child_bundle: null`）され、RG3、REC-005、G1、G4は未解除のまま保持される。
+**現在の停止点はREC-004AQによるCD-DPCA系列内非復元抽出warm-start単一レシピ因果パイロットの成功および終端実行性基準クリア（`WARM_START_PILOT_VIABILITY_MET`）である。**
+REC-004AL (I01) を厳格なベースラインとし、唯一の介入として初期500ステップ（全体の8.3%）において各入力系列のトークンを非復元抽出（pairwise-distinct）し、ステップ501以降はREC-004ALの元サンプラー（通常の復元抽出）へ戻すという単一因果パイロットを実施した。
+決定ステップ6,000において、全体系列EMはベースラインの `0.7939` (813/1024) から **`0.985352`** (1,009/1,024) へと跳ね上がり、事前登録された終端実行性基準（$\ge 0.95$）を余裕をもってクリアした。
+特に、REC-004ALにおいて `0.3398` (70/206) と最大の破綻 locus であった長さ10は、**`1.0000`** (206/206) の完全正解（EM 100%）を達成した。
+位置レベルでも、REC-004ALにおいて失点の89.4%を占めていた出力位置4の偽アトラクタ（key 7固着、margin $-14.21$）は完全に解消され、全206例中206例（100%）が正解 key 0 をトップ1選択し、トークン精度は **`1.0000`**、スコアマージンは **`+5.38`**、正解キー確率 $p(0) = 0.7398$ （対抗key 7は $0.0743$）へと劇的に反転した。
+他位置への回帰も一切生じておらず、全系列長（6..10）の系列EMが 0.96 以上となった。
+これにより、ADR-0138〜0140で仮説構築された「初期500ステップにおけるトークン重複（Stratum C）による信用割り当て希釈が偽アトラクタ固着の原因である」という因果メカニズムが実証された。
+次段階として、この固定された warm-start レシピを用いた独立5初期化による全init検証（REC-004AM）の計画・実行を検討することが認可される。
+ただし、候補採択（candidate adoption）、モデルバンドル出力（child bundle write）、15 non-SHIFT RG3 再検査、および 5モデル cohort REC-005 は依然として未認可であり、厳格に遮断を継続（`candidate_selected: null`, `child_bundle: null`, `bundle_write: false`, `rg3: NOT_EXECUTED`, `rec005_eligible: false`）する。独立した研究ブロック G1 および G4 も未解除のまま保持される。
+
 
