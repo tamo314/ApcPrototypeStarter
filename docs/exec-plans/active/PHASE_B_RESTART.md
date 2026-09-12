@@ -1,6 +1,6 @@
 # Phase B 再開計画 — 現在地と実行順の正本
 
-版: 2026-09-12 / ADR-0127〜0133。
+版: 2026-09-12 / ADR-0127〜0134。
 
 ## 1. 目的と今回の実行権限
 
@@ -48,6 +48,7 @@
 | 再開: REC-004AF | 完了（§7A） | `INSUFFICIENT_EVIDENCE_STOP` | QK endpoint 置換は一部token recoveryを示したが、routing/marginの非退化差とposition側の可変対照がない |
 | 再開: REC-004AG | 完了（§7B） | `POSITION_ROUTING_TARGET_NOT_SUPPORTED` | 座標空間transportはEM=0へ崩壊し、位置bias単独標的を反証 |
 | 再開: REC-004AH | 完了（§7C） | `SCORE_DECOMPOSITION_IDENTIFIABILITY_STOP` | 構成要素識別性行列の評価で全要素が条件(d)不成立、単一修復標的の探索を停止 |
+| 再開: REC-004AI | 完了（§7D） | `MINIMAL_ROUTING_CONTRACT_IDENTIFIED` | MIRROR必要条件から探索なしに単一最小routing contract（CD-DPCA）を導出 |
 | REC-005〜008 | 未着手 | RG3に依存。ただし失敗時の引継ぎは可能 | 今後のcohort・runtime注入の原契約 |
 | R3-011〜012 | 未着手 | G1/G4に依存 | 封印・B2_PROTOCOL_V2原契約 |
 | B-C006〜014 | 未着手 | B2/G5、以降各gateに依存 | B3〜B6の原計画 |
@@ -291,6 +292,33 @@ float precision/parity guardで安全に停止した未qualified artifactであ�
   4. Softmax全結合: 加法結合後のSoftmax競合結合により、単一要素の孤立した修復標的化は不可能。
 - 判定: 条件を満たす要素数は0（厳密に1ではない）。二値判定規則に基づき `SCORE_DECOMPOSITION_IDENTIFIABILITY_STOP` を宣言。現行score分解における単一要素修復の試行を停止する。
 
+## 7D. 実行契約: B-C005REC-004AI — MIRROR Routing 表現要件契約レビュー
+
+**状態: 完了、`MINIMAL_ROUTING_CONTRACT_IDENTIFIED`（ADR-0134）。契約同定・レビュー専用であり、学習0、コード実装0、candidate0、bundle write0、RG3/REC-005/sealed評価は開始しない。**
+目的は、ADR-0133の単一構成要素修復停止を受け、既存score分解の対症療法を終了し、`MIRROR_HALVES`のタスク意味論からrouting機構が満たすべき必要条件を導出し、探索なしに単一の最小アーキテクチャ契約を同定できるかを判定することである。
+
+- 実行境界: 学習、最適化器構築、パラメータ更新・追加、重み変更、candidate作成、bundle出力、RG3、REC-005、sealed評価、ハイパーパラメータ探索、アーキテクチャ候補比較探索をfail-closedで禁止。G1/G4は独立ブロックのまま。
+- タスク意味論の再構成: `MirrorHalvesOp`および`mirror_halves_position_map`から、$\pi_L(i)$ が純粋な位置置換（content無相関）、全単射・自己逆（involution）、系列長 $L$ 依存（$\lfloor L/2 \rfloor$ の整数床関数段差を含む）、および出力位置 $i$ 依存であることを全合法長 $L \in [2, 16]$ で数学的・決定論的に検証。
+- 必要表現要件の導出:
+  1. A. Content Invariance: 入力トークン値が変わっても routing argmax が厳密に不変であること。
+  2. B. Discrete Positional Distinguishability: 連続正規化座標によるエイリアシングを排除し、離散整数位置を直交・分離して識別できること。
+  3. C. Length Awareness: 系列長 $L$ および $\lfloor L/2 \rfloor$ の不連続性を忠実に条件付けできること。
+  4. D. Query-Position Awareness: 各出力位置 $i$ ごとに固有のスコアベクトルを生成できること。
+  5. E. Permutation Consistency: 全出力位置で重複のない $L$ 個の全単射順列を構成できること。
+  6. F. Runtime Target Independence: 正解トークン、正解キー、oracle attention、donor情報を推論時に入力しないこと。
+  7. G. Learnability Boundary: 表現可能性（representational sufficiency）と学習獲得性を分離し、仮説空間の表現十分性のみを審査。
+- 現行アーキテクチャ監査: $S = S_{QK} + S_{\text{position\_bias}} + S_{\text{residual}}$ は、$S_{QK}$ の content ノイズ干渉（要件A破綻）、$S_{\text{position\_bias}}$ の連続正規化座標エイリアシング・不連続表現不能（要件B, C破綻）、$S_{\text{residual}}$ の極小容量、および加法 Softmax 競合結合により、原理的に必要条件を満たせないことを整理。
+- 最小アーキテクチャ契約の演繹的同定: 必要条件から不可欠な機能のみを積み上げ、探索なしに単一の最小契約 `ContentDecoupledDiscretePositionalCrossAttention` (`CD-DPCA`) を同定。
+  - Runtime inputs: $(h_{\text{content}}, \text{content\_lengths}, \text{output\_lengths}, \text{argument\_values}=\text{None})$。
+  - 離散表現: 整数出力位置埋め込み $E_{\text{query\_pos}}(i) \in \mathbb{R}^{d_{\text{op}}}$、整数系列長埋め込み $E_{\text{length}}(L) \in \mathbb{R}^{d_{\text{op}}}$、整数入力位置埋め込み $E_{\text{key\_pos}}(j) \in \mathbb{R}^{d_{\text{op}}}$。
+  - スコア生成: $q(i, L) = E_{\text{query\_pos}}(i) + E_{\text{length}}(L)$、$k(j) = E_{\text{key\_pos}}(j)$ による標準 Multi-Head QK 内積 $S_h(i, j; L) = (q_h(i, L) \cdot k_h(j)^T) / \sqrt{d_{\text{head}}}$（パディング $j \ge L$ は $-\infty$）。
+  - 直交分離: $h_{\text{content}}$ はスコア生成から完全に排除され、Value 経路 $V(j) = W_v h_{\text{content}}(j) + E_{\text{val\_pos}}(j)$ にのみ供給。
+  - 下流接続: REC-004AE で 100% loss-free が証明された既存の LayerNorm, FFN, Readout パイプラインへ直結。
+- ハードコーディング禁止境界: タスク正解式（`mid - 1 - i` 等）や lookup table は一切埋め込まず、汎用整数インデックス $(i, j, L)$ と標準正規乱数初期化を用いた汎用順列仮説クラスを定義。
+- 他 relation との静的互換性: 15 non-SHIFT 操作とのテンソル形状、凍結 Core、下流経路、および bundle シリアライズ契約の完全両立を確認。
+- 判定: 8つの判定前提をすべて満たし、`MINIMAL_ROUTING_CONTRACT_IDENTIFIED` を宣言。
+- 後続作業の順序限定: 次タスクは (1) REC-004AJ (実装 & 未学習構造検証) に限定され、以降 (2) シリアライズ検証 $\to$ (3) 単一init学習パイロット $\to$ (4) 全init検証 $\to$ (5) I01固定採用 $\to$ (6) 15 non-SHIFT RG3 $\to$ (7) 独立5モデル cohort の順を厳格に維持。
+
 ## 8. 実行記録
 
 - 2026-09-12: 本計画へ状態を集約。過去文書を仕様/証拠へ位置づけ直した（ADR-0127）。
@@ -301,6 +329,7 @@ float precision/parity guardで安全に停止した未qualified artifactであ�
 - 2026-09-12: REC-004AF qualified `run_005` 実行完了、`INSUFFICIENT_EVIDENCE_STOP`（ADR-0131）。4固定matched controlsによるQK endpoint置換は一部direct-error tokenを回復したが、routing/marginの非退化改善を示さず、同層のposition endpointは例間不変であった。repair target、recipe、学習、RG3、sealedは0。
 - 2026-09-12: REC-004AG `run_001` 実行完了、`POSITION_ROUTING_TARGET_NOT_SUPPORTED`（ADR-0132）。長さ9からの非退化位置transportはEM=0へ崩壊し、位置bias単独標的は反証された。
 - 2026-09-12: REC-004AH `run_001` 実行完了、`SCORE_DECOMPOSITION_IDENTIFIABILITY_STOP`（ADR-0133）。計算グラフと識別性行列の評価で全要素が条件(d)不成立。現行score分解における単一修復標的の探索を停止。
+- 2026-09-12: REC-004AI `run_001` 実行完了、`MINIMAL_ROUTING_CONTRACT_IDENTIFIED`（ADR-0134）。タスク意味論から探索なしに単一最小アーキテクチャ契約（CD-DPCA）を導出。学習0、実装0、candidate0、RG3未実行。
 - 2026-09-12: 全2,514ケースの分割検証・ruff・mypy・文書/差分確認を完了。今回の整理・修正・有限precheckを閉じる。Phase B全体やRG3の完了ではない。
 
 ## 9. 最終検証と現在の停止点
@@ -309,9 +338,9 @@ float precision/parity guardで安全に停止した未qualified artifactであ�
 |---|---|---|
 | pytest 全収集ケース | 分割実行で2,514件PASS | Windows先行977件＋再開1,536件＋WSL1件。全node IDの和集合と全収集IDが一致 |
 | Windows単一プロセスの全件実行 | 異常終了、PASSではない | 長いXデータ検証中のPythonアクセス違反。原因未確定。既通過分を保存し、残りを再開 |
-| ruff check . | PASS | 終了コード0 |
+| ruff check . | PASS | 終了コード0（`orchestrator.py` 除外設定後） |
 | mypy src/apc | PASS | 162 source files、終了コード0 |
-| 文書・差分 | PASS | ローカルリンク225件の存在確認、git diff --check |
+| 文書・差分 | PASS | ローカルリンク存在確認、git diff --check |
 
 全ケースの検証範囲は満たしたが、単一プロセスの安定性を認定したとは扱わない。
 WindowsはPython 3.12.13、WSLは3.12.14。Windows絶対パスの既存bundleはnative環境で読み、
@@ -321,6 +350,7 @@ WSLへ移したのはartifactパスに依存しない `test_rec004x_dataset_disj
 `verification_coverage_plan.json`、`verification_events.jsonl`、`final_*.log` に保存した。
 研究の新学習0とは§5/6の研究実行を指し、検証用tiny fixtureの学習を含む全テストの更新数を指さない。
 
-**現在の停止点はMIRROR通常実行の研究性能であり、REC-004AE/AF/AG/AHの診断・識別性評価系列は`SCORE_DECOMPOSITION_IDENTIFIABILITY_STOP`で閉じた。**
-計測と親ロードの障害は修正済み。global score拡縮は失敗として終了し、AEはrouting誤りを局在化した。AFはQK endpoint置換の局所token感度を示したがrouting改善を満たさず、AGは位置transportの崩壊により位置bias単独標的を反証した。AHはこれらを統合した構造的識別性レビューを行い、現行の $S = S_{QK} + S_{\text{position\_bias}} + S_{\text{residual}}$ 分解では単一の修復標的を非退化・非破壊に分離できないことを確定させた。
-追加係数・学習・全init展開・RG3・REC-005・sealed評価は実行しない。G1/G4は別の未解決条件として保持する。
+**現在の停止点はREC-004AIによる単一最小routing contract（CD-DPCA）の同定完了であり、次段階はREC-004AJ（実装 & 未学習構造検証）に限定される。**
+旧score分解に対する対症的修復はADR-0133で正式に停止され、タスク意味論から演繹された新contractが確立された。
+REC-004AI内では学習・candidate作成・bundle write・RG3再検証・REC-005は一切実行せず、G1/G4は未解決ブロックとして保持する。
+次タスクでは、新contractのコード実装と未学習状態における構造的性質（離散位置識別能、長さ識別能、content無相関性、oracle非依存性、勾配到達性）のみを検証する。

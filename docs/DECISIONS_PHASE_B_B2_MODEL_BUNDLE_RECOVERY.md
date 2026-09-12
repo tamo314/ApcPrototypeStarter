@@ -951,3 +951,71 @@ rather than an out-of-distribution destructive transport.
 binary decision rule, `SCORE_DECOMPOSITION_IDENTIFIABILITY_STOP` is declared.
 No single-component repair intervention, learning pilot, coefficient sweep, or architecture search
 may proceed under the current score decomposition. G1 and G4 remain uncleared and independent blocks.
+
+## ADR-0134: REC-004AI MIRROR Routing Representational Contract Review Identifies Minimal Single Architecture Contract (CD-DPCA)
+
+**Date:** 2026-09-12
+
+**Status:** Completed review; `execution_status: PASS`,
+`decision: MINIMAL_ROUTING_CONTRACT_IDENTIFIED`.
+
+**Contract and boundary:** REC-004AI is an analytical, semantics-driven representational review
+of the routing requirements for `MIRROR_HALVES` and qualified REC-004AE/AF/AG/AH artifacts.
+It enforces zero optimizer construction, zero parameter updates, zero parameter additions,
+zero checkpoint mutation, zero candidate creation, zero bundle write, zero architecture candidate
+sweep, zero RG3 check, zero REC-005 actions, and zero sealed-data access. G1 and G4 remain
+uncleared independent blocks.
+
+**MIRROR_HALVES routing semantics reconstruction:**
+From `MirrorHalvesOp` (`src/apc/environments/operations.py`) and `mirror_halves_position_map`,
+routing semantics was verified across all legal lengths $L \in [2, 16]$:
+$$\pi_L(i) = \begin{cases} \lfloor L/2 \rfloor - 1 - i & \text{if } 0 \le i < \lfloor L/2 \rfloor \\ L + \lfloor L/2 \rfloor - 1 - i & \text{if } \lfloor L/2 \rfloor \le i < L \end{cases}$$
+Routing is strictly content-invariant, strictly bijective involution on $\{0, \dots, L-1\}$,
+length-dependent with an integer floor step discontinuity at $\lfloor L/2 \rfloor$, and query-position
+dependent.
+
+**Representational property audit of current architecture:**
+The current scorer $S = S_{QK} + S_{\text{position\_bias}} + S_{\text{residual}}$ fails:
+1. Content Invariance: $S_{QK}$ couples to $k_{\text{in}} = W_k(h_{\text{content}} + p)$, injecting
+   task-orthogonal content noise.
+2. Discrete Positional Distinguishability: $S_{\text{position\_bias}}$ uses continuous normalized
+   coordinates $\phi = [i/(L-1), j/(L-1), (j-i)/(L-1), L/L_{\text{ref}}]$ in a smooth MLP, unable to
+   guarantee sharp discrete margins.
+3. Length Awareness: Continuous coordinate scaling causes coordinate grid aliasing across lengths
+   (e.g. REC-004AG length 9->10 collapse).
+4. Low-rank residual and additive softmax coupling cannot compensate for these structural defects.
+
+**Deductive identification of minimal architecture contract:**
+Without architectural candidate exploration or hyperparameter sweeps, accumulating the necessary
+conditions yields a single minimal architecture contract:
+`ContentDecoupledDiscretePositionalCrossAttention` (`CD-DPCA`):
+- Runtime inputs: $(h_{\text{content}}, \text{content\_lengths}, \text{output\_lengths}, \text{argument\_values}=\text{None})$.
+  No runtime oracle, target tokens, or teacher maps.
+- Integer positional representations: Discrete query position embeddings $E_{\text{query\_pos}}(i) \in \mathbb{R}^{d_{\text{op}}}$
+  and key position embeddings $E_{\text{key\_pos}}(j) \in \mathbb{R}^{d_{\text{op}}}$.
+- Length representation: Discrete length embeddings $E_{\text{length}}(L) \in \mathbb{R}^{d_{\text{op}}}$.
+- Query representation: $q(i, L) = E_{\text{query\_pos}}(i) + E_{\text{length}}(L)$.
+- Key representation: $k(j) = E_{\text{key\_pos}}(j)$.
+- Score generation: Standard multihead dot-product $S_h(i, j; L) = (q_h(i, L) \cdot k_h(j)^T) / \sqrt{d_{\text{head}}}$
+  with padding mask ($-\infty$ for $j \ge L$).
+- Content separation: $h_{\text{content}}$ is excluded from the score path and fed solely to the
+  value projection $V(j) = W_v h_{\text{content}}(j) + E_{\text{val\_pos}}(j)$.
+- Downstream connection: Unchanged connection to existing LayerNorm, FFN, and Readout (confirmed
+  100% loss-free under oracle attention in REC-004AE).
+
+**Hardcoding boundary:**
+Target-specific formulas (e.g. `mid - 1 - i`) and lookup tables are strictly prohibited. The contract
+specifies a general-purpose permutation hypothesis class initialized with standard random weights,
+taking only generic integer metadata $(i, j, L)$ as input.
+
+**Cross-relation static compatibility:**
+Static analysis confirms full compatibility with all 15 non-SHIFT operations: tensor shapes, shared
+frozen Core, downstream value/readout, and bundle serialization contracts remain preserved.
+
+**Decision and authorized next steps:**
+Decision: `MINIMAL_ROUTING_CONTRACT_IDENTIFIED`.
+Next task authorization is strictly limited to:
+1. REC-004AJ: Implementation and untrained structural/unit validation (verifying discrete distinguishability,
+   length awareness, content invariance, zero oracle leakage, and gradient reachability).
+Zero training, parameter updates, candidate creation, or bundle modification occurred in REC-004AI.
+RG3, REC-005, G1, and G4 remain blocked.
