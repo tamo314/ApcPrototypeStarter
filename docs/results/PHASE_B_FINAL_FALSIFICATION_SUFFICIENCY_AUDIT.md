@@ -90,3 +90,18 @@ No conclusion-changing, independently executable experiment remains in the exist
 ## Preserved terminal state
 
 `candidate_selected: null`; `child_bundle: null`; `bundle_write: false`; `RG3: NOT_EXECUTED`; `REC-005: BLOCKED`; G4/G5 blocked; sealed access remains zero. Historical artifacts and negative results are preserved. The corresponding ADR is ADR-0148 and the restart plan is updated in section 10.
+
+## Closeout authority — ADR-0149
+
+PHASE-B-CLOSEOUT fixes the authoritative final claim classification in the
+[closeout evidence ledger](PHASE_B_CLOSEOUT_EVIDENCE_LEDGER.md), with its
+[freeze manifest](PHASE_B_CLOSEOUT_FREEZE_MANIFEST.json) and
+[verification record](PHASE_B_CLOSEOUT_AUDIT.json).
+This audit and ADR-0148 remain preserved evidence; the closeout ledger extends
+their classification without changing their negative conclusion or measurements.
+Phase B is `CLOSED_ARCHIVED`; G1=`STOP`, G4/G5=`BLOCKED`, RG3=`NOT_EXECUTED`,
+REC-005=`BLOCKED`, candidate_selected=`null`, child_bundle=`null`, bundle_write=`false`.
+Closeout sealed-data/model-output access=0; protected sealed_v2 evaluation is unexecuted.
+Historical sealed re-gate results above remain historical, not never-opened data.
+The [independent Phase C charter](../research/PHASE_C_RESEARCH_CHARTER.md) is
+`READY_FOR_REVIEW_NOT_APPROVED`, not authorization to restart research.

@@ -1,0 +1,573 @@
+{
+  "task": "PHASE-B-CLOSEOUT",
+  "date": "2026-09-13",
+  "status": "PASS",
+  "decision": "PHASE_B_CLOSED_NEXT_RESEARCH_CHARTER_READY",
+  "source_commit": "2fbe58205c9ac75b3bf6abe72bdf17586399ba85",
+  "method": "Python standard-library read-only path/hash/Markdown checks; git diff --check. No apc import, model load, inference, autograd, optimizer or dataset generator.",
+  "changed_document_count": 43,
+  "checks": {
+    "local_links_and_anchors": {
+      "checked": 306,
+      "current_link_failures": [],
+      "historical_missing_attachment_links": [
+        {
+          "source": "docs/CODEX_TASKS_PHASE_B_B2_MIRROR_LENGTH_POSITION_BIAS.md",
+          "target": "research/evidence/REC004C_ADR0098_SUPPLIED.md",
+          "status": "MISSING_TARGET",
+          "disposition": "Pre-existing supplied-attachment reference missing; original contract preserved; not recreated, not an existence PASS. Canonical ADR-0098, task and bundle contract exist separately and are not claimed as byte-identical substitutes."
+        },
+        {
+          "source": "docs/CODEX_TASKS_PHASE_B_B2_MIRROR_LENGTH_POSITION_BIAS.md",
+          "target": "research/evidence/REC004C_TASK_SUPPLIED.md",
+          "status": "MISSING_TARGET",
+          "disposition": "Pre-existing supplied-attachment reference missing; original contract preserved; not recreated, not an existence PASS. Canonical ADR-0098, task and bundle contract exist separately and are not claimed as byte-identical substitutes."
+        },
+        {
+          "source": "docs/CODEX_TASKS_PHASE_B_B2_MIRROR_LENGTH_POSITION_BIAS.md",
+          "target": "research/evidence/MODEL_BUNDLE_CONTRACT_SUPPLIED.md",
+          "status": "MISSING_TARGET",
+          "disposition": "Pre-existing supplied-attachment reference missing; original contract preserved; not recreated, not an existence PASS. Canonical ADR-0098, task and bundle contract exist separately and are not claimed as byte-identical substitutes."
+        }
+      ],
+      "status": "CURRENT_LINKS_PASS_WITH_DISCLOSED_HISTORICAL_GAPS"
+    },
+    "historical_adrs": {
+      "count": 75,
+      "checks": [
+        {
+          "adr": "ADR-0074",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0075",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0076",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0077",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0078",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0079",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0080",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0081",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0082",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0083",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0084",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0085",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0086",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0087",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0088",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0089",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0090",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0091",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0092",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0093",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0094",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0095",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0096",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0097",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0098",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0099",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0100",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0101",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0102",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0103",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0104",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0105",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0106",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0107",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0108",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0109",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0110",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0111",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0112",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0113",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0114",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0115",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0116",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0117",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0118",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0119",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0120",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0121",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0122",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0123",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0124",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0125",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0126",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0127",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0128",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0129",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0130",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0131",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0132",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0133",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0134",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0135",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0136",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0137",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0138",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0139",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0140",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0141",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0142",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0143",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0144",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0145",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0146",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0147",
+          "unchanged": true
+        },
+        {
+          "adr": "ADR-0148",
+          "unchanged": true
+        }
+      ]
+    },
+    "referenced_adr_existence": {
+      "count": 149,
+      "missing": []
+    },
+    "concrete_run_references": {
+      "count": 114,
+      "missing": []
+    },
+    "historical_templates": {
+      "count": 9,
+      "status": "NOT_CONCRETE_ARTIFACT_REFERENCES; retained in freeze manifest, not claimed as existence PASS"
+    },
+    "evidence_integrity": {
+      "development_files": 243,
+      "checkpoints": 130,
+      "checked": 373,
+      "failures": []
+    },
+    "historical_source_prefix": [
+      {
+        "path": "docs/DECISIONS_PHASE_B.md",
+        "original_bytes_preserved": true
+      },
+      {
+        "path": "docs/DECISIONS_PHASE_B_B2_MODEL_BUNDLE_RECOVERY.md",
+        "original_bytes_preserved": true
+      },
+      {
+        "path": "docs/DECISIONS_PHASE_B_B2_MODEL_BUNDLE_RECOVERY_PART1.md",
+        "original_bytes_preserved": true
+      },
+      {
+        "path": "docs/DECISIONS_PHASE_B_B2_MODEL_BUNDLE_RECOVERY_PART2.md",
+        "original_bytes_preserved": true
+      },
+      {
+        "path": "docs/DECISIONS_PHASE_B_B2_POST_D2_REPAIR.md",
+        "original_bytes_preserved": true
+      },
+      {
+        "path": "docs/results/PHASE_B_FINAL_FALSIFICATION_SUFFICIENCY_AUDIT.md",
+        "original_bytes_preserved": true
+      }
+    ],
+    "archive_envelopes": [
+      {
+        "path": "docs/AGENTS_PHASE_B_B2_MODEL_BUNDLE_RECOVERY_ADDENDUM.md",
+        "historical_body_unchanged": true
+      },
+      {
+        "path": "docs/AGENTS_PHASE_B_B2_POST_D2_REPAIR_ADDENDUM.md",
+        "historical_body_unchanged": true
+      },
+      {
+        "path": "docs/AGENTS_PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD_ADDENDUM.md",
+        "historical_body_unchanged": true
+      },
+      {
+        "path": "docs/CODEX_TASKS_PHASE_B_B2_DENSE_TRAJECTORY_TRANSITION_AUDIT.md",
+        "historical_body_unchanged": true
+      },
+      {
+        "path": "docs/CODEX_TASKS_PHASE_B_B2_FFN_ANCHORED_DOWNSTREAM_INTERACTION_AUDIT.md",
+        "historical_body_unchanged": true
+      },
+      {
+        "path": "docs/CODEX_TASKS_PHASE_B_B2_FFN_VALUE_PATH_LEAVE_ONE_OUT_NECESSITY_AUDIT.md",
+        "historical_body_unchanged": true
+      },
+      {
+        "path": "docs/CODEX_TASKS_PHASE_B_B2_FFN_VALUE_PATH_SUBCOMPONENT_ATTRIBUTION.md",
+        "historical_body_unchanged": true
+      },
+      {
+        "path": "docs/CODEX_TASKS_PHASE_B_B2_HARD_NEGATIVE_REPAIR.md",
+        "historical_body_unchanged": true
+      },
+      {
+        "path": "docs/CODEX_TASKS_PHASE_B_B2_I03_ATTENTION_SCORE_CREDIT_ASSIGNMENT_GRADIENT_AUDIT.md",
+        "historical_body_unchanged": true
+      },
+      {
+        "path": "docs/CODEX_TASKS_PHASE_B_B2_I03_CROSS_POSITION_CROSS_LENGTH_SCORE_GRADIENT_INTERFERENCE_AUDIT.md",
+        "historical_body_unchanged": true
+      },
+      {
+        "path": "docs/CODEX_TASKS_PHASE_B_B2_I03_FINITE_STEP_SCORE_FUNCTION_DYNAMICS_AUDIT.md",
+        "historical_body_unchanged": true
+      },
+      {
+        "path": "docs/CODEX_TASKS_PHASE_B_B2_I03_SCORE_ONLY_CONTINUATION_PILOT.md",
+        "historical_body_unchanged": true
+      },
+      {
+        "path": "docs/CODEX_TASKS_PHASE_B_B2_I03_SHARED_CONTENT_PREP_RELEASE_PILOT.md",
+        "historical_body_unchanged": true
+      },
+      {
+        "path": "docs/CODEX_TASKS_PHASE_B_B2_INCREMENTAL_BUDGET_CALIBRATION.md",
+        "historical_body_unchanged": true
+      },
+      {
+        "path": "docs/CODEX_TASKS_PHASE_B_B2_MIRROR_BUDGET_EXTENSION_12000.md",
+        "historical_body_unchanged": true
+      },
+      {
+        "path": "docs/CODEX_TASKS_PHASE_B_B2_MIRROR_CONTAMINATION_FREE_CHECKPOINT_TRAJECTORY_AUDIT.md",
+        "historical_body_unchanged": true
+      },
+      {
+        "path": "docs/CODEX_TASKS_PHASE_B_B2_MIRROR_LATE_PROGRESS_CONDITIONAL_EXTENSION.md",
+        "historical_body_unchanged": true
+      },
+      {
+        "path": "docs/CODEX_TASKS_PHASE_B_B2_MIRROR_LATE_STAGE_ATTENTION_BOTTLENECK_REVALIDATION.md",
+        "historical_body_unchanged": true
+      },
+      {
+        "path": "docs/CODEX_TASKS_PHASE_B_B2_MIRROR_LENGTH_POSITION_BIAS.md",
+        "historical_body_unchanged": true
+      },
+      {
+        "path": "docs/CODEX_TASKS_PHASE_B_B2_MIRROR_POSITION_INITIALIZATION_DIAGNOSTIC.md",
+        "historical_body_unchanged": true
+      },
+      {
+        "path": "docs/CODEX_TASKS_PHASE_B_B2_MIRROR_POSITION_SCORE_RESIDUAL_AUDIT.md",
+        "historical_body_unchanged": true
+      },
+      {
+        "path": "docs/CODEX_TASKS_PHASE_B_B2_MIRROR_SCHEDULE_REPAIR.md",
+        "historical_body_unchanged": true
+      },
+      {
+        "path": "docs/CODEX_TASKS_PHASE_B_B2_MIRROR_TEMPORAL_MECHANISM_ROLLBACK_AUDIT.md",
+        "historical_body_unchanged": true
+      },
+      {
+        "path": "docs/CODEX_TASKS_PHASE_B_B2_MODEL_BUNDLE_RECOVERY.md",
+        "historical_body_unchanged": true
+      },
+      {
+        "path": "docs/CODEX_TASKS_PHASE_B_B2_POST_D2_REPAIR.md",
+        "historical_body_unchanged": true
+      },
+      {
+        "path": "docs/CODEX_TASKS_PHASE_B_B2_SCIPY_DEPENDENCY_REPAIR.md",
+        "historical_body_unchanged": true
+      },
+      {
+        "path": "docs/CODEX_TASKS_PHASE_B_B2_SECOND_DIAGNOSTIC.md",
+        "historical_body_unchanged": true
+      },
+      {
+        "path": "docs/CODEX_TASKS_PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD.md",
+        "historical_body_unchanged": true
+      },
+      {
+        "path": "docs/EXPERIMENT_PLAN_PHASE_B_B2_MODEL_BUNDLE_RECOVERY.md",
+        "historical_body_unchanged": true
+      },
+      {
+        "path": "docs/EXPERIMENT_PLAN_PHASE_B_B2_POST_D2_REPAIR.md",
+        "historical_body_unchanged": true
+      },
+      {
+        "path": "docs/EXPERIMENT_PLAN_PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD.md",
+        "historical_body_unchanged": true
+      },
+      {
+        "path": "docs/exec-plans/active/PHASE_B_B2_MODEL_BUNDLE_RECOVERY.md",
+        "historical_body_unchanged": true
+      },
+      {
+        "path": "docs/exec-plans/active/PHASE_B_B2_POST_D2_REPAIR.md",
+        "historical_body_unchanged": true
+      },
+      {
+        "path": "docs/exec-plans/active/PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD.md",
+        "historical_body_unchanged": true
+      },
+      {
+        "path": "docs/results/PHASE_B_C001_TO_C005_INTERIM_REPORT.md",
+        "historical_body_unchanged": true
+      }
+    ],
+    "terminal_consistency": {
+      "restart_terminal": true,
+      "queue_empty": true,
+      "charter_not_approved": true,
+      "current_decision": true,
+      "archive_entrypoints": true,
+      "no_code_change": true
+    },
+    "git_diff_check": {
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  },
+  "execution_boundary": {
+    "architecture_implementation": 0,
+    "optimizer_implementation": 0,
+    "training_updates": 0,
+    "candidate_creation": 0,
+    "new_dataset_generation": 0,
+    "new_relation_registration": 0,
+    "seed_execution": 0,
+    "pilot": 0,
+    "sealed_data_access": 0,
+    "sealed_model_output_access": 0,
+    "checkpoint_model_load": 0,
+    "model_forward_or_backward": 0
+  },
+  "not_executed": {
+    "pytest": "Documentation/artifact audit only; no implementation changed.",
+    "ruff": "Documentation/artifact audit only; no implementation changed.",
+    "mypy": "Documentation/artifact audit only; no implementation changed.",
+    "research_experiments": "Explicitly prohibited by closeout scope."
+  },
+  "limitations": [
+    "Three pre-existing supplied-attachment Markdown links are missing; disclosed, preserved, and not labeled passing.",
+    "No new experiment or performance reproduction; results are attributed to preserved ADR/run evidence.",
+    "The manifest covers explicit references and selected development files; it is not a complete backup of all gitignored runs.",
+    "Historical original sealed results were not reopened; zero new access does not erase their past exposure.",
+    "Charter design feasibility and future relation inventory are unproved; no architecture adopted."
+  ],
+  "excluded_existing_user_change": "config.json",
+  "audit_commands": [
+    "python runs/phase_b_closeout/run_001/freeze.py (one-time pre-edit evidence snapshot)",
+    "python runs/phase_b_closeout/run_001/verify.py",
+    "git diff --check -- README.md docs"
+  ]
+}

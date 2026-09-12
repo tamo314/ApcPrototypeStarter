@@ -1865,3 +1865,30 @@ The prerequisite for the conditional full-cell no-update test was not met, so no
 No conclusion-changing, independently executable experiment remains within the existing contracts and the audit's prohibitions. An experiment requiring a new relation family, a new candidate/repair hypothesis, new training, or sealed access is outside this terminated scope and cannot be used to evade the recorded STOPs.
 
 **Decision and preserved blocks:** Declare `NEGATIVE_CONCLUSION_TERMINATED_CURRENT_ARCHITECTURE`. Keep `candidate_selected=null`, `child_bundle=null`, `bundle_write=false`, `rg3=NOT_EXECUTED`, `rec005=BLOCKED`, G4/G5 blocked, and sealed access at zero. The authoritative evidence ledger is `docs/results/PHASE_B_FINAL_FALSIFICATION_SUFFICIENCY_AUDIT.md`; the restart plan records the same terminal status.
+
+## ADR-0149: Close Phase B Evidence and Create an Independent Routing-Identifiability Charter
+
+**Date:** 2026-09-13
+
+**Task:** PHASE-B-CLOSEOUT — Evidence Freeze, Lessons Extraction, and Next-Architecture Research Charter.
+
+**Status:** Completed documentation/artifact audit; `PHASE_B_CLOSED_NEXT_RESEARCH_CHARTER_READY`.
+Phase B is `CLOSED_ARCHIVED`. Phase C is `READY_FOR_REVIEW_NOT_APPROVED`; no architecture or first experiment is selected.
+
+**Decision:** Freeze `NEGATIVE_CONCLUSION_TERMINATED_CURRENT_ARCHITECTURE` as the scientific terminal state without rewriting ADR-0148 or any prior result. Archive the Phase-B experimental queue. Publish an independent, falsifiable research charter about semantic routing identifiability under ambiguous token outputs without oracle routing supervision. Charter readiness is not research execution authorization and does not reopen Phase B.
+
+**Evidence / reason:** The [closeout ledger](results/PHASE_B_CLOSEOUT_EVIDENCE_LEDGER.md) classifies all ADR-0074--0148 claims as Supported, Falsified, Mechanistically explained, Unresolved, or Out of scope. B1 explicit-TaskSpec and infrastructure/causal controls remain supported. CD-DPCA finite representability and I01 warm-start success do not overcome 1/5 multi-init qualification, 2/5 matched co-improvement, the initialization × early-data/CE-observable identifiability STOP, or G1's validation 0/2 and sealed_v2 1/2 independent clean components. These findings terminate this architecture; they do not prove APC generally impossible.
+
+**Evidence freeze:** [Manifest](results/PHASE_B_CLOSEOUT_FREEZE_MANIFEST.json) records the pre-closeout commit, all 75 historical ADR entry hashes, 123 expanded historical run references (114 concrete existing references and 9 explicitly symbolic templates), 243 selected development evidence file hashes, and 130 raw checkpoint hashes checked against REC-004AS's existing source manifest. Original qualified/failed/preliminary artifacts remain in place. Checkpoints are hashed only, never loaded or evaluated. Original sealed-run payloads are not opened. The tracked snapshot is content-addressed and tamper-evident; it is not a full write-once backup of gitignored run binaries. Three pre-existing supplied-attachment links in the archived REC-004D contract are missing and disclosed in the audit; they are not reconstructed or labeled passing. Existing decision-index links are aligned with unchanged ADR headings.
+
+**Consequences and preserved terminal state:**
+- `candidate_selected=null`, `child_bundle=null`, `bundle_write=false`, `RG3=NOT_EXECUTED`, `REC-005=BLOCKED`, `G1=STOP`, `G4=BLOCKED`, `G5=BLOCKED`.
+- RG3 denotes the final candidate recheck; original REC-004 RG3 FAIL and historical development G4 FAIL remain intact.
+- RG3, REC-005--008, R3-011/012 and B-C006 onward are archived upstream-STOP non-executions, never unfinished backlog.
+- Closeout sealed-data/model-output access is 0. Protected sealed_v2 remains unevaluated/unopened. Historical B1/B2/re-gate sealed measurements remain historical evidence, not retroactively unopened data.
+- [Phase C charter](research/PHASE_C_RESEARCH_CHARTER.md) requires identifiable lawful information, primary routing-coordinate evidence, 5/5 initialization qualification, >=2 independent clean components in each validation/sealed partition, coherent candidate and RG3/G1/G4 equivalents before sealed evaluation. No architecture, optimizer, training, candidate, dataset, relation, seed, pilot, or first experiment is created.
+- The charter must be approved and fixed before a separate task defines any first experiment. A failed design cannot trigger open-ended candidate/architecture search.
+
+**Affected current documents:** README status, task queue, archived restart plan, Phase-B contract/report archive envelopes, final-results authority pointer, closeout ledger/manifest/audit record, independent Phase-C charter and decision index. Historical contracts stay at their existing paths for link compatibility; an `active/` directory name does not confer active status. Existing ADR text and REC-004 histories are preserved.
+
+**Verification:** [Audit record](results/PHASE_B_CLOSEOUT_AUDIT.json) reports local links/anchors, ADR existence/coverage and byte preservation, concrete run-reference existence, before/after evidence/checkpoint hashes, terminal/queue consistency, and `git diff --check`. This is documentation-only; pytest, ruff, mypy and research execution are not rerun. The unrelated pre-existing `config.json` change is excluded from the local closeout commit.

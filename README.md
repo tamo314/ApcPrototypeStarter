@@ -27,7 +27,8 @@ The first goal is **not** to build a competitive LLM. The first goal is to estab
 - **Phase A**: Complete with a negative scientific verdict; preserved as historical evidence in `docs/exec-plans/completed/PHASE_A_RESULT.md`.
 - **Phase A.1**: Complete with Branch B integration and 10-operation closed-universe learned routing (`docs/exec-plans/active/PHASE_A1_BRANCH_B_INTEGRATION.md`, `ADR-0061`).
 - **Phase A.2**: Complete with strong autonomous controller support across all 4 STOP GATES and real sparse latency scaling up to N=128 (`docs/results/PHASE_A2_AUTONOMOUS_CONTROLLER_RESULT.md`, `ADR-0073`).
-- **Phase B (Active)**: **Semantic Task Inference & Open-World Extension**. Start with the [restart plan](docs/exec-plans/active/PHASE_B_RESTART.md) for current status and dependencies; it links the preserved phase and task contracts.
+- **Phase B (Closed / archived)**: `NEGATIVE_CONCLUSION_TERMINATED_CURRENT_ARCHITECTURE`. The [final evidence ledger](docs/results/PHASE_B_CLOSEOUT_EVIDENCE_LEDGER.md) preserves the supported results, falsified claims and unproved boundaries; the [archived restart plan](docs/exec-plans/active/PHASE_B_RESTART.md) retains historical contracts. No Phase-B experiment is queued.
+- **Phase C (Charter ready for review; research not started)**: [Independent routing-identifiability charter](docs/research/PHASE_C_RESEARCH_CHARTER.md). No architecture is selected and no first experiment is defined or authorized.
 
 ## Development environment
 

@@ -1,24 +1,34 @@
-# Phase B 再開計画 — 現在地と実行順の正本
+# Phase B 終端・アーカイブ台帳 — 旧再開計画
 
-版: 2026-09-13 / ADR-0127〜0148。Phase-B-FINALの証拠限定終了監査を追記。
+版: 2026-09-13 / ADR-0149。`CLOSED_ARCHIVED`。
 
-## 1. 目的と今回の実行権限
+## 1. 最終状態と権限境界
 
-ユーザーの「現状を整理して計画を組みなおし、その後、修正したPhase Bを進行する」という
-2026-09-12の指示に基づく。今後の進捗・依存関係・実行待ちはこの文書だけで管理する。
-既存のtask ID、実験結果、受入閾値、sealedデータの境界は保持する。
-旧文書の「proposed」「最初はREC-001のみ」等は作成当時の開始状態であり、現在地ではない。
+**`NEGATIVE_CONCLUSION_TERMINATED_CURRENT_ARCHITECTURE`** を正式な終端として固定する。
+PHASE-B-CLOSEOUTの判定は **`PHASE_B_CLOSED_NEXT_RESEARCH_CHARTER_READY`**。
+[最終証拠台帳](../../results/PHASE_B_CLOSEOUT_EVIDENCE_LEDGER.md)を主張分類の正本、
+[ADR-0148の終了監査](../../results/PHASE_B_FINAL_FALSIFICATION_SUFFICIENCY_AUDIT.md)を保存する。
 
-この指示は、以下の順序で前提が成立した作業を進める許可として扱う。単なるtask完了ごとの
-再承認は求めない。一方、失敗STOP GATEを飛ばす許可ではない。新しい研究介入は、
-仮説・変更範囲・データ・予算・成功条件を本書へ**実行前に**固定してから行う。
-性能未達に応じた無制限な実験追加、過去FAILの上書き、sealedを使った調整はしない。
+`candidate_selected=null`, `child_bundle=null`, `bundle_write=false`, `RG3=NOT_EXECUTED`,
+`REC-005=BLOCKED`, `G1=STOP`, `G4=BLOCKED`, `G5=BLOCKED`。
+今回のsealed-data/model-output access=0。sealed_v2評価は未実行・未開封。
+歴史上のREC-004 RG3 FAIL、G4 development FAIL、B2 sealed re-gate FAILは変更しない。
+
+2026-09-12のPhase B継続指示は本終端を越える研究実行権限ではない。
+Phase Bの実験待ち行列は空。RG3、REC-005〜008、R3-011/012、B-C006以降は
+upstream STOPによる非実行としてarchiveし、未完了backlogへ戻さない。
+独立した[Phase C research charter](../../research/PHASE_C_RESEARCH_CHARTER.md)は
+`READY_FOR_REVIEW_NOT_APPROVED`。architecture未選択、最初の実験未定義。
+charter承認・固定後の別taskより前に実装・学習・relation追加・seed/pilot実行を開始しない。
+
+本ファイルはリンク互換性のため旧 `active/` pathへ保存するが、運用状態はarchived。
+以下の完了契約・実行順・当時の継続許可は歴史記録であり、新たな実行許可ではない。
 
 ## 2. 文書の役割
 
 | 文書 | 今後の役割 |
 |---|---|
-| 本書 | 現在地、優先順位、依存関係、再開作業の契約、最新の完了/停止判断 |
+| 本書 | 終端・アーカイブ状態、および保存された過去契約・実行記録 |
 | [Phase B親計画](PHASE_B_SEMANTIC_TASK_INFERENCE_OPEN_WORLD.md) | B1〜B6の研究目的・最終ゲートの原契約 |
 | [Post-D2計画](PHASE_B_B2_POST_D2_REPAIR.md) | R3の技術仕様・G0〜G5の原契約 |
 | [Recovery計画](PHASE_B_B2_MODEL_BUNDLE_RECOVERY.md) | REC-001〜008の技術仕様・RG0〜RG6の原契約 |
@@ -27,9 +37,9 @@
 | 過去REC-004A〜ACの契約・run | 完了済みの診断/介入の記録。自動再実行する待ち行列ではない |
 
 ファイルの削除・移動や過去番号の振り直しは行わない。細分化されたタスクをさらに積み上げず、
-既存タスクの訂正はrevisionとして扱い、以下の一つの未解決問題に結び付ける。
+現行architectureの実験待ち行列を再構成しない。
 
-## 3. 確定した現在地
+## 3. 終端時の成果と非実行の区別
 
 | 項目 | 作業の状態 | 科学的/復旧判定 | 再利用する成果 |
 |---|---|---|---|
@@ -37,7 +47,7 @@
 | B-C004〜005、D/R1/R2/G、D2 | 完了・診断系列は終了 | B2/re-gate FAIL | ranking/argument/adequacyの分離 |
 | R3-001/003/005 | 完了 | G0/G2/G3 PASS | 再現可能な生成、指標、有限look verifier |
 | R3-002 | 調査完了 | G1 relation不足 | exposure台帳・不足の証拠 |
-| R3-006〜008 | 過去親上で完了 | 新しい親では再資格確認が必要 | scoped key、SELECT式修正、BIND coverage |
+| R3-006〜008 | 過去親上で完了・archive | 新親への資格は未証明、再実行待ちではない | scoped key、SELECT式修正、BIND coverage |
 | R3-009〜010 | 完了 | SHIFT/G4 FAIL | 安全な置換・統合ladder・不整合検出 |
 | REC-001〜003 | 完了 | RG0〜RG2 PASS | immutable bundle、fail-closed load、16操作build |
 | REC-004 | 実施済み | RG3 FAIL | seed10親とfresh-load検証 |
@@ -60,15 +70,18 @@
 | 再開: REC-004AR | 完了（§7M） | `I01_SPECIFIC_OR_MIXED_EFFECT_IDENTIFIED` | 5初期化matched-baseline因果複製。同時改善2/5（I01, I05）、I02/I03は負干渉。普遍的優位性は反証されI01特異的・混合効果を同定。REC-004AM FAIL保持 |
 | 再開: REC-004AS | 完了（§7N） | `INITIALIZATION_DATA_INTERACTION_IDENTIFIED` | 既存130 checkpoint state・全40 routing cell/初期化・step-1固定streamのno-update監査。step-0幾何単独/early-data単独は不十分、初期化×data interactionを確認。generic initialization-only repairは未同定、pilot禁止 |
 | 再開: REC-004AT | 完了（§7O） | `NO_SINGLE_OPTIMIZATION_FORMULATION_IDENTIFIED_STOP` | AO/AP/AM/AR/AS既存証跡のみのoracle-free standard-CE式識別性監査。alias collisionは同一CE observableに対し反対routing方向を要求し、単一式の一意導出に失敗。CE-only optimization-repairをSTOP |
-| REC-005〜008 | 未着手 | RG3に依存。ただし失敗時の引継ぎは可能 | 今後のcohort・runtime注入の原契約 |
-| R3-011〜012 | 未着手 | G1/G4に依存 | 封印・B2_PROTOCOL_V2原契約 |
-| B-C006〜014 | 未着手 | B2/G5、以降各gateに依存 | B3〜B6の原計画 |
+| REC-005〜008 | archive・upstream STOPによる非実行 | RG3前提不成立 | cohort・runtime注入の原契約を保存 |
+| R3-011〜012 | archive・upstream STOPによる非実行 | G1 STOP / G4 BLOCKED | 封印・B2_PROTOCOL_V2原契約を保存 |
+| B-C006〜014 | archive・upstream STOPによる非実行 | B2/G5前提不成立 | B3〜B6の原計画を保存 |
 
-**未解決問題は三つ:** (a) MIRRORを含む整合bundleの通常実行性能、
+**未証明の範囲（backlogではない）は三つ:** (a) MIRRORを含む整合bundleの通常実行性能、
 (b) 同一親での検索/引数/SHIFT/実K/C/N/R統合、(c) 独立relationの不足とholdoutへの学習露出。
 I01〜I05は同一Core上の初期化であり、5個の独立modelではない。
 
-## 4. 実行順と出口条件
+## 4. 歴史記録: 実行順と出口条件
+
+以下は終了前の依存関係の保存である。全行archive済みで、実行待ちを表さない。
+独立とされたG1再設計もADR-0147でSTOPし、代替family追加は未認可のまま終了した。
 
 | 順序 | 作業 | 開始条件 | 完了後に進める範囲 |
 |---|---|---|---|
@@ -700,7 +713,9 @@ float precision/parity guardで安全に停止した未qualified artifactであ�
 - 2026-09-13: REC-004AS `run_001` 実行完了、`INITIALIZATION_DATA_INTERACTION_IDENTIFIED`（ADR-0145）。既存130 checkpoint states、40 routing cells/初期化、固定step-1 standard/distinct streamのno-update監査で、step-0幾何単独とearly data単独は不十分、initialization×data interactionを確認。generic initialization-only repairは一意に未同定のためlearning pilot、architecture/init sweepをSTOP。source hash不変、optimizer update/candidate/bundle/RG3/sealedは0。
 
 - 2026-09-13: REC-004AT `run_001` 実行完了、`NO_SINGLE_OPTIMIZATION_FORMULATION_IDENTIFIED_STOP`（ADR-0146）。ADR-0138〜0145とAO/AP/AM/AR/AS既存artifactだけを監査。Stratum C（27/206）の同一CE observableに対するkey0/key7反対routing方向collision、全40 cellの5-seed early-sign/basin不一致、ARのmixed causal effectにより、係数探索・候補比較なしの固定standard-CE最適化式は一意に導出不能。CE-only optimization-repairをSTOPし、formula固定・全cell条件検証・6000-step pilotは未実行。optimizer update/new seed/training/sampler/init/architecture/candidate/bundle/RG3/sealedは0。
-## 9. 最終検証と現在の停止点
+## 9. 歴史記録: 当時の検証と停止点
+
+本節の検証は過去runの記録。closeoutでpytest等を再実行した記録ではない。現在の終端は§1を参照。
 
 | 検証 | 結果 | 証拠・制約 |
 |---|---|---|
@@ -719,7 +734,7 @@ WSLへ移したのはartifactパスに依存しない `test_rec004x_dataset_disj
 `verification_coverage_plan.json`、`verification_events.jsonl`、`final_*.log` に保存した。
 研究の新学習0とは§5/6の研究実行を指し、検証用tiny fixtureの学習を含む全テストの更新数を指さない。
 
-**現在の停止点はREC-004ATによるoracle-free standard-CE optimization-formulation識別性STOP（`NO_SINGLE_OPTIMIZATION_FORMULATION_IDENTIFIED_STOP`）、REC-004ASのinteraction、REC-004ARのmixed effect、およびREC-004AMの不合格（`MULTI_INIT_VIABILITY_NOT_MET`）によるフェイルクローズ停止である。initialization-only pilot、architecture/init sweep、CE-only optimization-repairはSTOPし、candidate adoption、bundle promotion、RG3、REC-005、G1、G4はBLOCKEDを維持する。**
+**この時点の停止点はREC-004ATによるoracle-free standard-CE optimization-formulation識別性STOP（`NO_SINGLE_OPTIMIZATION_FORMULATION_IDENTIFIED_STOP`）、REC-004ASのinteraction、REC-004ARのmixed effect、およびREC-004AMの不合格（`MULTI_INIT_VIABILITY_NOT_MET`）によるフェイルクローズ停止である。initialization-only pilot、architecture/init sweep、CE-only optimization-repairはSTOPし、candidate adoption、bundle promotion、RG3、REC-005、G1、G4はBLOCKEDを維持する。**
 REC-004AMのwarm-start群（I01..I05）と厳格に対照されたベースライン群（I01..I05）の全5対比較により、warm-startが全体EMおよび最悪位置精度を同時に改善したのは 2 / 5 初期化（I01: $\Delta\text{EM}=+0.1914$, I05: $\Delta\text{EM}=+0.0352$）に留まり、I02（$\Delta\text{EM}=-0.1064$, $\Delta\text{WorstPosAcc}=-0.3350$）やI03（$\Delta\text{EM}=-0.0293$, $\Delta\text{WorstPosAcc}=-0.1068$）では逆に破壊的干渉を生じさせることが因果的に実証された。
 また、ベースラインの通常復元抽出サンプラー自体が2/5の初期化（I02, I05）においてステップ500で自発的に正解アトラクタ key 0 を獲得しており、トークン重複は全初期化幾何において普遍的な致命障壁ではないことが判明した。
 この結果、普遍的因果優位性は反証され、主判定 `I01_SPECIFIC_OR_MIXED_EFFECT_IDENTIFIED` が確定した。REC-004AMの不合格判定（`MULTI_INIT_VIABILITY_NOT_MET`）は科学的証拠として確定・維持される。
@@ -737,3 +752,13 @@ REC-004AMのwarm-start群（I01..I05）と厳格に対照されたベースラ�
 - **未実行gate判定:** RG3、REC-005/RG4、REC-006〜008/RG5〜RG6、G4、R3-011、R3-012/G5、B-C006〜014は、candidate/bundle資格又はG1/G4/B2/G5を前提とするため、上流STOPにより科学的に不要かつ現行契約・本監査境界では不可能である。結論を変え得る、独立して実行可能な既存契約内の実験は0件である。
 - **維持するblock:** `candidate_selected: null`、`child_bundle: null`、`bundle_write: false`、`rg3: NOT_EXECUTED`、`rec005: BLOCKED`、G4/G5 `BLOCKED`、sealed access=0。G1は`G1_RELATION_TRANSFER_STOP`のまま維持する。
 - **終了条件:** 本監査は研究終了の証拠記録であり、既存FAILをPASSへ変更せず、STOPを迂回しない。新しい研究を再開するには、本結論を上書きしない別の明示的な研究契約と事前承認が必要である。
+
+## 11. PHASE-B-CLOSEOUT
+
+ADR-0149により証拠台帳・hash manifest・検証記録を固定し、Phase Bをarchiveした。
+科学的結果はADR-0148のnegative terminationのまま。復旧/研究gateをPASSへ変えない。
+[最終証拠台帳](../../results/PHASE_B_CLOSEOUT_EVIDENCE_LEDGER.md)、
+[freeze manifest](../../results/PHASE_B_CLOSEOUT_FREEZE_MANIFEST.json)、
+[closeout検証](../../results/PHASE_B_CLOSEOUT_AUDIT.json)が成果物。
+独立したPhase C charterはレビュー可能な状態であり、承認済み・実行可能という意味ではない。
+architecture/optimizer実装、学習、candidate、dataset/relation生成、seed、pilot、sealed評価は0。

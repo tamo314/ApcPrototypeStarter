@@ -1,6 +1,21 @@
 # Task Queue
 
-Use these as issue-sized prompts. Complete them in order unless an earlier task reveals an architecture problem.
+## Current queue — 2026-09-13
+
+Phase B: `CLOSED_ARCHIVED`, `NEGATIVE_CONCLUSION_TERMINATED_CURRENT_ARCHITECTURE`
+(ADR-0148/0149). **Active Phase-B experimental tasks: none.**
+The [final evidence ledger](results/PHASE_B_CLOSEOUT_EVIDENCE_LEDGER.md#terminal-state)
+is authoritative. RG3, REC-005--008, R3-011/012 and B-C006 onward are archived
+non-executions due to upstream STOP; do not register them as unfinished work.
+
+PHASE-B-CLOSEOUT is complete: `PHASE_B_CLOSED_NEXT_RESEARCH_CHARTER_READY`.
+The [Phase C charter](research/PHASE_C_RESEARCH_CHARTER.md) is ready for user
+review/approval. No Phase C experiment, implementation or training task is queued;
+the first experiment is a separate task only after charter approval and freeze.
+
+## Historical bootstrap queue
+
+The original issue prompts below are historical reference, not current execution authority.
 
 ## Task 001 — Bootstrap the repository
 
