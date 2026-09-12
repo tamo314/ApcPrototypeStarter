@@ -133,4 +133,45 @@ Definitively confirm **`ROUTING_IDENTIFIABILITY_STOP`** as a quantifier-complete
 - Audit Document: `docs/phase_c/PHASE_C_C_D001S_QUANTIFIER_COMPLETE_IDENTIFIABILITY_AUDIT.md`  
 - Audit Artifact: `docs/phase_c/artifacts/quantifier_complete_identifiability_audit.json`  
 
+---
+
+## ADR-0153: C-D001T Semantic-Descriptor Boundary & Impossibility-Proof Repair Audit Qualifies Stop to `ROUTING_IDENTIFIABILITY_QUALIFIED_STOP` (ADR-0152 Quantifier Retracted / Restricted)
+
+**Date:** 2026-09-13  
+**Task:** C-D001T — Semantic-Descriptor Boundary & Impossibility-Proof Repair Audit  
+**Status:** Completed non-experimental boundary audit; `execution_status: PASS`, `decision: ROUTING_IDENTIFIABILITY_QUALIFIED_STOP`.  
+Phase C charter status remains `READY_FOR_REVIEW_NOT_APPROVED`; research execution remains `NOT_AUTHORIZED`.  
+
+**Scope and Integrity Boundary:**  
+- Read only the prospective Phase C Research Charter, ADR-0150 through ADR-0152, operation registries in `src/apc/environments/operations.py`, and holdout families in `src/apc/environments/holdout_families.py`.
+- Sealed partition data (inputs, labels, model outputs) access count: **0**.
+- Zero training updates, zero optimizer construction, zero model initialization, zero dataset generation, zero relation registration, zero candidate construction, and zero GPU execution time.
+- No historical measurement, threshold, or Phase-B terminal state was modified.
+
+**Key Findings:**  
+1. **Formal Language $\mathcal{L}_{\text{desc}}$ and Oracle-Leakage Rules:**  
+   Charter invariants permit high-level symbolic operations, typed arguments, and universal tie-break policies (e.g. FIRST, LAST, LEFTMOST, RIGHTMOST, CENTER) via the separate task path while keeping content encoding task-blind ($h_{\text{content}} = f(\text{content})$). Four decision rules enforce: (1) content-invariance ($D$ cannot vary with runtime sequence $x$), (2) no coordinate map lookup tables ($k \mapsto z^*$), (3) no decoder bypass ($y$ not encoded in $D$), and (4) admissibility of universal tie-break policies (abstract ordering relations independent of content and target).
+2. **Non-Circular Counterexample Repair & Permitted Task Classes:**  
+   Identified fatal circularity in ADR-0151/ADR-0152 ($z^* = \min \{ i \mid x_i == y_k \}$ where $y_k = x_{z^*}$). Repaired definitions using actual registered APC operations:
+   - *`BindOp` (`src/apc/environments/operations.py`):* Matching key set $I_K(x) = \{ 2j \mid x_{2j} = K \}$ for task parameter `query_key` $K$. World A (first-match: $z^*_A = \min I_K(x) + 1$, $f_A(x) = x_{z^*_A}$) vs World B (last-match / canonical APC `BindOp`: $z^*_B = \max I_K(x) + 1$, $f_B(x) = x_{z^*_B}$). On clean keys, $z^*_A = z^*_B$ and $f_A = f_B$; on duplicate keys with identical value ($x=[K, V, K, V]$), $f_A(x) = V = f_B(x)$, yet $z^*_A = 1 \neq 3 = z^*_B$.
+   - *`NeighborMaxOp` (`src/apc/environments/holdout_families.py`):* Local window max $f_A(x)_i = f_B(x)_i = \max W_i(x)$ everywhere. Leftmost-max ($z^*_A$) vs Rightmost-max ($z^*_B$) diverge on duplicate maxima in window ($[5, 5, 2] \implies z^*_A = 0 \neq 1 = z^*_B$).  
+   Both constructions define $f$ completely without referencing $y$ and belong to actual registered APC task classes.
+3. **Separation Capacity of Lawful Descriptors (Theorem 3):**  
+   Under $\mathcal{L}_{\text{desc}}$, World A has descriptor $D_A = (\dots, \text{tie\_break}=\text{FIRST})$ and World B has $D_B = (\dots, \text{tie\_break}=\text{LAST})$. Because $D_A \neq D_B$, task-side observations are strictly distinct ($O_{\text{task}}(A) \neq O_{\text{task}}(B)$). Proved Theorem 3 (Descriptor Separation Theorem): any deterministic descriptor in $\mathcal{L}_{\text{desc}}$ uniquely maps $(D, x, k) \mapsto z^*(x, k)$, so divergent coordinates imply distinct descriptors ($z^*_A \neq z^*_B \implies D_A \neq D_B$). World A and World B cannot share the same descriptor under the lawful language.
+4. **Retraction and Scope Restriction of ADR-0152:**  
+   Because lawful descriptors separate the worlds, ADR-0152's claim of a "quantifier-complete impossibility theorem across all permitted task-side observables" is mathematically refuted and retracted. Non-identifiability is strictly restricted to: (1) Opaque Task Identifiers ($t$), (2) Finite Output-Labeled Support Sets ($\mathcal{S}$) under token supervision alone, and (3) Underspecified Descriptors lacking tie-break semantics.
+
+**Decision:**  
+Reclassify the stoppage rationale from `ROUTING_IDENTIFIABILITY_STOP (CONFIRMED_QUANTIFIER_COMPLETE)` to **`ROUTING_IDENTIFIABILITY_QUALIFIED_STOP`**.
+
+**Consequences:**  
+- Phase C routing identifiability is mathematically achievable under fully specified compositional descriptors ($\mathcal{L}_{\text{desc}}$).
+- Research execution remains strictly `NOT_AUTHORIZED` due to the unresolved relation inventory deficit from ADR-0150 (`RELATION_INVENTORY_FEASIBILITY_STOP`: 1/2 clean components in validation and sealed) and unapproved charter status.
+- Incorporating $\mathcal{L}_{\text{desc}}$ as the official training information contract requires a formal charter amendment and user approval before any architecture derivation or experiment can be proposed.
+
+**Primary Artifacts:**  
+- Audit Document: `docs/phase_c/PHASE_C_C_D001T_SEMANTIC_DESCRIPTOR_BOUNDARY_AUDIT.md`  
+- Audit Artifact: `docs/phase_c/artifacts/semantic_descriptor_boundary_audit.json`  
+
+
 

@@ -1,0 +1,115 @@
+{
+  "task": "C-D001T",
+  "artifact": "semantic_descriptor_boundary_audit",
+  "version": "v1.0",
+  "date": "2026-09-13",
+  "audit_type": "Semantic-Descriptor Boundary & Impossibility-Proof Repair Audit",
+  "prior_decisions": [
+    "RELATION_INVENTORY_FEASIBILITY_STOP (ADR-0150)",
+    "ROUTING_IDENTIFIABILITY_STOP (ADR-0151)",
+    "ROUTING_IDENTIFIABILITY_STOP (CONFIRMED_QUANTIFIER_COMPLETE) (ADR-0152)"
+  ],
+  "terminal_decision": "ROUTING_IDENTIFIABILITY_QUALIFIED_STOP (ADR-0152 QUANTIFIER RETRACTED / RESTRICTED)",
+  "charter_state": "READY_FOR_REVIEW_NOT_APPROVED",
+  "research_execution": "NOT_AUTHORIZED",
+  "integrity_boundary": {
+    "parameters_updated": 0,
+    "optimizers_instantiated": 0,
+    "models_initialized": 0,
+    "datasets_generated": 0,
+    "relations_registered": 0,
+    "gpu_execution_seconds": 0,
+    "sealed_partition_inputs_read": 0,
+    "sealed_partition_labels_read": 0,
+    "sealed_partition_outputs_read": 0,
+    "sealed_partition_opened": false
+  },
+  "formal_descriptor_language": {
+    "grammar_id": "L_desc_v1",
+    "permitted_components": [
+      "OpFamily (symbolic operation identity from registered curriculum)",
+      "ArgumentDict (typed arguments: amount, query_key, target, indices, etc.)",
+      "TieBreakPolicy (universal deterministic order: FIRST, LAST, LEFTMOST, RIGHTMOST, CENTER)",
+      "ProceduralSpec (input scope, match predicate, reduction, tie-break)"
+    ],
+    "prohibited_components": [
+      "Instance-specific coordinate lookup tables k -> z*",
+      "Oracle attention/routing trajectory constants",
+      "Input-conditioned descriptor values D(x) varying with runtime content x",
+      "Decoder-bypass ground-truth token sequences y"
+    ]
+  },
+  "oracle_leakage_decision_rules": {
+    "rule_1_content_invariance": {
+      "name": "RULE_CONTENT_INDEPENDENCE",
+      "condition": "forall x1, x2 in V^L, D(tau, x1) == D(tau, x2) == D(tau)",
+      "verdict": "PASS"
+    },
+    "rule_2_no_coordinate_map": {
+      "name": "RULE_NO_COORDINATE_MAP",
+      "condition": "D does not contain sample-level coordinate constants z in {0, ..., L-1} for content-dependent routing",
+      "verdict": "PASS"
+    },
+    "rule_3_no_decoder_bypass": {
+      "name": "RULE_NO_DECODER_BYPASS",
+      "condition": "D does not encode target tokens y to the decoder",
+      "verdict": "PASS"
+    },
+    "rule_4_general_tie_break": {
+      "name": "RULE_GENERAL_TIE_BREAK",
+      "condition": "TieBreakPolicy is a universal total order on {0, ..., L-1} independent of content and target",
+      "verdict": "LAWFUL_PERMITTED"
+    }
+  },
+  "counterexample_repair": {
+    "adr_0152_defect_identified": "Circular reference in z^*_A(x, k=0) = min { i | x_i == y_0 } conditioning on target output y_0, and non-existent task class in APC.",
+    "repaired_construction_1_bind": {
+      "operation_name": "BindOp",
+      "codebase_reference": "src/apc/environments/operations.py:BindOp",
+      "non_circular_definition": {
+        "matching_keys": "I_K(x) = { 2j | x_{2j} == K } where K is task param query_key",
+        "world_a_first_match": "z^*_A(x) = min I_K(x) + 1, f_A(x) = x_{min I_K(x) + 1}",
+        "world_b_last_match": "z^*_B(x) = max I_K(x) + 1, f_B(x) = x_{max I_K(x) + 1}"
+      },
+      "clean_identity": "On clean keys (|I_K(x)| == 1), min == max, z^*_A == z^*_B, f_A == f_B, H_train identical.",
+      "collision_divergence": "On duplicate keys with same value (x = [K, V, K, V]), f_A(x) == V == f_B(x), yet z^*_A = 1 != 3 = z^*_B."
+    },
+    "repaired_construction_2_neighbor_max": {
+      "operation_name": "NeighborMaxOp",
+      "codebase_reference": "src/apc/environments/holdout_families.py:NeighborMaxOp",
+      "non_circular_definition": {
+        "window_max": "M_i(x) = max { x_{(i-1)%L}, x_i, x_{(i+1)%L} }, f_A(x)_i == f_B(x)_i == M_i(x) for all x",
+        "world_a_leftmost": "z^*_A(x, i) = first index in circular window order with x_w == M_i(x)",
+        "world_b_rightmost": "z^*_B(x, i) = last index in circular window order with x_w == M_i(x)"
+      },
+      "clean_identity": "On distinct window elements, unique maximum, z^*_A == z^*_B, f_A == f_B identically.",
+      "collision_divergence": "On window [5, 5, 2] at i=1, f_A == 5 == f_B, yet z^*_A = 0 != 1 = z^*_B."
+    }
+  },
+  "descriptor_separation_audit": {
+    "theorem_3_descriptor_separation": {
+      "statement": "In any formal language L_desc specifying deterministic operational predicates and a total tie-break rule, (D, x, k) -> z*(x, k) is a single-valued function. Therefore, z*_A != z*_B implies D_A != D_B.",
+      "consequence": "World A and World B cannot share the same lawful descriptor D_A == D_B if their routing coordinates diverge."
+    },
+    "worlds_separated_by_lawful_descriptors": true
+  },
+  "adr_0152_retraction_and_qualification": {
+    "quantifier_complete_claim_retracted": true,
+    "retraction_rationale": "ADR-0152 proved non-identifiability only by assuming an underspecified descriptor that omitted tie-break semantics. When lawful tie-break semantics are included in L_desc, descriptors separate World A and World B.",
+    "restricted_impossibility_scope": [
+      "Classification 1: Opaque Task Identifiers (t in T)",
+      "Classification 3: Finite Output-Labeled Support Sets (S in (V^L x V^L_out)^K under token supervision alone)",
+      "Underspecified Descriptors lacking tie-break semantics (L_underspec)"
+    ],
+    "identifiable_scope": [
+      "Classification 2b: Fully Specified Compositional Task-Side Descriptors (L_desc) with lawful tie-break semantics"
+    ]
+  },
+  "terminal_governance": {
+    "decision": "ROUTING_IDENTIFIABILITY_QUALIFIED_STOP",
+    "phase_c_charter_status": "READY_FOR_REVIEW_NOT_APPROVED",
+    "research_execution_status": "NOT_AUTHORIZED",
+    "relation_inventory_blocker": "ADR-0150 RELATION_INVENTORY_FEASIBILITY_STOP remains active (1/2 clean components in validation and sealed)",
+    "sealed_evaluation_status": "NOT_AUTHORIZED"
+  }
+}
