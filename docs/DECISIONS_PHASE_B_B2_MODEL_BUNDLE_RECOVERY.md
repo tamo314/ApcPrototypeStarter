@@ -1336,3 +1336,76 @@ Decision: `LENGTH10_LOCAL_OPTIMIZATION_FAILURE_IDENTIFIED`.
 4. Next learning pilot authorization: NOT AUTHORIZED within REC-004AN.
    Any subsequent optimization repair must specifically target this single localized mechanism (e.g. boundary-routing
    optimization / local attractor escape) without multi-recipe exploration, curriculum search, or teacher-loss shortcuts.
+
+## ADR-0139: REC-004AO CD-DPCA Position-4 False-Attractor Gradient Accessibility Diagnostic Identifies Loss-Gradient Misalignment and Key-0 Softmax Starvation (`LOCAL_LOSS_GRADIENT_MISALIGNMENT_IDENTIFIED`)
+
+**Date:** 2026-09-13
+
+**Status:** Completed evaluate-only diagnostic; `execution_status: PASS`,
+`decision: LOCAL_LOSS_GRADIENT_MISALIGNMENT_IDENTIFIED`. Multi-init validation (REC-004AM), candidate adoption,
+and bundle promotion remain BLOCKED. G1 and G4 remain uncleared independent research blocks.
+
+**Contract and preregistered boundary:**
+- Diagnostic objective: Determine whether standard token-output cross-entropy loss provides a corrective gradient signal
+  to routing parameters to escape the length-10 position-4 false attractor (key 7 instead of 0) in CD-DPCA.
+- Strict evaluation-only execution boundary:
+  - Zero optimizer updates (`optimizer.step()` forbidden, updates = 0).
+  - Parent bundle Core (`canonical_state_hash: b3a0d5c0774a36f56281bfeadffce83ce61a6818816c7cf69dcae4a5d3fec585`)
+    and 15 non-MIRROR primitives are strictly immutable.
+  - Source REC-004AL artifacts (all 13 checkpoints 0..6000) verified bit-identical via raw SHA-256.
+  - Post-forward oracle position map used exclusively for diagnostic metrics/Jacobians, never in training loss.
+  - Zero candidate adoption, zero bundle write (`candidate_selected: null`, `child_bundle: null`).
+  - Zero sealed evaluation partition accessed. RG3 `NOT_EXECUTED`, `rec005_status: BLOCKED`.
+
+**Empirical results (`runs/phase_b_restart/rec004ao/run_001/`):**
+1. Position-4 Routing Trajectory Across All 13 Checkpoints:
+   - Step 0: top-1 key 3, $p(0) = 0.0500$, $p(7) = 0.0951$, margin $-0.5964$, entropy $2.2740$, accuracy $0.0777$.
+   - Step 500: rapid fall into false attractor key 7 ($p(7) = 0.4048$, $p(0) = 0.00184$, margin $-6.4724$, entropy $1.4966$).
+   - Steps 1000..6000: persistent lock-in to key 7 across every checkpoint. Margin deepens monotonically to $-14.2144$,
+     entropy falls to $1.1221$, terminal $p(0) = 1.15 \times 10^{-4}$, terminal accuracy $0.3835$.
+2. Local Gradient Accessibility and Directional Derivative:
+   - Gradient norm on CD-DPCA routing parameters is substantial throughout training ($\|g_{\text{loss, routing}}\| = 0.2707$
+     at step 6000, peaking at $1.314$ at step 3500; $\|g_{Wk}\| = 0.2031$, $\|g_{Wq}\| = 0.1299$, $\|g_{k7}\| = 0.0463$).
+   - Gradients do reach routing parameters from standard token-output cross-entropy loss.
+   - However, first-order predicted margin change $\Delta M \propto - g_{\text{margin}} \cdot g_{\text{loss}}$ is
+     non-positive across 11 of 13 checkpoints (84.6%), and strictly negative at terminal step 6000 ($-0.6976$,
+     cosine alignment $-0.1116$).
+3. Softmax Gradient Starvation on Key 0:
+   - While shared routing parameters receive large loss gradients, the gradient specifically reaching key 0 embedding
+     $E_{\text{key\_pos}}[0]$ drops from $1.37 \times 10^{-3}$ (step 0) to $7.87 \times 10^{-5}$ (step 3000) and
+     $7.24 \times 10^{-4}$ (step 6000), starved by a factor of 64x to 1500x relative to key 7.
+   - This is directly caused by softmax saturation: backpropagation scales $\nabla_{S(4, 0)} \mathcal{L} \propto p(0) \approx 10^{-4}$.
+4. Per-Example Consistency:
+   - Across all 206 length-10 validation examples at step 6000: 57.8% show negative margin change, median is $-1.2380$,
+     mean is $-0.6976$.
+   - Across 127 position-4 error examples at step 6000: median is $+0.0346$ (near zero), 49.6% negative, 50.4% positive.
+     Starvation ratio $\|g_{k0}\| / \|g_{k7}\| = 0.0063$.
+5. Control Comparisons:
+   - Length 10, Position 3: accuracy 0.932, top-1 key 1 (correct), predicted margin change $+2.4685$ ($\cos = +0.0875$).
+   - Length 10, Position 0: accuracy 1.000, top-1 key 4 (correct), predicted margin change $+0.6618$ ($\cos = +0.2949$).
+   - Length 8, Position 4: accuracy 1.000, top-1 key 7 (correct), predicted margin change $+0.4894$ ($\cos = +0.4550$).
+   - Length 9, Position 4: accuracy 1.000, top-1 key 8 (correct), accuracy 1.000.
+   - Position 4 uniquely exhibits persistent false-attractor routing, extreme negative margin ($-14.21$), and negative
+     gradient alignment ($-0.6976$).
+6. Integrity Audits:
+   - Optimizer updates: 0. Checkpoint hashes bit-identical to REC-004AL. Core and parent bank unmodified.
+   - Candidate selected: null, child bundle: null, bundle write: false. RG3: NOT_EXECUTED. Sealed access: 0.
+
+**Scientific conclusion:**
+The failure mechanism is conclusively identified as:
+`LOCAL_LOSS_GRADIENT_MISALIGNMENT_IDENTIFIED`.
+The failure is governed by coupled mechanisms: early rapid onset of the false attractor at step 500 produces severe softmax
+saturation on key 0 ($p(0) \to 10^{-4}$), which scales down backpropagation to $E_{\text{key\_pos}}[0]$ by orders of magnitude.
+Meanwhile, substantial loss gradients flow to the active wrong key ($k_7$) and shared projections ($W_k, W_q$), but because
+key 7 generates erroneous tokens, gradient descent on standard token loss produces a negative margin change
+($-g_{\text{margin}} \cdot g_{\text{loss}} \le 0$ across 84.6% of checkpoints), reinforcing the false attractor.
+
+**Decision and authorized next steps:**
+Decision: `LOCAL_LOSS_GRADIENT_MISALIGNMENT_IDENTIFIED`.
+1. Multi-init validation (REC-004AM) remains BLOCKED.
+2. Candidate adoption and bundle promotion remain BLOCKED (`candidate_selected: null`, `child_bundle: null`).
+3. RG3, REC-005, G1, and G4 remain uncleared and BLOCKED.
+4. Next learning pilot authorization: NOT AUTHORIZED within REC-004AO.
+   Because loss-gradient misalignment was identified rather than simple uncoupled starvation, simple anti-saturation
+   heuristics alone are insufficient. An optimization formulation review within standard token-output cross-entropy loss
+   boundaries must precede any candidate pilot. Oracle/teacher supervision remains strictly forbidden.

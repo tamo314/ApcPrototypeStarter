@@ -53,6 +53,7 @@
 | 再開: REC-004AK | 完了（§7F） | `CD_DPCA_SERIALIZATION_AND_FRESH_LOAD_VALIDATED` | CD-DPCA/Bank厳格シリアライズ、fresh-load完全等価性、10種負例fail-closed検証 |
 | 再開: REC-004AL | 完了（§7G） | `PILOT_TERMINAL_VIABILITY_NOT_MET` | 6,000 updates単一init学習パイロット。validation EM=0.793945 < 0.95 未達によりfail-closed停止。candidate/bundle未作成 |
 | 再開: REC-004AN | 完了（§7H） | `LENGTH10_LOCAL_OPTIMIZATION_FAILURE_IDENTIFIED` | 13 checkpoint全軌道再評価、位置局在、transplant、勾配衝突、露出監査。失点の89.4%が位置4の偽アトラクタ固着（key 7）に局在。追加学習0 |
+| 再開: REC-004AO | 完了（§7I） | `LOCAL_LOSS_GRADIENT_MISALIGNMENT_IDENTIFIED` | 13 checkpoint勾配到達性診断。ルーティング勾配ノルムは十分（0.2707）だが正解margin予測変化は84.6%で非正（端末-0.6976）かつkey0飽和飢餓。追加学習0 |
 | REC-005〜008 | 未着手 | RG3に依存。ただし失敗時の引継ぎは可能 | 今後のcohort・runtime注入の原契約 |
 | R3-011〜012 | 未着手 | G1/G4に依存 | 封印・B2_PROTOCOL_V2原契約 |
 | B-C006〜014 | 未着手 | B2/G5、以降各gateに依存 | B3〜B6の原計画 |
@@ -454,6 +455,42 @@ float precision/parity guardで安全に停止した未qualified artifactであ�
   - 次期最適化修復の標的が「位置4の偽アトラクタ脱出・境界ルーティング最適化」という単一メカニズムに一意に特定された。
   - ただし本タスク内での学習再試行・新パイロット実行は認可されない。全init検証、候補採択、bundle出力は厳格に遮断を継続。
 
+## 7I. 実行契約: REC-004AO CD-DPCA 位置4偽アトラクタ勾配到達性診断
+
+**状態: 完了、`LOCAL_LOSS_GRADIENT_MISALIGNMENT_IDENTIFIED`（ADR-0139）。追加学習0、評価専用診断によりルーティング勾配ノルムは十分（0.2707）だが正解margin変化率は84.6%で非正（端末-0.6976）かつkey0飽和飢餓を確認。全init検証・候補採択・bundle出力は厳格に遮断を継続。**
+目的は、長さ10 / 出力位置4で確認された持続的偽アトラクタ（key 7）について、標準token-output cross-entropy lossから正解ルーティングへ戻すための勾配信号が実際に到達しているかを評価専用で判定することである。
+
+- 実行境界 & 保護要件:
+  - 評価専用診断: 追加学習0、`optimizer.step()` 実行0、予算延長0、新初期化0、LR/temperature/curriculum/sampling変更0、アーキテクチャ変更0。
+  - 凍結・保護: 親Coreおよび15 non-MIRROR primitivesは完全凍結・不変。
+  - ソース整合性: REC-004ALの全13 checkpoints (step 0..6000) のSHA-256ハッシュを事前検証。
+  - 副作用遮断: `candidate_selected: null`, `child_bundle: null`, `bundle_write: false`, RG3 `NOT_EXECUTED`, `rec005_status: BLOCKED`, G1/G4 `NOT_CLEARED`。封印データアクセス0。
+- 診断結果（`runs/phase_b_restart/rec004ao/run_001/`）:
+  1. 位置4ルーティング軌道（全13 checkpoint）:
+     - step 0: top-1 key 3, $p(0) = 0.0500$, $p(7) = 0.0951$, margin $-0.5964$, entropy $2.2740$, 精度 $0.0777$。
+     - step 500: 偽アトラクタ key 7 へ急激に突入（$p(7) = 0.4048$, $p(0) = 0.00184$, margin $-6.4724$, entropy $1.4966$）。
+     - step 1000..6000: step 500 以降の全チェックポイントで key 7 に完全に固着。margin は $-14.2144$ まで単調悪化、entropy は $1.1221$ まで低下、端末 $p(0) = 1.15 \times 10^{-4}$、端末精度 $0.3835$。
+  2. 局所勾配到達性と一次方向微分:
+     - ルーティングパラメータ全体の勾配ノルムは訓練全体を通して十分な大きさで存在（step 6000 で $\|g_{\text{loss, routing}}\| = 0.2707$、step 3500 で最大 $1.314$；$W_k = 0.2031$, $W_q = 0.1299$, $k_7 = 0.0463$）。勾配自体は到達している。
+     - しかし、一次予測正解マージン変化 $\Delta M \propto - g_{\text{margin}} \cdot g_{\text{loss}}$ は、全13チェックポイント中11件（**84.6%**）で非正であり、端末 step 6000 でも負（**$-0.6976$**、余弦類似度 $-0.1116$）。通常のトークン損失勾配降下は正解マージンを改善せず、偽アトラクタを強化する方向に働く。
+  3. Key 0 に対する Softmax 勾配飢餓:
+     - 共有ルーティングパラメータに大きな勾配が流れる一方、正解キー埋め込み $E_{\text{key\_pos}}[0]$ に直接届く勾配ノルムは step 0 の $1.37 \times 10^{-3}$ から step 3000 で $7.87 \times 10^{-5}$、step 6000 で $7.24 \times 10^{-4}$ へと急減し、key 7 比で 64倍〜1500倍の飢餓状態に陥る。
+     - これは softmax の連鎖律 $\nabla_{S(4, 0)} \mathcal{L} \propto p(0) \approx 10^{-4}$ による飽和減衰が直接原因。
+  4. 例単位の一貫性:
+     - 長さ10の全206検証例（step 6000）において、57.8% が負のマージン変化を示し、中央値は $-1.2380$、平均値は $-0.6976$。
+     - 位置4誤答127例においても中央値は $+0.0346$（ほぼゼロ）、49.6% が負、50.4% が正で、正方向への駆動成分は完全に相殺・消失。飢餓比率 $\|g_{k0}\| / \|g_{k7}\| = 0.0063$。
+  5. 対照位置との比較:
+     - 長さ10位置3: 精度 0.932, 正解key 1, 予測マージン変化 $+2.4685$（正方向余弦 $+0.0875$）。
+     - 長さ10位置0: 精度 1.000, 正解key 4, 予測マージン変化 $+0.6618$（正方向余弦 $+0.2949$）。
+     - 長さ8位置4: 精度 1.000, 正解key 7, 予測マージン変化 $+0.4894$（正方向余弦 $+0.4550$）。
+     - 長さ9位置4: 精度 1.000, 正解key 8, 精度 1.000。
+     - 位置4のみが持続的偽アトラクタ、極端な負マージン（$-14.21$）、および負の勾配アライメント（$-0.6976$）を同時に示す。
+- 判定と影響:
+  - 判定: `LOCAL_LOSS_GRADIENT_MISALIGNMENT_IDENTIFIED`。
+  - ルーティングパラメータ全体の勾配は消失（starvation）しておらず十分な大きさを持つが、標準トークン損失勾配の正解マージン方向成分が非正（misalignment）であり、偽アトラクタを脱出できない。同時に、正解キー単独への勾配は softmax 飽和により極度に飢餓している。
+  - 単純な anti-saturation ヒューリスティック単体への安易な移行は禁止され、標準トークン損失という研究境界のままで解決可能な単一 optimization formulation のレビューが必要とされる。
+  - 本タスク内での新規学習パイロットは認可されず（`next_learning_pilot_authorized: false`）、全init検証（REC-004AM）、候補採択、ModelBundle出力は厳格に遮断を継続。
+
 ## 8. 実行記録
 
 - 2026-09-12: 本計画へ状態を集約。過去文書を仕様/証拠へ位置づけ直した（ADR-0127）。
@@ -469,6 +506,7 @@ float precision/parity guardで安全に停止した未qualified artifactであ�
 - 2026-09-12: REC-004AK `run_001` 実行完了、`CD_DPCA_SERIALIZATION_AND_FRESH_LOAD_VALIDATED`（ADR-0136）。CD-DPCAおよびPrimitiveBankの厳格シリアライズ、fresh-load完全等価性、10種負例fail-closed、情報境界を検証。学習0、candidate0、bundle0、RG3未実行。
 - 2026-09-12: REC-004AL `run_001` 実行完了、`PILOT_TERMINAL_VIABILITY_NOT_MET`（ADR-0137）。単一init（I01）学習パイロットで検証系列EM=0.793945（813/1024）となり、終端実行性基準（EM≥0.95）未達によりフェイルクローズ停止。全init検証・候補採択・bundle出力は厳格に遮断。G1/G4ブロック保持。
 - 2026-09-13: REC-004AN `run_001` 実行完了、`LENGTH10_LOCAL_OPTIMIZATION_FAILURE_IDENTIFIED`（ADR-0138）。13 checkpoint全軌道再評価、位置局在、transplant、勾配衝突、露出監査を実施。失点の89.4%（位置3-4合計で99.3%）が出力位置4の偽アトラクタ固着（key 7）に局在することを確認。追加学習0、candidate0、bundle0、RG3未実行。
+- 2026-09-13: REC-004AO `run_001` 実行完了、`LOCAL_LOSS_GRADIENT_MISALIGNMENT_IDENTIFIED`（ADR-0139）。13 checkpoint勾配到達性診断を実施。ルーティング勾配ノルムは十分（0.2707）だが正解マージン予測変化は84.6%で非正（端末-0.6976、cos=-0.1116）、key 0への勾配はsoftmax飽和により極小飢餓。追加学習0、candidate0、bundle0、RG3未実行。
 - 2026-09-12: 全2,514ケースの分割検証・ruff・mypy・文書/差分確認を完了。今回の整理・修正・有限precheckを閉じる。Phase B全体やRG3の完了ではない。
 
 ## 9. 最終検証と現在の停止点
@@ -476,10 +514,10 @@ float precision/parity guardで安全に停止した未qualified artifactであ�
 | 検証 | 結果 | 証拠・制約 |
 |---|---|---|
 | pytest 全収集ケース | 分割実行で2,514件PASS | Windows先行977件＋再開1,536件＋WSL1件。全node IDの和集合と全収集IDが一致 |
-| REC-004AN 回帰テスト | 32件PASS | REC-004AJ/AK/AL/ANの全32件PASS（2.8秒） |
+| REC-004AJ〜AO 回帰テスト | 38件PASS | REC-004AJ/AK/AL/AN/AOの全38件PASS（3.0秒） |
 | Windows単一プロセスの全件実行 | 異常終了、PASSではない | 長いXデータ検証中のPythonアクセス違反。原因未確定。既通過分を保存し、残りを再開 |
 | ruff check . | PASS | 終了コード0（全ファイル通過） |
-| mypy src/apc | PASS | 164 source files、終了コード0 |
+| mypy src/apc | PASS | 165 source files、終了コード0 |
 | 文書・差分 | PASS | ローカルリンク存在確認、git diff --check |
 
 全ケースの検証範囲は満たしたが、単一プロセスの安定性を認定したとは扱わない。
@@ -490,7 +528,7 @@ WSLへ移したのはartifactパスに依存しない `test_rec004x_dataset_disj
 `verification_coverage_plan.json`、`verification_events.jsonl`、`final_*.log` に保存した。
 研究の新学習0とは§5/6の研究実行を指し、検証用tiny fixtureの学習を含む全テストの更新数を指さない。
 
-**現在の停止点はREC-004ANによるCD-DPCA長さ10最適化失敗局在診断の完了および局所最適化失敗の同定（`LENGTH10_LOCAL_OPTIMIZATION_FAILURE_IDENTIFIED`）である。**
-全13チェックポイントの再評価および位置別分析により、長さ10の失点は全体的な崩壊ではなく、出力位置4（前半ハーフ境界）が訓練初期（step 500）から偽アトラクタ（key 7）に固着したことに起因し、端末失点の89.44%（位置3-4で99.30%）がそこに集中していることが一意に特定された。
-他方、データ露出は均等であり、shared routing勾配衝突は存在せず（直交）、過去軌道からの移植では回復しない（never-learned）。
-単一メカニズムは特定されたが、REC-004AN内での新規学習パイロットは認可されず、全init検証（REC-004AM）、候補採択、およびModelBundle出力は厳格に遮断（`candidate_selected: null`, `child_bundle: null`）され、RG3、REC-005、G1、G4は未解除のまま保持される。
+**現在の停止点はREC-004AOによるCD-DPCA位置4偽アトラクタ勾配到達性診断の完了および損失勾配不整合・正解キー飽和飢餓の同定（`LOCAL_LOSS_GRADIENT_MISALIGNMENT_IDENTIFIED`）である。**
+全13チェックポイントの勾配・方向微分分析により、ルーティングパラメータ全体の勾配自体は十分な大きさで到達している（ノルム0.2707）ものの、標準トークン出力損失勾配の正解マージン方向成分（$-g_{\text{margin}} \cdot g_{\text{loss}}$）は84.6%（11/13 checkpoints）で非正（端末 $-0.6976$）であり、偽アトラクタを脱出するどころか強化する方向に働いていることが特定された。同時に、正解キー埋め込み（$E_{\text{key\_pos}}[0]$）への勾配は softmax 飽和（$p(0) \to 1.15 \times 10^{-4}$）により key 7 比で 64倍〜1500倍の飢餓状態に陥っている。
+これにより、単純な anti-saturation 単体ヒューリスティックによる修復は退けられ、標準トークン損失の境界内で解決可能な単一最適化定式化のレビューが必要とされる。
+新規学習パイロットは認可されず（`next_learning_pilot_authorized: false`）、全init検証（REC-004AM）、候補採択、およびModelBundle出力は厳格に遮断（`candidate_selected: null`, `child_bundle: null`）され、RG3、REC-005、G1、G4は未解除のまま保持される。
