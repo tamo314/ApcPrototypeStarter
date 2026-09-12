@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Minimal Codex -> (Claude Code | Antigravity) research orchestration loop.
+"""Minimal Codex -> (Claude Code | Antigravity | Codex) research orchestration loop.
 
 The planner is Codex CLI. The implementation executor is selected in config.json.
 No third-party Python packages are required.
@@ -111,8 +111,8 @@ def normalize_config(config: dict[str, Any]) -> dict[str, Any]:
         raise OrchestratorError(f"Missing config keys: {', '.join(missing)}")
 
     executor = config["executor"]
-    if executor not in {"claude", "antigravity"}:
-        raise OrchestratorError('config.executor must be "claude" or "antigravity"')
+    if executor not in {"claude", "antigravity", "codex"}:
+        raise OrchestratorError('config.executor must be "claude", "antigravity", or "codex"')
 
     if int(config["max_iterations"]) < 1:
         raise OrchestratorError("max_iterations must be >= 1")
@@ -138,6 +138,26 @@ def normalize_config(config: dict[str, Any]) -> dict[str, Any]:
     config["antigravity"].setdefault("dangerously_skip_permissions", False)
     if not isinstance(config["antigravity"]["dangerously_skip_permissions"], bool):
         raise OrchestratorError("config.antigravity.dangerously_skip_permissions must be true or false")
+
+    # Codex is always the planner, and can optionally also be the implementation
+    # executor. Keep executor-specific policy separate from the planner's
+    # read-only invocation.
+    config["codex"].setdefault("executor_model", "")
+    config["codex"].setdefault("executor_sandbox", "workspace-write")
+    config["codex"].setdefault("executor_approval_policy", "never")
+    config["codex"].setdefault("executor_extra_args", [])
+    if not isinstance(config["codex"]["executor_model"], str):
+        raise OrchestratorError("config.codex.executor_model must be a string")
+    if config["codex"]["executor_sandbox"] not in {"read-only", "workspace-write", "danger-full-access"}:
+        raise OrchestratorError(
+            'config.codex.executor_sandbox must be "read-only", "workspace-write", or "danger-full-access"'
+        )
+    if config["codex"]["executor_approval_policy"] not in {"untrusted", "on-request", "never"}:
+        raise OrchestratorError(
+            'config.codex.executor_approval_policy must be "untrusted", "on-request", or "never"'
+        )
+    if not isinstance(config["codex"]["executor_extra_args"], list):
+        raise OrchestratorError("config.codex.executor_extra_args must be an array")
 
     return config
 
@@ -278,7 +298,14 @@ def _read_codex_config_model() -> str | None:
     return None
 
 
-def configured_model(config: dict[str, Any], tool: str) -> tuple[str, str]:
+def configured_model(
+    config: dict[str, Any], tool: str, *, role: str = "default"
+) -> tuple[str, str]:
+    if tool == "codex" and role == "executor":
+        executor_model = str(config["codex"].get("executor_model", "")).strip()
+        if executor_model:
+            return executor_model, "config.json codex.executor_model"
+
     explicit = str(config[tool].get("model", "")).strip()
     if explicit:
         return explicit, "config.json"
@@ -293,8 +320,13 @@ def configured_model(config: dict[str, Any], tool: str) -> tuple[str, str]:
     return "CLI default (not pinned)", "default"
 
 
-def _model_args(config: dict[str, Any], tool: str) -> list[str]:
-    model = str(config[tool].get("model", "")).strip()
+def _model_args(config: dict[str, Any], tool: str, *, role: str = "default") -> list[str]:
+    if tool == "codex" and role == "executor":
+        model = str(config["codex"].get("executor_model", "")).strip()
+        if not model:
+            model = str(config["codex"].get("model", "")).strip()
+    else:
+        model = str(config[tool].get("model", "")).strip()
     return ["--model", model] if model else []
 
 
@@ -306,11 +338,13 @@ def _parse_codex_runtime_model(stdout: str, stderr: str) -> str | None:
 
 def run_checks(config: dict[str, Any], project_dir: Path) -> bool:
     executor = config["executor"]
-    required_commands = [config["codex"]["command"], config[executor]["command"]]
+    required_commands = list(dict.fromkeys([config["codex"]["command"], config[executor]["command"]]))
     ok = True
 
     planner_model, planner_model_source = configured_model(config, "codex")
-    executor_model, executor_model_source = configured_model(config, executor)
+    executor_model, executor_model_source = configured_model(
+        config, executor, role="executor" if executor == "codex" else "default"
+    )
 
     print(f"Project directory : {project_dir}")
     print(f"Executor          : {executor}")
@@ -343,6 +377,17 @@ def run_checks(config: dict[str, Any], project_dir: Path) -> bool:
             print("Antigravity note: agy -p is non-interactive. For host-side code changes, set")
             print("Tool Permission to 'always-proceed' in /permissions or /config, OR explicitly")
             print("set antigravity.dangerously_skip_permissions=true in config.json.")
+
+    if executor == "codex":
+        print()
+        print(
+            "Codex executor policy: "
+            f"sandbox={config['codex']['executor_sandbox']}, "
+            f"approval={config['codex']['executor_approval_policy']}"
+        )
+        if config["codex"]["executor_sandbox"] == "danger-full-access":
+            print("[WARNING] Codex executor has danger-full-access to the host environment.")
+        print("Note: planner and executor are separate Codex invocations; planner remains read-only.")
 
     return ok
 
@@ -389,10 +434,15 @@ def run_executor(
     context = read_text(CONTEXT_FILE)
     prompt = build_executor_prompt(task, context)
 
-    model_args = _model_args(config, executor)
+    codex_final_path: Path | None = None
+    stdin_text: str | None = None
+
     if executor == "claude":
+        model_args = _model_args(config, executor)
         command = [tool_config["command"], *model_args, *tool_config["extra_args"], "-p", prompt]
-    else:
+        model_name, model_source = configured_model(config, executor)
+    elif executor == "antigravity":
+        model_args = _model_args(config, executor)
         permission_args = (
             ["--dangerously-skip-permissions"]
             if tool_config.get("dangerously_skip_permissions")
@@ -406,13 +456,64 @@ def run_executor(
             "-p",
             prompt,
         ]
+        model_name, model_source = configured_model(config, executor)
+    else:  # codex executor
+        CODEX_SCRATCH_DIR.mkdir(parents=True, exist_ok=True)
+        codex_final_path = CODEX_SCRATCH_DIR / f"executor_{iteration:04d}_final.txt"
+        if codex_final_path.exists():
+            codex_final_path.unlink()
 
-    model_name, model_source = configured_model(config, executor)
+        approval = str(tool_config["executor_approval_policy"])
+        sandbox = str(tool_config["executor_sandbox"])
+        # --ask-for-approval is a global Codex flag, so it must appear before
+        # the `exec` subcommand. Prompt text goes through stdin to avoid the
+        # Windows command-line length limit.
+        command = [
+            tool_config["command"],
+            "--ask-for-approval",
+            approval,
+            "exec",
+            *_model_args(config, "codex", role="executor"),
+            "--sandbox",
+            sandbox,
+            "--skip-git-repo-check",
+            "--output-last-message",
+            str(codex_final_path),
+            *tool_config["executor_extra_args"],
+            "-",
+        ]
+        stdin_text = prompt
+        model_name, model_source = configured_model(config, "codex", role="executor")
+
     print(f"\n[{iteration}] Executor: {executor}")
     print(f"[{iteration}] Executor model: {model_name} [{model_source}]")
+    if executor == "codex":
+        print(
+            f"[{iteration}] Codex policy: sandbox={tool_config['executor_sandbox']}, "
+            f"approval={tool_config['executor_approval_policy']}"
+        )
     print(f"[{iteration}] Running implementation task...")
-    result = run_command(command, project_dir, int(config["executor_timeout_seconds"]))
-    normalized = normalize_executor_output(executor, result.stdout, result.stderr)
+    result = run_command(
+        command,
+        project_dir,
+        int(config["executor_timeout_seconds"]),
+        stdin_text=stdin_text,
+    )
+
+    if executor == "codex" and codex_final_path is not None and codex_final_path.is_file():
+        normalized = codex_final_path.read_text(encoding="utf-8").strip()
+        if not normalized:
+            normalized = normalize_executor_output(executor, result.stdout, result.stderr)
+    else:
+        normalized = normalize_executor_output(executor, result.stdout, result.stderr)
+
+    runtime_model = (
+        _parse_codex_runtime_model(result.stdout, result.stderr)
+        if executor == "codex"
+        else None
+    )
+    effective_model = runtime_model or model_name
+    effective_model_source = "Codex runtime banner" if runtime_model else model_source
 
     report_path = RUNS_DIR / f"{iteration:04d}_executor_{executor}.json"
     write_json(
@@ -421,13 +522,14 @@ def run_executor(
             "timestamp": utc_now(),
             "iteration": iteration,
             "executor": executor,
-            "model": model_name,
-            "model_source": model_source,
+            "model": effective_model,
+            "model_source": effective_model_source,
             "task": task,
             "command": [
                 "<prompt>" if arg == prompt else (clean_cli_name(arg) if i == 0 else arg)
                 for i, arg in enumerate(command)
             ],
+            "prompt_transport": "stdin" if stdin_text is not None else "argv",
             "return_code": result.return_code,
             "timed_out": result.timed_out,
             "duration_seconds": round(result.duration_seconds, 3),
@@ -437,6 +539,8 @@ def run_executor(
         },
     )
 
+    if runtime_model and runtime_model != model_name:
+        print(f"[{iteration}] Executor runtime model: {runtime_model}")
     print(f"[{iteration}] Executor exit={result.return_code}, {result.duration_seconds:.1f}s")
     print(f"[{iteration}] Saved: {report_path.relative_to(APP_DIR)}")
     return result, normalized, report_path
@@ -740,7 +844,7 @@ def orchestrate(config: dict[str, Any], project_dir: Path, reset: bool, once: bo
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Codex planner + configurable Claude Code / Antigravity executor orchestrator"
+        description="Codex planner + configurable Claude Code / Antigravity / Codex executor orchestrator"
     )
     parser.add_argument(
         "--config",
