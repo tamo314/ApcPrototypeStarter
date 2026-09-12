@@ -1,0 +1,112 @@
+{
+  "task_id": "C-D001U",
+  "document_id": "DOC-PHASE-C-D001U-AUDIT",
+  "date": "2026-09-13",
+  "decision": "ROUTING_IDENTIFIABILITY_STOP",
+  "decision_status": "RECONFIRMED",
+  "charter_state": "READY_FOR_REVIEW_NOT_APPROVED",
+  "research_execution_authority": "NOT_AUTHORIZED",
+  "integrity_boundary": {
+    "parameter_updates": 0,
+    "optimizer_instances": 0,
+    "model_initializations": 0,
+    "dataset_generations": 0,
+    "relation_registrations": 0,
+    "gpu_execution_seconds": 0,
+    "sealed_partition_access": 0
+  },
+  "primitives_reduction_audit": [
+    {
+      "primitive": "operation_family",
+      "syntax": "OpFamily in {BIND, NEIGHBOR_MAX, SELECT, COUNT, ...}",
+      "isolated_z_computable": false,
+      "reduction_role": "Determines the relational predicate and candidate filtering rule.",
+      "oracle_equivalent_alone": false
+    },
+    {
+      "primitive": "arguments",
+      "syntax": "ArgumentDict (e.g., query_key: K, offset: +1)",
+      "isolated_z_computable": false,
+      "reduction_role": "Binds specific token constants or structural offsets to predicate slots.",
+      "oracle_equivalent_alone": false
+    },
+    {
+      "primitive": "FIRST_LAST",
+      "syntax": "TieBreakPolicy in {FIRST, LAST}",
+      "isolated_z_computable": false,
+      "composition_z_computable": true,
+      "reduction_role": "Reduces candidate index set I(x) to a unique singleton via positional extremum (min I or max I).",
+      "oracle_equivalent_verdict": "ORACLE_EQUIVALENT (Intensional procedural specification of exact target coordinate map)"
+    },
+    {
+      "primitive": "LEFTMOST_RIGHTMOST",
+      "syntax": "TieBreakPolicy in {LEFTMOST, RIGHTMOST}",
+      "isolated_z_computable": false,
+      "composition_z_computable": true,
+      "reduction_role": "Reduces spatial window candidate set I(x) to a unique singleton via directional scanning order.",
+      "oracle_equivalent_verdict": "ORACLE_EQUIVALENT (Intensional procedural specification of exact target coordinate map)"
+    },
+    {
+      "primitive": "procedural_composition",
+      "syntax": "PROCEDURE(ScopeSpec, MatchPredicate, ReductionOp, TieBreakPolicy)",
+      "isolated_z_computable": true,
+      "composition_z_computable": true,
+      "reduction_role": "Defines an exact deterministic algorithm R(x, D) -> z* executing in O(L) time.",
+      "oracle_equivalent_verdict": "ORACLE_EQUIVALENT (Algorithmic correct-route generator violating prohibition on hard-coded routing maps)"
+    }
+  ],
+  "oracle_equivalence_determination": {
+    "charter_clause_evaluated": "Phase C Charter Section 'Allowed training information and oracle boundary' & Hypothesis H-C1",
+    "prohibition_tested": "A task-side identifier cannot become a hard-coded correct routing map or an operation-specific Core/decoder solver.",
+    "extensional_vs_intensional_reduction": "An intensional deterministic reduction algorithm R(x, D) -> z* is mathematically isomorphic to an extensional coordinate map table (x, k) -> z* for any fixed input x. Supplying a tie-break policy that selects the winning coordinate from degenerate candidates provides direct oracle coordinate determination rather than learning semantic routing from token supervision.",
+    "verdict": "ORACLE_EQUIVALENT_SUPERVISION"
+  },
+  "minimality_counterexamples": [
+    {
+      "removed_element": "TieBreakPolicy (FIRST/LAST, LEFTMOST/RIGHTMOST)",
+      "resulting_descriptor": "D_no_tb = (Op: BIND, {query_key: K})",
+      "descriptor_legality": "LAWFUL_NON_ORACLE",
+      "separates_world_a_and_b": false,
+      "counterexample_details": {
+        "operation": "BindOp",
+        "input": [5, 10, 5, 10],
+        "query_key": 5,
+        "matching_candidate_indices": [0, 2],
+        "value_candidate_indices": [1, 3],
+        "target_token_world_a": 10,
+        "target_token_world_b": 10,
+        "output_tokens_identical": true,
+        "routing_coord_world_a": 1,
+        "routing_coord_world_b": 3,
+        "routing_divergence": true,
+        "task_side_observation_world_a": "(Op: BIND, {query_key: 5})",
+        "task_side_observation_world_b": "(Op: BIND, {query_key: 5})",
+        "task_side_observations_identical": true
+      },
+      "conclusion": "Removing the oracle-equivalent TieBreakPolicy yields a lawful non-oracle descriptor, but this lawful descriptor CANNOT separate World A and World B. Indistinguishability under duplicate tokens holds."
+    },
+    {
+      "removed_element": "arguments",
+      "resulting_descriptor": "D_no_arg = (Op: BIND, {})",
+      "descriptor_legality": "UNDERSPECIFIED",
+      "separates_world_a_and_b": false,
+      "conclusion": "Omitting arguments renders the extensional function f undefined even on clean inputs."
+    },
+    {
+      "removed_element": "operation_family",
+      "resulting_descriptor": "D_no_fam = ({query_key: K}, tie_break: FIRST)",
+      "descriptor_legality": "UNDERSPECIFIED",
+      "separates_world_a_and_b": false,
+      "conclusion": "Omitting operation family destroys task identity."
+    }
+  ],
+  "contract_convergence_verdict": {
+    "lawful_non_oracle_descriptor_separates_worlds": false,
+    "all_separating_descriptors_are_z_computable": true,
+    "training_information_contract_v1_1_converged": false,
+    "convergence_status": "REJECTED",
+    "terminal_decision": "ROUTING_IDENTIFIABILITY_STOP",
+    "architecture_derivation_authorized": false,
+    "charter_amendment_required": true
+  }
+}

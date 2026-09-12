@@ -173,5 +173,45 @@ Reclassify the stoppage rationale from `ROUTING_IDENTIFIABILITY_STOP (CONFIRMED_
 - Audit Document: `docs/phase_c/PHASE_C_C_D001T_SEMANTIC_DESCRIPTOR_BOUNDARY_AUDIT.md`  
 - Audit Artifact: `docs/phase_c/artifacts/semantic_descriptor_boundary_audit.json`  
 
+---
 
+## ADR-0154: C-D001U Semantic Descriptor Oracle-Equivalence & Minimality Audit Reconfirms `ROUTING_IDENTIFIABILITY_STOP`
 
+**Date:** 2026-09-13  
+**Task:** C-D001U — Semantic Descriptor Oracle-Equivalence & Minimality Audit  
+**Status:** Completed non-experimental mathematical reduction & minimality audit; `execution_status: PASS`, `decision: ROUTING_IDENTIFIABILITY_STOP (RECONFIRMED)`.  
+Phase C charter status remains `READY_FOR_REVIEW_NOT_APPROVED`; research execution remains `NOT_AUTHORIZED`.  
+
+**Scope and Integrity Boundary:**  
+- Evaluated C-D001T descriptor primitives (`operation_family`, `arguments`, `FIRST/LAST`, `LEFTMOST/RIGHTMOST`, `procedural composition`) against Phase C Charter H-C1 and oracle prohibitions.
+- Constructed component-wise minimality counterexamples by eliminating individual information elements.
+- Sealed partition data (inputs, labels, model outputs) access count: **0**.
+- Zero training updates, zero optimizer construction, zero model initialization, zero dataset generation, zero relation registration, zero candidate construction, and zero GPU execution time.
+- No historical measurement, threshold, or Phase-B terminal state was modified.
+
+**Key Findings:**  
+1. **Universal $z$-Computability of Fully Specified Descriptors:**  
+   Proved that for any descriptor $D \in \mathcal{L}_{\text{desc}}$ equipped with operational predicates, arguments, and total tie-break rules, there exists a deterministic reduction $R(x, D, k)$ that computes the exact target routing coordinate $z^*(x, k)$ in $O(L)$ time without target tokens or external labels. All separating descriptors derived in C-D001T are strictly $z$-computable.
+2. **Oracle-Equivalence of Candidate Selection Procedures:**  
+   Audited candidate selection procedures under Charter Hypothesis H-C1 ("*without oracle routing supervision*") and non-negotiable prohibitions ("*A task-side identifier cannot become a hard-coded correct routing map*"; "*Forbidden: correct source-coordinate maps*"). Found that an intensional deterministic reduction algorithm $R(x, D) \mapsto z^*$ is mathematically isomorphic to an extensional coordinate map $(x, k) \mapsto z^*$. Specifying index-selection rules (e.g. `FIRST/LAST`, `LEFTMOST/RIGHTMOST`) provides direct coordinate guidance rather than learning routing from token supervision, constituting oracle-equivalent supervision.
+3. **Minimality Counterexamples and Failure of Non-Oracle Separation:**  
+   Constructed counterexamples by component-wise elimination:
+   - Eliminating the oracle-equivalent `TieBreakPolicy` yields a lawful, non-oracle descriptor $D_{\text{no\_tb}} = (\text{OpFamily}, \text{Arguments})$.
+   - However, World A (first-match) and World B (last-match) share identical lawful descriptors ($D_{\text{no\_tb}}^A \equiv D_{\text{no\_tb}}^B$).
+   - On collision-bearing sequences ($x=[K, V, K, V]$ for `BindOp`), output tokens are identical ($y=V$), but required coordinates diverge ($z^*_A = 1 \neq 3 = z^*_B$).
+   - Thus, lawful non-oracle descriptors **cannot separate World A and World B**.
+   - Eliminating arguments or operation families renders the extensional function $f$ undefined even on clean inputs.
+4. **Rejection of Training Information Contract v1.1:**  
+   Because all descriptors capable of separating World A and World B are $z$-computable and oracle-equivalent, no lawful, non-oracle Contract v1.1 can be formed. Contract v1.1 convergence is **FORMALLY REJECTED**.
+
+**Decision:**  
+Definitively reconfirm **`ROUTING_IDENTIFIABILITY_STOP`** across the entire lawful, non-oracle observable space.
+
+**Consequences:**  
+- Identifiability of semantic routing coordinates under duplicate token outputs without oracle routing supervision is impossible under any lawful, non-oracle task observable.
+- Architecture derivation (`C-D002`) remains strictly blocked. No progression to architecture design is permitted without a fundamental Charter amendment approved by the user.
+- Phase C research execution remains strictly `NOT_AUTHORIZED`.
+
+**Primary Artifacts:**  
+- Audit Document: `docs/phase_c/PHASE_C_C_D001U_SEMANTIC_DESCRIPTOR_ORACLE_EQUIVALENCE_AND_MINIMALITY_AUDIT.md`  
+- Audit Artifact: `docs/phase_c/artifacts/semantic_descriptor_oracle_equivalence_audit.json`
