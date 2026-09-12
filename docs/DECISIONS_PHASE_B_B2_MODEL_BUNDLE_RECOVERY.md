@@ -1409,3 +1409,89 @@ Decision: `LOCAL_LOSS_GRADIENT_MISALIGNMENT_IDENTIFIED`.
    Because loss-gradient misalignment was identified rather than simple uncoupled starvation, simple anti-saturation
    heuristics alone are insufficient. An optimization formulation review within standard token-output cross-entropy loss
    boundaries must precede any candidate pilot. Oracle/teacher supervision remains strictly forbidden.
+
+## ADR-0140: REC-004AP CD-DPCA Position-4 Token-Identifiability-Stratified Gradient Alignment Diagnostic Resolves Misalignment Paradox into Mid-Training Token-Aliasing Credit Dilution and Terminal Softmax Saturation (`TOKEN_ALIASING_DILUTION_AND_LATE_SATURATION_IDENTIFIED`)
+
+**Date:** 2026-09-13
+
+**Status:** Completed evaluate-only diagnostic; `execution_status: PASS`,
+`decision: TOKEN_ALIASING_DILUTION_AND_LATE_SATURATION_IDENTIFIED`. Multi-init validation (REC-004AM), candidate adoption,
+and bundle promotion remain BLOCKED. G1 and G4 remain uncleared independent research blocks.
+
+**Contract and preregistered boundary:**
+- Diagnostic objective: Evaluate token-identifiability-stratified gradient alignment under standard token-output
+  cross-entropy loss without optimizer updates (zero parameter mutation) across all 13 checkpoints (0..6000) of REC-004AL
+  single-init on development validation, to determine whether the apparent loss-gradient misalignment identified in
+  ADR-0139 reflects an inherent standard-loss routing geometry failure, parameterization inversion, or token-aliasing
+  credit dilution.
+- Fixed mutually exclusive strata for Length 10 / Position 4 (correct key 0, false attractor key 7):
+  - (A) UNIQUE_TARGET: target token occurs ONLY at correct key 0 (`target_token not in input_tokens[1:]`).
+  - (B) ALIASED_OTHER: target token occurs at other keys, but NOT at false attractor key 7 (`target_token != input_tokens[7]`, matches > 1).
+  - (C) ALIASED_KEY7: target token occurs at key 7 (`target_token == input_tokens[7]`).
+- Strict evaluation-only execution boundary:
+  - Zero optimizer updates (`optimizer.step()` forbidden, updates = 0).
+  - Parent bundle Core (`canonical_state_hash: b3a0d5c0774a36f56281bfeadffce83ce61a6818816c7cf69dcae4a5d3fec585`)
+    and 15 non-MIRROR primitives are strictly immutable.
+  - Source REC-004AL artifacts (all 13 checkpoints 0..6000) verified bit-identical via raw SHA-256.
+  - Post-forward oracle position map used exclusively for diagnostic metrics, never in training loss.
+  - Zero candidate adoption, zero bundle write (`candidate_selected: null`, `child_bundle: null`).
+  - Zero sealed evaluation partition accessed. RG3 `NOT_EXECUTED`, `rec005_status: BLOCKED`.
+
+**Empirical results (`runs/phase_b_restart/rec004ap/run_001/`):**
+1. Strata Partition and Distribution on Length 10 (206 total validation examples):
+   - Stratum A (unique target): 77 examples (37.38%).
+   - Stratum B (aliased other): 102 examples (49.51%).
+   - Stratum C (aliased key 7): 27 examples (13.11%).
+   - Mutual exclusivity and exhaustiveness verified: $77 + 102 + 27 = 206$. Non-aliased/other-aliased examples constitute 86.89%.
+2. Mid-Training Dynamics (Steps 500..5000):
+   - For 86.89% of examples (Strata A and B), standard token CE loss produces predominantly **CORRECTIVE** gradient alignment
+     in parameter space ($-g_{\text{margin}} \cdot g_{\text{loss}} > 0$ in 7/9 checkpoints for Stratum A, and 8/9 checkpoints for Stratum B).
+   - At onset step 500:
+     - Stratum A: $\Delta M_{\text{param}} = +9.1296$ (54.5% positive examples, median $+3.9381$).
+     - Stratum B: $\Delta M_{\text{param}} = +11.5596$ (61.8% positive examples, median $+6.5714$).
+     - Stratum C: $\Delta M_{\text{param}} = -31.0566$ (96.3% negative examples, median $-27.0940$).
+   - Across steps 500..5000, Stratum C produces an enormous destructive gradient (mean magnitude $28.52$ vs $2.30$ for Stratum A,
+     $12.4\times$ dominance ratio), diluting and reversing the pooled margin gradient and driving position 4 into key 7.
+   - In score space, Stratum C exhibits $\partial \mathcal{L} / \partial S(4, 7) \ll 0$ ($-4.7 \times 10^{-3}$ at step 500), emitting
+     a strong false success signal because routing to key 7 happens to retrieve the correct token.
+3. Terminal Step 6000 Lock-In:
+   - Prolonged lock-in causes key 0 probability to collapse to $p(0) \approx 1.15 \times 10^{-4}$, starving key 0 parameter gradients
+     by $>1000\times$ relative to key 7.
+   - Under this extreme saturation at step 6000:
+     - Stratum A: $\Delta M_{\text{param}} = -0.7266$ (median $-0.9921$, 55.8% negative). Corrective alignment attenuates and inverts.
+     - Stratum B: $\Delta M_{\text{param}} = +0.8263$ (median $+0.0800$, 52.0% positive).
+     - Stratum C: $\Delta M_{\text{param}} = -6.3716$ (median $-6.2296$, 100.0% negative).
+     - Pooled: $\Delta M_{\text{param}} = -0.6976$ (57.8% negative).
+4. Control Comparisons across Identical Stratification:
+   - L10 Pos 3 Control (correct key 1, competitor 7): 93.2% token accuracy, top-1 key 1, positive margin change throughout training.
+   - L10 Pos 0 Control (correct key 4, competitor 3): 100% token accuracy, top-1 key 4, consistently positive alignment.
+   - L8 Pos 4 & L9 Pos 4 Controls: 100% token accuracy, consistently positive alignment.
+5. Integrity Audits:
+   - Optimizer updates: 0. Checkpoint hashes bit-identical to REC-004AL. Core and parent bank unmodified.
+   - Candidate selected: null, child bundle: null, bundle write: false. RG3: NOT_EXECUTED. Sealed access: 0.
+
+**Scientific conclusion:**
+The failure mechanism is conclusively resolved as:
+`TOKEN_ALIASING_DILUTION_AND_LATE_SATURATION_IDENTIFIED`.
+The ADR-0139 misalignment paradox is refined into a coupled two-phase mechanism:
+1. **Primary Onset Driver (Steps 500-5000): Token-Aliasing Credit Dilution.**
+   Standard token-output cross-entropy loss cannot distinguish between routing to the correct coordinate and accidentally routing
+   to an identical token elsewhere in the sequence. For 86.9% of examples (Strata A & B), the loss produces corrective parameter-space
+   margin alignment. However, in 13.1% of examples (Stratum C), key 7 happens to contain the target token, producing an overpowering
+   destructive gradient ($12.4\times$ larger magnitude) that reinforces key 7 and inverts the pooled gradient.
+2. **Secondary Terminal Lock-In (Steps 5500-6000): Softmax Gradient Starvation.**
+   Once key 7 is reinforced over early updates, key 0 probability drops to $\sim 10^{-4}$, starving its backpropagation so severely
+   that even non-aliased examples (Stratum A) lose corrective traction by terminal step 6000.
+Thus, pooled loss-gradient misalignment in ADR-0139 was not an inherent representation geometry failure, but credit assignment corruption
+from token aliasing exacerbated by softmax saturation.
+
+**Decision and authorized next steps:**
+Decision: `TOKEN_ALIASING_DILUTION_AND_LATE_SATURATION_IDENTIFIED`.
+1. Multi-init validation (REC-004AM) remains BLOCKED.
+2. Candidate adoption and bundle promotion remain BLOCKED (`candidate_selected: null`, `child_bundle: null`).
+3. RG3, REC-005, G1, and G4 remain uncleared and BLOCKED.
+4. Next learning pilot authorization: NOT AUTHORIZED within REC-004AP.
+   Any future optimization repair must specifically mitigate token-aliasing credit dilution (e.g. sequence-level distinctiveness,
+   coordinate regularization, or anti-saturation) strictly within standard unoracle/unsupervised loss boundaries.
+   Oracle/teacher supervision remains strictly forbidden.
+

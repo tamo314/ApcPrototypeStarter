@@ -54,6 +54,7 @@
 | 再開: REC-004AL | 完了（§7G） | `PILOT_TERMINAL_VIABILITY_NOT_MET` | 6,000 updates単一init学習パイロット。validation EM=0.793945 < 0.95 未達によりfail-closed停止。candidate/bundle未作成 |
 | 再開: REC-004AN | 完了（§7H） | `LENGTH10_LOCAL_OPTIMIZATION_FAILURE_IDENTIFIED` | 13 checkpoint全軌道再評価、位置局在、transplant、勾配衝突、露出監査。失点の89.4%が位置4の偽アトラクタ固着（key 7）に局在。追加学習0 |
 | 再開: REC-004AO | 完了（§7I） | `LOCAL_LOSS_GRADIENT_MISALIGNMENT_IDENTIFIED` | 13 checkpoint勾配到達性診断。ルーティング勾配ノルムは十分（0.2707）だが正解margin予測変化は84.6%で非正（端末-0.6976）かつkey0飽和飢餓。追加学習0 |
+| 再開: REC-004AP | 完了（§7J） | `TOKEN_ALIASING_DILUTION_AND_LATE_SATURATION_IDENTIFIED` | 13 checkpointトークン識別性層別化診断。Strata A/B（86.9%）は正解margin改善勾配を持つが、Stratum C（13.1%）の巨大破壊勾配（12.4倍優勢）がpooled勾配を希釈・反転。追加学習0 |
 | REC-005〜008 | 未着手 | RG3に依存。ただし失敗時の引継ぎは可能 | 今後のcohort・runtime注入の原契約 |
 | R3-011〜012 | 未着手 | G1/G4に依存 | 封印・B2_PROTOCOL_V2原契約 |
 | B-C006〜014 | 未着手 | B2/G5、以降各gateに依存 | B3〜B6の原計画 |
@@ -491,6 +492,38 @@ float precision/parity guardで安全に停止した未qualified artifactであ�
   - 単純な anti-saturation ヒューリスティック単体への安易な移行は禁止され、標準トークン損失という研究境界のままで解決可能な単一 optimization formulation のレビューが必要とされる。
   - 本タスク内での新規学習パイロットは認可されず（`next_learning_pilot_authorized: false`）、全init検証（REC-004AM）、候補採択、ModelBundle出力は厳格に遮断を継続。
 
+## 7J. 実行契約: REC-004AP CD-DPCA 位置4トークン識別性層別化勾配アライメント診断
+
+**状態: 完了、`TOKEN_ALIASING_DILUTION_AND_LATE_SATURATION_IDENTIFIED`（ADR-0140）。追加学習0、評価専用診断によりStrata A/B（86.9%）では正解margin改善勾配が存在する一方、Stratum C（13.1%）の巨大破壊勾配（12.4倍優勢）がpooled勾配を希釈・反転させ、端末ではkey 0飽和飢餓が加わる二段階メカニズムを同定。全init検証・候補採択・bundle出力は厳格に遮断を継続。**
+目的は、ADR-0139で報告された損失勾配不整合が、標準損失固有の表現幾何不具合なのか、パラメータ空間での反転なのか、それともトークン重複（token aliasing）によるcredit dilutionなのかを、トークン識別性に基づき事前固定した3層別（Stratum A: 唯一正解、B: 他キー重複かつkey 7非重複、C: key 7重複）においてスコア空間勾配 $dL/dS(4, j)$ とパラメータ空間勾配アライメント $-g_{\text{margin}} \cdot g_{\text{loss}}$ を測定して峻別することである。
+
+- 実行境界 & 保護要件:
+  - 評価専用診断: 追加学習0、`optimizer.step()` 実行0、予算延長0、新初期化0、LR/温度/サンプリング変更0、アーキテクチャ変更0。
+  - 凍結・保護: 親Coreおよび15 non-MIRROR primitivesは完全凍結・不変。
+  - ソース整合性: REC-004ALの全13 checkpoints (step 0..6000) のSHA-256ハッシュを事前検証。
+  - 副作用遮断: `candidate_selected: null`, `child_bundle: null`, `bundle_write: false`, RG3 `NOT_EXECUTED`, `rec005_status: BLOCKED`, G1/G4 `NOT_CLEARED`。封印データアクセス0。
+- 診断結果（`runs/phase_b_restart/rec004ap/run_001/`）:
+  1. 長さ10検証例（206例）の層別分布:
+     - Stratum A（unique target）: 77例（37.38%）。正解key 0にのみtarget tokenが存在。
+     - Stratum B（aliased other）: 102例（49.51%）。他キーにも存在するが偽アトラクタkey 7には不在。
+     - Stratum C（aliased key 7）: 27例（13.11%）。key 7にもtarget tokenが存在。
+     - 相互排他性・網羅性を検証（$77 + 102 + 27 = 206$）。非重複・他重複例が全体の 86.89% を占める。
+  2. 訓練中期ダイナミクス（Steps 500..5000）:
+     - 全体の 86.89% を占める Strata A および B では、標準トークン損失からパラメータ空間へ【正解マージンを改善する正の勾配】（$-g_{\text{margin}} \cdot g_{\text{loss}} > 0$）が支配的に供給されていた（Stratum A: 7/9 checkpointで正、Stratum B: 8/9 checkpointで正）。
+     - onsetの step 500 において、Stratum A は $+9.1296$（54.5%正）、Stratum B は $+11.5596$（61.8%正）と強力な正解脱出シグナルを出していた。
+     - しかし、Stratum C（13.11%）が $-31.0566$（96.3%負、平均絶対値 $28.52$ vs Stratum A $2.30$、**12.4倍の圧倒的優勢度**）という巨大な負の誤学習シグナルを放出したため、全体平均（pooled）が負（$-3.83$）へ引きずり倒されていた。
+     - スコア空間でも、Stratum C は $\partial \mathcal{L} / \partial S(4, 7) = -4.7 \times 10^{-3}$ となり、key 7 を選んでも正解トークンが得られることによる偽の成功シグナル（credit dilution）が実証された。
+  3. 端末 Step 6000 ロックイン:
+     - 長期の誤結合により key 0 確率が $p(0) \approx 1.15 \times 10^{-4}$ に飽和し、key 0 埋め込みへの勾配が key 7 比で 1000倍以上飢餓。
+     - この極端な飽和下で、Stratum A でも正解マージン変化が $-0.7266$（中央値 $-0.9921$、55.8%負）へと減衰・反転した。Stratum B は $+0.8263$（52.0%正）、Stratum C は $-6.3716$（100%負）。
+  4. 対照位置比較:
+     - 長さ10位置3（正解key 1, 対抗7）: 93.2%精度、正解margin変化率は訓練全般で正。
+     - 長さ10位置0、長さ8位置4、長さ9位置4: 100%精度、一貫して正のアライメント。
+- 判定と影響:
+  - 判定: `TOKEN_ALIASING_DILUTION_AND_LATE_SATURATION_IDENTIFIED`。
+  - ADR-0139の「損失勾配不整合」は、標準損失固有の表現幾何不具合ではなく、**トークン重複によるcredit assignmentの錯覚（Token-Aliasing Credit Dilution）**が主因であり、末期に**Softmax飽和飢餓**が加わって固定化された二段階メカニズムとして解釈が限定・確定された。
+  - 新規学習パイロットは認可されず（`next_learning_pilot_authorized: false`）、全init検証（REC-004AM）、候補採択、およびModelBundle出力は厳格に遮断を継続。
+
 ## 8. 実行記録
 
 - 2026-09-12: 本計画へ状態を集約。過去文書を仕様/証拠へ位置づけ直した（ADR-0127）。
@@ -507,6 +540,7 @@ float precision/parity guardで安全に停止した未qualified artifactであ�
 - 2026-09-12: REC-004AL `run_001` 実行完了、`PILOT_TERMINAL_VIABILITY_NOT_MET`（ADR-0137）。単一init（I01）学習パイロットで検証系列EM=0.793945（813/1024）となり、終端実行性基準（EM≥0.95）未達によりフェイルクローズ停止。全init検証・候補採択・bundle出力は厳格に遮断。G1/G4ブロック保持。
 - 2026-09-13: REC-004AN `run_001` 実行完了、`LENGTH10_LOCAL_OPTIMIZATION_FAILURE_IDENTIFIED`（ADR-0138）。13 checkpoint全軌道再評価、位置局在、transplant、勾配衝突、露出監査を実施。失点の89.4%（位置3-4合計で99.3%）が出力位置4の偽アトラクタ固着（key 7）に局在することを確認。追加学習0、candidate0、bundle0、RG3未実行。
 - 2026-09-13: REC-004AO `run_001` 実行完了、`LOCAL_LOSS_GRADIENT_MISALIGNMENT_IDENTIFIED`（ADR-0139）。13 checkpoint勾配到達性診断を実施。ルーティング勾配ノルムは十分（0.2707）だが正解マージン予測変化は84.6%で非正（端末-0.6976、cos=-0.1116）、key 0への勾配はsoftmax飽和により極小飢餓。追加学習0、candidate0、bundle0、RG3未実行。
+- 2026-09-13: REC-004AP `run_001` 実行完了、`TOKEN_ALIASING_DILUTION_AND_LATE_SATURATION_IDENTIFIED`（ADR-0140）。13 checkpointトークン識別性層別化勾配診断を実施。非重複/他重複例（86.9%）では正解改善勾配が供給される一方、key 7重複例（13.1%）の12.4倍巨大破壊勾配が全体を反転させ、端末でsoftmax飢餓が固定化するメカニズムを特定。追加学習0、candidate0、bundle0、RG3未実行。
 - 2026-09-12: 全2,514ケースの分割検証・ruff・mypy・文書/差分確認を完了。今回の整理・修正・有限precheckを閉じる。Phase B全体やRG3の完了ではない。
 
 ## 9. 最終検証と現在の停止点
@@ -514,10 +548,10 @@ float precision/parity guardで安全に停止した未qualified artifactであ�
 | 検証 | 結果 | 証拠・制約 |
 |---|---|---|
 | pytest 全収集ケース | 分割実行で2,514件PASS | Windows先行977件＋再開1,536件＋WSL1件。全node IDの和集合と全収集IDが一致 |
-| REC-004AJ〜AO 回帰テスト | 38件PASS | REC-004AJ/AK/AL/AN/AOの全38件PASS（3.0秒） |
+| REC-004AJ〜AP 回帰テスト | 45件PASS | REC-004AJ/AK/AL/AN/AO/APの全45件PASS（4.2秒） |
 | Windows単一プロセスの全件実行 | 異常終了、PASSではない | 長いXデータ検証中のPythonアクセス違反。原因未確定。既通過分を保存し、残りを再開 |
 | ruff check . | PASS | 終了コード0（全ファイル通過） |
-| mypy src/apc | PASS | 165 source files、終了コード0 |
+| mypy src/apc | PASS | 166 source files、終了コード0 |
 | 文書・差分 | PASS | ローカルリンク存在確認、git diff --check |
 
 全ケースの検証範囲は満たしたが、単一プロセスの安定性を認定したとは扱わない。
@@ -528,7 +562,10 @@ WSLへ移したのはartifactパスに依存しない `test_rec004x_dataset_disj
 `verification_coverage_plan.json`、`verification_events.jsonl`、`final_*.log` に保存した。
 研究の新学習0とは§5/6の研究実行を指し、検証用tiny fixtureの学習を含む全テストの更新数を指さない。
 
-**現在の停止点はREC-004AOによるCD-DPCA位置4偽アトラクタ勾配到達性診断の完了および損失勾配不整合・正解キー飽和飢餓の同定（`LOCAL_LOSS_GRADIENT_MISALIGNMENT_IDENTIFIED`）である。**
-全13チェックポイントの勾配・方向微分分析により、ルーティングパラメータ全体の勾配自体は十分な大きさで到達している（ノルム0.2707）ものの、標準トークン出力損失勾配の正解マージン方向成分（$-g_{\text{margin}} \cdot g_{\text{loss}}$）は84.6%（11/13 checkpoints）で非正（端末 $-0.6976$）であり、偽アトラクタを脱出するどころか強化する方向に働いていることが特定された。同時に、正解キー埋め込み（$E_{\text{key\_pos}}[0]$）への勾配は softmax 飽和（$p(0) \to 1.15 \times 10^{-4}$）により key 7 比で 64倍〜1500倍の飢餓状態に陥っている。
-これにより、単純な anti-saturation 単体ヒューリスティックによる修復は退けられ、標準トークン損失の境界内で解決可能な単一最適化定式化のレビューが必要とされる。
+**現在の停止点はREC-004APによるCD-DPCA位置4トークン識別性層別化勾配アライメント診断の完了およびトークン重複credit dilutionと端末softmax飽和の二段階同定（`TOKEN_ALIASING_DILUTION_AND_LATE_SATURATION_IDENTIFIED`）である。**
+全13チェックポイント・3相互排他層（Stratum A: 唯一正解 77例/37.4%、Stratum B: 他キー重複 102例/49.5%、Stratum C: key 7重複 27例/13.1%）の厳密なスコア空間・パラメータ空間勾配測定により、ADR-0139の勾配不整合パラドックスが完全に解明された。
+訓練中期のステップ 500〜5000 において、全体の 86.9% を占める Strata A & B はパラメータ空間で正解マージンを改善する正常なシグナル（$-g_{\text{margin}} \cdot g_{\text{loss}} > 0$）を一貫して出していた。しかし、わずか 13.1% の Stratum C（key 7 に偶発的に正解トークンが存在する例）において、標準トークン損失は key 7 を正解と誤認して平均ノルム・大きさで 12.4倍（$-31$ 〜 $-43$）に達する極大の破壊的勾配を放出し、全体の勾配（pooled）を負に引きずり倒していた（Token-Aliasing Credit Dilution）。
+そして末期（step 5500〜6000）において、長年の key 7 固定により正解 key 0 の softmax 確率が $10^{-4}$ にまで餓死した結果、Stratum A でも正解マージン改善シグナルが減衰・反転して固定化した。
+したがって、ADR-0139の勾配不整合は標準損失固有の表現幾何不具合ではなく、トークン重複による信用割り当て希釈とsoftmax飽和飢餓の複合作用であると確定された。
 新規学習パイロットは認可されず（`next_learning_pilot_authorized: false`）、全init検証（REC-004AM）、候補採択、およびModelBundle出力は厳格に遮断（`candidate_selected: null`, `child_bundle: null`）され、RG3、REC-005、G1、G4は未解除のまま保持される。
+
