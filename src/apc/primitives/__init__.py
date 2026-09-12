@@ -11,6 +11,14 @@ from apc.primitives.composition_search import (
     search_composition_recipe,
 )
 from apc.primitives.primitive import (
+    CD_DPCA_ARCHITECTURE_SIGNATURE,
+    PRIMITIVE_TYPE_REGISTRY,
+    CDDPCAPrimitive,
+    CDDPCAPrimitiveConfig,
+    ContentDecoupledDiscretePositionalCrossAttentionPrimitive,
+    ContentDecoupledDiscretePositionalCrossAttentionPrimitiveConfig,
+    CrossPositionLengthBiasPrimitive,
+    CrossPositionLengthBiasPrimitiveConfig,
     CrossPositionPrimitive,
     CrossPositionPrimitiveConfig,
     PointwisePrimitive,
@@ -22,13 +30,22 @@ from apc.primitives.primitive import (
     ReverseRelativePrimitiveConfig,
     ShiftRelativePrimitive,
     ShiftRelativePrimitiveConfig,
+    build_primitive_from_config_dict,
 )
 
 __all__ = [
+    "CDDPCAPrimitive",
+    "CDDPCAPrimitiveConfig",
+    "CD_DPCA_ARCHITECTURE_SIGNATURE",
     "CompositionLibrary",
     "CompositionRecipe",
+    "ContentDecoupledDiscretePositionalCrossAttentionPrimitive",
+    "ContentDecoupledDiscretePositionalCrossAttentionPrimitiveConfig",
+    "CrossPositionLengthBiasPrimitive",
+    "CrossPositionLengthBiasPrimitiveConfig",
     "CrossPositionPrimitive",
     "CrossPositionPrimitiveConfig",
+    "PRIMITIVE_TYPE_REGISTRY",
     "PointwisePrimitive",
     "Primitive",
     "PrimitiveBase",
@@ -40,6 +57,7 @@ __all__ = [
     "SearchResult",
     "ShiftRelativePrimitive",
     "ShiftRelativePrimitiveConfig",
+    "build_primitive_from_config_dict",
     "execute_composition_recipe",
     "search_composition_recipe",
 ]

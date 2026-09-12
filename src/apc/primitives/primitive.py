@@ -19,7 +19,7 @@ Provides:
 from __future__ import annotations
 
 import contextlib
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
@@ -30,16 +30,19 @@ from torch import nn
 
 DEFAULT_ARG_DIM: int = 32
 DEFAULT_MAX_SEQUENCE_LENGTH: int = 32
+CD_DPCA_ARCHITECTURE_SIGNATURE: str = "content_decoupled_discrete_positional_cross_attention_v1"
 
 __all__ = [
     "CDDPCAPrimitive",
     "CDDPCAPrimitiveConfig",
+    "CD_DPCA_ARCHITECTURE_SIGNATURE",
     "ContentDecoupledDiscretePositionalCrossAttentionPrimitive",
     "ContentDecoupledDiscretePositionalCrossAttentionPrimitiveConfig",
     "CrossPositionLengthBiasPrimitive",
     "CrossPositionLengthBiasPrimitiveConfig",
     "CrossPositionPrimitive",
     "CrossPositionPrimitiveConfig",
+    "PRIMITIVE_TYPE_REGISTRY",
     "PointwisePrimitive",
     "Primitive",
     "PrimitiveBase",
@@ -49,6 +52,7 @@ __all__ = [
     "ReverseRelativePrimitiveConfig",
     "ShiftRelativePrimitive",
     "ShiftRelativePrimitiveConfig",
+    "build_primitive_from_config_dict",
 ]
 
 
@@ -118,6 +122,26 @@ class PrimitiveBase(nn.Module):
         """Exponential moving average update of `utility_ema`."""
         self.utility_ema = decay * self.utility_ema + (1.0 - decay) * value
 
+    def to_config_dict(self) -> dict[str, Any]:
+        """Export serialized configuration and record metadata."""
+        cfg = getattr(self, "config", None)
+        cfg_dict = (
+            cfg.to_dict()
+            if cfg is not None and hasattr(cfg, "to_dict") and callable(cfg.to_dict)
+            else {}
+        )
+        arch_sig = getattr(self, "ARCHITECTURE_SIGNATURE", self.__class__.__name__)
+        return {
+            "primitive_type": self.__class__.__name__,
+            "architecture_signature": arch_sig,
+            "primitive_id": self.primitive_id,
+            "status": self.status.value,
+            "created_at_task": self.created_at_task,
+            "enabled": self.enabled,
+            "metadata": dict(self.metadata),
+            "config": cfg_dict,
+        }
+
 
 # ---------------------------------------------------------------------------
 # Pointwise Primitive (Legacy / Phase A / Parameter-Free)
@@ -137,9 +161,30 @@ class PrimitiveConfig:
         if self.rank < 1:
             raise ValueError(f"rank must be >= 1, got {self.rank}")
 
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize configuration to a JSON-compatible dictionary."""
+        return {"d_model": self.d_model, "rank": self.rank}
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> PrimitiveConfig:
+        """Construct and strictly validate configuration from a dictionary."""
+        if not isinstance(data, Mapping):
+            raise TypeError(f"Config data must be a Mapping, got {type(data).__name__}")
+        declared = {"d_model", "rank"}
+        unexpected = set(data.keys()) - declared
+        if unexpected:
+            raise ValueError(
+                f"Unexpected configuration field(s) for {cls.__name__}: {sorted(unexpected)}"
+            )
+        if "d_model" not in data:
+            raise KeyError(f"Missing required field 'd_model' for {cls.__name__}")
+        return cls(d_model=int(data["d_model"]), rank=int(data.get("rank", 8)))
+
 
 class PointwisePrimitive(PrimitiveBase):
     """A single low-rank residual transform $h + gate * B(A(h))$."""
+
+    ARCHITECTURE_SIGNATURE: str = "pointwise_v1"
 
     def __init__(
         self,
@@ -163,6 +208,27 @@ class PointwisePrimitive(PrimitiveBase):
         self.b_proj = nn.Linear(config.rank, config.d_model, bias=False)
         nn.init.normal_(self.a_proj.weight, mean=0.0, std=0.02)
         nn.init.zeros_(self.b_proj.weight)
+
+    @classmethod
+    def from_config_dict(cls, data: Mapping[str, Any]) -> PointwisePrimitive:
+        """Reconstruct a PointwisePrimitive from a configuration dictionary."""
+        if not isinstance(data, Mapping):
+            raise TypeError(f"Primitive spec must be a Mapping, got {type(data).__name__}")
+        for req in ("primitive_id", "config"):
+            if req not in data:
+                raise KeyError(f"Missing required field '{req}' in config dict")
+        raw_cfg = data["config"]
+        config = PrimitiveConfig.from_dict(raw_cfg)
+        status_val = data.get("status", PrimitiveStatus.CANDIDATE.value)
+        status = PrimitiveStatus(status_val) if isinstance(status_val, str) else status_val
+        return cls(
+            primitive_id=int(data["primitive_id"]),
+            config=config,
+            status=status,
+            created_at_task=int(data.get("created_at_task", 0)),
+            enabled=bool(data.get("enabled", True)),
+            metadata=dict(data.get("metadata", {}) or {}),
+        )
 
     def forward(self, h: torch.Tensor, gate: torch.Tensor | float = 1.0) -> torch.Tensor:
         if not self.enabled:
@@ -195,10 +261,74 @@ class CrossPositionPrimitiveConfig:
     arg_dim: int = 16
 
     def __post_init__(self) -> None:
+        if not isinstance(self.operation, str) or not self.operation.strip():
+            raise ValueError("operation must be a non-empty string")
+        if self.d_model < 1:
+            raise ValueError(f"d_model must be >= 1, got {self.d_model}")
+        if self.d_operator < 1:
+            raise ValueError(f"d_operator must be >= 1, got {self.d_operator}")
+        if self.n_head < 1:
+            raise ValueError(f"n_head must be >= 1, got {self.n_head}")
         if self.d_operator % self.n_head != 0:
             raise ValueError(
                 f"d_operator ({self.d_operator}) must be divisible by n_head ({self.n_head})"
             )
+        if self.d_operator_ff < 1:
+            raise ValueError(f"d_operator_ff must be >= 1, got {self.d_operator_ff}")
+        if self.vocab_size < 1:
+            raise ValueError(f"vocab_size must be >= 1, got {self.vocab_size}")
+        if self.max_sequence_length < 1:
+            raise ValueError(f"max_sequence_length must be >= 1, got {self.max_sequence_length}")
+        if self.arg_dim < 1:
+            raise ValueError(f"arg_dim must be >= 1, got {self.arg_dim}")
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize configuration to a JSON-compatible dictionary."""
+        return {
+            "operation": self.operation,
+            "d_model": self.d_model,
+            "d_operator": self.d_operator,
+            "n_head": self.n_head,
+            "d_operator_ff": self.d_operator_ff,
+            "vocab_size": self.vocab_size,
+            "max_sequence_length": self.max_sequence_length,
+            "arg_dim": self.arg_dim,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> Any:
+        """Construct and strictly validate configuration from a dictionary."""
+        if not isinstance(data, Mapping):
+            raise TypeError(f"Config data must be a Mapping, got {type(data).__name__}")
+        declared = {
+            "operation",
+            "d_model",
+            "d_operator",
+            "n_head",
+            "d_operator_ff",
+            "vocab_size",
+            "max_sequence_length",
+            "arg_dim",
+        }
+        unexpected = set(data.keys()) - declared
+        if unexpected:
+            raise ValueError(
+                f"Unexpected configuration field(s) for {cls.__name__}: {sorted(unexpected)}"
+            )
+        if "operation" not in data:
+            raise KeyError(f"Missing required field 'operation' for {cls.__name__}")
+        max_seq = int(data.get("max_sequence_length", DEFAULT_MAX_SEQUENCE_LENGTH))
+        kwargs: dict[str, Any] = {
+            "operation": str(data["operation"]),
+            "d_model": int(data.get("d_model", 192)),
+            "d_operator": int(data.get("d_operator", 32)),
+            "n_head": int(data.get("n_head", 4)),
+            "d_operator_ff": int(data.get("d_operator_ff", 64)),
+            "vocab_size": int(data.get("vocab_size", 10)),
+            "max_sequence_length": max_seq,
+            "arg_dim": int(data.get("arg_dim", 16)),
+        }
+        return cls(**kwargs)
 
 
 class CrossPositionPrimitive(PrimitiveBase):
@@ -207,6 +337,8 @@ class CrossPositionPrimitive(PrimitiveBase):
     Reads from frozen shared content representations $h_{\\text{content}}$, querying
     content tokens via output-slot queries conditioned on the argument.
     """
+
+    ARCHITECTURE_SIGNATURE: str = "cross_position_v1"
 
     def __init__(
         self,
@@ -268,6 +400,27 @@ class CrossPositionPrimitive(PrimitiveBase):
         )
         self.ffn_norm = nn.LayerNorm(config.d_operator)
         self.readout = nn.Linear(config.d_operator, config.vocab_size)
+
+    @classmethod
+    def from_config_dict(cls, data: Mapping[str, Any]) -> CrossPositionPrimitive:
+        """Reconstruct a CrossPositionPrimitive from a configuration dictionary."""
+        if not isinstance(data, Mapping):
+            raise TypeError(f"Primitive spec must be a Mapping, got {type(data).__name__}")
+        for req in ("primitive_id", "config"):
+            if req not in data:
+                raise KeyError(f"Missing required field '{req}' in config dict")
+        raw_cfg = data["config"]
+        config = CrossPositionPrimitiveConfig.from_dict(raw_cfg)
+        status_val = data.get("status", PrimitiveStatus.CANDIDATE.value)
+        status = PrimitiveStatus(status_val) if isinstance(status_val, str) else status_val
+        return cls(
+            primitive_id=int(data["primitive_id"]),
+            config=config,
+            status=status,
+            created_at_task=int(data.get("created_at_task", 0)),
+            enabled=bool(data.get("enabled", True)),
+            metadata=dict(data.get("metadata", {}) or {}),
+        )
 
     def forward(
         self,
@@ -338,9 +491,57 @@ class CrossPositionLengthBiasPrimitiveConfig(CrossPositionPrimitiveConfig):
         if self.length_ref < 1:
             raise ValueError(f"length_ref must be >= 1, got {self.length_ref}")
 
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize configuration to a JSON-compatible dictionary."""
+        d = super().to_dict()
+        d["bias_hidden_dim"] = self.bias_hidden_dim
+        d["length_ref"] = self.length_ref
+        return d
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> CrossPositionLengthBiasPrimitiveConfig:
+        """Construct and strictly validate configuration from a dictionary."""
+        if not isinstance(data, Mapping):
+            raise TypeError(f"Config data must be a Mapping, got {type(data).__name__}")
+        declared = {
+            "operation",
+            "d_model",
+            "d_operator",
+            "n_head",
+            "d_operator_ff",
+            "vocab_size",
+            "max_sequence_length",
+            "arg_dim",
+            "bias_hidden_dim",
+            "length_ref",
+        }
+        unexpected = set(data.keys()) - declared
+        if unexpected:
+            raise ValueError(
+                f"Unexpected configuration field(s) for {cls.__name__}: {sorted(unexpected)}"
+            )
+        if "operation" not in data:
+            raise KeyError(f"Missing required field 'operation' for {cls.__name__}")
+        max_seq = int(data.get("max_sequence_length", DEFAULT_MAX_SEQUENCE_LENGTH))
+        return cls(
+            operation=str(data["operation"]),
+            d_model=int(data.get("d_model", 192)),
+            d_operator=int(data.get("d_operator", 32)),
+            n_head=int(data.get("n_head", 4)),
+            d_operator_ff=int(data.get("d_operator_ff", 64)),
+            vocab_size=int(data.get("vocab_size", 10)),
+            max_sequence_length=max_seq,
+            arg_dim=int(data.get("arg_dim", 16)),
+            bias_hidden_dim=int(data.get("bias_hidden_dim", 32)),
+            length_ref=int(data.get("length_ref", DEFAULT_MAX_SEQUENCE_LENGTH)),
+        )
+
 
 class CrossPositionLengthBiasPrimitive(CrossPositionPrimitive):
     """`CrossPositionPrimitive` with a small additive position-bias term.
+
+    ARCHITECTURE_SIGNATURE: str = "cross_position_length_bias_v1"
+
 
     Adds `score_new = score_existing + b_theta(i, j, n)` before softmax, where
     `b_theta` is a 2-layer MLP (4 -> `bias_hidden_dim` -> 1, no output bias,
@@ -390,6 +591,27 @@ class CrossPositionLengthBiasPrimitive(CrossPositionPrimitive):
         self.position_bias_hidden = nn.Linear(4, config.bias_hidden_dim)
         self.position_bias_out = nn.Linear(config.bias_hidden_dim, 1, bias=False)
         nn.init.zeros_(self.position_bias_out.weight)
+
+    @classmethod
+    def from_config_dict(cls, data: Mapping[str, Any]) -> CrossPositionLengthBiasPrimitive:
+        """Reconstruct a CrossPositionLengthBiasPrimitive from a configuration dictionary."""
+        if not isinstance(data, Mapping):
+            raise TypeError(f"Primitive spec must be a Mapping, got {type(data).__name__}")
+        for req in ("primitive_id", "config"):
+            if req not in data:
+                raise KeyError(f"Missing required field '{req}' in config dict")
+        raw_cfg = data["config"]
+        config = CrossPositionLengthBiasPrimitiveConfig.from_dict(raw_cfg)
+        status_val = data.get("status", PrimitiveStatus.CANDIDATE.value)
+        status = PrimitiveStatus(status_val) if isinstance(status_val, str) else status_val
+        return cls(
+            primitive_id=int(data["primitive_id"]),
+            config=config,
+            status=status,
+            created_at_task=int(data.get("created_at_task", 0)),
+            enabled=bool(data.get("enabled", True)),
+            metadata=dict(data.get("metadata", {}) or {}),
+        )
 
     def _position_bias(
         self, content_lengths: Sequence[int], out_max: int, lmax: int, device: torch.device
@@ -509,6 +731,23 @@ class ContentDecoupledDiscretePositionalCrossAttentionPrimitiveConfig(
       arg_dim: int = 16
     """
 
+    @classmethod
+    def from_dict(
+        cls, data: Mapping[str, Any]
+    ) -> ContentDecoupledDiscretePositionalCrossAttentionPrimitiveConfig:
+        """Construct and strictly validate CD-DPCA configuration from a dictionary."""
+        base = super().from_dict(data)
+        return cls(
+            operation=base.operation,
+            d_model=base.d_model,
+            d_operator=base.d_operator,
+            n_head=base.n_head,
+            d_operator_ff=base.d_operator_ff,
+            vocab_size=base.vocab_size,
+            max_sequence_length=base.max_sequence_length,
+            arg_dim=base.arg_dim,
+        )
+
 
 # Short alias
 CDDPCAPrimitiveConfig = ContentDecoupledDiscretePositionalCrossAttentionPrimitiveConfig
@@ -541,6 +780,8 @@ class ContentDecoupledDiscretePositionalCrossAttentionPrimitive(PrimitiveBase):
     6. Downstream modules (attn_norm, ffn, ffn_norm, readout) and tensor interfaces
        remain 100% compatible with existing non-SHIFT primitives.
     """
+
+    ARCHITECTURE_SIGNATURE: str = CD_DPCA_ARCHITECTURE_SIGNATURE
 
     def __init__(
         self,
@@ -619,6 +860,47 @@ class ContentDecoupledDiscretePositionalCrossAttentionPrimitive(PrimitiveBase):
         )
         self.ffn_norm = nn.LayerNorm(config.d_operator)
         self.readout = nn.Linear(config.d_operator, config.vocab_size)
+
+    @classmethod
+    def from_config_dict(
+        cls, data: Mapping[str, Any]
+    ) -> ContentDecoupledDiscretePositionalCrossAttentionPrimitive:
+        """Reconstruct a CD-DPCA primitive solely from its declared configuration dictionary."""
+        if not isinstance(data, Mapping):
+            raise TypeError(f"Primitive spec must be a Mapping, got {type(data).__name__}")
+        for req in ("primitive_id", "config"):
+            if req not in data:
+                raise KeyError(f"Missing required field '{req}' in primitive config dict")
+        raw_cfg = data["config"]
+        config = ContentDecoupledDiscretePositionalCrossAttentionPrimitiveConfig.from_dict(raw_cfg)
+        status_val = data.get("status", PrimitiveStatus.CANDIDATE.value)
+        if isinstance(status_val, str):
+            try:
+                status = PrimitiveStatus(status_val)
+            except ValueError:
+                raise ValueError(f"Invalid PrimitiveStatus '{status_val}'") from None
+        elif isinstance(status_val, PrimitiveStatus):
+            status = status_val
+        else:
+            raise TypeError(
+                f"status must be str or PrimitiveStatus, got {type(status_val).__name__}"
+            )
+
+        arch_sig = data.get("architecture_signature")
+        if arch_sig is not None and arch_sig != cls.ARCHITECTURE_SIGNATURE:
+            raise ValueError(
+                f"Architecture signature mismatch: declared '{arch_sig}' != "
+                f"expected '{cls.ARCHITECTURE_SIGNATURE}'"
+            )
+
+        return cls(
+            primitive_id=int(data["primitive_id"]),
+            config=config,
+            status=status,
+            created_at_task=int(data.get("created_at_task", 0)),
+            enabled=bool(data.get("enabled", True)),
+            metadata=dict(data.get("metadata", {}) or {}),
+        )
 
     @property
     def answer_query_embedding(self) -> nn.Embedding:
@@ -858,9 +1140,53 @@ class ShiftRelativePrimitiveConfig:
                 f"d_operator ({self.d_operator}) must be divisible by n_head ({self.n_head})"
             )
 
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize configuration to a JSON-compatible dictionary."""
+        return {
+            "d_model": self.d_model,
+            "d_operator": self.d_operator,
+            "n_head": self.n_head,
+            "d_operator_ff": self.d_operator_ff,
+            "vocab_size": self.vocab_size,
+            "max_sequence_length": self.max_sequence_length,
+            "arg_dim": self.arg_dim,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> ShiftRelativePrimitiveConfig:
+        """Construct and strictly validate configuration from a dictionary."""
+        if not isinstance(data, Mapping):
+            raise TypeError(f"Config data must be a Mapping, got {type(data).__name__}")
+        declared = {
+            "d_model",
+            "d_operator",
+            "n_head",
+            "d_operator_ff",
+            "vocab_size",
+            "max_sequence_length",
+            "arg_dim",
+            "operation",
+        }
+        unexpected = set(data.keys()) - declared
+        if unexpected:
+            raise ValueError(
+                f"Unexpected configuration field(s) for {cls.__name__}: {sorted(unexpected)}"
+            )
+        return cls(
+            d_model=int(data.get("d_model", 192)),
+            d_operator=int(data.get("d_operator", 32)),
+            n_head=int(data.get("n_head", 4)),
+            d_operator_ff=int(data.get("d_operator_ff", 64)),
+            vocab_size=int(data.get("vocab_size", 10)),
+            max_sequence_length=int(data.get("max_sequence_length", DEFAULT_MAX_SEQUENCE_LENGTH)),
+            arg_dim=int(data.get("arg_dim", 16)),
+        )
+
 
 class ShiftRelativePrimitive(PrimitiveBase):
     """Primitive-scale (18,282 params) SHIFT operator with modular relative-position bias."""
+
+    ARCHITECTURE_SIGNATURE: str = "shift_relative_v1"
 
     def __init__(
         self,
@@ -912,6 +1238,27 @@ class ShiftRelativePrimitive(PrimitiveBase):
         )
         self.ffn_norm = nn.LayerNorm(cfg.d_operator)
         self.readout = nn.Linear(cfg.d_operator, cfg.vocab_size)
+
+    @classmethod
+    def from_config_dict(cls, data: Mapping[str, Any]) -> ShiftRelativePrimitive:
+        """Reconstruct a ShiftRelativePrimitive from a configuration dictionary."""
+        if not isinstance(data, Mapping):
+            raise TypeError(f"Primitive spec must be a Mapping, got {type(data).__name__}")
+        for req in ("primitive_id", "config"):
+            if req not in data:
+                raise KeyError(f"Missing required field '{req}' in config dict")
+        raw_cfg = data["config"]
+        config = ShiftRelativePrimitiveConfig.from_dict(raw_cfg)
+        status_val = data.get("status", PrimitiveStatus.CANDIDATE.value)
+        status = PrimitiveStatus(status_val) if isinstance(status_val, str) else status_val
+        return cls(
+            primitive_id=int(data["primitive_id"]),
+            config=config,
+            status=status,
+            created_at_task=int(data.get("created_at_task", 0)),
+            enabled=bool(data.get("enabled", True)),
+            metadata=dict(data.get("metadata", {}) or {}),
+        )
 
     def forward(
         self,
@@ -991,9 +1338,50 @@ class ReverseRelativePrimitiveConfig:
                 f"d_operator ({self.d_operator}) must be divisible by n_head ({self.n_head})"
             )
 
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize configuration to a JSON-compatible dictionary."""
+        return {
+            "d_model": self.d_model,
+            "d_operator": self.d_operator,
+            "n_head": self.n_head,
+            "d_operator_ff": self.d_operator_ff,
+            "vocab_size": self.vocab_size,
+            "max_sequence_length": self.max_sequence_length,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> ReverseRelativePrimitiveConfig:
+        """Construct and strictly validate configuration from a dictionary."""
+        if not isinstance(data, Mapping):
+            raise TypeError(f"Config data must be a Mapping, got {type(data).__name__}")
+        declared = {
+            "d_model",
+            "d_operator",
+            "n_head",
+            "d_operator_ff",
+            "vocab_size",
+            "max_sequence_length",
+            "operation",
+        }
+        unexpected = set(data.keys()) - declared
+        if unexpected:
+            raise ValueError(
+                f"Unexpected configuration field(s) for {cls.__name__}: {sorted(unexpected)}"
+            )
+        return cls(
+            d_model=int(data.get("d_model", 192)),
+            d_operator=int(data.get("d_operator", 32)),
+            n_head=int(data.get("n_head", 4)),
+            d_operator_ff=int(data.get("d_operator_ff", 64)),
+            vocab_size=int(data.get("vocab_size", 10)),
+            max_sequence_length=int(data.get("max_sequence_length", DEFAULT_MAX_SEQUENCE_LENGTH)),
+        )
+
 
 class ReverseRelativePrimitive(PrimitiveBase):
     """Primitive-scale (17,290 params) REVERSE operator with modular reverse relative bias."""
+
+    ARCHITECTURE_SIGNATURE: str = "reverse_relative_v1"
 
     def __init__(
         self,
@@ -1036,6 +1424,27 @@ class ReverseRelativePrimitive(PrimitiveBase):
         )
         self.ffn_norm = nn.LayerNorm(cfg.d_operator)
         self.readout = nn.Linear(cfg.d_operator, cfg.vocab_size)
+
+    @classmethod
+    def from_config_dict(cls, data: Mapping[str, Any]) -> ReverseRelativePrimitive:
+        """Reconstruct a ReverseRelativePrimitive from a configuration dictionary."""
+        if not isinstance(data, Mapping):
+            raise TypeError(f"Primitive spec must be a Mapping, got {type(data).__name__}")
+        for req in ("primitive_id", "config"):
+            if req not in data:
+                raise KeyError(f"Missing required field '{req}' in config dict")
+        raw_cfg = data["config"]
+        config = ReverseRelativePrimitiveConfig.from_dict(raw_cfg)
+        status_val = data.get("status", PrimitiveStatus.CANDIDATE.value)
+        status = PrimitiveStatus(status_val) if isinstance(status_val, str) else status_val
+        return cls(
+            primitive_id=int(data["primitive_id"]),
+            config=config,
+            status=status,
+            created_at_task=int(data.get("created_at_task", 0)),
+            enabled=bool(data.get("enabled", True)),
+            metadata=dict(data.get("metadata", {}) or {}),
+        )
 
     def forward(
         self,
@@ -1080,3 +1489,41 @@ class ReverseRelativePrimitive(PrimitiveBase):
         hidden = self.attn_norm(query + attn_out)
         hidden = self.ffn_norm(hidden + self.ffn(hidden))
         return self.readout(hidden)
+
+
+# ---------------------------------------------------------------------------
+# Primitive Type Registry & Factory
+# ---------------------------------------------------------------------------
+
+PRIMITIVE_TYPE_REGISTRY: dict[str, type[PrimitiveBase]] = {
+    "ContentDecoupledDiscretePositionalCrossAttentionPrimitive": (
+        ContentDecoupledDiscretePositionalCrossAttentionPrimitive
+    ),
+    "CDDPCAPrimitive": ContentDecoupledDiscretePositionalCrossAttentionPrimitive,
+    "CrossPositionPrimitive": CrossPositionPrimitive,
+    "CrossPositionLengthBiasPrimitive": CrossPositionLengthBiasPrimitive,
+    "PointwisePrimitive": PointwisePrimitive,
+    "Primitive": PointwisePrimitive,
+    "ShiftRelativePrimitive": ShiftRelativePrimitive,
+    "ReverseRelativePrimitive": ReverseRelativePrimitive,
+}
+
+
+def build_primitive_from_config_dict(data: Mapping[str, Any]) -> PrimitiveBase:
+    """Factory reconstructing any registered primitive type from its configuration dictionary."""
+    if not isinstance(data, Mapping):
+        raise TypeError(f"Primitive spec must be a Mapping, got {type(data).__name__}")
+    ptype = data.get("primitive_type")
+    if not ptype:
+        raise KeyError("Missing 'primitive_type' in primitive configuration dict")
+    cls = PRIMITIVE_TYPE_REGISTRY.get(ptype)
+    if cls is None:
+        registered = sorted(PRIMITIVE_TYPE_REGISTRY.keys())
+        raise ValueError(
+            f"Unknown primitive type '{ptype}'. Registered types: {registered}"
+        )
+    if hasattr(cls, "from_config_dict"):
+        return cls.from_config_dict(data)
+    raise NotImplementedError(
+        f"Primitive class {cls.__name__} does not implement from_config_dict"
+    )

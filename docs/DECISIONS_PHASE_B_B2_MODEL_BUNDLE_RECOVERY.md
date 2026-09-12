@@ -1086,3 +1086,70 @@ All 7 criteria PASS. Next task authorization is strictly limited to:
 1. REC-004AK: Serialization and Fresh-Load Validation under the immutable bundle loader contract.
 Zero training, parameter updates, candidate creation, or bundle modification occurred in REC-004AJ.
 RG3, REC-005, G1, and G4 remain blocked.
+
+## ADR-0136: REC-004AK CD-DPCA Serialization & Fresh-Load Validation Confirms Exact Structural and Behavioral Equivalence under Strict Loader Contract
+
+**Date:** 2026-09-12
+
+**Status:** Completed serialization and strict fresh-load validation; `execution_status: PASS`,
+`decision: CD_DPCA_SERIALIZATION_AND_FRESH_LOAD_VALIDATED`.
+
+**Contract and boundary:** REC-004AK validates the persistence and fresh-load reconstruction of the
+`ContentDecoupledDiscretePositionalCrossAttentionPrimitive` (`CD-DPCA`) and `PrimitiveBank` under
+the immutable model bundle loader contract (`strict=True`). It enforces zero optimizer construction,
+zero parameter updates, zero training, zero checkpoint mutation, zero candidate adoption, zero ModelBundle
+publish/writes (`bundle_write = False`), zero architecture/coefficient sweeps, zero RG3 checks,
+zero REC-005 actions, and zero sealed-data access. G1 and G4 remain uncleared independent research blocks.
+
+**Implementation additions:**
+- Added `CD_DPCA_ARCHITECTURE_SIGNATURE = "content_decoupled_discrete_positional_cross_attention_v1"`
+  in `src/apc/primitives/primitive.py`.
+- Implemented `to_dict()` and strict-validating `from_dict()` for `PrimitiveConfig`,
+  `CrossPositionPrimitiveConfig`, `CrossPositionLengthBiasPrimitiveConfig`, `CDDPCAPrimitiveConfig`,
+  `ShiftRelativePrimitiveConfig`, and `ReverseRelativePrimitiveConfig`.
+- Added `to_config_dict()` on `PrimitiveBase` and `ARCHITECTURE_SIGNATURE` + `from_config_dict()`
+  on all primitive classes.
+- Added `PRIMITIVE_TYPE_REGISTRY` and `build_primitive_from_config_dict()` factory in `src/apc/primitives/primitive.py`.
+- Added manifest-based persistence on `PrimitiveBank` (`to_manifest`, `from_manifest`, `save_manifest`,
+  `load_manifest`, `save_artifacts`, `from_artifacts(strict=True)`).
+
+**Validation results (`runs/phase_b_restart/rec004ak/run_001/`, `tests/test_rec004ak_cd_dpca_serialization.py`):**
+1. Exact Parameter Equivalence:
+   - 20 parameter tensors matching bit-exact across name, shape, and `torch.float32` dtype.
+   - Total parameter count: 19,178 params.
+   - Canonical state hash: exact match (`canonical_state_hashes_match: True`).
+   - State ABI hash: exact match under `content_decoupled_discrete_positional_cross_attention_v1`.
+2. Behavioral Equivalence on Fixed Inputs:
+   - Routing scores: bitwise identical ($\max |\Delta S| = 0.0$).
+   - Attention weights: $\max |\Delta A| = 0.0$.
+   - Padding masking: invalid positions ($j \ge L$) have score $-\infty$ and weight $0.0$; valid positions sum to $1.0$.
+   - Forward logits: $\max |\Delta y| = 0.0$ across all batch/length dimensions.
+   - Call instrumentation: forward call counter, usage increments, and reset operation verified identical.
+3. Ten Fail-Closed Negative Checks:
+   - Missing state_dict parameter -> `RuntimeError("Missing key(s)")`
+   - Unexpected state_dict parameter -> `RuntimeError("Unexpected key(s)")`
+   - Incompatible tensor shape -> `RuntimeError("size mismatch")`
+   - Missing required config field -> `KeyError`
+   - Unexpected config field -> `ValueError`
+   - Incompatible operator dimension divisibility (`d_operator % n_head != 0`) -> `ValueError`
+   - Incompatible max sequence length (`<= 0`) -> `ValueError`
+   - Unknown primitive type in manifest -> `ValueError`
+   - Duplicate primitive ID in manifest -> `ValueError`
+   - Architecture signature mismatch -> `ValueError`
+4. Runtime Information Boundary Audit:
+   - Verified via AST and signature reflection that routing representation and score computations
+     receive exclusively integer sequence lengths and discrete coordinates.
+   - Confirmed zero target tokens, oracle attention maps, or labels leak into restored routing.
+
+**Exact compatibility boundaries recorded:**
+- Input schema: `d_model=192, d_operator=32, n_head=4, d_head=8, d_operator_ff=64, vocab_size=10, max_sequence_length=32, arg_dim=16`.
+- Parameter accounting: 19,178 total parameters.
+- Length domain: $[1, 32]$ supported; Phase B evaluation domain $[2, 16]$; hard `ValueError` outside domain.
+
+**Decision and authorized next steps:**
+Decision: `CD_DPCA_SERIALIZATION_AND_FRESH_LOAD_VALIDATED`.
+All equivalence, negative, and boundary criteria PASS. Next task authorization is strictly limited to:
+1. REC-004AL: Single-Init Training Pilot under CD-DPCA (evaluating whether unconditioned CD-DPCA can
+   learn the MIRROR_HALVES permutation without oracle guidance).
+Zero training, parameter updates, candidate creation, or bundle modification occurred in REC-004AK.
+RG3, REC-005, G1, and G4 remain blocked.

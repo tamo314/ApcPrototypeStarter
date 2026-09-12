@@ -7,9 +7,12 @@ usage statistics, and strict sparse parameter/call tracking.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+import json
+from collections.abc import Iterable, Mapping, Sequence
+from pathlib import Path
 from typing import Any
 
+import torch
 from torch import nn
 
 from apc.primitives.primitive import (
@@ -27,6 +30,7 @@ from apc.primitives.primitive import (
     ReverseRelativePrimitiveConfig,
     ShiftRelativePrimitive,
     ShiftRelativePrimitiveConfig,
+    build_primitive_from_config_dict,
 )
 
 __all__ = ["PrimitiveBank"]
@@ -287,3 +291,90 @@ class PrimitiveBank(nn.Module):
             for pid in unique_ids
             if str(pid) in self._primitives and self.get(pid).enabled
         )
+
+    def to_manifest(self) -> list[dict[str, Any]]:
+        """Export declared configuration manifest for all primitives in ID order."""
+        return [self.get(pid).to_config_dict() for pid in self.ids()]
+
+    @classmethod
+    def from_manifest(cls, manifest: Sequence[Mapping[str, Any]]) -> PrimitiveBank:
+        """Construct a fresh PrimitiveBank solely from a declared manifest sequence.
+
+        Raises:
+            TypeError / ValueError / KeyError on invalid manifest data or duplicate IDs.
+        """
+        if not isinstance(manifest, Sequence):
+            raise TypeError(f"Bank manifest must be a Sequence, got {type(manifest).__name__}")
+        bank = cls()
+        for entry in manifest:
+            primitive = build_primitive_from_config_dict(entry)
+            bank.add_primitive(primitive)
+        return bank
+
+    def save_manifest(self, path: Path | str) -> None:
+        """Save bank configuration manifest to a JSON file."""
+        target = Path(path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        manifest = self.to_manifest()
+        target.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+    @classmethod
+    def load_manifest(cls, path: Path | str) -> PrimitiveBank:
+        """Construct a fresh PrimitiveBank solely from a manifest JSON file."""
+        target = Path(path)
+        if not target.is_file():
+            raise FileNotFoundError(f"Bank manifest file {target} does not exist")
+        data = json.loads(target.read_text(encoding="utf-8"))
+        if not isinstance(data, list):
+            raise ValueError(
+                f"Bank manifest JSON must be a list of records, got {type(data).__name__}"
+            )
+        return cls.from_manifest(data)
+
+    def save_artifacts(
+        self, directory: Path | str, prefix: str = "primitive_bank"
+    ) -> dict[str, str]:
+        """Save both declared configuration manifest and PyTorch weights state_dict.
+
+        Returns:
+            Dictionary with 'manifest_path' and 'state_path'.
+        """
+        dir_path = Path(directory)
+        dir_path.mkdir(parents=True, exist_ok=True)
+        manifest_path = dir_path / f"{prefix}_manifest.json"
+        state_path = dir_path / f"{prefix}_state.pt"
+
+        self.save_manifest(manifest_path)
+        torch.save(self.state_dict(), state_path)
+
+        return {
+            "manifest_path": str(manifest_path),
+            "state_path": str(state_path),
+        }
+
+    @classmethod
+    def from_artifacts(
+        cls,
+        directory: Path | str,
+        prefix: str = "primitive_bank",
+        *,
+        strict: bool = True,
+        map_location: str | torch.device = "cpu",
+    ) -> PrimitiveBank:
+        """Reconstruct a fresh PrimitiveBank solely from saved manifest and weights artifacts.
+
+        Constructs fresh module instances from manifest JSON and strictly loads weights.
+        """
+        dir_path = Path(directory)
+        manifest_path = dir_path / f"{prefix}_manifest.json"
+        state_path = dir_path / f"{prefix}_state.pt"
+
+        if not manifest_path.is_file():
+            raise FileNotFoundError(f"Manifest artifact not found: {manifest_path}")
+        if not state_path.is_file():
+            raise FileNotFoundError(f"State artifact not found: {state_path}")
+
+        bank = cls.load_manifest(manifest_path)
+        state_dict = torch.load(state_path, map_location=map_location, weights_only=True)
+        bank.load_state_dict(state_dict, strict=strict)
+        return bank

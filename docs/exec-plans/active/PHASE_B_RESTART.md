@@ -342,6 +342,36 @@ float precision/parity guardで安全に停止した未qualified artifactであ�
 - 判定: 7基準すべてPASSにより `MINIMAL_ROUTING_CONTRACT_IMPLEMENTED_AND_VALIDATED` を宣言。
 - 次タスクの順序限定: 次段階は (1) REC-004AK (シリアライズ & 新規ロード検証) に限定される。
 
+## 7F. 実行契約: B-C005REC-004AK — CD-DPCAシリアライズ & 新規ロード厳格検証
+
+**状態: 完了、`CD_DPCA_SERIALIZATION_AND_FRESH_LOAD_VALIDATED`（ADR-0136）。シリアライズおよびfresh-load完全等価性検証完了。学習0、candidate0、bundle write0、RG3/REC-005/sealed未実行。**
+目的は、CD-DPCA (`ContentDecoupledDiscretePositionalCrossAttentionPrimitive`) および `PrimitiveBank` の最小限のシリアライズ・設定登録サポート（`to_dict` / `from_dict`、`to_manifest` / `from_manifest`、`save_artifacts` / `from_artifacts`）を実装し、immutable model bundle loader contract（`strict=True`）下で未学習インスタンスの永続化と新規構築の完全等価性、および厳格な負例チェック・情報境界を検証することである。
+
+- 実行境界: オプティマイザ構築0、パラメータ更新0、学習0。既存checkpoint変更0、candidate採択0、ModelBundle publish/write禁止（`bundle_write = False`）。RG3未実行、REC-005未実行、sealed非参照。G1およびG4は未解除の独立ブロックとして保持。
+- 実装範囲:
+  - `src/apc/primitives/primitive.py`: `CD_DPCA_ARCHITECTURE_SIGNATURE = "content_decoupled_discrete_positional_cross_attention_v1"` を定義。各PrimitiveConfigおよびCD-DPCA configに厳格なキー・型・ハイパーパラメータ検証付きの `to_dict()` / `from_dict()` を追加。PrimitiveBaseに `to_config_dict()` を追加し、各クラスに `ARCHITECTURE_SIGNATURE` および `from_config_dict()` を実装。グローバルレジストリ `PRIMITIVE_TYPE_REGISTRY` およびファクトリ `build_primitive_from_config_dict()` を配備。
+  - `src/apc/primitives/bank.py`: `PrimitiveBank` にマニフェスト形式 `to_manifest()`、`from_manifest()`、ファイル保存/復元 `save_manifest()`、`load_manifest()`、複合アーティファクト保存/復元 `save_artifacts()`、`from_artifacts(strict=True)` を追加。
+- 厳格検証（`runs/phase_b_restart/rec004ak/run_001/`、`tests/test_rec004ak_cd_dpca_serialization.py`）:
+  1. パラメータ完全等価性: 20テンソル（総数19,178 params）の名前、形状、torch.float32 dtype、canonical state hash、state ABI hashが完全一致。
+  2. スコアラー出力完全等価性: 同一入力長に対するルーティングスコアがビット一致（$\max |\Delta S| = 0.0$）。
+  3. 注意重み & パディングマスク完全等価性: 注意重み差 $\max |\Delta A| = 0.0$。無効パディング位置 ($j \ge L$) はスコア $-\infty$、重み $0.0$。有効位置の注意重み和は $1.0$。
+  4. 順伝播ロジット完全等価性: ロジット差 $\max |\Delta y| = 0.0$。
+  5. 呼び出し統計互換性: スパース呼び出しカウンタ、使用回数記録、リセット操作が元インスタンスと完全両立。
+  6. 10種の厳格負例テスト（Fail-Closed）:
+     - 欠落state_dictキー (`length_embedding.weight`) $\to$ `RuntimeError("Missing key(s)")`
+     - 予期せぬstate_dictキー (`extra_unrecognized_tensor`) $\to$ `RuntimeError("Unexpected key(s)")`
+     - 不適合テンソル形状 (`(16, 32)` vs `(32, 32)`) $\to$ `RuntimeError("size mismatch")`
+     - 必須configフィールド欠落 (`operation`) $\to$ `KeyError`
+     - 予期せぬconfigフィールド (`unsupported_hyperparameter`) $\to$ `ValueError`
+     - 不適合演算子次元整除性 (`d_operator=30`, `n_head=4`) $\to$ `ValueError`
+     - 不適合最大系列長 (`max_sequence_length=0`) $\to$ `ValueError`
+     - 未知のプリミティブ型 (`NonexistentPrimitiveClass`) $\to$ `ValueError`
+     - 重複プリミティブID (`primitive_id=0`) $\to$ `ValueError`
+     - アーキテクチャ署名不一致 (`cross_position_v1` vs CD-DPCA) $\to$ `ValueError`
+  7. ランタイム情報境界監査: AST/シグネチャ検査により、復元後のルーティングパスに正解トークン、ラベル、教示注意分布、オラクル情報が一切入力されないことを確認。
+- 判定: `CD_DPCA_SERIALIZATION_AND_FRESH_LOAD_VALIDATED`。
+- 次タスクの順序限定: 次段階は (3) 単一init学習パイロット（REC-004AL）に限定される。
+
 ## 8. 実行記録
 
 - 2026-09-12: 本計画へ状態を集約。過去文書を仕様/証拠へ位置づけ直した（ADR-0127）。
@@ -354,6 +384,7 @@ float precision/parity guardで安全に停止した未qualified artifactであ�
 - 2026-09-12: REC-004AH `run_001` 実行完了、`SCORE_DECOMPOSITION_IDENTIFIABILITY_STOP`（ADR-0133）。計算グラフと識別性行列の評価で全要素が条件(d)不成立。現行score分解における単一修復標的の探索を停止。
 - 2026-09-12: REC-004AI `run_001` 実行完了、`MINIMAL_ROUTING_CONTRACT_IDENTIFIED`（ADR-0134）。タスク意味論から探索なしに単一最小アーキテクチャ契約（CD-DPCA）を導出。学習0、実装0、candidate0、RG3未実行。
 - 2026-09-12: REC-004AJ `run_001` 実行完了、`MINIMAL_ROUTING_CONTRACT_IMPLEMENTED_AND_VALIDATED`（ADR-0135）。CD-DPCAのコード実装と未学習構造7基準PASS。学習0、candidate0、bundle0、RG3未実行。
+- 2026-09-12: REC-004AK `run_001` 実行完了、`CD_DPCA_SERIALIZATION_AND_FRESH_LOAD_VALIDATED`（ADR-0136）。CD-DPCAおよびPrimitiveBankの厳格シリアライズ、fresh-load完全等価性、10種負例fail-closed、情報境界を検証。学習0、candidate0、bundle0、RG3未実行。
 - 2026-09-12: 全2,514ケースの分割検証・ruff・mypy・文書/差分確認を完了。今回の整理・修正・有限precheckを閉じる。Phase B全体やRG3の完了ではない。
 
 ## 9. 最終検証と現在の停止点
@@ -362,7 +393,7 @@ float precision/parity guardで安全に停止した未qualified artifactであ�
 |---|---|---|
 | pytest 全収集ケース | 分割実行で2,514件PASS | Windows先行977件＋再開1,536件＋WSL1件。全node IDの和集合と全収集IDが一致 |
 | Windows単一プロセスの全件実行 | 異常終了、PASSではない | 長いXデータ検証中のPythonアクセス違反。原因未確定。既通過分を保存し、残りを再開 |
-| ruff check . | PASS | 終了コード0（`orchestrator.py` 除外設定後） |
+| ruff check . | PASS | 終了コード0（全ファイル通過） |
 | mypy src/apc | PASS | 162 source files、終了コード0 |
 | 文書・差分 | PASS | ローカルリンク存在確認、git diff --check |
 
@@ -374,7 +405,7 @@ WSLへ移したのはartifactパスに依存しない `test_rec004x_dataset_disj
 `verification_coverage_plan.json`、`verification_events.jsonl`、`final_*.log` に保存した。
 研究の新学習0とは§5/6の研究実行を指し、検証用tiny fixtureの学習を含む全テストの更新数を指さない。
 
-**現在の停止点はREC-004AJによる単一最小routing contract（CD-DPCA）のコード実装および未学習構造検証の完了であり、次段階はREC-004AK（シリアライズ & 新規ロード検証）に限定される。**
-旧score分解に対する対症的修復はADR-0133で正式に停止され、タスク意味論から演繹された新contractがADR-0134で確立され、ADR-0135でコード実装および未学習構造検証が完了した。
-REC-004AJ内では学習・candidate作成・bundle write・RG3再検証・REC-005は一切実行せず、G1/G4は未解決ブロックとして保持する。
-次タスクでは、immutable bundle loader contract下におけるシリアライズ保存とfresh-loadの厳格な検証のみを実行する。
+**現在の停止点はREC-004AKによるCD-DPCAおよびPrimitiveBankのシリアライズ・fresh-load完全等価性・厳格負例検証の完了であり、次段階はREC-004AL（単一init学習パイロット）に限定される。**
+旧score分解に対する対症的修復はADR-0133で正式に停止され、タスク意味論から演繹された新contractがADR-0134で確立され、ADR-0135でコード実装および未学習構造検証が完了し、ADR-0136でimmutable loader contract下におけるシリアライズとfresh-load完全等価性が厳格に実証された。
+REC-004AK内では学習・candidate作成・bundle write・RG3再検証・REC-005は一切実行せず、G1/G4は未解決ブロックとして保持する。
+次タスクでは、CD-DPCAに対する単一初期化シードでの学習可能性パイロット（REC-004AL）のみを厳格な実行境界下で審査する。
