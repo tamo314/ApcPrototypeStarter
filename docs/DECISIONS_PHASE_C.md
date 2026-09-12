@@ -260,3 +260,47 @@ Reclassify the stoppage rationale from `ROUTING_IDENTIFIABILITY_STOP (RECONFIRME
 - Audit Document: `docs/phase_c/PHASE_C_C_D001V_ORACLE_EQUIVALENCE_FALSIFICATION_EXPERIMENT.md`  
 - Audit Artifact: `docs/phase_c/artifacts/oracle_equivalence_falsification_experiment.json`
 
+---
+
+## ADR-0156: C-D001W Adversarial Mixed-Control Validation Confirms ADR-0155 0/5 Non-Oracle Determination and Derives Training Information Contract v1.1 & Deterministic Baseline
+
+**Date:** 2026-09-13  
+**Task:** C-D001W — Adversarial Mixed-Control Validation of the Five-Dimensional Oracle Criterion  
+**Status:** Completed non-experimental adversarial validation; `execution_status: PASS`, `decision: ROUTING_IDENTIFIABILITY_QUALIFIED_STOP` (ADR-0155 0/5 Determination Upheld; Candidate Contract v1.1 & Deterministic Baseline Derived).  
+Phase C charter status remains `READY_FOR_REVIEW_NOT_APPROVED`; research execution remains `NOT_AUTHORIZED`.  
+
+**Scope and Integrity Boundary:**  
+- Evaluated ADR-0155's fixed 5-dimensional oracle criterion against adversarial mixed controls between 0/5 and 5/5: universal interpreter + bytecode relation code (MC1), compressed/encrypted lookup (MC2), relation-specific coordinate-free metadata (MC3), example-independent task-specific routing program (MC4), support-derived selector (MC5), lawful FIRST/LAST descriptor (MC6), and noisy coordinate hint (MC7).
+- Verified representation invariance, positive/negative control monotonicity, leave-one-out dimension necessity, and aggregation threshold false positives / false negatives.
+- Sealed partition data (inputs, labels, model outputs) access count: **0**.
+- Zero training updates, zero optimizer construction, zero model initialization, zero dataset generation, zero relation registration, zero candidate construction, and zero GPU execution time.
+- No historical measurement, threshold, or Phase-B terminal state was modified.
+
+**Key Findings:**  
+1. **Representation Invariance of Oracle Nature:**  
+   Meaning-preserving transformations of coordinate lookups—compiling into universal bytecode (`MC1`) or encrypting/compressing (`MC2`)—preserve full mutual information with ground truth ($I(Z^*; T(C)) = I(Z^*; C)$). The 5-dimensional criterion inspects semantic provenance and counterfactual fragility rather than surface syntax, scoring both as **5/5 ORACLE**. The criterion is strictly representation-invariant.
+2. **Positive/Negative Control Monotonicity:**  
+   The oracle score $S(C)$ monotonically tracks coordinate leakage: $S(\text{NC1, NC2, MC3, MC5, MC6}) = 0 < S(\text{MC4}) = 4 \le S(\text{PC1, PC2, MC1, MC2, MC7}) = 5$.
+3. **Leave-One-Out Dimension Necessity:**  
+   Ablating any single dimension $d_j \in \{1, 2, 3, 4, 5\}$ exposes a concrete adversarial loophole (e.g. omitting relation specificity admits `MC4`; omitting provenance admits evaluator-fitted closed forms). All five dimensions are **jointly necessary and non-redundant**.
+4. **Aggregation Threshold Analysis (FP = 0, FN = 0):**  
+   The Disjunctive Coordinate-Leakage Rejection Rule ($\theta = 1$, Any-Hit) achieves optimal fail-closed classification: 0.0% False Positives on lawful task specifications (which all score strictly 0/5) and 0.0% False Negatives on oracles (unanimous rule $\theta = 5$ fails by admitting `MC4` at 4/5).
+5. **Reconfirmation of ADR-0155 0/5 Determination:**  
+   Exhaustive search revealed zero counterexamples where re-encoding altered oracle determinations or exposed `FIRST/LAST` as an oracle. ADR-0155's 0/5 non-oracle classification is **unconditionally upheld**.
+6. **Candidate Training Information Contract v1.1 & Deterministic Baseline:**  
+   Formally derived `Phase C Training Information Contract v1.1` (specifying $D \in \mathcal{L}_{\text{desc}}$ with tie-break policies under strict $0/5$ compliance and $h_{\text{content}} = f(\text{content})$) and `Descriptor-Only Deterministic Baseline` requirements (software reduction achieving 100% EM on clean and collision instances as a causal ceiling control).
+
+**Decision:**  
+Confirm **`ROUTING_IDENTIFIABILITY_QUALIFIED_STOP`** (ADR-0155 0/5 Determination Upheld; Candidate Contract v1.1 & Deterministic Baseline Derived).
+
+**Consequences:**  
+- The 5-dimensional oracle criterion is verified as robust, representation-invariant, and minimal.
+- Contract v1.1 provides a single mathematically consistent information contract candidate that resolves duplicate-token routing without oracle supervision.
+- Research execution remains strictly `NOT_AUTHORIZED` due to the unresolved relation inventory deficit from ADR-0150 (`RELATION_INVENTORY_FEASIBILITY_STOP`: 1/2 clean components in validation and sealed) and unapproved charter status.
+
+**Primary Artifacts:**  
+- Review Document: `docs/phase_c/PHASE_C_C_D001W_ADVERSARIAL_MIXED_CONTROL_VALIDATION.md`  
+- Audit Artifact: `docs/phase_c/artifacts/adversarial_mixed_control_validation.json`  
+- Verification Suite: `tests/test_adversarial_mixed_control_validation.py`
+
+

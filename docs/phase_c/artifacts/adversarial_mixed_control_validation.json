@@ -1,0 +1,496 @@
+{
+  "task_id": "C-D001W",
+  "document_id": "DOC-PHASE-C-D001W-AUDIT",
+  "date": "2026-09-13",
+  "decision": "ROUTING_IDENTIFIABILITY_QUALIFIED_STOP",
+  "decision_status": "ADR-0155_ZERO_OF_FIVE_CONFIRMED_AND_CONTRACT_V1_1_DERIVED",
+  "charter_state": "READY_FOR_REVIEW_NOT_APPROVED",
+  "research_execution_authority": "NOT_AUTHORIZED",
+  "integrity_boundary": {
+    "parameter_updates": 0,
+    "optimizer_instances": 0,
+    "model_initializations": 0,
+    "dataset_generations": 0,
+    "relation_registrations": 0,
+    "gpu_execution_seconds": 0,
+    "sealed_partition_access": 0
+  },
+  "criteria_pre_registration": {
+    "provenance": {
+      "dimension_index": 1,
+      "definition": "Origin of the information signal: whether it originates from empirical ground-truth measurements, evaluator scoring, or teacher trajectories (Oracle), or from a priori formal grammatical definitions of the task language (Non-Oracle).",
+      "oracle_indicator": "DERIVED_FROM_GROUND_TRUTH_EVALUATOR_OR_TARGET_TRAJECTORY",
+      "non_oracle_indicator": "A_PRIORI_FORMAL_GRAMMATICAL_DEFINITION"
+    },
+    "example_specificity": {
+      "dimension_index": 2,
+      "definition": "Instance-dependence of the signal: whether the signal varies point-wise with each input sequence x or contains sequence-specific coordinate constants (Oracle), or is an x-invariant universal rule (Non-Oracle).",
+      "oracle_indicator": "INSTANCE_DEPENDENT_OR_EXPLICIT_COORDINATES",
+      "non_oracle_indicator": "X_INVARIANT_UNIVERSAL_RULE"
+    },
+    "relation_specificity": {
+      "dimension_index": 3,
+      "definition": "Scope and tailoring of the signal: whether the signal is an ad-hoc coordinate patch tailored to a specific dataset/relation (Oracle), or a domain-general compositional operator across relations (Non-Oracle).",
+      "oracle_indicator": "RELATION_TAILORED_AD_HOC_COORDINATE_PATCH",
+      "non_oracle_indicator": "DOMAIN_GENERAL_REUSABLE_OPERATOR"
+    },
+    "inference_time_availability": {
+      "dimension_index": 4,
+      "definition": "Legitimacy of signal exposure during open-world testing: whether the signal relies on evaluator privilege/secret target tokens (Oracle), or is legitimately part of the visible task query/prompt at inference time (Non-Oracle).",
+      "oracle_indicator": "EVALUATOR_PRIVILEGE_FORBIDDEN_AT_TEST_TIME",
+      "non_oracle_indicator": "LEGITIMATE_INFERENCE_TIME_PROMPT_INPUT"
+    },
+    "counterfactual_invariance": {
+      "dimension_index": 5,
+      "definition": "Robustness under input sequence perturbations: whether the signal breaks when sequence layout, distractor positions, or lengths change (Oracle), or dynamically preserves semantic meaning across counterfactual variations (Non-Oracle).",
+      "oracle_indicator": "BREAKS_UNDER_SEQUENCE_MUTATION",
+      "non_oracle_indicator": "ROBUST_ACROSS_COUNTERFACTUAL_VARIATIONS"
+    }
+  },
+  "controls_evaluated": [
+    {
+      "control_id": "NC1",
+      "category": "NEGATIVE_CONTROL",
+      "name": "pre_declared_semantic_rule",
+      "description": "Task/relation-wide pre-declared semantic operational rule in formal grammar (e.g. key matching predicate and offset).",
+      "syntax_and_representation": "RULE(match_predicate=lambda k, x_i: x_i == k, target_offset=+1)",
+      "information_theoretic_content": "Abstract relational operational predicate without sequence index literals.",
+      "dimension_scores": {
+        "provenance": {"score": 0, "indicator": "A_PRIORI_FORMAL_GRAMMATICAL_DEFINITION"},
+        "example_specificity": {"score": 0, "indicator": "X_INVARIANT_UNIVERSAL_RULE"},
+        "relation_specificity": {"score": 0, "indicator": "DOMAIN_GENERAL_REUSABLE_OPERATOR"},
+        "inference_time_availability": {"score": 0, "indicator": "LEGITIMATE_INFERENCE_TIME_PROMPT_INPUT"},
+        "counterfactual_invariance": {"score": 0, "indicator": "ROBUST_ACROSS_COUNTERFACTUAL_VARIATIONS"}
+      },
+      "numeric_score": 0,
+      "oracle_score": "0/5_ORACLE",
+      "classification": "LAWFUL_TASK_SPEC",
+      "separates_world_a_and_b": false
+    },
+    {
+      "control_id": "NC2",
+      "category": "NEGATIVE_CONTROL",
+      "name": "opaque_task_id",
+      "description": "Arbitrary integer task identifier (e.g. task_id = 42).",
+      "syntax_and_representation": "task_id in {0, 1, ..., T-1}",
+      "information_theoretic_content": "Nominal index identifying task category; zero semantic or coordinate bits.",
+      "dimension_scores": {
+        "provenance": {"score": 0, "indicator": "A_PRIORI_FORMAL_GRAMMATICAL_DEFINITION"},
+        "example_specificity": {"score": 0, "indicator": "X_INVARIANT_UNIVERSAL_RULE"},
+        "relation_specificity": {"score": 0, "indicator": "TASK_BOUND_NOMINAL_NON_PATCH"},
+        "inference_time_availability": {"score": 0, "indicator": "LEGITIMATE_INFERENCE_TIME_PROMPT_INPUT"},
+        "counterfactual_invariance": {"score": 0, "indicator": "ROBUST_ACROSS_COUNTERFACTUAL_VARIATIONS"}
+      },
+      "numeric_score": 0,
+      "oracle_score": "0/5_ORACLE",
+      "classification": "LAWFUL_TASK_SPEC (Under-informative on collision)",
+      "separates_world_a_and_b": false
+    },
+    {
+      "control_id": "PC1",
+      "category": "POSITIVE_CONTROL",
+      "name": "per_example_coordinate_label",
+      "description": "Explicit ground-truth target routing coordinate z*(x) supplied per sequence.",
+      "syntax_and_representation": "z* in {0, 1, ..., L-1}",
+      "information_theoretic_content": "Direct supervisory target coordinate for router cross-entropy loss.",
+      "dimension_scores": {
+        "provenance": {"score": 1, "indicator": "DERIVED_FROM_GROUND_TRUTH_EVALUATOR_OR_TARGET_TRAJECTORY"},
+        "example_specificity": {"score": 1, "indicator": "INSTANCE_DEPENDENT_OR_EXPLICIT_COORDINATES"},
+        "relation_specificity": {"score": 1, "indicator": "RELATION_TAILORED_AD_HOC_COORDINATE_PATCH"},
+        "inference_time_availability": {"score": 1, "indicator": "EVALUATOR_PRIVILEGE_FORBIDDEN_AT_TEST_TIME"},
+        "counterfactual_invariance": {"score": 1, "indicator": "BREAKS_UNDER_SEQUENCE_MUTATION"}
+      },
+      "numeric_score": 5,
+      "oracle_score": "5/5_ORACLE",
+      "classification": "FORBIDDEN_ORACLE_SUPERVISION",
+      "separates_world_a_and_b": true
+    },
+    {
+      "control_id": "PC2",
+      "category": "POSITIVE_CONTROL",
+      "name": "relation_specific_lookup_map",
+      "description": "Hard-coded coordinate lookup map k -> z* or (x, k) -> z* tailored to relation.",
+      "syntax_and_representation": "MAP = {key_0: z_0, key_1: z_1, ...}",
+      "information_theoretic_content": "Exhaustive table mapping input keys to internal sequence coordinates.",
+      "dimension_scores": {
+        "provenance": {"score": 1, "indicator": "DERIVED_FROM_GROUND_TRUTH_EVALUATOR_OR_TARGET_TRAJECTORY"},
+        "example_specificity": {"score": 1, "indicator": "INSTANCE_DEPENDENT_OR_EXPLICIT_COORDINATES"},
+        "relation_specificity": {"score": 1, "indicator": "RELATION_TAILORED_AD_HOC_COORDINATE_PATCH"},
+        "inference_time_availability": {"score": 1, "indicator": "EVALUATOR_PRIVILEGE_FORBIDDEN_AT_TEST_TIME"},
+        "counterfactual_invariance": {"score": 1, "indicator": "BREAKS_UNDER_SEQUENCE_MUTATION"}
+      },
+      "numeric_score": 5,
+      "oracle_score": "5/5_ORACLE",
+      "classification": "FORBIDDEN_HARD_CODED_ROUTING_MAP",
+      "separates_world_a_and_b": true
+    },
+    {
+      "control_id": "MC1",
+      "category": "ADVERSARIAL_MIXED_CONTROL",
+      "name": "universal_interpreter_plus_relation_code",
+      "description": "Coordinate lookup table compiled into a universal bytecode interpreter and compact relation code (meaning-preserving re-encoding).",
+      "syntax_and_representation": "EXEC(I_univ, c_t) where c_t = [OP_LOAD, k, OP_RET, z*]",
+      "information_theoretic_content": "Isomorphic to PC2 (H(T_coord | I_univ, c_t) = 0); unpacks exact coordinate lookup table.",
+      "dimension_scores": {
+        "provenance": {"score": 1, "indicator": "DERIVED_FROM_GROUND_TRUTH_EVALUATOR_OR_TARGET_TRAJECTORY"},
+        "example_specificity": {"score": 1, "indicator": "INSTANCE_DEPENDENT_OR_EXPLICIT_COORDINATES"},
+        "relation_specificity": {"score": 1, "indicator": "RELATION_TAILORED_AD_HOC_COORDINATE_PATCH"},
+        "inference_time_availability": {"score": 1, "indicator": "EVALUATOR_PRIVILEGE_FORBIDDEN_AT_TEST_TIME"},
+        "counterfactual_invariance": {"score": 1, "indicator": "BREAKS_UNDER_SEQUENCE_MUTATION"}
+      },
+      "numeric_score": 5,
+      "oracle_score": "5/5_ORACLE",
+      "classification": "FORBIDDEN_DISGUISED_ORACLE",
+      "separates_world_a_and_b": true
+    },
+    {
+      "control_id": "MC2",
+      "category": "ADVERSARIAL_MIXED_CONTROL",
+      "name": "compressed_or_encrypted_lookup",
+      "description": "Coordinate lookup table compressed via DEFLATE or encrypted via AES/PRNG with key K_t (meaning-preserving re-encoding).",
+      "syntax_and_representation": "DECRYPT(ciphertext_blob, K_t) -> {k: z*}",
+      "information_theoretic_content": "Isomorphic to PC2 (reconstructed coordinate map is bitwise identical to ground-truth table).",
+      "dimension_scores": {
+        "provenance": {"score": 1, "indicator": "DERIVED_FROM_GROUND_TRUTH_EVALUATOR_OR_TARGET_TRAJECTORY"},
+        "example_specificity": {"score": 1, "indicator": "INSTANCE_DEPENDENT_OR_EXPLICIT_COORDINATES"},
+        "relation_specificity": {"score": 1, "indicator": "RELATION_TAILORED_AD_HOC_COORDINATE_PATCH"},
+        "inference_time_availability": {"score": 1, "indicator": "EVALUATOR_PRIVILEGE_FORBIDDEN_AT_TEST_TIME"},
+        "counterfactual_invariance": {"score": 1, "indicator": "BREAKS_UNDER_SEQUENCE_MUTATION"}
+      },
+      "numeric_score": 5,
+      "oracle_score": "5/5_ORACLE",
+      "classification": "FORBIDDEN_DISGUISED_ORACLE",
+      "separates_world_a_and_b": true
+    },
+    {
+      "control_id": "MC3",
+      "category": "ADVERSARIAL_MIXED_CONTROL",
+      "name": "relation_specific_coordinate_free_metadata",
+      "description": "Relation-specific semantic metadata (e.g. arity=2, commutativity=False, value_type=INT) strictly free of coordinate maps or index offsets.",
+      "syntax_and_representation": "METADATA(family='BIND_COUNT', arity=2, commutative=False, domain='V^L')",
+      "information_theoretic_content": "Algebraic and type signature metadata; zero coordinate or index information.",
+      "dimension_scores": {
+        "provenance": {"score": 0, "indicator": "A_PRIORI_FORMAL_GRAMMATICAL_DEFINITION"},
+        "example_specificity": {"score": 0, "indicator": "X_INVARIANT_UNIVERSAL_RULE"},
+        "relation_specificity": {"score": 0, "indicator": "DOMAIN_GENERAL_TYPING_NON_PATCH"},
+        "inference_time_availability": {"score": 0, "indicator": "LEGITIMATE_INFERENCE_TIME_PROMPT_INPUT"},
+        "counterfactual_invariance": {"score": 0, "indicator": "ROBUST_ACROSS_COUNTERFACTUAL_VARIATIONS"}
+      },
+      "numeric_score": 0,
+      "oracle_score": "0/5_ORACLE",
+      "classification": "LAWFUL_TASK_SPEC (Under-informative on collision)",
+      "separates_world_a_and_b": false
+    },
+    {
+      "control_id": "MC4",
+      "category": "ADVERSARIAL_MIXED_CONTROL",
+      "name": "example_independent_task_specific_routing_program",
+      "description": "Static programmatic routing rule engineered for relation t that is example-independent (content-blind), e.g. z*(k) = (2*k + 1) % L.",
+      "syntax_and_representation": "def route_t(k, L): return (2 * k + 1) % L",
+      "information_theoretic_content": "Hard-coded positional coordinate schedule engineered to match data generation layout of relation t.",
+      "dimension_scores": {
+        "provenance": {"score": 1, "indicator": "DERIVED_FROM_GROUND_TRUTH_EVALUATOR_OR_TARGET_TRAJECTORY"},
+        "example_specificity": {"score": 0, "indicator": "X_INVARIANT_UNIVERSAL_RULE"},
+        "relation_specificity": {"score": 1, "indicator": "RELATION_TAILORED_AD_HOC_COORDINATE_PATCH"},
+        "inference_time_availability": {"score": 1, "indicator": "EVALUATOR_PRIVILEGE_FORBIDDEN_AT_TEST_TIME"},
+        "counterfactual_invariance": {"score": 1, "indicator": "BREAKS_UNDER_SEQUENCE_MUTATION"}
+      },
+      "numeric_score": 4,
+      "oracle_score": "4/5_ORACLE",
+      "classification": "FORBIDDEN_HARD_CODED_ROUTING_MAP",
+      "separates_world_a_and_b": true
+    },
+    {
+      "control_id": "MC5",
+      "category": "ADVERSARIAL_MIXED_CONTROL",
+      "name": "support_derived_selector",
+      "description": "Candidate routing selector dynamically induced from few-shot input-output support examples S = {(x_m, y_m)} without coordinate supervision.",
+      "syntax_and_representation": "SELECTOR(S) = argmin_s sum_m loss(model_s(x_m), y_m)",
+      "information_theoretic_content": "Empirically fitted selector rule from token examples; lacks coordinate ground truth.",
+      "dimension_scores": {
+        "provenance": {"score": 0, "indicator": "EMPIRICAL_FEW_SHOT_PROMPT_NON_ORACLE"},
+        "example_specificity": {"score": 0, "indicator": "X_INVARIANT_UNIVERSAL_RULE"},
+        "relation_specificity": {"score": 0, "indicator": "DOMAIN_GENERAL_REUSABLE_OPERATOR"},
+        "inference_time_availability": {"score": 0, "indicator": "LEGITIMATE_INFERENCE_TIME_PROMPT_INPUT"},
+        "counterfactual_invariance": {"score": 0, "indicator": "ROBUST_ACROSS_COUNTERFACTUAL_VARIATIONS"}
+      },
+      "numeric_score": 0,
+      "oracle_score": "0/5_ORACLE",
+      "classification": "LAWFUL_TASK_SPEC (Under-determined on collision under token-only supervision)",
+      "separates_world_a_and_b": false
+    },
+    {
+      "control_id": "MC6",
+      "category": "CANDIDATE_DESCRIPTOR",
+      "name": "lawful_first_last_descriptor",
+      "description": "Compositional semantic descriptor equipped with universal tie-break policy in {FIRST, LAST}.",
+      "syntax_and_representation": "D = (OpFamily='BIND', Args={query_key: K}, TieBreakPolicy=FIRST)",
+      "information_theoretic_content": "Formal declarative specification of intensional task objective; requires runtime sequence search over x to resolve coordinates.",
+      "dimension_scores": {
+        "provenance": {"score": 0, "indicator": "A_PRIORI_FORMAL_GRAMMATICAL_DEFINITION"},
+        "example_specificity": {"score": 0, "indicator": "X_INVARIANT_UNIVERSAL_RULE"},
+        "relation_specificity": {"score": 0, "indicator": "DOMAIN_GENERAL_REUSABLE_OPERATOR"},
+        "inference_time_availability": {"score": 0, "indicator": "LEGITIMATE_INFERENCE_TIME_PROMPT_INPUT"},
+        "counterfactual_invariance": {"score": 0, "indicator": "ROBUST_ACROSS_COUNTERFACTUAL_VARIATIONS"}
+      },
+      "numeric_score": 0,
+      "oracle_score": "0/5_ORACLE",
+      "classification": "LAWFUL_TASK_SPEC",
+      "separates_world_a_and_b": true
+    },
+    {
+      "control_id": "MC7",
+      "category": "ADVERSARIAL_MIXED_CONTROL",
+      "name": "noisy_coordinate_hint",
+      "description": "Ground-truth coordinate z*(x) corrupted with 20% random offset noise or coarse positional interval binning.",
+      "syntax_and_representation": "z_hint = z*(x) + delta, delta ~ Uniform({-1, 0, 1})",
+      "information_theoretic_content": "High-mutual-information coordinate hint derived from evaluator target trajectory.",
+      "dimension_scores": {
+        "provenance": {"score": 1, "indicator": "DERIVED_FROM_GROUND_TRUTH_EVALUATOR_OR_TARGET_TRAJECTORY"},
+        "example_specificity": {"score": 1, "indicator": "INSTANCE_DEPENDENT_OR_EXPLICIT_COORDINATES"},
+        "relation_specificity": {"score": 1, "indicator": "RELATION_TAILORED_AD_HOC_COORDINATE_PATCH"},
+        "inference_time_availability": {"score": 1, "indicator": "EVALUATOR_PRIVILEGE_FORBIDDEN_AT_TEST_TIME"},
+        "counterfactual_invariance": {"score": 1, "indicator": "BREAKS_UNDER_SEQUENCE_MUTATION"}
+      },
+      "numeric_score": 5,
+      "oracle_score": "5/5_ORACLE",
+      "classification": "FORBIDDEN_ORACLE_SUPERVISION",
+      "separates_world_a_and_b": true
+    }
+  ],
+  "adversarial_validation_analyses": {
+    "representation_invariance": {
+      "hypothesis": "Does re-encoding ground-truth coordinate lookups into meaning-preserving functional or cryptographic representations evade detection?",
+      "evaluations": [
+        {
+          "base_control": "PC2 (relation_specific_lookup_map)",
+          "reencoded_control": "MC1 (universal_interpreter_plus_relation_code)",
+          "transformation_type": "SYNTACTIC_COMPILATION_TO_BYTECODE",
+          "information_divergence": 0.0,
+          "base_score": 5,
+          "reencoded_score": 5,
+          "invariance_preserved": true,
+          "detection_mechanism": "Provenance confirms compiler ingested evaluator ground truth; Counterfactual Invariance exposes hard-coded offsets failing under sequence mutation."
+        },
+        {
+          "base_control": "PC2 (relation_specific_lookup_map)",
+          "reencoded_control": "MC2 (compressed_or_encrypted_lookup)",
+          "transformation_type": "CRYPTOGRAPHIC_OR_ENTROPY_CODING",
+          "information_divergence": 0.0,
+          "base_score": 5,
+          "reencoded_score": 5,
+          "invariance_preserved": true,
+          "detection_mechanism": "Information-theoretic content is isomorphic; decrypted payload contains explicit coordinate constants; cannot be constructed for unseen relations without evaluator privilege."
+        },
+        {
+          "base_control": "MC6 (lawful_first_last_descriptor)",
+          "reencoded_control": "MC6_EQUIVALENT (lambda notation / AST tuple)",
+          "transformation_type": "DECLARATIVE_SYNTACTIC_VARIANT",
+          "information_divergence": 0.0,
+          "base_score": 0,
+          "reencoded_score": 0,
+          "invariance_preserved": true,
+          "detection_mechanism": "A priori formal grammar and domain generality hold identically across syntactic variations."
+        }
+      ],
+      "verdict": "CONFIRMED_REPRESENTATION_INVARIANT",
+      "conclusion": "The 5-dimensional oracle criterion is invariant under meaning-preserving re-encodings. No syntactic transformation can disguise an oracle as a lawful non-oracle."
+    },
+    "positive_negative_monotonicity": {
+      "hypothesis": "Does the oracle score S(C) monotonically track the degree of ground-truth coordinate leakage lambda(C) in signal C?",
+      "leakage_strata": [
+        {
+          "stratum": "ZERO_COORDINATE_LEAKAGE (lambda = 0.0)",
+          "controls": ["NC1", "NC2", "MC3", "MC5", "MC6"],
+          "expected_score_range": [0, 0],
+          "observed_scores": [0, 0, 0, 0, 0],
+          "monotonic": true
+        },
+        {
+          "stratum": "PARTIAL_OR_CONSTRAINED_COORDINATE_LEAKAGE (lambda = 0.7 - 0.8)",
+          "controls": ["MC4"],
+          "expected_score_range": [3, 4],
+          "observed_scores": [4],
+          "monotonic": true
+        },
+        {
+          "stratum": "COMPLETE_COORDINATE_LEAKAGE (lambda = 1.0)",
+          "controls": ["PC1", "PC2", "MC1", "MC2", "MC7"],
+          "expected_score_range": [5, 5],
+          "observed_scores": [5, 5, 5, 5, 5],
+          "monotonic": true
+        }
+      ],
+      "monotonicity_ordering": "S(NC1, NC2, MC3, MC5, MC6) [0] < S(MC4) [4] <= S(PC1, PC2, MC1, MC2, MC7) [5]",
+      "verdict": "CONFIRMED_STRICTLY_MONOTONIC"
+    },
+    "leave_one_out_analysis": {
+      "hypothesis": "Is every dimension in the 5-dimensional criterion strictly necessary, or does omitting any single dimension create an exploitable loophole?",
+      "dimension_removals": [
+        {
+          "omitted_dimension": "provenance",
+          "exploit_scenario": "Evaluator-synthesized coordinate schedule mathematically disguised as a pure functional closed-form formula.",
+          "adversarial_vulnerability": "Synthetic evaluator cheat sheets generated from ground truth bypass detection if only surface form is inspected.",
+          "strictly_necessary": true
+        },
+        {
+          "omitted_dimension": "example_specificity",
+          "exploit_scenario": "Per-instance coordinate label (PC1) disguised as a dynamic relation with single-instance bindings.",
+          "adversarial_vulnerability": "Cannot distinguish point-wise instance-level coordinate leakage from relation-level parameters.",
+          "strictly_necessary": true
+        },
+        {
+          "omitted_dimension": "relation_specificity",
+          "exploit_scenario": "Example-independent task-specific routing program (MC4) that hard-codes dataset layout offsets.",
+          "adversarial_vulnerability": "Relation-tailored ad-hoc coordinate patches would be treated as universal operators, admitting MC4.",
+          "strictly_necessary": true
+        },
+        {
+          "omitted_dimension": "inference_time_availability",
+          "exploit_scenario": "Target trajectory or teacher coordinate map supplied exclusively during training as 'auxiliary context'.",
+          "adversarial_vulnerability": "Evaluator privilege during training admitted as lawful context, violating open-world holdout evaluation.",
+          "strictly_necessary": true
+        },
+        {
+          "omitted_dimension": "counterfactual_invariance",
+          "exploit_scenario": "Layout-brittle positional heuristics (e.g. key_0 -> index 1) that fail under sequence mutation.",
+          "adversarial_vulnerability": "Static positional lookup tables evade detection by pretending to be structural task invariants.",
+          "strictly_necessary": true
+        }
+      ],
+      "all_dimensions_necessary": true,
+      "verdict": "CONFIRMED_ALL_FIVE_DIMENSIONS_JOINTLY_NECESSARY_AND_NON_REDUNDANT"
+    },
+    "aggregation_threshold_analysis": {
+      "hypothesis": "What aggregation threshold theta over the 5-dimensional score S(C) minimizes False Positives (rejecting lawful descriptors) and False Negatives (admitting oracles)?",
+      "thresholds_evaluated": [
+        {
+          "threshold": 1,
+          "policy_name": "Disjunctive Rejection Rule (Any-Hit)",
+          "condition": "IsOracle(C) iff S(C) >= 1 (any single oracle dimension triggers rejection)",
+          "false_positives": 0,
+          "false_negatives": 0,
+          "fp_controls": [],
+          "fn_controls": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "status": "OPTIMAL_FAIL_CLOSED_POLICY"
+        },
+        {
+          "threshold": 2,
+          "policy_name": "Score >= 2",
+          "condition": "IsOracle(C) iff S(C) >= 2",
+          "false_positives": 0,
+          "false_negatives": 0,
+          "fp_controls": [],
+          "fn_controls": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "status": "VIABLE_BUT_LESS_FAIL_CLOSED"
+        },
+        {
+          "threshold": 3,
+          "policy_name": "Majority Vote",
+          "condition": "IsOracle(C) iff S(C) >= 3",
+          "false_positives": 0,
+          "false_negatives": 0,
+          "fp_controls": [],
+          "fn_controls": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "status": "VIABLE_ON_TESTED_SET"
+        },
+        {
+          "threshold": 4,
+          "policy_name": "Score >= 4",
+          "condition": "IsOracle(C) iff S(C) >= 4",
+          "false_positives": 0,
+          "false_negatives": 0,
+          "fp_controls": [],
+          "fn_controls": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "status": "MARGINAL_RISK"
+        },
+        {
+          "threshold": 5,
+          "policy_name": "Unanimous Oracle",
+          "condition": "IsOracle(C) iff S(C) == 5",
+          "false_positives": 0,
+          "false_negatives": 1,
+          "fp_controls": [],
+          "fn_controls": ["MC4 (example_independent_task_specific_routing_program, score 4/5)"],
+          "precision": 1.0,
+          "recall": 0.833,
+          "status": "UNACCEPTABLE_FALSE_NEGATIVE_FAILURE"
+        }
+      ],
+      "recommended_policy": {
+        "rule": "DISJUNCTIVE_ANY_HIT_REJECTION (theta = 1)",
+        "justification": "Because all lawful semantic task specifications (NC1, NC2, MC3, MC5, MC6) score strictly 0/5, setting threshold theta = 1 introduces zero False Positives while providing maximum fail-closed security against partial, disguised, or mixed oracles."
+      }
+    },
+    "counterexample_and_adr_0155_audit": {
+      "counterexample_search": {
+        "searched_spaces": [
+          "Meaning-preserving re-encodings of coordinate lookups (bytecode VM, compression, encryption)",
+          "Example-independent static routing programs",
+          "Support-derived dynamic selectors under token-only supervision",
+          "Lawful tie-break descriptors under alternative semantic formulations"
+        ],
+        "counterexample_found": false,
+        "detail": "Zero instances where re-encoding changes the determination of oracle content, and zero instances where lawful FIRST/LAST descriptors exhibit oracle characteristics."
+      },
+      "adr_0155_zero_of_five_verdict": "UPHELD_AND_CONFIRMED_UNCONDITIONAL",
+      "stoppage_reclassification": "ROUTING_IDENTIFIABILITY_QUALIFIED_STOP (Preserved from ADR-0155)"
+    }
+  },
+  "training_information_contract_v1_1": {
+    "contract_id": "TIC-PHASE-C-V1.1",
+    "version": "1.1",
+    "status": "CANDIDATE_DERIVED_PENDING_CHARTER_AMENDMENT",
+    "predecessor": "TIC-PHASE-C-V1 (ADR-0150, Falsified by ADR-0151)",
+    "core_invariants": {
+      "content_path_isolation": "h_content = f(content): input sequence x is encoded by content encoder with zero task-conditioning, zero tie-break hints, and zero task ID leakage.",
+      "task_conditioning_path": "Router receives compositional descriptor D = (OpFamily, Arguments, TieBreakPolicy) via a separate task-conditioning branch.",
+      "tie_break_specification": "TieBreakPolicy in {FIRST, LAST, LEFTMOST, RIGHTMOST, CENTER, ARBITRARY}; domain-general algebraic extremum policy independent of input token values.",
+      "loss_supervision": "Standard task cross-entropy loss over output tokens y; zero auxiliary coordinate loss, zero teacher routing trajectories, zero duplicate-aware gradient masking.",
+      "oracle_criterion_compliance": "Signal must score strictly 0/5 under the pre-registered 5-dimensional oracle criterion (theta = 1 fail-closed)."
+    },
+    "collision_resolution_mechanism": "On duplicate-token collision sequences where token loss gradients are symmetric (e.g. x=[K, V, K, V]), distinct descriptors (D_A with FIRST vs D_B with LAST) provide distinct conditioning vectors to the router, enabling it to learn the specified directional attention policy from token output supervision alone."
+  },
+  "descriptor_only_deterministic_baseline_requirements": {
+    "baseline_id": "BASE-DET-DESC-V1",
+    "name": "Descriptor-Only Deterministic Execution Baseline",
+    "purpose": "Establish the causal deterministic performance ceiling before evaluating any learned neural router, ensuring that task specification is decoupled from neural optimization capacity.",
+    "specifications": {
+      "input_signature": "(x: Sequence, D: CompositionalDescriptor, query_step: int)",
+      "output_signature": "(z_star: Coordinate, y_target: Token)",
+      "reduction_algorithm": "Executes deterministic reduction R(x, D, query_step) in O(L) time via explicit symbolic evaluation of OpFamily, Arguments, and TieBreakPolicy.",
+      "learned_parameters": 0,
+      "target_performance_floors": {
+        "clean_instance_sequence_em": 1.0,
+        "collision_instance_sequence_em": 1.0,
+        "world_a_world_b_separation_em": 1.0
+      },
+      "causal_control_role": "Serves as the deterministic ceiling control. Any failure of a learned neural model under Contract v1.1 is strictly attributable to neural architecture, optimization, or capacity limitations, rather than contractual under-determination."
+    }
+  },
+  "governance_and_remaining_blockers": {
+    "phase_c_charter_state": "READY_FOR_REVIEW_NOT_APPROVED",
+    "research_execution_authority": "NOT_AUTHORIZED",
+    "independent_blockers": [
+      {
+        "blocker_id": "RELATION_INVENTORY_FEASIBILITY_STOP",
+        "source": "ADR-0150",
+        "detail": "1/2 clean independent relation components in validation and sealed partitions (structural deficit unresolved)."
+      },
+      {
+        "blocker_id": "CHARTER_NOT_APPROVED",
+        "source": "PHASE_C_RESEARCH_CHARTER",
+        "detail": "Phase C Charter remains unapproved by user."
+      }
+    ],
+    "architecture_derivation_c_d002_status": "BARRED_PENDING_CHARTER_AMENDMENT_AND_USER_APPROVAL"
+  }
+}
