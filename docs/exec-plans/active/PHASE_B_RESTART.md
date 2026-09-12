@@ -52,6 +52,7 @@
 | 再開: REC-004AJ | 完了（§7E） | `MINIMAL_ROUTING_CONTRACT_IMPLEMENTED_AND_VALIDATED` | CD-DPCAコード実装、未学習構造7不変条件PASS、有限表現境界の確定 |
 | 再開: REC-004AK | 完了（§7F） | `CD_DPCA_SERIALIZATION_AND_FRESH_LOAD_VALIDATED` | CD-DPCA/Bank厳格シリアライズ、fresh-load完全等価性、10種負例fail-closed検証 |
 | 再開: REC-004AL | 完了（§7G） | `PILOT_TERMINAL_VIABILITY_NOT_MET` | 6,000 updates単一init学習パイロット。validation EM=0.793945 < 0.95 未達によりfail-closed停止。candidate/bundle未作成 |
+| 再開: REC-004AN | 完了（§7H） | `LENGTH10_LOCAL_OPTIMIZATION_FAILURE_IDENTIFIED` | 13 checkpoint全軌道再評価、位置局在、transplant、勾配衝突、露出監査。失点の89.4%が位置4の偽アトラクタ固着（key 7）に局在。追加学習0 |
 | REC-005〜008 | 未着手 | RG3に依存。ただし失敗時の引継ぎは可能 | 今後のcohort・runtime注入の原契約 |
 | R3-011〜012 | 未着手 | G1/G4に依存 | 封印・B2_PROTOCOL_V2原契約 |
 | B-C006〜014 | 未着手 | B2/G5、以降各gateに依存 | B3〜B6の原計画 |
@@ -412,6 +413,47 @@ float precision/parity guardで安全に停止した未qualified artifactであ�
   - 事前登録された終端実行性基準（EM $\ge 0.95$）を満たさなかったため、フェイルクローズ停止を発動。
   - 全init検証（REC-004AM）、候補採択、およびbundle出力への進行はすべて遮断される。
 
+## 7H. 実行契約: REC-004AN CD-DPCA Length-10 Failure Localization
+
+**状態: 完了、`LENGTH10_LOCAL_OPTIMIZATION_FAILURE_IDENTIFIED`（ADR-0138）。追加学習0、評価専用診断により失点の89.4%が位置4の偽アトラクタ固着（key 7）に局在することを確認。全init検証・候補採択・bundle出力は厳格に遮断を継続。**
+目的は、REC-004ALで確認されたCD-DPCA single-init failureについて、表現不足、アーキテクチャ不足、訓練予算不足、length固有パラメータ故障、shared routing干渉、late regression、特定位置局在を区別し、単一の最適化介入を選択できるだけの証拠があるかを評価専用診断で判定することである。
+
+- 実行境界 & 保護要件:
+  - 評価専用診断: 追加学習0、`optimizer.step()` 実行0、予算延長0、新初期化0、LR/curriculum/sampling変更0、アーキテクチャ変更0。
+  - 凍結・保護: 親Coreおよび15 non-MIRROR primitivesは完全凍結・不変。
+  - ソース整合性: REC-004ALの全13 checkpoints (step 0..6000) のSHA-256ハッシュを事前検証。
+  - 副作用遮断: `candidate_selected: null`, `child_bundle: null`, `bundle_write: false`, RG3 `NOT_EXECUTED`, `rec005_status: BLOCKED`, G1/G4 `NOT_CLEARED`。封印データアクセス0。
+- 診断結果（`runs/phase_b_restart/rec004an/run_001/`）:
+  1. 全13 checkpoint 軌道再評価:
+     - 判定: `NEVER_LEARNED_PATTERN`。
+     - 長さ10の系列EMは step 0 (0.0000) から step 6000 (0.3398) までほぼ単調に推移し、途中で高い性能領域（>=0.50）に到達した形跡は皆無。late regression は明確に反証。
+  2. 位置レベル局在:
+     - ステップ6000における長さ10の10出力位置別トークン精度:
+       - pos 0, 1, 2, 5, 6, 7, 8: `1.0000` (各 206/206)
+       - pos 9: `0.9951` (205/206, 1失点)
+       - pos 3: `0.9320` (192/206, 14失点)
+       - pos 4: `0.3835` (79/206, 127失点) $\to$ 全142失点中127失点（**89.44%**）が位置4に集中。位置3-4合計で**99.30%**。
+     - 分類: 位置4が唯一の `consistently_failing_position`。位置0, 1, 5, 6, 7, 8, 9は `consistently_correct_positions`。
+  3. 偽アトラクタ固着:
+     - 長さ10の正解マッピングは $\pi_{10} = (4, 3, 2, 1, 0, 9, 8, 7, 6, 5)$。位置4の正解キーは 0。
+     - 位置4は訓練初期の step 500 から最終 step 6000 に至る全チェックポイントで一貫して key 7 をトップ1選択（step 6000 で $p_7 = 0.4906$ vs $p_0 = 0.0001$, margin = $-14.21$）。
+     - 他の9位置が正解キールーティングを達成する中、位置4のみが偽アトラクタに初期からトラップされ続けた。
+  4. 状態移植診断:
+     - ベース: step 6000。過去チェックポイントからの移植を実施:
+       - 介入A ($E_{\text{length}}[10]$ 移植): 最大EM = 0.3495（回復なし）
+       - 介入B (Shared routing state 移植): 最大EM = 0.3689（回復なし）
+       - 介入C (Full routing 移植サニティ): 最大EM = 0.3641（回復なし）
+     - 判定: `NO_TRAJECTORY_LOCALIZATION`。過去のどの時点でも長さ10は正しく学習されていなかったため、過去軌道からの移植では回復しない。
+  5. 勾配競合診断:
+     - 長さ10と他長さ（6-9）の shared routing 勾配の余弦類似度: step 0 で `+0.4190`、step 6000 で `-0.0090`（直交、逆平行ではない）。
+     - 強い勾配干渉（`SHARED_ROUTING_GRADIENT_INTERFERENCE_IDENTIFIED`）は反証。
+  6. 訓練露出監査:
+     - 全6,000 steps (192,000例) 中、長さ10は 38,254例（19.92%）、382,540トークン、更新露出度 99.93% で他長さと完全均等。データ不足は反証。
+- 判定と影響:
+  - 判定: `LENGTH10_LOCAL_OPTIMIZATION_FAILURE_IDENTIFIED`。
+  - 次期最適化修復の標的が「位置4の偽アトラクタ脱出・境界ルーティング最適化」という単一メカニズムに一意に特定された。
+  - ただし本タスク内での学習再試行・新パイロット実行は認可されない。全init検証、候補採択、bundle出力は厳格に遮断を継続。
+
 ## 8. 実行記録
 
 - 2026-09-12: 本計画へ状態を集約。過去文書を仕様/証拠へ位置づけ直した（ADR-0127）。
@@ -426,6 +468,7 @@ float precision/parity guardで安全に停止した未qualified artifactであ�
 - 2026-09-12: REC-004AJ `run_001` 実行完了、`MINIMAL_ROUTING_CONTRACT_IMPLEMENTED_AND_VALIDATED`（ADR-0135）。CD-DPCAのコード実装と未学習構造7基準PASS。学習0、candidate0、bundle0、RG3未実行。
 - 2026-09-12: REC-004AK `run_001` 実行完了、`CD_DPCA_SERIALIZATION_AND_FRESH_LOAD_VALIDATED`（ADR-0136）。CD-DPCAおよびPrimitiveBankの厳格シリアライズ、fresh-load完全等価性、10種負例fail-closed、情報境界を検証。学習0、candidate0、bundle0、RG3未実行。
 - 2026-09-12: REC-004AL `run_001` 実行完了、`PILOT_TERMINAL_VIABILITY_NOT_MET`（ADR-0137）。単一init（I01）学習パイロットで検証系列EM=0.793945（813/1024）となり、終端実行性基準（EM≥0.95）未達によりフェイルクローズ停止。全init検証・候補採択・bundle出力は厳格に遮断。G1/G4ブロック保持。
+- 2026-09-13: REC-004AN `run_001` 実行完了、`LENGTH10_LOCAL_OPTIMIZATION_FAILURE_IDENTIFIED`（ADR-0138）。13 checkpoint全軌道再評価、位置局在、transplant、勾配衝突、露出監査を実施。失点の89.4%（位置3-4合計で99.3%）が出力位置4の偽アトラクタ固着（key 7）に局在することを確認。追加学習0、candidate0、bundle0、RG3未実行。
 - 2026-09-12: 全2,514ケースの分割検証・ruff・mypy・文書/差分確認を完了。今回の整理・修正・有限precheckを閉じる。Phase B全体やRG3の完了ではない。
 
 ## 9. 最終検証と現在の停止点
@@ -433,9 +476,10 @@ float precision/parity guardで安全に停止した未qualified artifactであ�
 | 検証 | 結果 | 証拠・制約 |
 |---|---|---|
 | pytest 全収集ケース | 分割実行で2,514件PASS | Windows先行977件＋再開1,536件＋WSL1件。全node IDの和集合と全収集IDが一致 |
+| REC-004AN 回帰テスト | 32件PASS | REC-004AJ/AK/AL/ANの全32件PASS（2.8秒） |
 | Windows単一プロセスの全件実行 | 異常終了、PASSではない | 長いXデータ検証中のPythonアクセス違反。原因未確定。既通過分を保存し、残りを再開 |
 | ruff check . | PASS | 終了コード0（全ファイル通過） |
-| mypy src/apc | PASS | 163 source files、終了コード0 |
+| mypy src/apc | PASS | 164 source files、終了コード0 |
 | 文書・差分 | PASS | ローカルリンク存在確認、git diff --check |
 
 全ケースの検証範囲は満たしたが、単一プロセスの安定性を認定したとは扱わない。
@@ -446,6 +490,7 @@ WSLへ移したのはartifactパスに依存しない `test_rec004x_dataset_disj
 `verification_coverage_plan.json`、`verification_events.jsonl`、`final_*.log` に保存した。
 研究の新学習0とは§5/6の研究実行を指し、検証用tiny fixtureの学習を含む全テストの更新数を指さない。
 
-**現在の停止点はREC-004ALによるCD-DPCA単一init学習パイロットの実施および終端実行性基準未達（EM=0.793945 < 0.95）によるフェイルクローズ停止（`PILOT_TERMINAL_VIABILITY_NOT_MET`）である。**
-ADR-0135で構成的に証明された表現十分性にもかかわらず、通常トークン損失下での6,000 updates単一init学習では長さ10等での失点（EM=0.3398）により全体EMが0.7939にとどまり、事前登録された合格基準（0.95）に達しなかった。
-事前登録契約に従い、全init検証（REC-004AM）、候補採択、およびModelBundle出力は厳格に遮断（`candidate_selected: null`, `child_bundle: null`）され、RG3、REC-005、G1、G4は未解除のまま保持される。
+**現在の停止点はREC-004ANによるCD-DPCA長さ10最適化失敗局在診断の完了および局所最適化失敗の同定（`LENGTH10_LOCAL_OPTIMIZATION_FAILURE_IDENTIFIED`）である。**
+全13チェックポイントの再評価および位置別分析により、長さ10の失点は全体的な崩壊ではなく、出力位置4（前半ハーフ境界）が訓練初期（step 500）から偽アトラクタ（key 7）に固着したことに起因し、端末失点の89.44%（位置3-4で99.30%）がそこに集中していることが一意に特定された。
+他方、データ露出は均等であり、shared routing勾配衝突は存在せず（直交）、過去軌道からの移植では回復しない（never-learned）。
+単一メカニズムは特定されたが、REC-004AN内での新規学習パイロットは認可されず、全init検証（REC-004AM）、候補採択、およびModelBundle出力は厳格に遮断（`candidate_selected: null`, `child_bundle: null`）され、RG3、REC-005、G1、G4は未解除のまま保持される。

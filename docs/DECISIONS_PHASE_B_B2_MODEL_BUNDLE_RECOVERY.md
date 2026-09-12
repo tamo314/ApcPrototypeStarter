@@ -1230,3 +1230,109 @@ Decision: `PILOT_TERMINAL_VIABILITY_NOT_MET`.
 2. Candidate adoption and model bundle creation remain strictly BLOCKED (`candidate_selected: null`, `child_bundle: null`).
 3. RG3, REC-005, G1, and G4 remain uncleared and BLOCKED.
 4. Artifacts from `runs/phase_b_restart/rec004al/run_001/` (all 13 checkpoints 0..6000, training states, logs, audits, diagnostics) are preserved immutably for post-mortem analysis.
+
+## ADR-0138: REC-004AN CD-DPCA Length-10 Optimization Failure Localization Confirms Never-Learned Pattern and Isolates Failure Exclusively to Output Position 4 Lock-In to False Attractor (`LENGTH10_LOCAL_OPTIMIZATION_FAILURE_IDENTIFIED`)
+
+**Date:** 2026-09-13
+
+**Status:** Completed diagnostic failure localization; `execution_status: PASS`,
+`decision: LENGTH10_LOCAL_OPTIMIZATION_FAILURE_IDENTIFIED`. Multi-init validation (REC-004AM), candidate adoption,
+and bundle promotion remain BLOCKED. G1 and G4 remain uncleared independent research blocks.
+
+**Contract and preregistered boundary:**
+- Diagnostic objective: Localize the mechanism of the single-init (I01) CD-DPCA failure on `MIRROR_HALVES`
+  observed in REC-004AL, distinguishing among representation deficiency, architecture deficiency,
+  mere training budget deficit, length-specific parameter failure, shared-routing parameter interference,
+  late-training regression / forgetting, and position-level localization.
+- Strict evaluation-only execution boundary:
+  - Zero optimizer updates (`optimizer.step()` forbidden, updates = 0).
+  - Parent bundle Core (`canonical_state_hash: b3a0d5c0774a36f56281bfeadffce83ce61a6818816c7cf69dcae4a5d3fec585`)
+    and 15 non-MIRROR primitives are strictly immutable.
+  - Source REC-004AL artifacts (all 13 checkpoints 0..6000) verified bit-identical via raw SHA-256.
+  - Zero candidate adoption, zero bundle write (`candidate_selected: null`, `child_bundle: null`).
+  - Zero sealed evaluation partition accessed. RG3 `NOT_EXECUTED`, `rec005_status: BLOCKED`.
+
+**Empirical results (`runs/phase_b_restart/rec004an/run_001/`):**
+1. Full 13-Checkpoint Trajectory Re-Evaluation:
+   - Trajectory Pattern: `NEVER_LEARNED_PATTERN`.
+   - Length-10 sequence EM trajectory across steps 0..6000:
+     - step 0: `0.0000`
+     - step 500: `0.0631`
+     - step 1000: `0.0825`
+     - step 1500: `0.0728`
+     - step 2000: `0.1019`
+     - step 2500: `0.1068`
+     - step 3000: `0.1408`
+     - step 3500: `0.1214`
+     - step 4000: `0.1845`
+     - step 4500: `0.2136`
+     - step 5000: `0.2524`
+     - step 5500: `0.2961`
+     - step 6000: `0.3398` (peak value across trajectory).
+   - At no point during training did length 10 approach an acceptable performance regime (>=0.50, floor 0.95).
+     Late-training regression (`LEARNED_THEN_REGRESSED_PATTERN`) is conclusively refuted.
+2. Position-Level Localization:
+   - Terminal Step 6000 per-position token accuracy for Length 10:
+     - pos 0: `1.0000` (206 / 206)
+     - pos 1: `1.0000` (206 / 206)
+     - pos 2: `1.0000` (206 / 206)
+     - pos 3: `0.9320` (192 / 206, 14 errors)
+     - pos 4: `0.3835` (79 / 206, 127 errors) — primary failure locus
+     - pos 5: `1.0000` (206 / 206)
+     - pos 6: `1.0000` (206 / 206)
+     - pos 7: `1.0000` (206 / 206)
+     - pos 8: `1.0000` (206 / 206)
+     - pos 9: `0.9951` (205 / 206, 1 error)
+   - Extreme localization: Position 4 alone accounts for **89.44%** (127 / 142) of all terminal token errors.
+     Positions 3 and 4 (the boundary positions of the first half) account for **99.30%** (141 / 142) of all errors.
+   - Classification: Position 4 is the sole `consistently_failing_position`.
+     Positions 0, 1, 5, 6, 7, 8, 9 are `consistently_correct_positions`.
+3. Routing Lock-In to False Attractor:
+   - For Length 10, the oracle mapping is $\pi_{10} = (4, 3, 2, 1, 0, 9, 8, 7, 6, 5)$.
+   - At step 6000, 9 of 10 positions select their correct oracle key as top-1.
+   - Position 4 (oracle key 0) routes to key 7 with probability `0.4906` vs correct key 0 probability `0.0001`
+     (score margin `-14.2144`).
+   - Across the entire training trajectory (steps 500..6000), position 4 routed to key 7 in every single
+     saved checkpoint without exception, proving that position 4 was trapped in a persistent false attractor
+     from the initial 500 steps onward.
+4. Causal State Transplantation Diagnostics:
+   - Base model: step 6000 endpoint.
+   - Intervention A ($E_{\text{length}}[10]$ transplant from step $t$): max L10 EM = `0.3495` (no recovery).
+   - Intervention B (Shared routing state transplant from step $t$): max L10 EM = `0.3689` (no recovery).
+   - Intervention C (Full routing module transplant sanity reference): max L10 EM = `0.3641` (no recovery).
+   - Transplant interpretation: `NO_TRAJECTORY_LOCALIZATION`. Because length 10 was locked into the false
+     attractor from step 500, no past checkpoint state contains a correct routing configuration for length 10.
+5. Gradient Conflict Diagnosis:
+   - Evaluated routing parameter loss gradients across lengths 6..10 without optimizer step:
+     - Step 0 cosine similarity with aggregate lengths 6..9: `+0.4190` (positive alignment).
+     - Step 6000 cosine similarity with aggregate lengths 6..9: `-0.0090` (essentially orthogonal, $|\cos| < 0.05$).
+   - `SHARED_ROUTING_GRADIENT_INTERFERENCE_IDENTIFIED` is refuted: no severe antiparallel gradient conflict exists.
+6. Training Data Exposure Audit:
+   - Reconstructed exact 6,000 updates (192,000 examples):
+     - Length 6: 38,497 (20.05%), 230,982 tokens, 99.88% step exposure.
+     - Length 7: 38,416 (20.01%), 268,912 tokens, 99.92% step exposure.
+     - Length 8: 38,645 (20.13%), 309,160 tokens, 99.93% step exposure.
+     - Length 9: 38,188 (19.89%), 343,692 tokens, 99.92% step exposure.
+     - Length 10: 38,254 (19.92%), 382,540 tokens, 99.93% step exposure.
+   - Data scarcity is conclusively refuted.
+7. Integrity Audits:
+   - Optimizer updates: 0. Checkpoint hashes bit-identical to REC-004AL. Core and parent bank unmodified.
+   - Candidate selected: null, child bundle: null, bundle write: false. RG3: NOT_EXECUTED. Sealed access: 0.
+
+**Scientific conclusion:**
+The CD-DPCA single-init optimization failure is conclusively identified as:
+`LENGTH10_LOCAL_OPTIMIZATION_FAILURE_IDENTIFIED`.
+The failure is neither a representational ceiling (ADR-0135 proved $100\%$ representability), nor late regression,
+nor data scarcity, nor shared-routing gradient conflict. Rather, it is a single-position local optimization
+failure: under standard cross-entropy loss from random initialization, output position 4 fell into a persistent
+false attractor (key 7 instead of 0) at step 500 and became numerically locked in (margin $-14.2$), accounting
+for $89.4\%$ of all terminal errors while the remaining $90\%$ of output positions converged correctly.
+
+**Decision and authorized next steps:**
+Decision: `LENGTH10_LOCAL_OPTIMIZATION_FAILURE_IDENTIFIED`.
+1. Multi-init validation (REC-004AM) remains BLOCKED.
+2. Candidate adoption and bundle promotion remain BLOCKED (`candidate_selected: null`, `child_bundle: null`).
+3. RG3, REC-005, G1, and G4 remain uncleared and BLOCKED.
+4. Next learning pilot authorization: NOT AUTHORIZED within REC-004AN.
+   Any subsequent optimization repair must specifically target this single localized mechanism (e.g. boundary-routing
+   optimization / local attractor escape) without multi-recipe exploration, curriculum search, or teacher-loss shortcuts.
