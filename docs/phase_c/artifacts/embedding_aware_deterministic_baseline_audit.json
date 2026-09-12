@@ -1,0 +1,201 @@
+{
+  "task_id": "C-D001Y",
+  "document_id": "DOC-PHASE-C-D001Y-AUDIT",
+  "date": "2026-09-13",
+  "decision": "ROUTING_IDENTIFIABILITY_QUALIFIED_STOP",
+  "audit_verdict": "CONTINUOUS_GROUNDING_DOMINATED_BY_B_DET_EMB_UNDER_INVERTIBLE_REPRESENTATIONS",
+  "charter_candidate_decision": "RETRACT_OR_RESTRICT_TO_BLIND_MANIFOLD_DISCOVERY",
+  "charter_state": "READY_FOR_REVIEW_NOT_APPROVED",
+  "research_execution_authority": "NOT_AUTHORIZED",
+  "integrity_boundary": {
+    "parameter_updates": 0,
+    "optimizer_instances": 0,
+    "model_initializations": 0,
+    "dataset_generations": 0,
+    "relation_registrations": 0,
+    "gpu_execution_seconds": 0,
+    "sealed_partition_access": 0
+  },
+  "baseline_specification": {
+    "baseline_id": "BASE-DET-EMB-V1",
+    "name": "Embedding-Aware Deterministic Baseline (B_det_emb)",
+    "description": "Unlearned deterministic baseline connecting continuous embeddings to discrete B_det via fixed codebook decoding, nearest-neighbor projection, and known invertible linear map inversion.",
+    "learned_parameters": 0,
+    "training_updates": 0,
+    "components": [
+      {
+        "component_name": "Invertible Linear Transform Inversion",
+        "role": "Applies W^-1 to project continuous distributed coordinates back to canonical embedding space.",
+        "learned_parameters": 0
+      },
+      {
+        "component_name": "Fixed Codebook Nearest-Neighbor Projection",
+        "role": "Projects continuous vectors to discrete token vocabulary via Euclidean argmin over codebook C.",
+        "learned_parameters": 0
+      },
+      {
+        "component_name": "Discrete Deterministic Dispatch (B_det)",
+        "role": "Executes public operation semantics (BindOp, NeighborMaxOp) using existing AST descriptors.",
+        "learned_parameters": 0
+      }
+    ]
+  },
+  "preregistered_controls": {
+    "control_1_discrete_symbols": {
+      "control_id": "CTRL-01-DISCRETE-SYMBOLS",
+      "name": "Discrete Symbols / One-Hot Identity Basis",
+      "representation_type": "DISCRETE_SYMBOLS",
+      "embedding_properties": {
+        "dimension": 4,
+        "is_invertible": true,
+        "is_distributed": false,
+        "has_information_loss": false,
+        "noise_epsilon": 0.0,
+        "min_pairwise_distance": 1.4142135623730951
+      },
+      "evaluation_results": {
+        "decodability_em": 1.0,
+        "clean_routing_accuracy": 1.0,
+        "collision_routing_accuracy": 1.0,
+        "clean_execution_em": 1.0,
+        "collision_execution_em": 1.0,
+        "h_z_given_h_x_d_bits": 0.0,
+        "descriptor_swap_covariance": 1.0
+      },
+      "verdict": "CEILING_DOMINATED",
+      "scientific_interpretation": "Trivially isomorphic to discrete B_det. Establishes zero degradation on symbolic identity basis."
+    },
+    "control_2_invertible_distributed": {
+      "control_id": "CTRL-02-INVERTIBLE-DISTRIBUTED",
+      "name": "Invertible Distributed Representation",
+      "representation_type": "INVERTIBLE_DISTRIBUTED",
+      "embedding_properties": {
+        "dimension": 8,
+        "is_invertible": true,
+        "is_distributed": true,
+        "has_information_loss": false,
+        "noise_epsilon": 0.0,
+        "matrix_determinant_magnitude": 1.0,
+        "min_pairwise_distance": 1.4142135623730951
+      },
+      "evaluation_results": {
+        "decodability_em": 1.0,
+        "clean_routing_accuracy": 1.0,
+        "collision_routing_accuracy": 1.0,
+        "clean_execution_em": 1.0,
+        "collision_execution_em": 1.0,
+        "h_z_given_h_x_d_bits": 0.0,
+        "descriptor_swap_covariance": 1.0
+      },
+      "verdict": "CEILING_DOMINATED",
+      "scientific_interpretation": "Continuous distributed embedding space does not hinder B_det_emb. W^-1 perfectly inverts representation."
+    },
+    "control_3_equidistant_collision": {
+      "control_id": "CTRL-03-EQUIDISTANT-COLLISION",
+      "name": "Equidistant Collision / Voronoi Decision Boundary",
+      "representation_type": "PATHOLOGICAL_BOUNDARY_COLLISION",
+      "embedding_properties": {
+        "dimension": 8,
+        "is_invertible": false,
+        "is_distributed": true,
+        "has_information_loss": true,
+        "noise_epsilon": 0.0,
+        "collision_type": "VORONOI_MIDPOINT_EQUIDISTANCE"
+      },
+      "evaluation_results": {
+        "decodability_em": 0.0,
+        "clean_routing_accuracy": 1.0,
+        "collision_routing_accuracy": 0.0,
+        "clean_execution_em": 1.0,
+        "collision_execution_em": 0.0,
+        "h_z_given_h_x_d_bits": 1.0,
+        "descriptor_swap_covariance": 0.0
+      },
+      "verdict": "IDENTIFIABILITY_LIMIT_NOT_LEARNABILITY_LIMIT",
+      "scientific_interpretation": "Midpoint embedding produces an exact tie. Information H(X|H(X)) > 0 is destroyed. Failure is an information-theoretic identifiability limit that no learner can overcome without oracle supervision."
+    },
+    "control_4_lossy_projection": {
+      "control_id": "CTRL-04-LOSSY-PROJECTION",
+      "name": "Information-Lossy Mapping / Non-Injective Projection",
+      "representation_type": "RANK_DEFICIENT_SINGULAR_MAPPING",
+      "embedding_properties": {
+        "dimension": 8,
+        "is_invertible": false,
+        "is_distributed": true,
+        "has_information_loss": true,
+        "projection_rank": 2,
+        "collapsed_tokens": [10, 20]
+      },
+      "evaluation_results": {
+        "decodability_em": 0.0,
+        "clean_routing_accuracy": 0.0,
+        "collision_routing_accuracy": 0.0,
+        "clean_execution_em": 0.0,
+        "collision_execution_em": 0.0,
+        "h_z_given_h_x_d_bits": 1.0,
+        "descriptor_swap_covariance": 0.0
+      },
+      "verdict": "IDENTIFIABILITY_LIMIT_NOT_LEARNABILITY_LIMIT",
+      "scientific_interpretation": "Rank-deficient map erases distinguishing dimensions between key tokens. Loss of identifiability is purely representation-level information erasure, not baseline insufficiency."
+    },
+    "control_5_bounded_perturbation": {
+      "control_id": "CTRL-05-BOUNDED-PERTURBATION",
+      "name": "Bounded Perturbation within Registered Margin",
+      "representation_type": "BOUNDED_NOISY_DISTRIBUTED",
+      "embedding_properties": {
+        "dimension": 8,
+        "is_invertible": true,
+        "is_distributed": true,
+        "has_information_loss": false,
+        "noise_epsilon": 0.25,
+        "min_pairwise_distance": 1.4142135623730951,
+        "safety_margin_condition": "epsilon < 0.5 * d_min (0.25 < 0.7071)"
+      },
+      "evaluation_results": {
+        "decodability_em": 1.0,
+        "clean_routing_accuracy": 1.0,
+        "collision_routing_accuracy": 1.0,
+        "clean_execution_em": 1.0,
+        "collision_execution_em": 1.0,
+        "h_z_given_h_x_d_bits": 0.0,
+        "descriptor_swap_covariance": 1.0
+      },
+      "verdict": "CEILING_DOMINATED",
+      "scientific_interpretation": "Nearest-neighbor projection remains 100% robust to perturbations strictly bounded within the Voronoi safety margin."
+    }
+  },
+  "charter_candidate_judgment": {
+    "is_continuous_representation_non_trivial_estimand": false,
+    "ceiling_dominance_confirmed": true,
+    "identifiability_boundary_dichotomy": {
+      "invertible_controls": ["CTRL-01-DISCRETE-SYMBOLS", "CTRL-02-INVERTIBLE-DISTRIBUTED", "CTRL-05-BOUNDED-PERTURBATION"],
+      "invertible_performance_floor": 1.0,
+      "uninvertible_controls": ["CTRL-03-EQUIDISTANT-COLLISION", "CTRL-04-LOSSY-PROJECTION"],
+      "uninvertible_failure_cause": "INFORMATION_THEORETIC_NON_IDENTIFIABILITY",
+      "learning_algorithm_relevance": "ZERO_DISCRIMINATIVE_SIGNAL_AVAILABLE"
+    },
+    "charter_verdict": "H_C1_CONTINUOUS_GROUNDING_TRIVIALIZED",
+    "charter_recommendation": "RETRACT_OR_RESTRICT_TO_BLIND_MANIFOLD_DISCOVERY"
+  },
+  "residual_hypothesis_specification": {
+    "hypothesis_name": "H-C1-Residual: Blind Continuous Manifold Grounding & Unsupervised Codebook Discovery",
+    "formal_definition": "When content representations h(x) reside on an unknown continuous manifold without an explicit codebook C or known inverse map W^-1, can a continuous neural attention mechanism discover the discrete token equivalence classes and execute relational routing under token loss supervision alone?",
+    "conditions_for_residual_validity": [
+      "Codebook C must be strictly hidden / unknown to the router a priori.",
+      "The manifold transformation must be non-linear or uncalibrated.",
+      "No direct coordinate or token supervision is provided during discovery."
+    ],
+    "baseline_delta_definition": {
+      "formula": "Delta_baseline(M) = Metric(M) - Metric(B_det_emb)",
+      "baseline_ceiling": 1.0,
+      "interpretation": "B_det_emb equipped with oracle codebook C establishes the upper bound ceiling (1.000). Any gap Delta < 0 in a neural model represents sample complexity or manifold discovery deficit."
+    }
+  },
+  "governance_and_blockers": {
+    "estimand_trivialization_stop": "BLOCKED (Continuous grounding dominated by B_det_emb under invertible representations; Charter candidate must be further retracted/restricted)",
+    "relation_inventory_feasibility_stop": "BLOCKED (ADR-0150: 1/2 clean components in validation and sealed)",
+    "charter_approval_status": "READY_FOR_REVIEW_NOT_APPROVED",
+    "research_execution_authority": "NOT_AUTHORIZED",
+    "architecture_derivation_c_d002": "STRICTLY_BARRED"
+  }
+}

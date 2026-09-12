@@ -348,5 +348,48 @@ Confirm **`ROUTING_IDENTIFIABILITY_QUALIFIED_STOP`** (`H_C1_TRIVIALIZED_ESTIMAND
 - Audit Artifact: `docs/phase_c/artifacts/contract_v1_1_hypothesis_preservation_audit.json`  
 - Verification Suite: `tests/test_contract_v1_1_hypothesis_preservation_audit.py`
 
+---
+
+## ADR-0158: C-D001Y Embedding-Aware Deterministic Baseline Closure Audit Finds Continuous Neural Grounding Dominated by B_det_emb Under Invertible Representations
+
+**Date:** 2026-09-13  
+**Task:** C-D001Y — Embedding-Aware Deterministic Baseline Closure Audit  
+**Status:** Completed formal audit & controlled evaluations; `execution_status: PASS`, `decision: ROUTING_IDENTIFIABILITY_QUALIFIED_STOP` (`audit_verdict: CONTINUOUS_GROUNDING_DOMINATED_BY_B_DET_EMB_UNDER_INVERTIBLE_REPRESENTATIONS`; `charter_recommendation: RETRACT_OR_RESTRICT_TO_BLIND_MANIFOLD_DISCOVERY`).  
+Phase C charter status remains `READY_FOR_REVIEW_NOT_APPROVED`; research execution remains `NOT_AUTHORIZED`.  
+
+**Scope and Integrity Boundary:**  
+- Evaluated C-D001X's residual "continuous neural grounding" claim against a single unlearned embedding-aware deterministic baseline ($B_{\text{det\_emb}}$ / `BASE-DET-EMB-V1`, 0 learned parameters, 0 training updates) combining fixed codebook decoding, nearest-neighbor projection, and known invertible linear map inversion with discrete $B_{\text{det}}$.
+- Evaluated five pre-registered controls: Control 1 (discrete symbols), Control 2 (invertible distributed representations), Control 3 (equidistant Voronoi boundary collisions), Control 4 (information-lossy rank-deficient mappings), and Control 5 (bounded perturbations within registered safety margin $\epsilon < \frac{1}{2} d_{\min}$).
+- Formally evaluated decodability EM, clean and collision routing accuracy, execution EM, conditional routing entropy $H(Z \mid H(X), D)$, and descriptor swap covariance ($\text{FIRST} \leftrightarrow \text{LAST}$, $\text{LEFTMOST} \leftrightarrow \text{RIGHTMOST}$).
+- Sealed partition data access count: **0**.
+- Zero training updates, zero optimizer construction, zero model initialization, zero dataset generation, zero relation registration, zero candidate construction, and zero GPU execution time.
+- No historical measurement, threshold, or Phase-B/C terminal state was modified.
+
+**Key Findings:**  
+1. **Ceiling Dominance Under Invertible Representations ($B_{\text{det\_emb}}$ achieves 100%):**  
+   Under Controls 1, 2, and 5 (discrete symbols, dense invertible linear transforms $W \in GL(d)$, and bounded perturbations within the Voronoi safety margin $\epsilon < \frac{1}{2} d_{\min}$), $B_{\text{det\_emb}}$ achieves **1.000 (100.0%) decodability EM, 1.000 routing accuracy, 1.000 execution EM, $H(Z \mid H(X), D) = 0.0\text{ bits}$, and 1.000 descriptor swap covariance** without any learned parameters or training updates.
+2. **Falsification of Continuous Grounding as a Non-Trivial Estimand:**  
+   Continuous representation per se (representing tokens as continuous vectors in $\mathbb{R}^d$ rather than discrete integers) does not pose an inductive learning barrier. An unlearned, 0-parameter deterministic baseline with nearest-neighbor projection and linear inversion solves continuous grounding completely. "Continuous neural grounding" is therefore **not a non-trivial residual estimand**; Charter candidates proposing it as an empirical justification for neural learning must be **further retracted and restricted**.
+3. **Identifiability Limit vs. Learnability Limit:**  
+   Performance drops exclusively under Controls 3 and 4 (equidistant Voronoi midpoint collisions and rank-deficient lossy projections). In both cases, information is mathematically destroyed ($H(X \mid H(X)) > 0$ bits). This degradation is an insurmountable **information-theoretic identifiability limit** (識別可能性限界), not a learnability limit (学習可能性の限界). No neural network can resolve unidentifiable inputs without oracle supervision.
+4. **Specification of Single Residual Learning Hypothesis & Baseline Delta:**  
+   An unlearned baseline fails only when the codebook $\mathcal{C}$ and transformation $W$ are completely unlabelled and unknown. Articulated the single remaining valid residual hypothesis: `H-C1-Residual: Blind Continuous Manifold Grounding & Unsupervised Codebook Discovery` ("Can a continuous neural attention mechanism discover discrete token equivalence classes and execute relational routing under token loss supervision alone without an explicit codebook or known inverse map?"), with baseline delta $\Delta_{\text{baseline}}(M) = \text{Metric}(M) - \text{Metric}(B_{\text{det\_emb}})$, where $B_{\text{det\_emb}} = 1.000$ serves as the theoretical ceiling control.
+
+**Decision:**  
+Confirm **`ROUTING_IDENTIFIABILITY_QUALIFIED_STOP`** (`CONTINUOUS_GROUNDING_DOMINATED_BY_B_DET_EMB_UNDER_INVERTIBLE_REPRESENTATIONS`; `charter_recommendation: RETRACT_OR_RESTRICT_TO_BLIND_MANIFOLD_DISCOVERY`).
+
+**Consequences:**  
+- Advancing H-C1 under the guise of "continuous representation grounding" is formally rejected as dominated by an unlearned deterministic baseline.
+- Phase C Charter candidate must be further retracted or restricted strictly to blind manifold discovery / unsupervised codebook learning.
+- Research execution remains strictly `NOT_AUTHORIZED` due to unresolved relation inventory deficit (ADR-0150: 1/2 clean components), unapproved charter status, and the continuous baseline dominance stop.
+- Architecture derivation (`C-D002`) remains strictly barred.
+
+**Primary Artifacts:**  
+- Review Document: `docs/phase_c/PHASE_C_C_D001Y_EMBEDDING_AWARE_DETERMINISTIC_BASELINE_CLOSURE_AUDIT.md`  
+- Audit Artifact: `docs/phase_c/artifacts/embedding_aware_deterministic_baseline_audit.json`  
+- Baseline Implementation: `src/apc/evaluation/embedding_aware_baseline.py`  
+- Verification Suite: `tests/test_embedding_aware_deterministic_baseline_audit.py`
+
+
 
 

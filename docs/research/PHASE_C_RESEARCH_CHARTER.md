@@ -3,7 +3,7 @@
 Date: 2026-09-13. Version: charter-v1, `READY_FOR_REVIEW_NOT_APPROVED`.
 Created by PHASE-B-CLOSEOUT / ADR-0149. Architecture: `NOT_SELECTED`.
 First experiment: `NOT_DEFINED`. Research execution: `NOT_AUTHORIZED`.
-Status reference: Audited by C-D001 (ADR-0150), C-D001R (ADR-0151), C-D001S (ADR-0152), C-D001T (ADR-0153), C-D001U (ADR-0154), C-D001V (ADR-0155), C-D001W (ADR-0156), and C-D001X / ADR-0157 (`ROUTING_IDENTIFIABILITY_QUALIFIED_STOP`: Contract v1.1 trivializes H-C1 via deterministic-baseline dominance; Charter retraction or restriction recommended). Pre-execution stop; research execution remains unapproved.
+Status reference: Audited by C-D001 (ADR-0150), C-D001R (ADR-0151), C-D001S (ADR-0152), C-D001T (ADR-0153), C-D001U (ADR-0154), C-D001V (ADR-0155), C-D001W (ADR-0156), C-D001X (ADR-0157), and C-D001Y / ADR-0158 (`ROUTING_IDENTIFIABILITY_QUALIFIED_STOP`: $B_{\text{det\_emb}}$ dominates invertible continuous representations with 100% ceiling and 0 learning; continuous neural grounding trivialized as residual estimand; Charter retraction or restriction to blind manifold discovery recommended). Pre-execution stop; research execution remains unapproved.
 
 
 
