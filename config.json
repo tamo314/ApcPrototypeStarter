@@ -1,0 +1,27 @@
+{
+  "project_dir": ".",
+  "executor": "antigravity",
+  "max_iterations": 20,
+  "executor_timeout_seconds": 7200,
+  "planner_timeout_seconds": 600,
+  "max_result_chars_for_planner": 60000,
+  "recent_history_items_for_planner": 4,
+  "stop_on_executor_error": true,
+  "codex": {
+    "command": "codex",
+    "extra_args": []
+  },
+  "claude": {
+    "command": "claude",
+    "extra_args": [
+      "--output-format",
+      "json",
+      "--max-turns",
+      "20"
+    ]
+  },
+  "antigravity": {
+    "command": "agy",
+    "extra_args": []
+  }
+}
