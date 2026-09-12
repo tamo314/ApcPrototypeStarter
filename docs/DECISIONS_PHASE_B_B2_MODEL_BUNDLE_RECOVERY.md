@@ -1837,3 +1837,31 @@ The prerequisite for the conditional full-cell no-update test was not met, so no
 4. Gate criteria: preregistration PASS; deterministic oracle PASS; identifiability PASS; novelty validity PASS; strict gradient isolation PASS; sealed-output access `0`; relation-count sufficiency FAIL. The conjunction therefore fails closed as `G1_RELATION_TRANSFER_STOP`.
 
 **Decision and consequences:** Preserve both run namespaces; `run_002` is the finalized accounting record and `run_001` remains preserved preliminary evidence. Do not compare or register an alternative family under this task. G1 relation transfer remains STOP, and all downstream REC-004/RG3/REC-005/G4 blocks remain unchanged (`candidate_selected=null`, `child_bundle=null`, `bundle_write=false`, `rg3=NOT_EXECUTED`, `rec005=BLOCKED`).
+
+## ADR-0148: PHASE-B-FINAL Falsification Sufficiency & Research-Termination Audit (`NEGATIVE_CONCLUSION_TERMINATED_CURRENT_ARCHITECTURE`)
+
+**Date:** 2026-09-13
+
+**Status:** Completed artifact-only termination audit. This ADR records a negative conclusion for the *current Phase-B architecture and registered claim*, not an impossibility claim about APC in general or a different future research design.
+
+**Scope and integrity boundary:** The audit read the ADR-0074 through ADR-0147 ledgers, all four active execution plans, and the pre-existing run summaries/protocols cited in the final report. It performed no training, optimizer update, seed creation, relation-family registration, repair-candidate selection, bundle write, or sealed-data/model-output access. It neither modifies historical measurements nor treats an unexecuted dependent gate as a PASS.
+
+**Falsification-sufficiency findings:**
+
+1. **Primary hypothesis versus baseline:** B1 remains a limited PASS with explicit TaskSpec, but B2 and its sealed re-gate failed. The later CD-DPCA single-init success does not rescue the architecture: the preregistered five-init qualification passed only `1 / 5` and the matched five-init causal replication co-improved only `2 / 5` arms.
+2. **Alternative explanations and causal controls:** immutable-bundle recovery passed RG0--RG2, source hashes and fresh-load contracts were checked, causal Correct/Wrong/None controls remained decisive, and frozen score-scale, QK/position, component, and downstream-stability alternatives were examined. These checks prevent attributing the result only to a stale cache, decoder bypass, or a single unmeasured score component.
+3. **Failure mechanism:** archived checkpoints localize the decisive CD-DPCA failure to initialization × early-data basin interaction and token-alias credit dilution/late saturation. The permitted oracle-free standard-CE observables cannot identify a unique repair direction; REC-004AT therefore stops CE-only repair rather than selecting a new formula post hoc.
+4. **Independent G1 block:** the one preregistered relation family supplies one coupled component, below the required two clean components in both validation and sealed_v2. Strict gradient isolation passes, but it cannot cure relation-count insufficiency.
+
+**Gate classification:**
+
+| Unexecuted gate/work | Classification | Reason |
+|---|---|---|
+| RG3; candidate adoption; child bundle | Upstream STOP: scientifically unnecessary and contractually impossible | REC-004AM qualification failed; REC-004AR/AS/AT leave no authorized, uniquely identified repair. |
+| REC-005/RG4; REC-006--008/RG5--RG6; G4 | Upstream STOP: scientifically unnecessary and contractually impossible | Each requires an eligible coherent candidate/bundle and/or RG3; none exists. |
+| R3-011; R3-012/G5; sealed evaluation | Upstream STOP: scientifically unnecessary and contractually impossible | G1 relation transfer is a hard stop and G4 is blocked; seal must not be opened for tuning or to bypass either condition. |
+| B-C006--014 (B3--B6) | Upstream STOP: scientifically unnecessary and contractually impossible | Parent plan blocks B-C006 onward until the sealed B2_PROTOCOL_V2 gate passes. |
+
+No conclusion-changing, independently executable experiment remains within the existing contracts and the audit's prohibitions. An experiment requiring a new relation family, a new candidate/repair hypothesis, new training, or sealed access is outside this terminated scope and cannot be used to evade the recorded STOPs.
+
+**Decision and preserved blocks:** Declare `NEGATIVE_CONCLUSION_TERMINATED_CURRENT_ARCHITECTURE`. Keep `candidate_selected=null`, `child_bundle=null`, `bundle_write=false`, `rg3=NOT_EXECUTED`, `rec005=BLOCKED`, G4/G5 blocked, and sealed access at zero. The authoritative evidence ledger is `docs/results/PHASE_B_FINAL_FALSIFICATION_SUFFICIENCY_AUDIT.md`; the restart plan records the same terminal status.

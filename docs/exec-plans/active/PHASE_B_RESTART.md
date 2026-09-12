@@ -1,6 +1,6 @@
 # Phase B 再開計画 — 現在地と実行順の正本
 
-版: 2026-09-12 / ADR-0127〜0137。
+版: 2026-09-13 / ADR-0127〜0148。Phase-B-FINALの証拠限定終了監査を追記。
 
 ## 1. 目的と今回の実行権限
 
@@ -726,3 +726,14 @@ REC-004AMのwarm-start群（I01..I05）と厳格に対照されたベースラ�
 事前登録契約に基づき、候補採択（candidate adoption）、モデルバンドル出力（child bundle write）、15 non-SHIFT RG3 再検査、および 5モデル cohort REC-005 は依然として未認可であり、厳格に遮断を継続（`candidate_selected: null`, `child_bundle: null`, `bundle_write: false`, `rg3: NOT_EXECUTED`, `rec005_eligible: false`）する。独立した研究ブロック G1 および G4 も未解除のまま保持される。
 
 
+
+## 10. PHASE-B-FINAL — Falsification Sufficiency & Research-Termination Audit
+
+**状態: 完了。`NEGATIVE_CONCLUSION_TERMINATED_CURRENT_ARCHITECTURE`（ADR-0148）。**
+
+本節は、ADR-0074〜0147、全active execution plan、および既存run manifest/reportだけを用いた証拠台帳監査である。新規training、optimizer update、seed、relation family、repair candidate、sealed-data/model-output access はすべて0である。完全な台帳、7項目の評価、未実行gateの依存判定、および読んだartifactのpathは[`docs/results/PHASE_B_FINAL_FALSIFICATION_SUFFICIENCY_AUDIT.md`](../../results/PHASE_B_FINAL_FALSIFICATION_SUFFICIENCY_AUDIT.md)に保存する。
+
+- **結論の範囲:** 明示TaskSpecのB1 PASSは保持する一方、hard-negative B2/re-gate FAIL、CD-DPCAの5初期化適格性FAIL（1/5）、matched causal効果の混合（同時改善2/5）、oracle-free CE-only repairの識別不能STOP、およびG1 relation-count STOPにより、現行Phase-B architectureは主張したopen-world/semantic task-inference lifecycleを支持しない。これはAPC一般、異なるrelation registry、または将来の別設計の不可能性を主張しない。
+- **未実行gate判定:** RG3、REC-005/RG4、REC-006〜008/RG5〜RG6、G4、R3-011、R3-012/G5、B-C006〜014は、candidate/bundle資格又はG1/G4/B2/G5を前提とするため、上流STOPにより科学的に不要かつ現行契約・本監査境界では不可能である。結論を変え得る、独立して実行可能な既存契約内の実験は0件である。
+- **維持するblock:** `candidate_selected: null`、`child_bundle: null`、`bundle_write: false`、`rg3: NOT_EXECUTED`、`rec005: BLOCKED`、G4/G5 `BLOCKED`、sealed access=0。G1は`G1_RELATION_TRANSFER_STOP`のまま維持する。
+- **終了条件:** 本監査は研究終了の証拠記録であり、既存FAILをPASSへ変更せず、STOPを迂回しない。新しい研究を再開するには、本結論を上書きしない別の明示的な研究契約と事前承認が必要である。
