@@ -1702,3 +1702,83 @@ Decision: `MULTI_INIT_VIABILITY_NOT_MET`.
 1. Candidate adoption and bundle promotion remain strictly BLOCKED (`candidate_selected: null`, `child_bundle: null`).
 2. RG3, REC-005, G1, and G4 remain uncleared and BLOCKED.
 3. Multi-initialization reproduction fails the pre-registered consistency floor (1/5 pass). Any future repair must address multi-basin initial stability (e.g. adaptive warm-start duration, positional anchor initialization, or explicit coordinate regularizer) without oracle supervision.
+
+## ADR-0144: REC-004AR CD-DPCA Sequence-Distinctness Warm-Start Five-Seed Matched-Baseline Causal Replication Demonstrates Mixed and Initialization-Specific Effects Rather than Universal Superiority (`I01_SPECIFIC_OR_MIXED_EFFECT_IDENTIFIED`)
+
+**Date:** 2026-09-13
+
+**Status:** Completed matched-baseline causal replication; `execution_status: PASS`,
+`decision: I01_SPECIFIC_OR_MIXED_EFFECT_IDENTIFIED`. Explanatory causal contrast complete;
+REC-004AM qualification failure is preserved as historical scientific evidence.
+Candidate adoption, child bundle creation, RG3 recheck, REC-005, G1, and G4 remain strictly BLOCKED and uncleared.
+
+**Contract and preregistered boundary:**
+- Causal replication objective: Re-use REC-004AM warm-start runs (I01..I05) as the fixed intervention arm,
+  and re-use REC-004AL qualified I01 standard sampler run as the matched control. Execute fresh baseline control
+  runs for unacquired initializations I02..I05 only, using identical step-0 weight initialization / canonical hash,
+  AdamW (lr=0.0008, weight_decay=0.0001, grad_clip=1.0), CosineAnnealingLR (T_max=1000, eta_min=1e-5), batch size 32,
+  6,000 updates, cadence 500, per-step seed formula `_derive_local_seed(20260912, step, 'train:MIRROR_HALVES')`, and
+  fixed 1,024-example development validation split. Sole manipulated factor: steps 1–500 use standard with-replacement
+  sampler in baseline controls vs pairwise-distinct sampling in warm-start intervention.
+- Primary Decision Rule:
+  - If warm-start improves overall EM and worst-position accuracy in the same direction in at least 4 of 5 seeds
+    with positive mean improvement across seeds -> `WARM_START_CAUSAL_SUPERIORITY_REPLICATED`.
+  - Otherwise -> `I01_SPECIFIC_OR_MIXED_EFFECT_IDENTIFIED`.
+- Strict execution boundary:
+  - Recipe changes, additional arms, additional seeds, sweeps, oracle/auxiliary losses, and checkpoint selection forbidden.
+  - Zero candidate adoption (`candidate_selected: null`), zero bundle writes (`child_bundle: null`, `bundle_write: false`).
+  - RG3 `NOT_EXECUTED`, REC-005 `BLOCKED`, G1/G4 `NOT_CLEARED`.
+
+**Empirical results (`runs/phase_b_restart/rec004ar/run_001/`):**
+1. Primary Decision Evaluation:
+   - Co-improved seeds (both overall EM and worst-position accuracy improved): **2 / 5** (`I01`, `I05`).
+   - Decision criterion (>= 4 / 5 seeds) met: `False`.
+   - Execution Status: `PASS`.
+   - Primary Decision: **`I01_SPECIFIC_OR_MIXED_EFFECT_IDENTIFIED`**.
+2. Matched-Pairs Detailed Comparison:
+   - `I01` (seed 20260912):
+     - Baseline EM: `0.793945` | Warm-Start EM: `0.985352` | Paired Effect: **`+0.191406`**
+     - Baseline Worst: `10:4 (0.3835)` | Warm-Start Worst: `6:2 (0.9608)` | Paired Effect: **`+0.577289`**
+     - Baseline L10 Pos4: top-1 key 7 (acc 0.3835, margin -14.21) | Warm-Start: top-1 key 0 (acc 1.0000, margin +5.38)
+   - `I02` (seed 20260913):
+     - Baseline EM: `0.968750` | Warm-Start EM: `0.862305` | Paired Effect: **`-0.106445`**
+     - Baseline Worst: `9:3 (0.9417)` | Warm-Start Worst: `10:4 (0.6068)` | Paired Effect: **`-0.334951`**
+     - Baseline L10 Pos4: top-1 key 0 (acc 0.9757, margin +3.68) | Warm-Start: top-1 key 5 (acc 0.6068, margin -10.90)
+     - Note: Under baseline with-replacement sampler, I02 spontaneously escaped key 7 and acquired true attractor key 0 at step 500, whereas warm-start pushed I02 into competitor key 5!
+   - `I03` (seed 20260914):
+     - Baseline EM: `0.992188` | Warm-Start EM: `0.962891` | Paired Effect: **`-0.029297`**
+     - Baseline Worst: `10:4 (0.9757)` | Warm-Start Worst: `10:4 (0.8689)` | Paired Effect: **`-0.106796`**
+     - Baseline L10 Pos4: top-1 key 7 (acc 0.9757, margin -11.96) | Warm-Start: top-1 key 3 (acc 0.8689, margin -8.95)
+   - `I04` (seed 20260915):
+     - Baseline EM: `0.965820` | Warm-Start EM: `0.965820` | Paired Effect: **`+0.000000`**
+     - Baseline Worst: `8:3 (0.9588)` | Warm-Start Worst: `8:3 (0.8711)` | Paired Effect: **`-0.087629`**
+     - Baseline L10 Pos4: top-1 key 7 (acc 0.9709, margin -11.60) | Warm-Start: top-1 key 0 (acc 1.0000, margin +5.19)
+   - `I05` (seed 20260916):
+     - Baseline EM: `0.939453` | Warm-Start EM: `0.974609` | Paired Effect: **`+0.035156`**
+     - Baseline Worst: `10:3 (0.8932)` | Warm-Start Worst: `7:2 (0.9626)` | Paired Effect: **`+0.069413`**
+     - Baseline L10 Pos4: top-1 key 0 (acc 0.9417, margin +1.64) | Warm-Start: top-1 key 1 (acc 0.9951, margin -1.22)
+3. Summary Statistics across All 5 Matched Pairs:
+   - Overall Sequence EM: Mean = `+0.018164`, Median = `+0.000000`, Range = `0.297852` ([-0.106445, +0.191406]), Improved = `2 / 5 (40.0%)`.
+   - Worst-Position Accuracy: Mean = `+0.023465`, Median = `-0.087629`, Range = `0.912241` ([-0.334951, +0.577289]), Improved = `2 / 5 (40.0%)`.
+   - Length-10 Sequence EM: Mean = `+0.072816`, Median = `+0.048544`, Range = `1.063107` ([-0.402913, +0.660194]), Improved = `3 / 5 (60.0%)`.
+   - Position-4 Token Accuracy: Mean = `+0.044660`, Median = `+0.029126`, Range = `0.985437` ([-0.368932, +0.616505]), Improved = `3 / 5 (60.0%)`.
+   - Position-4 Score Margin: Mean = `+6.659074`, Median = `+4.921659`, Range = `30.944849` ([-1.233519, +29.711330]), Improved = `4 / 5 (80.0%)`.
+   - Causal Gap: Mean = `+0.018164`, Median = `+0.000000`, Range = `0.297852`, Improved = `2 / 5 (40.0%)`.
+4. Attractor Dynamics & Formation Timings:
+   - In 2 of 5 seeds (`I02`, `I05`), the baseline standard sampler spontaneously converged to true attractor key 0 at step 500 without warm-start.
+   - In `I02`, applying warm-start actively caused harm: instead of converging to key 0 as in baseline, warm-start diverted position 4 into key 4 at step 500, terminally collapsing into competitor key 5 with EM drop of -0.1064.
+   - In `I03`, baseline reached 99.2% EM despite routing to key 7 (due to token aliasing), whereas warm-start diverted position 4 into key 3 with lower terminal EM (96.3%).
+   - In `I01`, warm-start cleanly eliminated the key 7 false attractor and gained +0.1914 EM (+0.5773 worst-pos acc).
+
+**Scientific conclusion:**
+1. The causal replication refutes the hypothesis that sequence-distinctness warm-start provides a universal optimization improvement across random weight initializations.
+2. The effect is initialization-dependent (mixed and seed-specific): while warm-start produces massive gains on `I01` (+0.1914 EM, +0.5773 worst-pos acc) and modest gains on `I05` (+0.0352 EM), it produces substantial negative interference on `I02` (-0.1064 EM, -0.3350 worst-pos acc) and `I03` (-0.0293 EM, -0.1068 worst-pos acc).
+3. The baseline standard with-replacement sampler is itself capable of acquiring the true permutation attractor on certain initializations (`I02`, `I05` acquired key 0 at step 500), showing that early token-aliasing is not a fatal barrier for all initialization geometries.
+4. Primary Decision is conclusively recorded as `I01_SPECIFIC_OR_MIXED_EFFECT_IDENTIFIED`.
+
+**Decision and authorized next steps:**
+Decision: `I01_SPECIFIC_OR_MIXED_EFFECT_IDENTIFIED`.
+1. The REC-004AM qualification failure is preserved as historical evidence (no retroactive reversal).
+2. Candidate adoption and bundle promotion remain strictly BLOCKED (`candidate_selected: null`, `child_bundle: null`, `bundle_write: false`).
+3. RG3, REC-005, G1, and G4 remain uncleared and BLOCKED.
+4. Any future optimization strategy must account for initialization geometry heterogeneity rather than relying on uniform sampling heuristics.

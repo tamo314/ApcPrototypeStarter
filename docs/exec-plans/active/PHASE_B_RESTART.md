@@ -55,6 +55,9 @@
 | 再開: REC-004AN | 完了（§7H） | `LENGTH10_LOCAL_OPTIMIZATION_FAILURE_IDENTIFIED` | 13 checkpoint全軌道再評価、位置局在、transplant、勾配衝突、露出監査。失点の89.4%が位置4の偽アトラクタ固着（key 7）に局在。追加学習0 |
 | 再開: REC-004AO | 完了（§7I） | `LOCAL_LOSS_GRADIENT_MISALIGNMENT_IDENTIFIED` | 13 checkpoint勾配到達性診断。ルーティング勾配ノルムは十分（0.2707）だが正解margin予測変化は84.6%で非正（端末-0.6976）かつkey0飽和飢餓。追加学習0 |
 | 再開: REC-004AP | 完了（§7J） | `TOKEN_ALIASING_DILUTION_AND_LATE_SATURATION_IDENTIFIED` | 13 checkpointトークン識別性層別化診断。Strata A/B（86.9%）は正解margin改善勾配を持つが、Stratum C（13.1%）の巨大破壊勾配（12.4倍優勢）がpooled勾配を希釈・反転。追加学習0 |
+| 再開: REC-004AQ | 完了（§7K） | `WARM_START_PILOT_VIABILITY_MET` | 初期500step非復元抽出warm-start単一レシピ因果パイロット。決定EM=0.9854、長さ10 EM=1.0000、位置4偽アトラクタ解消。REC-004AM検討認可 |
+| 再開: REC-004AM | 完了（§7L） | `MULTI_INIT_VIABILITY_NOT_MET` | warm-start固定レシピ5独立初期化（I01..I05）再現性検証。合格1/5（I01のみ合格）、適格性規則（5/5）未達によりfail-closed停止。candidate/bundle未作成 |
+| 再開: REC-004AR | 完了（§7M） | `I01_SPECIFIC_OR_MIXED_EFFECT_IDENTIFIED` | 5初期化matched-baseline因果複製。同時改善2/5（I01, I05）、I02/I03は負干渉。普遍的優位性は反証されI01特異的・混合効果を同定。REC-004AM FAIL保持 |
 | REC-005〜008 | 未着手 | RG3に依存。ただし失敗時の引継ぎは可能 | 今後のcohort・runtime注入の原契約 |
 | R3-011〜012 | 未着手 | G1/G4に依存 | 封印・B2_PROTOCOL_V2原契約 |
 | B-C006〜014 | 未着手 | B2/G5、以降各gateに依存 | B3〜B6の原計画 |
@@ -597,12 +600,51 @@ float precision/parity guardで安全に停止した未qualified artifactであ�
      - 長さ 8 EM: I01=1.0000, I02=0.9742, I03=0.9948, I04=0.8711, I05=0.9794
      - 長さ 9 EM: I01=0.9854, I02=0.9078, I03=0.9757, I04=1.0000, I05=0.9903
      - 長さ 10 EM: I01=1.0000, I02=0.5340, I03=0.8689, I04=0.9903, I05=0.9806
-  4. 整合性 & 副作用監査:
-     - AST情報境界監査 PASS、フリーズ監査全5 initで PASS、副作用監査 PASS。
+   4. 整合性 & 副作用監査:
+      - AST情報境界監査 PASS、フリーズ監査全5 initで PASS、副作用監査 PASS。
 - 判定と影響:
   - 判定: `MULTI_INIT_VIABILITY_NOT_MET`。
   - I01 においては warm-start 効果が完全に再現されたが、初期重みの違いによって異なる局所幾何バイアス（I02のkey 5、I03のkey 3、I05のkey 1、I04の長さ8位置3干渉）が生じ、500ステップの一律 warm-start のみでは全初期化における大域的真のアトラクター収束を保証できないことが判明した。
   - 事前登録適格性基準に基づき、パイプラインはフェイルクローズ停止し、候補採択およびモデルバンドル作成は厳格に遮断を継続（`candidate_selected: null`, `child_bundle: null`, `bundle_write: false`）。
+  - RG3、REC-005、G1、およびG4も未解除・遮断を継続。
+
+## 7M. 実行契約: B-C005REC-004AR — CD-DPCA系列内非復元抽出warm-start 5初期化 matched-baseline 因果複製
+
+**状態: 完了、`I01_SPECIFIC_OR_MIXED_EFFECT_IDENTIFIED`（ADR-0144）。matched-baseline 因果対照完了。REC-004AM の不合格判定は過去の科学的証拠として保持（遡及的変更なし）。候補採択・bundle出力・RG3・REC-005は厳格に遮断を継続。**
+目的は、REC-004AMのwarm-start実行（I01..I05）を固定介入群とし、REC-004AL適格I01通常サンプラー実行を対照群として再利用した上で、未取得の初期化I02..I05についてのみ同一初期化・同一最適化・同一データシードのfresh baseline control（全6,000 updates通常復元抽出サンプラー）を実行し、全5対でmatched-baseline因果対照を実施することである。warm-start効果が普遍的優位性を持つか、初期化特異的／混合効果であるかを因果的に同定・判定する。
+
+- 実行境界 & 厳格対照要件:
+  - 操作因子はステップ1〜500のサンプラー（通常復元抽出 vs 非復元抽出）のみ。
+  - 初期化重み・ハッシュ（I01..I05）、AdamW (`lr=0.0008, weight_decay=0.0001, grad_clip=1.0`)、CosineAnnealingLR (`T_max=1000, eta_min=1e-5`)、バッチサイズ32、6,000 updates、cadence 500（13 checkpoints）、per-step seed式 (`_derive_local_seed(20260912, step, 'train:MIRROR_HALVES')`)、1,024例開発検証セットを完全ビット一致。
+  - 主判定規則: 4/5以上の初期化で全体EMおよび最悪位置精度が同方向に向上し、初期化間平均変化量が正 $\to$ `WARM_START_CAUSAL_SUPERIORITY_REPLICATED`。それ以外 $\to$ `I01_SPECIFIC_OR_MIXED_EFFECT_IDENTIFIED`。
+  - レシピ変更、追加arm、追加初期化、ハイパーパラメータ探索、チェックポイント事後選別は禁止。
+  - 副作用厳格遮断: candidate選定0 (`candidate_selected: null`), bundle write0 (`child_bundle: null`, `bundle_write: false`), RG3未実行 (`rg3: NOT_EXECUTED`), `rec005_eligible: false`。G1/G4は未解除の独立ブロック。
+- 実行結果（`runs/phase_b_restart/rec004ar/run_001/`）:
+  1. 主判定結果:
+     - 同時改善初期化（全体EM向上 かつ 最悪位置精度向上）: **2 / 5**（`I01`, `I05`）。判定基準（$\ge 4/5$）未達。
+     - 実行判定: `PASS`。
+     - 主判定: **`I01_SPECIFIC_OR_MIXED_EFFECT_IDENTIFIED`**。
+  2. マッチドペア詳細比較 ($\Delta = \text{Warm} - \text{Base}$):
+     - `I01` (seed 20260912): Base EM `0.793945` $\to$ Warm `0.985352` ($\Delta = \mathbf{+0.191406}$); 最悪位置 `10:4 (0.3835)` $\to$ `6:2 (0.9608)` ($\Delta = \mathbf{+0.577289}$)。
+     - `I02` (seed 20260913): Base EM `0.968750` $\to$ Warm `0.862305` ($\Delta = \mathbf{-0.106445}$); 最悪位置 `9:3 (0.9417)` $\to$ `10:4 (0.6068)` ($\Delta = \mathbf{-0.334951}$)。
+       ※ ベースライン通常サンプラーでstep 500にて正解アトラクタ key 0 を自発獲得していたが、warm-start適用により位置4がkey 4へ逸脱し、最終的に対抗key 5偽アトラクタへ不可逆崩壊。
+     - `I03` (seed 20260914): Base EM `0.992188` $\to$ Warm `0.962891` ($\Delta = \mathbf{-0.029297}$); 最悪位置 `10:4 (0.9757)` $\to$ `10:4 (0.8689)` ($\Delta = \mathbf{-0.106796}$)。
+     - `I04` (seed 20260915): Base EM `0.965820` $\to$ Warm `0.965820` ($\Delta = \mathbf{+0.000000}$); 最悪位置 `8:3 (0.9588)` $\to$ `8:3 (0.8711)` ($\Delta = \mathbf{-0.087629}$)。
+     - `I05` (seed 20260916): Base EM `0.939453` $\to$ Warm `0.974609` ($\Delta = \mathbf{+0.035156}$); 最悪位置 `10:3 (0.8932)` $\to$ `7:2 (0.9626)` ($\Delta = \mathbf{+0.069413}$)。
+  3. 全5対要約統計:
+     - 全体系列EM変化: 平均 $+0.018164$, 中央値 $+0.000000$, 範囲 $0.297852$ ([-0.106445, +0.191406]), 改善数 2/5 (40.0%)
+     - 最悪位置精度変化: 平均 $+0.023465$, 中央値 $-0.087629$, 範囲 $0.912241$ ([-0.334951, +0.577289]), 改善数 2/5 (40.0%)
+     - 長さ10系列EM変化: 平均 $+0.072816$, 中央値 $+0.048544$, 改善数 3/5 (60.0%)
+     - 位置4トークン精度変化: 平均 $+0.044660$, 中央値 $+0.029126$, 改善数 3/5 (60.0%)
+     - 位置4マージン変化: 平均 $+6.659074$, 中央値 $+4.921659$, 改善数 4/5 (80.0%)
+     - 因果ギャップ変化: 平均 $+0.018164$, 中央値 $+0.000000$, 改善数 2/5 (40.0%)
+  4. アトラクタダイナミクスと機構解明:
+     - ベースライン通常サンプラー自体が2/5のseed（I02, I05）においてstep 500で自発的に正解アトラクタ key 0 を獲得可能であり、初期トークン重複が全初期化幾何において致命的障壁になるわけではないことを実証。
+     - warm-startはI01で顕著な改善（+0.1914 EM, +0.5773 worst-pos acc）をもたらす一方、I02等では逆に破壊的干渉を生じさせ（-0.1064 EM, -0.3350 worst-pos acc）、普遍的優位性は反証された。
+- 判定と影響:
+  - 判定: `I01_SPECIFIC_OR_MIXED_EFFECT_IDENTIFIED`。
+  - REC-004AMの不合格判定（`MULTI_INIT_VIABILITY_NOT_MET`）は科学的証拠として確定・維持され、遡及的変更は行わない。
+  - 候補採択・bundle出力・RG3・REC-005は厳格に遮断を継続（`candidate_selected: null`, `child_bundle: null`, `bundle_write: false`）。
   - RG3、REC-005、G1、およびG4も未解除・遮断を継続。
 
 ## 8. 実行記録
@@ -624,6 +666,7 @@ float precision/parity guardで安全に停止した未qualified artifactであ�
 - 2026-09-13: REC-004AP `run_001` 実行完了、`TOKEN_ALIASING_DILUTION_AND_LATE_SATURATION_IDENTIFIED`（ADR-0140）。13 checkpointトークン識別性層別化勾配診断を実施。非重複/他重複例（86.9%）では正解改善勾配が供給される一方、key 7重複例（13.1%）の12.4倍巨大破壊勾配が全体を反転させ、端末でsoftmax飢餓が固定化するメカニズムを特定。追加学習0、candidate0、bundle0、RG3未実行。
 - 2026-09-13: REC-004AQ `run_001` 実行完了、`WARM_START_PILOT_VIABILITY_MET`（ADR-0141）。初期500ステップの系列内非復元抽出warm-start単一レシピ因果パイロットを実行。決定ステップ6000で系列EM=0.985352（1009/1024例）、長さ10 EM=1.0000（206/206例）、位置4トークン精度=1.0000（206/206例、top-1 key 0, margin +5.38）を達成し、終端実行性基準（≥0.95）を大幅クリア。全init検証（REC-004AM）の検討が認可。候補採択・bundle出力・RG3・REC-005は未認可・遮断を継続。
 - 2026-09-13: REC-004AM `run_001` 実行完了、`MULTI_INIT_VIABILITY_NOT_MET`（ADR-0143）。ADR-0141のwarm-start固定レシピで事前登録5初期化（I01..I05、総30,000 updates）を実行。I01はEM=0.9854で完全合格・再現したが、I02〜I05は局所偽アトラクタ固着や他位置回帰により不合格（合格1/5、平均系列EM=0.950195）。事前登録適格性規則（5/5合格）未達によりフェイルクローズ停止。候補採択・bundle出力・RG3・REC-005は厳格に遮断を継続。
+- 2026-09-13: REC-004AR `run_001` 実行完了、`I01_SPECIFIC_OR_MIXED_EFFECT_IDENTIFIED`（ADR-0144）。REC-004AM warm-start介入群とI01..I05 matched baseline対照群（I02..I05 fresh baseline 4 runs, 24,000 updates）による因果複製を実施。同時改善は2/5（I01, I05）に留まり、I02/I03ではwarm-startが負干渉を引き起こすことを解明。普遍的優位性は反証され、REC-004AMのFAILを科学的証拠として保持。candidate0、bundle0、RG3未実行。
 - 2026-09-12: 全2,514ケースの分割検証・ruff・mypy・文書/差分確認を完了。今回の整理・修正・有限precheckを閉じる。Phase B全体やRG3の完了ではない。
 
 ## 9. 最終検証と現在の停止点
@@ -631,10 +674,10 @@ float precision/parity guardで安全に停止した未qualified artifactであ�
 | 検証 | 結果 | 証拠・制約 |
 |---|---|---|
 | pytest 全収集ケース | 分割実行で2,514件PASS | Windows先行977件＋再開1,536件＋WSL1件。全node IDの和集合と全収集IDが一致 |
-| REC-004AJ〜AM 回帰テスト | 57件PASS | REC-004AJ/AK/AL/AN/AO/AP/AQ/AMの全57件PASS（3.8秒） |
+| REC-004AJ〜AR 回帰テスト | 62件PASS | REC-004AJ/AK/AL/AN/AO/AP/AQ/AM/ARの全62件PASS |
 | Windows単一プロセスの全件実行 | 異常終了、PASSではない | 長いXデータ検証中のPythonアクセス違反。原因未確定。既通過分を保存し、残りを再開 |
 | ruff check . | PASS | 終了コード0（全ファイル通過） |
-| mypy src/apc | PASS | 168 source files、終了コード0 |
+| mypy src/apc | PASS | 169 source files、終了コード0 |
 | 文書・差分 | PASS | ローカルリンク存在確認、git diff --check |
 
 全ケースの検証範囲は満たしたが、単一プロセスの安定性を認定したとは扱わない。
@@ -645,11 +688,10 @@ WSLへ移したのはartifactパスに依存しない `test_rec004x_dataset_disj
 `verification_coverage_plan.json`、`verification_events.jsonl`、`final_*.log` に保存した。
 研究の新学習0とは§5/6の研究実行を指し、検証用tiny fixtureの学習を含む全テストの更新数を指さない。
 
-**現在の停止点はREC-004AMによる固定warm-start全5初期化再現性検証の不合格によるフェイルクローズ停止（`MULTI_INIT_VIABILITY_NOT_MET`）である。**
-ADR-0141 (REC-004AQ) で成功した系列内非復元抽出warm-start単一レシピ（初期500ステップ pairwise-distinct、ステップ501以降元サンプラー復帰、総6,000 updates/init）をビット不変のまま固定し、事前登録された独立5初期化（I01..I05、総30,000 updates）を実行した。
-I01 においては ADR-0141 の結果が 100% ビット完全再現（決定系列EM `0.985352`、長さ10 EM `1.0000`、位置4 正解 key 0 margin `+5.38`）された。
-しかし、他の4初期化においては初期重みの違いによる局所幾何学的偏りにより、I02 は対抗 key 5（margin `-10.90`, EM `0.8623`）、I03 は対抗 key 3（margin `-8.95`, EM `0.9629`）、I05 は対抗 key 1（margin `-1.22`, EM `0.9746`）にそれぞれ捕捉され、I04 では長さ8位置3のトークン精度が `0.8711` へ回帰した。
-この結果、合格初期化数は **1 / 5**（平均系列EM `0.950195`）となり、事前登録された適格性規則（全5/5が独立して合格）を満たさなかったため、フェイルクローズ停止（`MULTI_INIT_VIABILITY_NOT_MET`）が発動した。
+**現在の停止点はREC-004ARによる5初期化matched-baseline因果複製の完了（`I01_SPECIFIC_OR_MIXED_EFFECT_IDENTIFIED`）およびREC-004AMの不合格（`MULTI_INIT_VIABILITY_NOT_MET`）によるフェイルクローズ停止である。**
+REC-004AMのwarm-start群（I01..I05）と厳格に対照されたベースライン群（I01..I05）の全5対比較により、warm-startが全体EMおよび最悪位置精度を同時に改善したのは 2 / 5 初期化（I01: $\Delta\text{EM}=+0.1914$, I05: $\Delta\text{EM}=+0.0352$）に留まり、I02（$\Delta\text{EM}=-0.1064$, $\Delta\text{WorstPosAcc}=-0.3350$）やI03（$\Delta\text{EM}=-0.0293$, $\Delta\text{WorstPosAcc}=-0.1068$）では逆に破壊的干渉を生じさせることが因果的に実証された。
+また、ベースラインの通常復元抽出サンプラー自体が2/5の初期化（I02, I05）においてステップ500で自発的に正解アトラクタ key 0 を獲得しており、トークン重複は全初期化幾何において普遍的な致命障壁ではないことが判明した。
+この結果、普遍的因果優位性は反証され、主判定 `I01_SPECIFIC_OR_MIXED_EFFECT_IDENTIFIED` が確定した。REC-004AMの不合格判定（`MULTI_INIT_VIABILITY_NOT_MET`）は科学的証拠として確定・維持される。
 事前登録契約に基づき、候補採択（candidate adoption）、モデルバンドル出力（child bundle write）、15 non-SHIFT RG3 再検査、および 5モデル cohort REC-005 は依然として未認可であり、厳格に遮断を継続（`candidate_selected: null`, `child_bundle: null`, `bundle_write: false`, `rg3: NOT_EXECUTED`, `rec005_eligible: false`）する。独立した研究ブロック G1 および G4 も未解除のまま保持される。
 
 
