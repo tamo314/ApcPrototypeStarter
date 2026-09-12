@@ -32,6 +32,10 @@ DEFAULT_ARG_DIM: int = 32
 DEFAULT_MAX_SEQUENCE_LENGTH: int = 32
 
 __all__ = [
+    "CDDPCAPrimitive",
+    "CDDPCAPrimitiveConfig",
+    "ContentDecoupledDiscretePositionalCrossAttentionPrimitive",
+    "ContentDecoupledDiscretePositionalCrossAttentionPrimitiveConfig",
     "CrossPositionLengthBiasPrimitive",
     "CrossPositionLengthBiasPrimitiveConfig",
     "CrossPositionPrimitive",
@@ -480,6 +484,355 @@ class CrossPositionLengthBiasPrimitive(CrossPositionPrimitive):
         finally:
             with torch.no_grad():
                 self.position_bias_out.weight.copy_(original)
+
+
+# ---------------------------------------------------------------------------
+# Content-Decoupled Discrete Positional Cross-Attention (CD-DPCA)
+# Task B-C005REC-004AJ (ADR-0134 / ADR-0135)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ContentDecoupledDiscretePositionalCrossAttentionPrimitiveConfig(
+    CrossPositionPrimitiveConfig
+):
+    """Configuration for `ContentDecoupledDiscretePositionalCrossAttentionPrimitive` (CD-DPCA).
+
+    Inherits all standard cross-position operator hyperparameters:
+      operation: str
+      d_model: int = 192
+      d_operator: int = 32
+      n_head: int = 4
+      d_operator_ff: int = 64
+      vocab_size: int = 10
+      max_sequence_length: int = DEFAULT_MAX_SEQUENCE_LENGTH  # 32
+      arg_dim: int = 16
+    """
+
+
+# Short alias
+CDDPCAPrimitiveConfig = ContentDecoupledDiscretePositionalCrossAttentionPrimitiveConfig
+
+
+class ContentDecoupledDiscretePositionalCrossAttentionPrimitive(PrimitiveBase):
+    """Content-Decoupled Discrete Positional Cross-Attention (CD-DPCA) primitive.
+
+    Phase B Model Bundle Recovery: Task B-C005REC-004AJ (ADR-0134 / ADR-0135).
+
+    Replaces score-path dependence on token content with discrete query-position,
+    key-position, and length representations while retaining the existing content-only
+    value path, output projection, LayerNorm, FFN, readout, masks, and non-SHIFT
+    bundle interface.
+
+    Key architectural invariants:
+    1. Score path is strictly content-invariant: key k(j) = E_key_pos(j) and
+       query q(i, L) = E_query_pos(i) + E_length(L) + arg_token contain NO token
+       content features h_content.
+    2. Discrete integer coordinates: integer positions i, j in {0..max_sequence_length-1}
+       and integer lengths L in {0..max_sequence_length} are mapped via standard
+       nn.Embedding tables, avoiding continuous coordinate normalization and grid
+       aliasing.
+    3. Content flows exclusively into the value path:
+       v(j) = content_in_proj(h_content(j)) + content_position_embedding(j).
+    4. Relation-conditioning boundary is generic: no MIRROR-specific branch, target map,
+       or oracle inputs. Parameterized operations use the standard generic arg_encoder/arg_proj
+       to add an arg_token to query; parameter-free operations (like MIRROR_HALVES) pass None.
+    5. Masking strictly suppresses padded key positions (j >= L) with -inf logits.
+    6. Downstream modules (attn_norm, ffn, ffn_norm, readout) and tensor interfaces
+       remain 100% compatible with existing non-SHIFT primitives.
+    """
+
+    def __init__(
+        self,
+        primitive_id: int,
+        config: ContentDecoupledDiscretePositionalCrossAttentionPrimitiveConfig,
+        *,
+        status: PrimitiveStatus = PrimitiveStatus.CANDIDATE,
+        created_at_task: int = 0,
+        enabled: bool = True,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(
+            primitive_id,
+            status=status,
+            created_at_task=created_at_task,
+            enabled=enabled,
+            metadata=metadata,
+        )
+        self.config = config
+        self.operation = config.operation
+        self.d_operator = config.d_operator
+        self.n_head = config.n_head
+        self.max_sequence_length = config.max_sequence_length
+
+        # Content-only value path
+        self.content_in_proj = nn.Linear(config.d_model, config.d_operator)
+        self.content_position_embedding = nn.Embedding(
+            config.max_sequence_length, config.d_operator
+        )
+
+        # Content-decoupled routing path: discrete query, key, length embeddings
+        self.query_position_embedding = nn.Embedding(
+            config.max_sequence_length, config.d_operator
+        )
+        self.key_position_embedding = nn.Embedding(
+            config.max_sequence_length, config.d_operator
+        )
+        self.length_embedding = nn.Embedding(
+            config.max_sequence_length + 1, config.d_operator
+        )
+
+        # Generic relation-conditioning boundary (identical to CrossPositionPrimitive)
+        from apc.environments.operations import get_operation
+
+        try:
+            op = get_operation(config.operation)
+            has_args = bool(op.required_argument_names)
+        except KeyError:
+            has_args = False
+
+        if has_args:
+            from apc.primitives.conditioning import default_argument_encoder
+
+            self.arg_encoder: nn.Module | None = default_argument_encoder(
+                config.operation,
+                vocab_size=config.vocab_size,
+                max_sequence_length=config.max_sequence_length,
+                arg_dim=config.arg_dim,
+            )
+            self.arg_proj: nn.Linear | None = nn.Linear(config.arg_dim, config.d_operator)
+        else:
+            self.arg_encoder = None
+            self.arg_proj = None
+
+        # Cross-attention (standard multihead attention with output projection)
+        self.cross_attn = nn.MultiheadAttention(
+            config.d_operator, config.n_head, batch_first=True
+        )
+
+        # Downstream modules (retaining existing LayerNorm, FFN, readout)
+        self.attn_norm = nn.LayerNorm(config.d_operator)
+        self.ffn = nn.Sequential(
+            nn.Linear(config.d_operator, config.d_operator_ff),
+            nn.GELU(),
+            nn.Linear(config.d_operator_ff, config.d_operator),
+        )
+        self.ffn_norm = nn.LayerNorm(config.d_operator)
+        self.readout = nn.Linear(config.d_operator, config.vocab_size)
+
+    @property
+    def answer_query_embedding(self) -> nn.Embedding:
+        """Alias property for backward compatibility with audit code expecting
+        answer_query_embedding."""
+        return self.query_position_embedding
+
+    def compute_routing_representations(
+        self,
+        content_lengths: Sequence[int],
+        output_lengths: Sequence[int],
+        argument_values: Sequence[Any] | None = None,
+        *,
+        device: torch.device | None = None,
+        lmax: int | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Compute discrete query and key representations and key padding mask.
+
+        Runtime inputs strictly exclude token content, teacher maps, target tokens,
+        and oracle information.
+
+        Returns:
+            Tuple of:
+            - query: `[batch, out_max, d_operator]`
+            - key: `[batch, lmax, d_operator]`
+            - content_pad_mask: `[batch, lmax]` (boolean, True for padded positions j >= L)
+        """
+        if device is None:
+            device = self.query_position_embedding.weight.device
+
+        batch = len(content_lengths)
+        out_max = max(output_lengths)
+        if lmax is None:
+            lmax = max(content_lengths)
+
+        # Finite domain boundary validation
+        if out_max > self.max_sequence_length:
+            raise ValueError(
+                f"output length {out_max} exceeds configured "
+                f"max_sequence_length {self.max_sequence_length}"
+            )
+        if lmax > self.max_sequence_length:
+            raise ValueError(
+                f"content length {lmax} exceeds configured "
+                f"max_sequence_length {self.max_sequence_length}"
+            )
+
+        # Discrete query position representation: i in {0..out_max-1}
+        query_ids = torch.arange(out_max, device=device).unsqueeze(0).expand(batch, out_max)
+        query_pos = self.query_position_embedding(query_ids)
+
+        # Discrete length representation: L in {0..max_sequence_length}
+        c_lens = torch.tensor(content_lengths, device=device, dtype=torch.long)
+        length_token = self.length_embedding(c_lens).unsqueeze(1)
+
+        # Generic relation-conditioning boundary (no relation-specific table or branch)
+        if argument_values is None or self.arg_encoder is None or self.arg_proj is None:
+            arg_token = query_pos.new_zeros(batch, 1, self.d_operator)
+        else:
+            arg_embedding = self.arg_encoder(argument_values)
+            arg_token = self.arg_proj(arg_embedding).unsqueeze(1)
+
+        query = query_pos + length_token + arg_token
+
+        # Discrete key position representation: j in {0..lmax-1} (NO content features)
+        key_ids = torch.arange(lmax, device=device).unsqueeze(0).expand(batch, lmax)
+        key = self.key_position_embedding(key_ids)
+
+        # Padding mask for keys: True where key position >= real content length L
+        content_pad_mask = key_ids >= c_lens.unsqueeze(1)
+
+        return query, key, content_pad_mask
+
+    def compute_routing_scores(
+        self,
+        content_lengths: Sequence[int],
+        output_lengths: Sequence[int],
+        argument_values: Sequence[Any] | None = None,
+        *,
+        device: torch.device | None = None,
+        lmax: int | None = None,
+    ) -> torch.Tensor:
+        """Compute pre-softmax multihead routing scores S_h(i, j; L).
+
+        Returns:
+            Scores tensor of shape `[batch, n_head, out_max, lmax]` with -inf
+            at padded key positions (j >= L).
+        """
+        query, key, pad_mask = self.compute_routing_representations(
+            content_lengths, output_lengths, argument_values, device=device, lmax=lmax
+        )
+        batch, out_max, _ = query.shape
+        _, l_seq, _ = key.shape
+        head_dim = self.d_operator // self.n_head
+
+        # Extract Q and K linear projection weights and biases from cross_attn
+        wq, wk, _ = self.cross_attn.in_proj_weight.chunk(3, dim=0)
+        if self.cross_attn.in_proj_bias is not None:
+            bq, bk, _ = self.cross_attn.in_proj_bias.chunk(3, dim=0)
+        else:
+            bq, bk = None, None
+
+        q_proj = F.linear(query, wq, bq).view(batch, out_max, self.n_head, head_dim).transpose(1, 2)
+        k_proj = F.linear(key, wk, bk).view(batch, l_seq, self.n_head, head_dim).transpose(1, 2)
+
+        scores = torch.matmul(q_proj, k_proj.transpose(-2, -1)) / (head_dim ** 0.5)
+        # Apply padding mask: -inf for padded key positions
+        mask_expanded = pad_mask.unsqueeze(1).unsqueeze(2)  # [batch, 1, 1, lmax]
+        scores = scores.masked_fill(mask_expanded, float("-inf"))
+        return scores
+
+    def compute_attention_weights(
+        self,
+        content_lengths: Sequence[int],
+        output_lengths: Sequence[int],
+        argument_values: Sequence[Any] | None = None,
+        *,
+        device: torch.device | None = None,
+        lmax: int | None = None,
+        average_heads: bool = False,
+    ) -> torch.Tensor:
+        """Compute post-softmax attention weights.
+
+        Returns:
+            If average_heads is False: `[batch, n_head, out_max, lmax]`
+            If average_heads is True: `[batch, out_max, lmax]`
+        """
+        scores = self.compute_routing_scores(
+            content_lengths, output_lengths, argument_values, device=device, lmax=lmax
+        )
+        weights = F.softmax(scores, dim=-1)
+        if average_heads:
+            return weights.mean(dim=1)
+        return weights
+
+    def forward(
+        self,
+        content_features: torch.Tensor,
+        content_lengths: Sequence[int],
+        output_lengths: Sequence[int],
+        argument_values: Sequence[Any] | None = None,
+        *,
+        return_attention: bool = False,
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
+        """Apply CD-DPCA cross-attention operator over content features.
+
+        Args:
+            content_features: Tensor `[batch, lmax, d_model]`
+            content_lengths: Sequence of integer lengths L
+            output_lengths: Sequence of integer output lengths L_out
+            argument_values: Optional sequence of generic argument values
+            return_attention: If True, returns `(logits, attn_weights)`
+
+        Returns:
+            Logits of shape `[batch, max(output_lengths), vocab_size]`
+            (or tuple `(logits, attn_weights)` if return_attention=True).
+        """
+        device = content_features.device
+        batch, lmax, _ = content_features.shape
+        out_max = max(output_lengths)
+
+        if not self.enabled:
+            zeros = content_features.new_zeros(batch, out_max, self.config.vocab_size)
+            if return_attention:
+                attn_zeros = content_features.new_zeros(batch, self.n_head, out_max, lmax)
+                return zeros, attn_zeros
+            return zeros
+
+        self.forward_call_count += 1
+
+        # 1. Routing representations (strictly content-free)
+        query, key, content_pad_mask = self.compute_routing_representations(
+            content_lengths, output_lengths, argument_values, device=device, lmax=lmax
+        )
+
+        # 2. Content-only value path (retaining existing value projection & pos emb)
+        content_position_ids = torch.arange(lmax, device=device).unsqueeze(0).expand(batch, lmax)
+        value = self.content_in_proj(content_features) + self.content_position_embedding(
+            content_position_ids
+        )
+
+        # 3. Cross-attention execution with key padding mask
+        if return_attention:
+            attn_out, attn_weights = self.cross_attn(
+                query,
+                key,
+                value,
+                key_padding_mask=content_pad_mask,
+                need_weights=True,
+                average_attn_weights=False,
+            )
+        else:
+            attn_out, _ = self.cross_attn(
+                query,
+                key,
+                value,
+                key_padding_mask=content_pad_mask,
+                need_weights=False,
+            )
+            attn_weights = None
+
+        # 4. Downstream modules (retaining existing LayerNorm, FFN, readout)
+        hidden = self.attn_norm(query + attn_out)
+        hidden = self.ffn_norm(hidden + self.ffn(hidden))
+        logits = self.readout(hidden)
+
+        if return_attention:
+            assert attn_weights is not None
+            return logits, attn_weights
+        return logits
+
+
+# Short alias
+CDDPCAPrimitive = ContentDecoupledDiscretePositionalCrossAttentionPrimitive
 
 
 # ---------------------------------------------------------------------------

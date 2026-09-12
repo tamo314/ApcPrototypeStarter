@@ -319,6 +319,29 @@ float precision/parity guardで安全に停止した未qualified artifactであ�
 - 判定: 8つの判定前提をすべて満たし、`MINIMAL_ROUTING_CONTRACT_IDENTIFIED` を宣言。
 - 後続作業の順序限定: 次タスクは (1) REC-004AJ (実装 & 未学習構造検証) に限定され、以降 (2) シリアライズ検証 $\to$ (3) 単一init学習パイロット $\to$ (4) 全init検証 $\to$ (5) I01固定採用 $\to$ (6) 15 non-SHIFT RG3 $\to$ (7) 独立5モデル cohort の順を厳格に維持。
 
+## 7E. 実行契約: B-C005REC-004AJ — 最小routing contract実装 & 未学習構造検証
+
+**状態: 完了、`MINIMAL_ROUTING_CONTRACT_IMPLEMENTED_AND_VALIDATED`（ADR-0135）。実装 & 構造検証完了。学習0、candidate0、bundle write0、RG3/REC-005/sealed未実行。**
+目的は、ADR-0134で演繹同定された単一の最小CD-DPCA routing pathをコード実装し、未学習状態における7つの構造的不変条件（content無相関性、離散位置・長さアドレス可能性、有限次元順列表現可能性、oracle非流入、padding masking、未学習勾配到達性、下流互換性）を厳格に検証することである。
+
+- 実装範囲: `src/apc/primitives/primitive.py` に `ContentDecoupledDiscretePositionalCrossAttentionPrimitive` (`CD-DPCA`) および `ContentDecoupledDiscretePositionalCrossAttentionPrimitiveConfig` を実装し、`PrimitiveBank` (`src/apc/primitives/bank.py`) に登録。
+  - スコア経路のcontent完全排除: クエリ $q(i, L) = E_{\text{query\_pos}}(i) + E_{\text{length}}(L) + \text{arg\_token}$、キー $k(j) = E_{\text{key\_pos}}(j)$。$h_{\text{content}}$ をスコア生成から完全に排除。
+  - 離散埋め込み: 整数インデックス $i, j \in [0, L_{\text{max}}-1]$、系列長 $L \in [0, L_{\text{max}}]$ を `nn.Embedding` で直交表現。連続座標の正規化除算・グリッド衝突（REC-004AG）を排除。
+  - 既存下流接続の保持: Value経路 $v(j) = W_v h_{\text{content}}(j) + E_{\text{val\_pos}}(j)$、出力射影、LayerNorm、FFN、Readout、および非SHIFT bundleインターフェースを完全維持。
+  - 汎用relation条件付け境界: MIRROR固有分岐やtarget map計算を一切含めず、引数付き操作のみ汎用 `arg_encoder`/`arg_proj` を経由。
+- 実行制約: 最適化器構築0、重み更新0、checkpoint変更0、candidate作成0、bundle出力0、RG3未実行、REC-005未実行、sealed非参照。G1およびG4は未解除の独立ブロックとして保持。
+- 構造検証（`runs/phase_b_restart/rec004aj/run_001/`、`tests/test_rec004aj_cd_dpca_contract.py`）:
+  1. Scorer Content Invariance: 入力content変更時、ルーティングスコア差 $\max |\Delta S| = 0.0$、注意重み差 $\max |\Delta A| = 0.0$。下流出力のみ有意変動（$\max |\Delta y| = 3.577$）。PASS。
+  2. 離散位置・長さアドレス可能性: 全合法長 $L \in [2, 16]$ でインデックス参照成功。異なる行のpairwise距離 $> 0.1$。$L > 32$ は `ValueError` で境界遮断。PASS。
+  3. 順列表現可能性: 全合法MIRROR長 $L \in [2, 16]$ で正解キー確率 $> 0.99$、runner-upマージン $> 6.0$ を構成的証明。PASS。
+  4. 情報境界: ルーティング経路に入力される引数に正解token・oracle注意・教示写像が一切存在しないことをAST/リフレクションで監査。PASS。
+  5. Padding Masking: 無効位置 $j \ge L$ はスコア $-\infty$、重み $0.0$。有効位置の和は $1.0$。PASS。
+  6. 勾配到達性: 未学習順伝播の微分損失から、クエリ・キー・長さ埋め込みおよびQK射影の勾配ノルムがすべて正値。最適化器ステップは未実行（更新0）。PASS。
+  7. 下流互換性: テンソル形状 `[batch, max(out_lengths), vocab_size]`、`PrimitiveBank` 登録・呼び出し統計、`state_dict` シリアライズ互換性を確認。PASS。
+- 有限表現境界の記録: サポート長 $L \in [1, 32]$、全単射順列階数上限 $L \le \min(L_{\text{max}}, d_{\text{operator}}) = 32 \ge 16$。無限長外挿は明示的に棄却（alias回避と引き換えの離散有限表現）。
+- 判定: 7基準すべてPASSにより `MINIMAL_ROUTING_CONTRACT_IMPLEMENTED_AND_VALIDATED` を宣言。
+- 次タスクの順序限定: 次段階は (1) REC-004AK (シリアライズ & 新規ロード検証) に限定される。
+
 ## 8. 実行記録
 
 - 2026-09-12: 本計画へ状態を集約。過去文書を仕様/証拠へ位置づけ直した（ADR-0127）。
@@ -330,6 +353,7 @@ float precision/parity guardで安全に停止した未qualified artifactであ�
 - 2026-09-12: REC-004AG `run_001` 実行完了、`POSITION_ROUTING_TARGET_NOT_SUPPORTED`（ADR-0132）。長さ9からの非退化位置transportはEM=0へ崩壊し、位置bias単独標的は反証された。
 - 2026-09-12: REC-004AH `run_001` 実行完了、`SCORE_DECOMPOSITION_IDENTIFIABILITY_STOP`（ADR-0133）。計算グラフと識別性行列の評価で全要素が条件(d)不成立。現行score分解における単一修復標的の探索を停止。
 - 2026-09-12: REC-004AI `run_001` 実行完了、`MINIMAL_ROUTING_CONTRACT_IDENTIFIED`（ADR-0134）。タスク意味論から探索なしに単一最小アーキテクチャ契約（CD-DPCA）を導出。学習0、実装0、candidate0、RG3未実行。
+- 2026-09-12: REC-004AJ `run_001` 実行完了、`MINIMAL_ROUTING_CONTRACT_IMPLEMENTED_AND_VALIDATED`（ADR-0135）。CD-DPCAのコード実装と未学習構造7基準PASS。学習0、candidate0、bundle0、RG3未実行。
 - 2026-09-12: 全2,514ケースの分割検証・ruff・mypy・文書/差分確認を完了。今回の整理・修正・有限precheckを閉じる。Phase B全体やRG3の完了ではない。
 
 ## 9. 最終検証と現在の停止点
@@ -350,7 +374,7 @@ WSLへ移したのはartifactパスに依存しない `test_rec004x_dataset_disj
 `verification_coverage_plan.json`、`verification_events.jsonl`、`final_*.log` に保存した。
 研究の新学習0とは§5/6の研究実行を指し、検証用tiny fixtureの学習を含む全テストの更新数を指さない。
 
-**現在の停止点はREC-004AIによる単一最小routing contract（CD-DPCA）の同定完了であり、次段階はREC-004AJ（実装 & 未学習構造検証）に限定される。**
-旧score分解に対する対症的修復はADR-0133で正式に停止され、タスク意味論から演繹された新contractが確立された。
-REC-004AI内では学習・candidate作成・bundle write・RG3再検証・REC-005は一切実行せず、G1/G4は未解決ブロックとして保持する。
-次タスクでは、新contractのコード実装と未学習状態における構造的性質（離散位置識別能、長さ識別能、content無相関性、oracle非依存性、勾配到達性）のみを検証する。
+**現在の停止点はREC-004AJによる単一最小routing contract（CD-DPCA）のコード実装および未学習構造検証の完了であり、次段階はREC-004AK（シリアライズ & 新規ロード検証）に限定される。**
+旧score分解に対する対症的修復はADR-0133で正式に停止され、タスク意味論から演繹された新contractがADR-0134で確立され、ADR-0135でコード実装および未学習構造検証が完了した。
+REC-004AJ内では学習・candidate作成・bundle write・RG3再検証・REC-005は一切実行せず、G1/G4は未解決ブロックとして保持する。
+次タスクでは、immutable bundle loader contract下におけるシリアライズ保存とfresh-loadの厳格な検証のみを実行する。

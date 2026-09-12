@@ -1019,3 +1019,70 @@ Next task authorization is strictly limited to:
    length awareness, content invariance, zero oracle leakage, and gradient reachability).
 Zero training, parameter updates, candidate creation, or bundle modification occurred in REC-004AI.
 RG3, REC-005, G1, and G4 remain blocked.
+
+## ADR-0135: REC-004AJ Minimal Routing Contract Implementation & Untrained Structural Validation Verifies All Seven Architectural Invariants (CD-DPCA)
+
+**Date:** 2026-09-12
+
+**Status:** Completed implementation and untrained validation; `execution_status: PASS`,
+`decision: MINIMAL_ROUTING_CONTRACT_IMPLEMENTED_AND_VALIDATED`.
+
+**Contract and boundary:** REC-004AJ implements the single minimal CD-DPCA routing path defined in
+ADR-0134 and executes untrained structural/unit validation. It enforces zero optimizer construction,
+zero parameter updates, zero checkpoint mutation, zero candidate creation or adoption, zero bundle writes,
+zero architecture/coefficient sweeps, zero RG3 checks, zero REC-005 actions, and zero sealed-data access.
+G1 and G4 remain uncleared independent blocks.
+
+**Implementation details:**
+- Added `ContentDecoupledDiscretePositionalCrossAttentionPrimitive` (`CD-DPCA`) and
+  `ContentDecoupledDiscretePositionalCrossAttentionPrimitiveConfig` (with short aliases `CDDPCAPrimitive`
+  and `CDDPCAPrimitiveConfig`) in `src/apc/primitives/primitive.py`.
+- Registered `new_content_decoupled_primitive` (and `new_cd_dpca_primitive`) in `PrimitiveBank`
+  (`src/apc/primitives/bank.py`).
+- Score path decoupling:
+  - Query representation: $q(i, L) = E_{\text{query\_pos}}(i) + E_{\text{length}}(L) + \text{arg\_token}$,
+    where $E_{\text{query\_pos}} \in \mathbb{R}^{L_{\text{max}} \times d_{\text{op}}}$ and
+    $E_{\text{length}} \in \mathbb{R}^{(L_{\text{max}}+1) \times d_{\text{op}}}$.
+  - Key representation: $k(j) = E_{\text{key\_pos}}(j)$, where
+    $E_{\text{key\_pos}} \in \mathbb{R}^{L_{\text{max}} \times d_{\text{op}}}$.
+  - Scoring: Multihead dot-product $S_h(i, j; L) = (q_h(i, L) \cdot k_h(j)^T) / \sqrt{d_{\text{head}}}$,
+    with padded positions ($j \ge L$) masked to $-\infty$.
+  - Value path: Content features $h_{\text{content}}$ flow solely to the value projection
+    $v(j) = W_v h_{\text{content}}(j) + E_{\text{val\_pos}}(j)$, preserving existing downstream connections.
+- Generic relation-conditioning boundary:
+  - Parameterized operations generically project `argument_values` via `arg_encoder` and `arg_proj`
+    into `arg_token`. Parameter-free operations (`MIRROR_HALVES`) pass `argument_values=None`.
+  - Zero relation-specific branches, closed-form permutation formulas, or teacher maps exist.
+
+**Seven pre-registered structural validations:**
+1. Scorer Content Invariance: Evaluated across vastly different content tensors ($h^{(1)}$ vs $h^{(2)}$).
+   Routing scores and attention weights are bitwise/numerically identical ($\max |\Delta S| = 0.0$,
+   $\max |\Delta A| = 0.0$), while downstream logits differ ($\max |\Delta y| = 3.577 > 0.1$).
+2. Discrete Addressability: All legal Phase B sequence lengths $L \in [2, 16]$ are addressable;
+   pairwise distances between distinct embedding rows are $> 0.1$; out-of-bounds lengths ($L > 32$)
+   strictly raise `ValueError`.
+3. Permutation Representability: Constructive demonstration confirms that across all legal MIRROR_HALVES
+   lengths $L \in [2, 16]$, the model can represent full permutation score matrices with correct key
+   probability $> 0.99$ and margin over runner-up key $> 6.0$.
+4. Information Boundary: Verified through AST/reflection audit that zero target tokens, oracle attention,
+   or label maps reach runtime routing.
+5. Padding Masking: Padded positions ($j \ge L$) have routing scores $-\infty$ and attention weights
+   identically $0.0$; attention weights over valid positions ($j < L$) sum to $1.0$.
+6. Gradient Reachability: Untrained forward pass with differentiable scalar loss yields non-null
+   gradients for all routing parameters ($E_{\text{query\_pos}}$, $E_{\text{key\_pos}}$, $E_{\text{length}}$,
+   and $W_q, W_k, W_v, W_o$). No parameter updates occurred.
+7. Downstream Compatibility: Verified tensor shapes across multiple batch sizes and lengths,
+   `PrimitiveBank` registration and bookkeeping, and standard `state_dict` serializability.
+
+**Finite representability boundary:**
+- Configured domain: $i, j \in [0, 31]$, $L \in [1, 32]$.
+- Full-rank permutation capacity: $L \le \min(L_{\text{max}}, d_{\text{operator}}) = 32 \ge 16$.
+- Unbounded extrapolation is explicitly REJECTED: discrete distinguishability trades continuous
+  interpolation (the cause of REC-004AG coordinate aliasing) for finite, alias-free, orthogonal precision.
+
+**Decision and authorized next steps:**
+Decision: `MINIMAL_ROUTING_CONTRACT_IMPLEMENTED_AND_VALIDATED`.
+All 7 criteria PASS. Next task authorization is strictly limited to:
+1. REC-004AK: Serialization and Fresh-Load Validation under the immutable bundle loader contract.
+Zero training, parameter updates, candidate creation, or bundle modification occurred in REC-004AJ.
+RG3, REC-005, G1, and G4 remain blocked.

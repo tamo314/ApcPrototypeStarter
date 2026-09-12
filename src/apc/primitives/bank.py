@@ -13,6 +13,8 @@ from typing import Any
 from torch import nn
 
 from apc.primitives.primitive import (
+    ContentDecoupledDiscretePositionalCrossAttentionPrimitive,
+    ContentDecoupledDiscretePositionalCrossAttentionPrimitiveConfig,
     CrossPositionLengthBiasPrimitive,
     CrossPositionLengthBiasPrimitiveConfig,
     CrossPositionPrimitive,
@@ -129,6 +131,28 @@ class PrimitiveBank(nn.Module):
         )
         self.add_primitive(primitive)
         return primitive
+
+    def new_content_decoupled_primitive(
+        self,
+        config: ContentDecoupledDiscretePositionalCrossAttentionPrimitiveConfig,
+        *,
+        status: PrimitiveStatus = PrimitiveStatus.CANDIDATE,
+        created_at_task: int = 0,
+        metadata: dict[str, Any] | None = None,
+    ) -> ContentDecoupledDiscretePositionalCrossAttentionPrimitive:
+        """Construct a ContentDecoupledDiscretePositionalCrossAttentionPrimitive
+        with an auto-assigned id, add it, and return it (B-C005REC-004AJ)."""
+        primitive = ContentDecoupledDiscretePositionalCrossAttentionPrimitive(
+            self._next_id,
+            config,
+            status=status,
+            created_at_task=created_at_task,
+            metadata=metadata,
+        )
+        self.add_primitive(primitive)
+        return primitive
+
+    new_cd_dpca_primitive = new_content_decoupled_primitive
 
     def new_shift_relative_primitive(
         self,
