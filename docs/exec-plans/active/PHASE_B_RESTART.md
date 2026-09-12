@@ -667,6 +667,15 @@ float precision/parity guardで安全に停止した未qualified artifactであ�
 - ASで固定されたI01..I05、両stream、全40 routing cellのstep-0/early forward/autograd記録を監査した。stream間の`-∇M·∇L`符号変化はI01..I05で10, 13, 18, 19, 12 cell、step-0→500 basin分岐は6, 9, 5, 5, 9 cellであり、5-seed不変のoracle-free方向は存在しない。ARのmatched結果も同時改善2/5（I01, I05）、I02/I03負干渉である。
 - collision audit: APのI01・長さ10・出力位置4・step500 Stratum Cは27/206例（13.1%）でtarget tokenがkey 0とkey 7の双方にある。同一input/target/logit/CE/CE-gradientという許容observableの下で、key-0 margin改善はkey 7を相対的に下げる必要がある一方、key-7 margin改善はkey 7を上げる必要があり、方向が反対である。key 0を選ぶ情報はcorrect-key mapであり、導出に使えない。実測`dL/dS(4,7)=-0.00471519`は`dL/dS(4,0)=-0.00002454`より約192倍で、CE descentのkey-0 margin予測は`-0.00469064`、Stratum C parameter-margin変化は`-31.0566`（負96.3%）。
 - 従って係数探索・候補比較なしに一意なfixed optimization formulationは導けない。式を固定せず、条件付きの全40 cell（initial vulnerable、terminal failure、stable controlを含む）margin-directed no-update検証は`NOT_EXECUTED_PRECONDITION_UNMET`、将来6000-step I01..I05 pilotの事前登録は不可。証拠: `runs/phase_b_restart/rec004at/run_001/`。既存source manifestのSHA一致を継承し、`optimizer_updates=0`, `candidate_selected=null`, `child_bundle=null`, `bundle_write=false`, `RG3=NOT_EXECUTED`, `REC-005=BLOCKED`, sealed access=0。
+## 7P. Execution Contract: B-C005R3-002R — Single-Family G1 Strict-Holdout Feasibility
+
+**Status: complete, `G1_RELATION_TRANSFER_STOP` (ADR-0147).** The task preregistered exactly one parent Phase-B family, `sealed_local_neighborhood`, before outcome measurement; no alternative family, coefficient, production model, REC-004 artifact, candidate, bundle, RG3, REC-005, G4, or sealed model output was used.
+
+- B-C002 controls passed for all three family operations: deterministic oracle and same-length checks, explicit/few-shot identifiability, and existing-bank/depth-2 symbolic novelty validity (`best direct EM=0.0`, `best depth-2 EM=0.0`, `tau=0.90`).
+- Conservative relation coupling merges the family members into one clean, alias-free component; it does not count differently named members as independent relation-transfer evidence without a learned-parameter boundary. The resulting counts are validation `0/2` and sealed_v2 `1/2`, so relation-count sufficiency fails.
+- On a development-seed-10 throwaway router, existing full-class CE gave held-out keys max gradients `0.04504218` and `0.02629104`, update/state drift; relation-scoped CE gave held-out max gradients exactly `0.0`, exact no-update and no optimizer state, while in-scope keys retained nonzero gradients `0.17509708` and `0.17509702`.
+- Evidence: `runs/phase_b_b2_post_d2/r3_002r_single_family_g1/run_002/`. `run_001` is preserved preliminary evidence; it is not overwritten. Final execution boundary: production model training/modification `0`; sealed model outputs inspected `0`; throwaway-router setup updates `1`, denominator comparison updates `2`; `candidate_selected=null`, `child_bundle=null`, `bundle_write=false`, `rg3=NOT_EXECUTED`, `rec005=BLOCKED`.
+- Decision: STOP G1 relation transfer. Do not add or compare a second family within this task; all downstream REC-004/RG3/REC-005/G4 blocks remain independently blocked.
 ## 8. 実行記録
 - 2026-09-12: 本計画へ状態を集約。過去文書を仕様/証拠へ位置づけ直した（ADR-0127）。
 

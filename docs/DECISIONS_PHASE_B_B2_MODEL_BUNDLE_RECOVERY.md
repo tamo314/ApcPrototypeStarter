@@ -1820,3 +1820,20 @@ Decision: `I01_SPECIFIC_OR_MIXED_EFFECT_IDENTIFIED`.
 **Decision and required STOP:** `NO_SINGLE_OPTIMIZATION_FORMULATION_IDENTIFIED_STOP`.
 
 The prerequisite for the conditional full-cell no-update test was not met, so no formula was fixed and the all-40-cell test (initial vulnerable cells, terminal failures, and stable controls on both streams across five initializations) is `NOT_EXECUTED_PRECONDITION_UNMET`, not a PASS. A fixed 6,000-step I01..I05 pilot is not preregisterable and was not run. Preserve all downstream blocks and do not resume CE-only optimization repair from this evidence.
+
+## ADR-0147: B-C005R3-002R Single-Family G1 Strict-Holdout Feasibility Stops on Relation-Count Sufficiency (`G1_RELATION_TRANSFER_STOP`)
+
+**Date:** 2026-09-13
+
+**Status:** Completed feasibility experiment; `G1_RELATION_TRANSFER_STOP`. The fixed family is novel and identifiable, and relation-scoped CE exactly isolates held-out keys on a throwaway router, but the required relation-count condition is not met. This is a negative G1 result, not authorization for repair training, family expansion, candidate selection, RG3, REC-005, G4, or sealed evaluation.
+
+**Scope and integrity boundary:** Before any outcome calculation, the fixed configuration `configs/phase_b_b2_single_family_g1_strict_holdout.yaml` preregistered exactly the parent Phase-B `sealed_local_neighborhood` family (`MAJORITY_THREE`, `NEIGHBOR_MAX`, `NEIGHBOR_CONDITIONAL`), with no alternative family, coefficient, or production checkpoint. The run used symbolic B-C002 controls and no sealed model output. The only updates were one isolated throwaway-router setup update and one update for each CE-denominator probe; production models and banks were unchanged, REC-004 artifacts were unchanged, and no bundle was written.
+
+**Evidence:** `runs/phase_b_b2_post_d2/r3_002r_single_family_g1/run_002/`.
+
+1. The B-C002 deterministic oracle, same-length, explicit-TaskSpec, and few-shot identifiability checks passed for all three registered operations. Symbolic existing-bank direct and depth-2 composition baselines had EM `0.0` for each operation on the preregistered verification sample, so all three passed novelty validity at `tau=0.90`.
+2. The relation coupling graph records all three operations as the one component `family:sealed_local_neighborhood`: no independent learned-parameter boundary justifies treating family members as separate repair-relation-transfer groups. Thus there is exactly one clean, alias-free, non-coupled component total. Validation has `0` and sealed_v2 has `1`, both below the fixed minimum of `2`; no synthetic relation or alternative family was added to manufacture sufficiency.
+3. The existing full-class CE denominator empirically exposed the held-out router keys on the throwaway copy: maximum absolute gradients were `0.04504218` and `0.02629104`, followed by key updates and AdamW state. The fixed relation-scoped denominator (`COPY`, `NEGATE` only) gave both held-out keys exactly zero gradient, exact tensor equality before/after, and no optimizer state, while in-scope keys retained nonzero maximum gradients (`0.17509708`, `0.17509702`) and optimizer state.
+4. Gate criteria: preregistration PASS; deterministic oracle PASS; identifiability PASS; novelty validity PASS; strict gradient isolation PASS; sealed-output access `0`; relation-count sufficiency FAIL. The conjunction therefore fails closed as `G1_RELATION_TRANSFER_STOP`.
+
+**Decision and consequences:** Preserve both run namespaces; `run_002` is the finalized accounting record and `run_001` remains preserved preliminary evidence. Do not compare or register an alternative family under this task. G1 relation transfer remains STOP, and all downstream REC-004/RG3/REC-005/G4 blocks remain unchanged (`candidate_selected=null`, `child_bundle=null`, `bundle_write=false`, `rg3=NOT_EXECUTED`, `rec005=BLOCKED`).

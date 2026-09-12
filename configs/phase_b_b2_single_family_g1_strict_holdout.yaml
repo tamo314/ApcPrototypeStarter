@@ -1,0 +1,14 @@
+# B-C005R3-002R: fixed before any feasibility outcome is observed.
+# Exactly one parent Phase-B same-length local-neighborhood conditional family;
+# no alternative family, coefficient, production checkpoint, or sealed output.
+family_id: sealed_local_neighborhood
+oracle_seed: 20260913
+sequence_length: 8
+verification_examples: 32
+novelty_threshold: 0.90
+max_composition_depth: 2
+gradient_probe_seed: 10
+gradient_probe_examples_per_operation: 4
+gradient_probe_lr: 0.001
+device: cpu
+output_dir: runs/phase_b_b2_post_d2/r3_002r_single_family_g1/run_002
