@@ -386,3 +386,55 @@ The pilot investigated whether this pre-transition trust-region constraint prese
   - **Directs Subsequent Repair:** Further exploration of plastic capacity cannot rely on pre-$V$ low-rank value residuals alone. Next repairs must consider downstream residual bypasses (e.g. post-attention / output-projection bypass), higher rank or multi-stage adaptation, while preserving the task-blind invariant.
   - **Strict STOP Boundary Enforced:** B-C005REC-004AA completed. No candidate training, child bundle creation, candidate selection, or evaluation on sealed splits.
 
+
+## ADR-0124: I03 Post-Attention Compact Residual Bypass Location Pilot — Moving Rank-4 Plastic Residual to Post-Attention Output Projection Preserves Downstream O1 Compatibility (EM = 0.998–1.000) with Verified Score-Path Isolation, but Confirms Plasticity Insufficiency and Lacks Location Advantage Over Pre-V Residual (Task B-C005REC-004AB, `primary_decision: POST_ATTN_RESIDUAL_PRESERVES_STABILITY_BUT_PLASTICITY_INSUFFICIENT`, `location_advantage: false`)
+
+- **Context:** Following ADR-0123 (which found that adding a compact rank-4 pre-V residual preserved downstream $O_1$ compatibility but failed to restore J0 plasticity, leaving length-10 attention routing uncorrected), Task B-C005REC-004AB investigated the residual-location hypothesis: holding capacity identical ($r=4, d=32$, 256 parameters, GELU, exact-zero functional initialization), the plastic residual bypass was relocated from pre-V to immediately after the frozen attention output projection ($h_{\text{attn}} = h_{\text{attn\_base}} + \text{POST\_ATTN\_RESIDUAL}(h_{\text{attn\_base}})$), prior to the existing residual addition and norm.
+  The task tested whether downstream plastic capacity could functionally compensate for imperfect attention mixtures to recover task output without altering attention routing weights.
+  Stages:
+  1. **Stage A (Exact-Parity Gate):** Verifying bit-exact parity at step 7500 against legacy I03 and REC-004Z role-split.
+  2. **Stage B (Functional-Path & Attention-Score Isolation Gate):** Verifying active forward gradient flow to $W_{\text{up}}$, K projection, and Key content prep, alongside live-graph verification that $d(\text{scores})/d(\theta_{\text{post\_attn}}) = 0$ (confirming the post-attention residual does not leak into attention score logits).
+  3. **Stage C (Training Continuation Pilot):** 500 unconstrained normal forward J0 optimizer updates (7501..8000) with frozen CVOF base and active Key/Q/K/post-attention residual.
+- **Decision:** Classify outcome as `primary_decision: POST_ATTN_RESIDUAL_PRESERVES_STABILITY_BUT_PLASTICITY_INSUFFICIENT`. Set `location_advantage: false` and `strong_functional_floor: false`.
+- **Key Findings:**
+  1. **Stage A Parity Gate: PASS:**
+     - Maximum attention probability difference: $1.55 \times 10^{-6} \le 1.0 \times 10^{-5}$.
+     - Maximum final logits difference: $2.88 \times 10^{-5} \le 1.0 \times 10^{-4}$.
+     - Discrete prediction mismatches across 512 probe examples: $0$.
+  2. **Stage B Functional-Path & Score Isolation Gate: PASS:**
+     - Active gradients verified: $W_{\text{up}}$ gradient norm $= 1.49 \times 10^{-2} > 0$, K projection gradient norm $= 1.03 > 0$, `KEY_CONTENT_PREP` gradient norm $= 8.80 \times 10^{-1} > 0$.
+     - Live-graph attention score gradient $d(\text{scores})/d(\text{params}) = 0.0$ and perturbation score logit difference $= 0.0 \le 1.0 \times 10^{-7}$, confirming zero score-path leakage.
+  3. **Stage C Compatibility Gate: PASS:**
+     - All continuity splits and fresh length-10 confirmation maintained ceiling $O_1$ downstream compatibility at step 8000:
+       - `length10_mechanism_probe_v1`: $O_1$ EM $= 0.998$, position-4 acc $= 1.000$.
+       - `dense_trajectory_transition_probe_v1`: $O_1$ EM $= 0.998$, position-4 acc $= 1.000$.
+       - `attention_clamp_causal_probe_v1`: $O_1$ EM $= 1.000$, position-4 acc $= 1.000$.
+       - `downstream_freeze_causal_probe_v1`: $O_1$ EM $= 1.000$, position-4 acc $= 1.000$.
+       - `fresh_length10_confirmation`: $O_1$ EM $= 1.000$, position-4 acc $= 1.000$.
+     - Freeze audit verified $0.0$ drift across frozen base CVOF subcomponents.
+  4. **Stage C Plasticity Gate: FAIL:**
+     - Fresh normal validation (overall J0 EM, 1024 examples): Post-attn pilot $= 0.6914$ vs Historical unconstrained @8000 $= 0.7422$ ($\Delta = -0.0508$ vs $+0.10$ floor); vs Hard Freeze (REC-004W) @8000 $= 0.7686$ ($\Delta = -0.0771$ vs $+0.05$ floor); vs Pre-V (REC-004AA) @8000 $= 0.7246$ ($\Delta = -0.0332$).
+     - Fresh length-10 confirmation (J0 EM, 512 examples): Post-attn pilot $= 0.0703$ vs Historical unconstrained @8000 $= 0.0508$ ($\Delta = +0.0195$ vs $+0.10$ floor); vs Hard Freeze (REC-004W) @8000 $= 0.0879$ ($\Delta = -0.0176$ vs $+0.05$ floor); vs Pre-V (REC-004AA) @8000 $= 0.0723$ ($\Delta = -0.0020$).
+  5. **Location-Attribution Metric: NOT SUPPORTED:**
+     - $\Delta_{\text{location\_normal}} = 0.6914 - 0.7246 = -0.0332 < +0.05$.
+     - $\Delta_{\text{location\_length10}} = 0.0703 - 0.0723 = -0.0020 < +0.05$.
+     - Post-attention residual provides no location advantage over pre-V residual (`location_advantage: false`).
+  6. **Routing-vs-Compensation Audit:**
+     - Attention routing remained severely impaired (median correct-key score margin $= -32.65$, mean correct-key rank $= 8.51$, median correct-key probability $= 7.89 \times 10^{-8}$).
+     - End-task sequence EM did not substantially improve (+0.0195 vs historical), giving label `NONE` (no compensation without routing).
+  7. **Residual Utilization: ACTIVE:**
+     - $W_{\text{down}}$ L2 displacement $= 0.6694$, $W_{\text{up}}$ L2 displacement $= 0.5170$.
+     - Total gradient accumulation $= 17.61$ ($W_{\text{up}}: 10.56, W_{\text{down}}: 7.05$).
+     - Effective rank $= 4.0 / 4$ (singular values: $[27.15, 2.30, 1.46, 0.53]$).
+     - Mean residual-to-base ratio $= 0.0184$ (`POST_ATTN_RESIDUAL_PLASTICITY_ACTIVE`).
+  8. **Cost and Resource Accounting:**
+     - Added residual parameters: $256$. Total resident parameters added vs single primitive: $7,456$. Active trainable parameters: $24,746$.
+     - 500 intervention updates, 0 candidate training updates. Training duration: $29.08$ seconds. Peak VRAM: $48.29$ MB.
+     - Stable Core and 15 persistent primitives invariant. `candidate_selected: null`, `child_bundle: null`, `rg3_recheck: NOT_EXECUTED`, `rec005_eligible: false`.
+- **Consequences:**
+  - **Decisive Attribution on Residual Location:** Neither pre-V nor post-attention compact rank-4 residual bypass architectures are sufficient to recover normal J0 plasticity or compensate for broken attention routing while the CVOF base is frozen.
+  - **Location Advantage Disconfirmed:** Relocating the residual to post-attention does not outperform pre-V residual ($\Delta = -0.033$ on normal, $-0.002$ on length-10).
+  - **Cease Simple Residual-Location Search:** Per Section 26.3, simple residual-location exploration is terminated. Further investigations must directly address the score/routing capacity bottleneck or architecture re-design rather than downstream compensation.
+  - **Strict STOP Boundary Enforced:** Task B-C005REC-004AB completed. No candidate training, child bundle creation, candidate selection, RG3, or REC-005.
+
+
