@@ -1631,3 +1631,74 @@ training, and evaluations were not run because this change only edits Markdown.
 any acceptance threshold, clear any recovery/research gate, or expand the user's
 research authorization. Existing changes to `config.json` and `prompts/planner.md`
 are excluded from this commit. Historical contracts and measurements are preserved.
+
+## ADR-0143: REC-004AM CD-DPCA Sequence-Distinctness Warm-Start Multi-Initialization Reproduction Fails Terminal Floor Consistency (1/5 Passed, Mean Sequence EM 95.0%) Triggering Fail-Closed Stop (`MULTI_INIT_VIABILITY_NOT_MET`)
+
+**Date:** 2026-09-13
+
+**Status:** Completed all-initialization reproduction experiment; `execution_status: FAIL`,
+`decision: MULTI_INIT_VIABILITY_NOT_MET`. Candidate adoption, child bundle creation,
+RG3 recheck, REC-005, G1, and G4 remain strictly BLOCKED and uncleared.
+
+**Contract and preregistered boundary:**
+- Fixed warm-start recipe bit-for-bit unchanged from ADR-0141 (REC-004AQ):
+  - Optimizer: AdamW (`lr = 0.0008, weight_decay = 0.0001, grad_clip = 1.0`).
+  - Scheduler: CosineAnnealingLR (`T_max = 1000, eta_min = 1e-5`, mechanical extension).
+  - Batch size: 32 examples per step.
+  - Updates per init: 6,000 updates (total budget 30,000 updates across 5 inits).
+  - Checkpoint cadence: every 500 steps (steps 0..6000, 13 checkpoints per init).
+  - Evaluation set: fixed development validation split (1,024 examples).
+  - Freeze isolation: Parent bundle Core (`canonical_state_hash: b3a0d5c0774a36f56281bfeadffce83ce61a6818816c7cf69dcae4a5d3fec585`)
+    and 15 non-MIRROR primitives strictly frozen (`requires_grad = False`). Only the MIRROR temporary primitive (id 12, CD-DPCA) updated.
+  - Data stream:
+    - Steps 1–500: pairwise-distinct tokens sampled without replacement from `range(vocab_size=10)`.
+    - Steps 501–6000: exact return to baseline sampler (with replacement) and per-step seed formula (`_derive_local_seed(seed, step, 'train:MIRROR_HALVES')`).
+    - Bitwise identical data stream across all 5 initializations (`data_stream_identical_across_inits: true`).
+- Pre-registered 5 Initializations (I01..I05):
+  - `I01`: seed 20260912 (canonical hash: `045d85cae86d54ce1caca1947a805f2f424df55c34fba4cde11cafa6bbec49dc`), bit-for-bit identical to REC-004AK/AL/AQ.
+  - `I02`: seed 20260913 (canonical hash: `a57c870af277e0ce0aef063e4bd934376f68d03875c52ec659bfbd00d10738f0`).
+  - `I03`: seed 20260914 (canonical hash: `6f5021e29bed8553be2a571be472222692a34039d34c3b7afe3e55e9502631fe`).
+  - `I04`: seed 20260915 (canonical hash: `ef797081dd5c6e8eb732e7d2a5eb385b80f39389c4d45962ac4f82dc0fdd0e67`).
+  - `I05`: seed 20260916 (canonical hash: `80e3b86334cf17b38f4073c64c9d1ddc88f3041c076141775ab3ff105017a868`).
+- Preregistered Qualification Rule:
+  - All 5/5 inits must independently clear: decisive overall sequence EM $\ge 0.95$, position 4 false attractor cleared (top-1 key 0, acc $\ge 0.95$), other positions non-regressed (acc $\ge 0.90$), causal gap $\ge 0.90$, core and non-target primitives frozen.
+  - 1/5 or 4/5 pass is NOT enough. If any init fails, fail-closed stop is triggered.
+  - Zero side effects: candidate adoption, bundle creation, RG3 recheck, REC-005, G1/G4 remain strictly blocked regardless of outcome.
+
+**Empirical results (`runs/phase_b_restart/rec004am/run_001/`):**
+1. Multi-Init Reproduction Summary:
+   - Passed Inits: **1 / 5** (I01 passed; I02, I03, I04, I05 failed qualification criteria).
+   - Qualification Rule Satisfied: `False`.
+   - Execution Status: `FAIL`.
+   - Decision: `MULTI_INIT_VIABILITY_NOT_MET`.
+   - Mean Decisive Sequence EM: `0.950195` (min `0.862305` [I02], max `0.985352` [I01]).
+   - Mean Decisive Token Accuracy: `0.990479`.
+   - Total updates: 30,000 updates (6,000 updates x 5 inits), total wall clock: 205.15s.
+2. Per-Initialization Breakdown at Step 6,000:
+   - `I01` (seed 20260912): Sequence EM = `0.985352` (1,009 / 1,024), length-10 EM = `1.0000` (206 / 206), pos-4 top key = 0 (margin +5.38, acc 1.0000), causal gap = 0.9854. Status: **PASS** (100% bitwise reproduction of ADR-0141).
+   - `I02` (seed 20260913): Sequence EM = `0.862305` (883 / 1,024), length-10 EM = `0.5340` (110 / 206), pos-4 top key = **5** (margin -10.90, acc 0.6068), causal gap = 0.8623. Status: **FAIL** (locked into competitor key 5 attractor; sequence EM < 0.95 floor).
+   - `I03` (seed 20260914): Sequence EM = `0.962891` (986 / 1,024), length-10 EM = `0.8689` (179 / 206), pos-4 top key = **3** (margin -8.95, acc 0.8689), causal gap = 0.9629. Status: **FAIL** (locked into competitor key 3 attractor; pos-4 token acc < 0.95).
+   - `I04` (seed 20260915): Sequence EM = `0.965820` (989 / 1,024), length-10 EM = `0.9903` (204 / 206), pos-4 top key = 0 (margin +5.19, acc 1.0000), causal gap = 0.9658. Status: **FAIL** (regressed at length 8 position 3: token accuracy = 0.8711 < 0.90; length 8 EM = 0.8711).
+   - `I05` (seed 20260916): Sequence EM = `0.974609` (998 / 1,024), length-10 EM = `0.9806` (202 / 206), pos-4 top key = **1** (margin -1.22, acc 0.9951), causal gap = 0.9746. Status: **FAIL** (pos-4 selected runner-up key 1 over true key 0).
+3. Per-Length Exact Match Breakdown Across Initializations:
+   - Length 6 EM: I01 = 0.9608, I02 = 0.9412, I03 = 0.9804, I04 = 0.9951, I05 = 0.9657.
+   - Length 7 EM: I01 = 0.9813, I02 = 0.9579, I03 = 0.9953, I04 = 0.9673, I05 = 0.9579.
+   - Length 8 EM: I01 = 1.0000, I02 = 0.9742, I03 = 0.9948, I04 = 0.8711, I05 = 0.9794.
+   - Length 9 EM: I01 = 0.9854, I02 = 0.9078, I03 = 0.9757, I04 = 1.0000, I05 = 0.9903.
+   - Length 10 EM: I01 = 1.0000, I02 = 0.5340, I03 = 0.8689, I04 = 0.9903, I05 = 0.9806.
+4. Diagnostics & Invariants:
+   - Information boundary: AST/reflection verified (`status: PASS`, zero oracle/target/teacher tokens in routing).
+   - Freeze audit: verified across all 5 inits (`core_frozen_verified: true`, zero non-MIRROR updates).
+   - Side effect audit: `candidate_selected: null`, `child_bundle: null`, `bundle_write: false`, `rg3: NOT_EXECUTED`, `rec005_eligible: false`, `g1: NOT_CLEARED`, `g4: NOT_CLEARED`.
+
+**Scientific conclusion:**
+1. The sequence-distinctness warm-start recipe discovered in ADR-0141 robustly reproduces on initialization `I01` (achieving identical 98.54% overall EM and 100% length-10 EM).
+2. However, multi-initialization reproduction conclusively reveals that a 500-step uniform warm-start alone is **insufficient to ensure global basin convergence across all random initializations**.
+3. Different weight initializations introduce distinct local geometric biases: while I01 escapes key 7 into key 0, I02 collapses into key 5 (margin -10.90), I03 into key 3 (margin -8.95), I05 exhibits lingering key 1 ambiguity, and I04 exhibits cross-length interference at length 8 position 3.
+4. Under the strict pre-registered 5/5 qualification contract, `MULTI_INIT_VIABILITY_NOT_MET` is triggered. The pipeline halts fail-closed without selecting a candidate or promoting a child bundle.
+
+**Decision and authorized next steps:**
+Decision: `MULTI_INIT_VIABILITY_NOT_MET`.
+1. Candidate adoption and bundle promotion remain strictly BLOCKED (`candidate_selected: null`, `child_bundle: null`).
+2. RG3, REC-005, G1, and G4 remain uncleared and BLOCKED.
+3. Multi-initialization reproduction fails the pre-registered consistency floor (1/5 pass). Any future repair must address multi-basin initial stability (e.g. adaptive warm-start duration, positional anchor initialization, or explicit coordinate regularizer) without oracle supervision.
