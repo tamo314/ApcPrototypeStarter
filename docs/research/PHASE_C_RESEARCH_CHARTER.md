@@ -3,6 +3,7 @@
 Date: 2026-09-13. Version: charter-v1, `READY_FOR_REVIEW_NOT_APPROVED`.
 Created by PHASE-B-CLOSEOUT / ADR-0149. Architecture: `NOT_SELECTED`.
 First experiment: `NOT_DEFINED`. Research execution: `NOT_AUTHORIZED`.
+Status reference: Audited by C-D001 / ADR-0150 (`RELATION_INVENTORY_FEASIBILITY_STOP`). Pre-execution stop; research execution remains unapproved.
 
 ## Independent question and falsifiable hypothesis
 
@@ -181,3 +182,6 @@ STOP and finite search boundary are defined. Design feasibility is **unproved**;
 the charter is ready for approval, while implementation and the first experiment
 remain undefined and unstarted. Acceptance of this document as a deliverable
 does not itself approve the future research phase.
+
+### Design task status reference
+- **C-D001 Audit (2026-09-13):** [Identifiability and feasibility review](../phase_c/PHASE_C_C_D001_IDENTIFIABILITY_AND_FEASIBILITY_REVIEW.md) and [ADR-0150](../DECISIONS_PHASE_C.md#adr-0150-c-d001-oracle-free-routing-identifiability-contract-derivation--relation-inventory-feasibility-audit-stops-on-relation-count-sufficiency-relation_inventory_feasibility_stop) derived `Phase C Training Information Contract v1` but recorded `RELATION_INVENTORY_FEASIBILITY_STOP` due to validation (1/2) and sealed (1/2) clean component deficits in existing non-sealed metadata. Research execution remains `NOT_AUTHORIZED`.

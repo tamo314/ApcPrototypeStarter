@@ -1,0 +1,110 @@
+{
+  "task": "C-D001",
+  "artifact": "relation_inventory_feasibility_audit",
+  "version": "v1.0",
+  "date": "2026-09-13",
+  "sealed_access": {
+    "inputs_read": 0,
+    "labels_read": 0,
+    "outputs_read": 0,
+    "sealed_partition_opened": false,
+    "integrity_check": "PASS"
+  },
+  "charter_requirements": {
+    "validation_clean_independent_components_min": 2,
+    "sealed_clean_independent_components_min": 2,
+    "separate_development_partition_required": true,
+    "prohibit_counting_alias_or_inverse": true,
+    "prohibit_counting_coupled_parameters": true,
+    "prohibit_synthetic_relation_generation_in_task": true
+  },
+  "historical_registry_and_split_audit": {
+    "sources_audited": [
+      "runs/phase_b_b2_post_d2/r3_002_relation_split/relation_split.json",
+      "runs/phase_b_b2_post_d2/r3_002r_single_family_g1/run_002/relation_coupling_graph.json",
+      "src/apc/evaluation/relation_split_protocol.py",
+      "src/apc/evaluation/hard_negative_routing_benchmark.py:_RELATED_OPERATION",
+      "src/apc/primitives/argument_scoring.py:PARAMETERIZED_OPERATIONS",
+      "docs/DECISIONS_PHASE_B_B2_MODEL_BUNDLE_RECOVERY.md:ADR-0147,ADR-0148"
+    ],
+    "l3_relation_families": {
+      "registry": {
+        "SHIFT": "CYCLE_FOUR",
+        "SELECT": "BIND",
+        "COUNT": "BIND",
+        "BIND": "COUNT"
+      },
+      "unordered_family_pairs": [
+        "CYCLE_FOUR-SHIFT",
+        "BIND-COUNT",
+        "BIND-SELECT"
+      ],
+      "coupled_components": {
+        "component_1": {
+          "id": "L3:BIND-COUNT+BIND-SELECT",
+          "member_operations": ["BIND", "COUNT", "SELECT"],
+          "coupling_reason": "Shares physical primitive BIND router key; modifying one perturbs the other's geometry.",
+          "partition_assignment_history": "development (exposed to targeted diagnostic and repair in Phase B)"
+        },
+        "component_2": {
+          "id": "L3:CYCLE_FOUR-SHIFT",
+          "member_operations": ["CYCLE_FOUR", "SHIFT"],
+          "coupling_reason": "Independent pair, shares no physical primitive with BIND group.",
+          "partition_assignment_history": "validation (1 group)"
+        }
+      }
+    },
+    "l4_relation_families": {
+      "definition": "Argument variants of parameterized operations (SHIFT, SELECT, COUNT, BIND).",
+      "coupling": "Independent linear heads in ArgumentScorer, but operate on base operations already coupled with L3 components.",
+      "partition_assignment_history": {
+        "development": ["L4:BIND:argument_variant", "L4:SELECT:argument_variant"],
+        "validation": ["L4:COUNT:argument_variant"],
+        "sealed_v2": ["L4:SHIFT:argument_variant"]
+      }
+    },
+    "sealed_local_neighborhood_family": {
+      "task": "B-C005R3-002R",
+      "operations": ["MAJORITY_THREE", "NEIGHBOR_MAX", "NEIGHBOR_CONDITIONAL"],
+      "coupling_analysis": "All 3 operations belong to the same preregistered local neighborhood family; shares inductive structure and parameters. Forms exactly 1 coupled component 'family:sealed_local_neighborhood'.",
+      "partition_assignment_history": {
+        "validation": [],
+        "sealed_v2": ["family:sealed_local_neighborhood"]
+      }
+    }
+  },
+  "component_inventory_summary": {
+    "clean_non_alias_non_coupled_components_available": {
+      "development": [
+        "L3:BIND-COUNT+BIND-SELECT"
+      ],
+      "validation": [
+        "L3:CYCLE_FOUR-SHIFT"
+      ],
+      "sealed_v2": [
+        "family:sealed_local_neighborhood"
+      ]
+    },
+    "partition_counts": {
+      "development_components": 1,
+      "validation_components": 1,
+      "sealed_v2_components": 1
+    },
+    "evaluation_vs_charter": {
+      "validation": {
+        "actual": 1,
+        "required": 2,
+        "sufficient": false
+      },
+      "sealed": {
+        "actual": 1,
+        "required": 2,
+        "sufficient": false
+      }
+    },
+    "overall_feasibility_pass": false,
+    "deficit_analysis": "To satisfy Phase C charter requirements, at least 1 additional independent clean relation component is needed in validation, and at least 1 additional independent clean relation component is needed in sealed. Generating synthetic relations or renaming aliases within C-D001 is prohibited by Section 10."
+  },
+  "decision": "RELATION_INVENTORY_FEASIBILITY_STOP",
+  "consequence": "Phase C research implementation cannot proceed until an independent relation family expansion is formally designed, approved via ADR, and added to the non-sealed registry."
+}

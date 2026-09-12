@@ -10,8 +10,9 @@ non-executions due to upstream STOP; do not register them as unfinished work.
 
 PHASE-B-CLOSEOUT is complete: `PHASE_B_CLOSED_NEXT_RESEARCH_CHARTER_READY`.
 The [Phase C charter](research/PHASE_C_RESEARCH_CHARTER.md) is ready for user
-review/approval. No Phase C experiment, implementation or training task is queued;
-the first experiment is a separate task only after charter approval and freeze.
+review/approval.
+Task C-D001 (Identifiability Contract Derivation & Relation-Inventory Feasibility Audit) is complete: `RELATION_INVENTORY_FEASIBILITY_STOP` ([ADR-0150](DECISIONS_PHASE_C.md#adr-0150-c-d001-oracle-free-routing-identifiability-contract-derivation--relation-inventory-feasibility-audit-stops-on-relation-count-sufficiency-relation_inventory_feasibility_stop)). Phase C Training Information Contract v1 was derived, but relation inventory deficits (validation 1/2, sealed 1/2) block C-D002 and architecture derivation. Research execution remains `NOT_AUTHORIZED`.
+
 
 ## Historical bootstrap queue
 

@@ -221,3 +221,10 @@ All Phase-B entries above are historical evidence, including their former active
 Phase C has a review-ready charter only; research has not begun and no first experiment is defined.
 
 - [ADR-0149](DECISIONS_PHASE_B_B2_MODEL_BUNDLE_RECOVERY.md#adr-0149-close-phase-b-evidence-and-create-an-independent-routing-identifiability-charter) -- Freeze the Phase-B evidence ledger and terminal state, archive experimental non-executions due to upstream STOP, and create the independent [Phase C charter](research/PHASE_C_RESEARCH_CHARTER.md); `PHASE_B_CLOSED_NEXT_RESEARCH_CHARTER_READY`, without architecture selection or research execution.
+
+## Phase C: Routing identifiability research
+
+Phase C investigates oracle-free semantic routing identifiability under ambiguous token outputs.
+The charter is review-ready; research execution is not authorized without prior charter approval and relation-inventory resolution.
+
+- [ADR-0150](DECISIONS_PHASE_C.md#adr-0150-c-d001-oracle-free-routing-identifiability-contract-derivation--relation-inventory-feasibility-audit-stops-on-relation-count-sufficiency-relation_inventory_feasibility_stop) -- C-D001 derives Phase C Training Information Contract v1 from structural cross-example consistency and duplicate-aware gradient masking, but non-sealed relation-inventory audit reveals validation (1/2) and sealed (1/2) component deficits; stops prior to architecture derivation or execution (`RELATION_INVENTORY_FEASIBILITY_STOP`).
