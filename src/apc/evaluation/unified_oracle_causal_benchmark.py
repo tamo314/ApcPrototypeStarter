@@ -70,6 +70,7 @@ from apc.primitives.conditioning import (
     DEFAULT_MAX_SEQUENCE_LENGTH,
 )
 from apc.primitives.primitive import (
+    ContentDecoupledDiscretePositionalCrossAttentionPrimitive,
     CrossPositionPrimitive,
     CrossPositionPrimitiveConfig,
     PrimitiveBase,
@@ -575,7 +576,12 @@ def _train_single_primitive(
         optimizer.zero_grad(set_to_none=True)
         if isinstance(
             primitive,
-            (CrossPositionPrimitive, ShiftRelativePrimitive, ReverseRelativePrimitive),
+            (
+                CrossPositionPrimitive,
+                ShiftRelativePrimitive,
+                ReverseRelativePrimitive,
+                ContentDecoupledDiscretePositionalCrossAttentionPrimitive,
+            ),
         ):
             logits = primitive(h, content_lengths, output_lengths, argument_values)
         else:
@@ -652,7 +658,12 @@ def _evaluate_primitive_arm(
             )
             if isinstance(
                 primitive,
-                (CrossPositionPrimitive, ShiftRelativePrimitive, ReverseRelativePrimitive),
+                (
+                    CrossPositionPrimitive,
+                    ShiftRelativePrimitive,
+                    ReverseRelativePrimitive,
+                    ContentDecoupledDiscretePositionalCrossAttentionPrimitive,
+                ),
             ):
                 logits = primitive(h, content_lengths, output_lengths, argument_values)
             else:

@@ -1039,8 +1039,8 @@ class ContentDecoupledDiscretePositionalCrossAttentionPrimitive(PrimitiveBase):
     def forward(
         self,
         content_features: torch.Tensor,
-        content_lengths: Sequence[int],
-        output_lengths: Sequence[int],
+        content_lengths: Sequence[int] | None = None,
+        output_lengths: Sequence[int] | None = None,
         argument_values: Sequence[Any] | None = None,
         *,
         return_attention: bool = False,
@@ -1049,8 +1049,8 @@ class ContentDecoupledDiscretePositionalCrossAttentionPrimitive(PrimitiveBase):
 
         Args:
             content_features: Tensor `[batch, lmax, d_model]`
-            content_lengths: Sequence of integer lengths L
-            output_lengths: Sequence of integer output lengths L_out
+            content_lengths: Sequence of integer lengths L (defaults to full length)
+            output_lengths: Sequence of integer output lengths L_out (defaults to content_lengths)
             argument_values: Optional sequence of generic argument values
             return_attention: If True, returns `(logits, attn_weights)`
 
@@ -1060,6 +1060,10 @@ class ContentDecoupledDiscretePositionalCrossAttentionPrimitive(PrimitiveBase):
         """
         device = content_features.device
         batch, lmax, _ = content_features.shape
+        if content_lengths is None:
+            content_lengths = [lmax] * batch
+        if output_lengths is None:
+            output_lengths = list(content_lengths)
         out_max = max(output_lengths)
 
         if not self.enabled:

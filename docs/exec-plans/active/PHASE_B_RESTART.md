@@ -1,6 +1,6 @@
 # Phase B 再開計画 — 現在地と実行順の正本
 
-版: 2026-09-12 / ADR-0127〜0134。
+版: 2026-09-12 / ADR-0127〜0137。
 
 ## 1. 目的と今回の実行権限
 
@@ -49,6 +49,9 @@
 | 再開: REC-004AG | 完了（§7B） | `POSITION_ROUTING_TARGET_NOT_SUPPORTED` | 座標空間transportはEM=0へ崩壊し、位置bias単独標的を反証 |
 | 再開: REC-004AH | 完了（§7C） | `SCORE_DECOMPOSITION_IDENTIFIABILITY_STOP` | 構成要素識別性行列の評価で全要素が条件(d)不成立、単一修復標的の探索を停止 |
 | 再開: REC-004AI | 完了（§7D） | `MINIMAL_ROUTING_CONTRACT_IDENTIFIED` | MIRROR必要条件から探索なしに単一最小routing contract（CD-DPCA）を導出 |
+| 再開: REC-004AJ | 完了（§7E） | `MINIMAL_ROUTING_CONTRACT_IMPLEMENTED_AND_VALIDATED` | CD-DPCAコード実装、未学習構造7不変条件PASS、有限表現境界の確定 |
+| 再開: REC-004AK | 完了（§7F） | `CD_DPCA_SERIALIZATION_AND_FRESH_LOAD_VALIDATED` | CD-DPCA/Bank厳格シリアライズ、fresh-load完全等価性、10種負例fail-closed検証 |
+| 再開: REC-004AL | 完了（§7G） | `PILOT_TERMINAL_VIABILITY_NOT_MET` | 6,000 updates単一init学習パイロット。validation EM=0.793945 < 0.95 未達によりfail-closed停止。candidate/bundle未作成 |
 | REC-005〜008 | 未着手 | RG3に依存。ただし失敗時の引継ぎは可能 | 今後のcohort・runtime注入の原契約 |
 | R3-011〜012 | 未着手 | G1/G4に依存 | 封印・B2_PROTOCOL_V2原契約 |
 | B-C006〜014 | 未着手 | B2/G5、以降各gateに依存 | B3〜B6の原計画 |
@@ -372,6 +375,43 @@ float precision/parity guardで安全に停止した未qualified artifactであ�
 - 判定: `CD_DPCA_SERIALIZATION_AND_FRESH_LOAD_VALIDATED`。
 - 次タスクの順序限定: 次段階は (3) 単一init学習パイロット（REC-004AL）に限定される。
 
+## 7G. 実行契約: B-C005REC-004AL — CD-DPCA単一init学習パイロット
+
+**状態: 完了、`PILOT_TERMINAL_VIABILITY_NOT_MET`（ADR-0137）。終端実行性基準（EM≥0.95）未達によりfail-closed停止。全init検証・候補採択・bundle出力は厳格に遮断。**
+目的は、REC-004AKで検証されたCD-DPCA (`ContentDecoupledDiscretePositionalCrossAttentionPrimitive`) の新規ロード状態から単一初期化（I01）の学習可能インスタンスを構築し、教示オラクルなしの通常トークン損失下で `MIRROR_HALVES` 順列を学習できるかを厳格な実行境界と事前登録評価プロトコル下で審査することである。
+
+- 実行境界 & 保護要件:
+  - 凍結・保護: 親bundleのCoreおよびrouterは完全凍結 (`requires_grad = False`, hash照合済)。親bankの他15プリミティブも完全凍結。学習対象は `MIRROR_HALVES` スロット（物理ID 12）のCD-DPCA単一インスタンスのみ。
+  - ソース整合性: REC-004AKアーティファクトのSHA-256ハッシュ（マニフェスト、config、bank/primitive state）を事前検証。
+  - 情報境界: ランタイムルーティングに正解トークン、ラベル、教示注意分布、順列ルックアップテーブルが一切入力されないことをASTおよびリフレクションで監査。
+  - 副作用厳格遮断: candidate選定0 (`candidate_selected: null`), bundle write0 (`child_bundle: null`, `bundle_write: false`), 追加init実行0, ハイパーパラメータ探索0, 予算延長0, 封印データアクセス0。RG3未実行 (`rg3: NOT_EXECUTED`), `rec005_eligible: false`。G1およびG4は未解除の独立ブロックとして保持。
+- 学習設定:
+  - 最適化器: AdamW (`lr = 1e-3`, `weight_decay = 0.01`, `betas = (0.9, 0.999)`), CosineAnnealingLR (`T_max = 6,000`, `eta_min = 1e-5`)。
+  - 予算 & 評価頻度: 最大6,000 updates。500 stepごとにcheckpoint・訓練状態を保存し、1,024例の既存開発validation setで評価。
+- 終端実行性基準: 決定ステップ 6,000 における系列完全一致精度（sequence EM） $\ge 0.95$。未達の場合は即座に fail-closed 停止し、全init検証（REC-004AM）への移行を禁止。
+- 実行結果（`runs/phase_b_restart/rec004al/run_001/`）:
+  1. 検証指標（ステップ 6,000）:
+     - 系列EM: `0.793945` (813 / 1,024例) vs 終端基準 `>= 0.95` $\to$ `terminal_viability_met: false`（基準未達）。
+     - トークン精度: `0.973254` (8,029 / 8,250トークン)。
+  2. 系列長別EM内訳（ステップ 6,000）:
+     - 長さ 6: `199 / 204` (EM = `0.9755`, トークン精度 = `0.9959`) $\to$ 長さ別基準クリア
+     - 長さ 7: `170 / 214` (EM = `0.7944`, トークン精度 = `0.9693`)
+     - 長さ 8: `178 / 194` (EM = `0.9175`, トークン精度 = `0.9897`)
+     - 長さ 9: `196 / 206` (EM = `0.9515`, トークン精度 = `0.9946`) $\to$ 長さ別基準クリア
+     - 長さ 10: `70 / 206` (EM = `0.3398`, トークン精度 = `0.9311`) $\to$ 主たる失点局在（長さ依存崩壊）
+  3. 因果対照（ステップ 6,000）:
+     - 正解制御 EM: `0.7939`、逆族制御 (`REVERSE`) EM: `0.0000`、未ルーティング制御 (`None`) EM: `0.0000`、因果ギャップ: `0.7939`（有意な演算子依存性）。
+  4. 注意 & パディング診断:
+     - パディングマスク検証 PASS（パディング位置スコア $-\infty$、注意重み $0.0$、有効位置重み和 $1.0$）。
+     - Top-1 正解キールーティング精度: `0.8964` (1,826 / 2,037位置)。
+     - runner-up に対する正解スコアマージン平均: `6.4475`。
+  5. 整合性 & 副作用監査:
+     - ソースハッシュ照合 PASS、情報境界監査 PASS、フリーズ監査 PASS、副作用監査 PASS。
+- 判定と影響:
+  - 判定: `PILOT_TERMINAL_VIABILITY_NOT_MET`。
+  - 事前登録された終端実行性基準（EM $\ge 0.95$）を満たさなかったため、フェイルクローズ停止を発動。
+  - 全init検証（REC-004AM）、候補採択、およびbundle出力への進行はすべて遮断される。
+
 ## 8. 実行記録
 
 - 2026-09-12: 本計画へ状態を集約。過去文書を仕様/証拠へ位置づけ直した（ADR-0127）。
@@ -385,6 +425,7 @@ float precision/parity guardで安全に停止した未qualified artifactであ�
 - 2026-09-12: REC-004AI `run_001` 実行完了、`MINIMAL_ROUTING_CONTRACT_IDENTIFIED`（ADR-0134）。タスク意味論から探索なしに単一最小アーキテクチャ契約（CD-DPCA）を導出。学習0、実装0、candidate0、RG3未実行。
 - 2026-09-12: REC-004AJ `run_001` 実行完了、`MINIMAL_ROUTING_CONTRACT_IMPLEMENTED_AND_VALIDATED`（ADR-0135）。CD-DPCAのコード実装と未学習構造7基準PASS。学習0、candidate0、bundle0、RG3未実行。
 - 2026-09-12: REC-004AK `run_001` 実行完了、`CD_DPCA_SERIALIZATION_AND_FRESH_LOAD_VALIDATED`（ADR-0136）。CD-DPCAおよびPrimitiveBankの厳格シリアライズ、fresh-load完全等価性、10種負例fail-closed、情報境界を検証。学習0、candidate0、bundle0、RG3未実行。
+- 2026-09-12: REC-004AL `run_001` 実行完了、`PILOT_TERMINAL_VIABILITY_NOT_MET`（ADR-0137）。単一init（I01）学習パイロットで検証系列EM=0.793945（813/1024）となり、終端実行性基準（EM≥0.95）未達によりフェイルクローズ停止。全init検証・候補採択・bundle出力は厳格に遮断。G1/G4ブロック保持。
 - 2026-09-12: 全2,514ケースの分割検証・ruff・mypy・文書/差分確認を完了。今回の整理・修正・有限precheckを閉じる。Phase B全体やRG3の完了ではない。
 
 ## 9. 最終検証と現在の停止点
@@ -394,7 +435,7 @@ float precision/parity guardで安全に停止した未qualified artifactであ�
 | pytest 全収集ケース | 分割実行で2,514件PASS | Windows先行977件＋再開1,536件＋WSL1件。全node IDの和集合と全収集IDが一致 |
 | Windows単一プロセスの全件実行 | 異常終了、PASSではない | 長いXデータ検証中のPythonアクセス違反。原因未確定。既通過分を保存し、残りを再開 |
 | ruff check . | PASS | 終了コード0（全ファイル通過） |
-| mypy src/apc | PASS | 162 source files、終了コード0 |
+| mypy src/apc | PASS | 163 source files、終了コード0 |
 | 文書・差分 | PASS | ローカルリンク存在確認、git diff --check |
 
 全ケースの検証範囲は満たしたが、単一プロセスの安定性を認定したとは扱わない。
@@ -405,7 +446,6 @@ WSLへ移したのはartifactパスに依存しない `test_rec004x_dataset_disj
 `verification_coverage_plan.json`、`verification_events.jsonl`、`final_*.log` に保存した。
 研究の新学習0とは§5/6の研究実行を指し、検証用tiny fixtureの学習を含む全テストの更新数を指さない。
 
-**現在の停止点はREC-004AKによるCD-DPCAおよびPrimitiveBankのシリアライズ・fresh-load完全等価性・厳格負例検証の完了であり、次段階はREC-004AL（単一init学習パイロット）に限定される。**
-旧score分解に対する対症的修復はADR-0133で正式に停止され、タスク意味論から演繹された新contractがADR-0134で確立され、ADR-0135でコード実装および未学習構造検証が完了し、ADR-0136でimmutable loader contract下におけるシリアライズとfresh-load完全等価性が厳格に実証された。
-REC-004AK内では学習・candidate作成・bundle write・RG3再検証・REC-005は一切実行せず、G1/G4は未解決ブロックとして保持する。
-次タスクでは、CD-DPCAに対する単一初期化シードでの学習可能性パイロット（REC-004AL）のみを厳格な実行境界下で審査する。
+**現在の停止点はREC-004ALによるCD-DPCA単一init学習パイロットの実施および終端実行性基準未達（EM=0.793945 < 0.95）によるフェイルクローズ停止（`PILOT_TERMINAL_VIABILITY_NOT_MET`）である。**
+ADR-0135で構成的に証明された表現十分性にもかかわらず、通常トークン損失下での6,000 updates単一init学習では長さ10等での失点（EM=0.3398）により全体EMが0.7939にとどまり、事前登録された合格基準（0.95）に達しなかった。
+事前登録契約に従い、全init検証（REC-004AM）、候補採択、およびModelBundle出力は厳格に遮断（`candidate_selected: null`, `child_bundle: null`）され、RG3、REC-005、G1、G4は未解除のまま保持される。

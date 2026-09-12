@@ -1153,3 +1153,80 @@ All equivalence, negative, and boundary criteria PASS. Next task authorization i
    learn the MIRROR_HALVES permutation without oracle guidance).
 Zero training, parameter updates, candidate creation, or bundle modification occurred in REC-004AK.
 RG3, REC-005, G1, and G4 remain blocked.
+
+## ADR-0137: REC-004AL CD-DPCA Single-Init Learning Pilot Reaches 79.4% Sequence EM, Failing Terminal Viability Floor (>=95%) and Triggering Fail-Closed Stop
+
+**Date:** 2026-09-12
+
+**Status:** Completed single-init learning pilot; `execution_status: PASS`,
+`decision: PILOT_TERMINAL_VIABILITY_NOT_MET`. Multi-init validation (REC-004AM), candidate adoption,
+and bundle promotion are BLOCKED. G1 and G4 remain uncleared independent research blocks.
+
+**Contract and preregistered boundary:**
+- Pilot objective: Evaluate whether a single fresh initialization (I01) of the Content-Decoupled
+  Discrete Positional Cross-Attention primitive (`CD-DPCA`, physical id 12) can learn the `MIRROR_HALVES`
+  permutation from an ordinary token-output loss under the inherited optimizer recipe (AdamW, lr=1e-3,
+  cosine decay, 6,000 updates maximum, evaluation cadence every 500 steps) without oracle guidance.
+- Strict isolation & freeze:
+  - Parent bundle Core (`canonical_state_hash: b3a0d5c0774a36f56281bfeadffce83ce61a6818816c7cf69dcae4a5d3fec585`)
+    and router are strictly frozen (`requires_grad = False`).
+  - 15 non-MIRROR primitives in the parent bank are strictly frozen.
+  - Source REC-004AK artifacts (`bank_manifest.json`, `primitive_config.json`, `bank_state.pt`,
+    `primitive_state.pt`) verified against raw and canonical SHA-256 hashes prior to training.
+  - Runtime routing computation is audited via AST and reflection: zero target tokens, teacher maps,
+    labels, oracle attention, or relation-specific permutation tables reach the forward pass.
+- Bounded scope & zero side effects:
+  - Exactly one initialization (I01) evaluated; zero additional inits run.
+  - Decision strictly fixed to null: `candidate_selected: null`, `child_bundle: null`, `bundle_write: false`.
+  - Zero hyperparameter search, zero learning rate sweeps, zero budget extensions beyond 6,000 updates.
+  - Zero sealed evaluation partition accessed.
+  - RG3 recheck `NOT_EXECUTED`, `rec005_eligible: false`. Independent research blocks G1 and G4 strictly preserved (`NOT_CLEARED`).
+- Terminal viability criterion:
+  - Terminal criterion: sequence EM $\ge 0.95$ at decisive step 6,000 on the 1,024-example existing development validation set.
+  - Fail-closed protocol: if decisive sequence EM $< 0.95$ or any audit fails, record a specific STOP status (`PILOT_TERMINAL_VIABILITY_NOT_MET`) and do NOT proceed to all-init validation (REC-004AM).
+
+**Empirical results (`runs/phase_b_restart/rec004al/run_001/`):**
+1. Validation Metrics at Decisive Step 6,000:
+   - Overall Sequence Exact Match: `0.793945` (813 / 1,024 examples).
+   - Terminal Viability Threshold: `0.950000`.
+   - Terminal Viability Met: `False` (`PILOT_TERMINAL_VIABILITY_NOT_MET` triggered).
+   - Overall Token Accuracy: `0.973254` (8,029 / 8,250 tokens).
+2. Per-Length Breakdown at Decisive Step 6,000:
+   - Length 6: Sequence EM = `0.9755` (199 / 204), Token Acc = `0.9959` (1,195 / 1,200) — passes length floor ($\ge 0.95$).
+   - Length 7: Sequence EM = `0.7944` (170 / 214), Token Acc = `0.9693` (1,660 / 1,712).
+   - Length 8: Sequence EM = `0.9175` (178 / 194), Token Acc = `0.9897` (1,536 / 1,552).
+   - Length 9: Sequence EM = `0.9515` (196 / 206), Token Acc = `0.9946` (1,844 / 1,854) — passes length floor ($\ge 0.95$).
+   - Length 10: Sequence EM = `0.3398` (70 / 206), Token Acc = `0.9311` (1,794 / 1,927) — primary failure locus.
+3. Causal Controls on Decisive Step 6,000 Checkpoint:
+   - Correct Control EM: `0.7939` (813 / 1,024).
+   - Wrong-Family Control EM (`REVERSE` donor): `0.0000` (0 / 1,024).
+   - None Control EM (unrouted baseline): `0.0000` (0 / 1,024).
+   - Causal Gap: `0.7939` (statistically non-spurious operator dependence).
+4. Attention & Masking Diagnostics:
+   - Padding Masking: strictly verified (`padding_mask_verified: True`); padded key positions ($j \ge L$) have score $-\infty$ and weight $0.0$; valid attention weights sum to $1.0$ ($\text{max diff} < 10^{-5}$).
+   - Top-1 Routing Accuracy to Correct Key $\pi_L(i)$: `0.8964` (1,826 / 2,037 positions).
+   - Mean Correct vs Runner-up Score Margin: `6.4475`.
+5. Integrity & Boundary Audits:
+   - Source Manifest SHA-256: verified bit-identical against REC-004AK.
+   - Freeze Audit: `core_frozen_verified: True`, `parent_primitives_frozen: True`, optimizer updated zero Core or non-MIRROR parameters (`status: PASS`).
+   - Side Effect Audit: `candidate_selected: null`, `child_bundle: null`, `bundle_write: false`, `rg3: NOT_EXECUTED`, `rec005_eligible: false`, `g1: NOT_CLEARED`, `g4: NOT_CLEARED` (`status: PASS`).
+
+**Scientific analysis:**
+- Representation vs. Optimization Gap:
+  ADR-0135 constructively proved that CD-DPCA possesses the exact representational capacity to achieve
+  $100\%$ sequence EM across all lengths $L \in [2, 16]$ with high confidence and large margins ($>6.0$).
+  However, empirical training from random initialization with the standard cross-entropy loss under
+  the inherited schedule fails to converge to this representational attractor on the full distribution,
+  achieving $79.4\%$ overall EM with a severe collapse specifically on Length 10 ($34.0\%$ EM),
+  mirroring the known length-dependent difficulty observed in prior architectures (REC-004A, REC-004D).
+- Fail-Closed Consequence:
+  Because the terminal viability floor ($\ge 0.95$) was not reached, this pilot conclusively stops the
+  CD-DPCA promotion pipeline without wasting resources on multi-initialization sweeps (REC-004AM)
+  or corrupting the model bundle.
+
+**Decision and authorized next steps:**
+Decision: `PILOT_TERMINAL_VIABILITY_NOT_MET`.
+1. All-init validation (REC-004AM) is BLOCKED.
+2. Candidate adoption and model bundle creation remain strictly BLOCKED (`candidate_selected: null`, `child_bundle: null`).
+3. RG3, REC-005, G1, and G4 remain uncleared and BLOCKED.
+4. Artifacts from `runs/phase_b_restart/rec004al/run_001/` (all 13 checkpoints 0..6000, training states, logs, audits, diagnostics) are preserved immutably for post-mortem analysis.

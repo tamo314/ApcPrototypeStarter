@@ -2249,6 +2249,7 @@ def _predict_tokens(
     from apc.core.data import collate_content_only_batch
     from apc.environments.operations import get_operation
     from apc.primitives.primitive import (
+        ContentDecoupledDiscretePositionalCrossAttentionPrimitive,
         CrossPositionPrimitive,
         ReverseRelativePrimitive,
         ShiftRelativePrimitive,
@@ -2265,7 +2266,13 @@ def _predict_tokens(
             None if argument_provider is None else [argument_provider(ex) for ex in examples]
         )
         if isinstance(
-            primitive, (CrossPositionPrimitive, ShiftRelativePrimitive, ReverseRelativePrimitive)
+            primitive,
+            (
+                CrossPositionPrimitive,
+                ShiftRelativePrimitive,
+                ReverseRelativePrimitive,
+                ContentDecoupledDiscretePositionalCrossAttentionPrimitive,
+            ),
         ):
             logits = primitive(h, content_lengths, output_lengths, argument_values)
         else:

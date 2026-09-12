@@ -1,0 +1,19 @@
+seed: 10
+output_dir: runs/phase_b_restart/rec004al/run_001
+task_id: B-C005REC-004AL
+init_id: I01
+target_operation: MIRROR_HALVES
+max_updates: 6000
+checkpoint_interval: 500
+decisive_step: 6000
+existing_validation_examples: 1024
+existing_validation_split: rec004a_budget_validation
+existing_validation_floor: 0.95
+operator_lr: 0.0008
+operator_weight_decay: 0.0001
+operator_grad_clip: 1.0
+scheduler_t_max: 1000
+scheduler_eta_min: 0.00001
+examples_per_step: 32
+vocab_size: 10
+sequence_length_range: [6, 10]
