@@ -421,6 +421,7 @@ def evaluate_parallel_score_residual_forward_with_stages(
     return {
         "final_token_logits": final_token_logits,
         "score_logits": scores,
+        "s_qk": s_qk,
         "s_base": s_base,
         "delta_s": delta_s,
         "s_total": s_total,

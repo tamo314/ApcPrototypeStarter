@@ -1,6 +1,6 @@
 # Phase B 再開計画 — 現在地と実行順の正本
 
-版: 2026-09-12 / ADR-0127〜0129。
+版: 2026-09-12 / ADR-0127〜0131。
 
 ## 1. 目的と今回の実行権限
 
@@ -42,8 +42,10 @@
 | REC-001〜003 | 完了 | RG0〜RG2 PASS | immutable bundle、fail-closed load、16操作build |
 | REC-004 | 実施済み | RG3 FAIL | seed10親とfresh-load検証 |
 | REC-004A〜AC / ENV1 | 完了した診断・介入 | MIRROR候補未採用 / RG3未再検証 | 3操作validation修正、位置bias、安定value経路、負の対照 |
-| 再開: AC metric_v2 | 訂正・再分析・分割全件検証完了（§8） | 計測/再現PASS、性能FAILを保持 | 正しいkey指標、保存語彙の固定 |
+| 再開: AC metric_v2 | 訂正・再分析・分割全件検証完了（§9） | 計測/再現PASS、性能FAILを保持 | 正しいkey指標、保存語彙の固定 |
 | 再開: score-scale precheck | 完了 | 固定4条件すべてFAIL_STOP | 全体的な拡縮だけでは当該endpointを回復できなかった |
+| 再開: REC-004AE | 完了（§7） | `INSUFFICIENT_EVIDENCE_STOP` | routing失敗は局在したが、QK対position biasの単一修復標的は未分離 |
+| 再開: REC-004AF | 完了（§7A） | `INSUFFICIENT_EVIDENCE_STOP` | QK endpoint 置換は一部token recoveryを示したが、routing/marginの非退化差とposition側の可変対照がない |
 | REC-005〜008 | 未着手 | RG3に依存。ただし失敗時の引継ぎは可能 | 今後のcohort・runtime注入の原契約 |
 | R3-011〜012 | 未着手 | G1/G4に依存 | 封印・B2_PROTOCOL_V2原契約 |
 | B-C006〜014 | 未着手 | B2/G5、以降各gateに依存 | B3〜B6の原計画 |
@@ -78,7 +80,7 @@ REC-005/006ではbuild時の語彙契約とtask-tokenの操作順序も同じ親
 
 ## 5. 実行契約: REC-004AC metric_v2
 
-**状態: 訂正・再分析PASS、分割全件検証完了（§8）。新学習0、候補選択0、sealed0。**
+**状態: 訂正・再分析PASS、分割全件検証完了（§9）。新学習0、候補選択0、sealed0。**
 目的は正解key、head recall、score規模、parameter会計の訂正と、保存endpointの同入力再分析。
 既存J0/O1 forward・重み・学習scheduleを変更しない。ACの通常実行FAILは独立に保持する。
 
@@ -109,7 +111,7 @@ score scale仮説を検証可能か判断する。未確定ならその状態を
 
 ## 6. 次の介入: MIRROR score-scale precheck（事前登録）
 
-**状態: 完了・FAIL_STOP（ADR-0129）。並行していた全件検証も完了（§8）。**
+**状態: 完了・FAIL_STOP（ADR-0129）。並行していた全件検証も完了（§9）。**
 2026-09-12の実行順の調整: 過去の大型データ台帳を再構築する全件テストを待つ間に、
 保存モデルを変更しない本precheckを進める。`run_003`の全manifest/予測/重み再現と、
 実際に失敗していた全モジュール収集時の親ロード・schema回帰8件はPASS済み。
@@ -148,15 +150,133 @@ O1の最小EMは全条件0.998046875で予測も不変。全重み・過去sourc
 基準との差は拡縮条件で悪化しており、この4条件の修復試行は終了する。
 別係数や学習時のscale変更の可能性は未検証であり、一般的な不可能性とは解釈しない。
 
-## 7. 実行記録
+## 7. 実行契約: B-C005REC-004AE — 固定checkpointのMIRROR失敗モード局在化
+
+**状態: 完了、`INSUFFICIENT_EVIDENCE_STOP`（ADR-0130）。これは診断だけであり、修復学習・candidate選択・RG3・sealed評価を許可しない。**
+目的は、訂正済みAC I03@8000の残存J0誤りを、出力位置ごとのscore routing、oracle下流復元、
+score構成要素のいずれに帰属できるかを固定入力で判定し、重複しない次の単一修復介入を
+選べるかを決めることにある。
+
+- endpoint/data: `rec004ac_metric_v2/run_003` が再現したAC I03@8000と保存済み7 development dataset
+  （normal validation 1024、length10 confirmation 512、continuity4、parity fixture）。manifest、
+  `examples.json`、checkpoint hashを実行前後に照合する。新生成、training/validation再分割、sealed参照はない。
+- 凍結: Core、bank、AC primitiveの全tensorをfreezeし、optimizerの構築をfail-closedで禁止する。
+  更新数0、parameter追加0、selection0、bundle書込み0。親bankは実行しない。
+- 固定診断: (1) baseline forwardの既存EM/予測parity、(2) 正しいMIRROR position mapによる
+  oracle-attention対照、(3) 出力位置×headの正解key rank/margin/top-1、(4) `QK`、position bias、
+  score residualそれぞれの「正解key minus baseline top-wrong key」寄与、(5) baseline scoreから
+  position bias全体、またはQK全体を除いた二つの**ablation-only** forward。後二者は係数探索・
+  候補修復ではなく、失敗の所在を判定する固定反実仮想である。baseline/ablationのvalue/readoutは同一。
+- failure mode: 各output tokenを `DIRECT_CORRECT`、`ROUTING_ERROR_ORACLE_RECOVERS`、
+  `DOWNSTREAM_ERROR_PERSISTS_UNDER_ORACLE` に排他的分類する。oracleは評価対照だけであり、
+  runtime入力・修復recipeへ埋め込まない。全位置でoracle回復し、正解keyの順位が系統的に低く、
+  position-bias除去が同じroutingを悪化させずQK除去だけが悪化する、というような反証可能な交差表を保存する。
+- 判定: `ROUTING_LOCALIZED` は、length10 confirmationおよびnormal内length10でoracle下流errorが
+  1%以下、残存direct token errorの95%以上がoracleで回復し、正解keyのrank/marginとcomponent寄与が
+  同じ出力位置群で再現し、かつ二つのablationがQK競合かposition routing不足かを一意に分ける場合のみ。
+  それ以外は `INSUFFICIENT_EVIDENCE_STOP`。通常J0 EMやO1 EMの0.95 floorをこの診断で変更しない。
+- 重複確認: score-only continuation/score勾配（O/Q）、score scale、pre/post-V rank4 residual、
+  hard CVOF freeze、trust-region、既存の加法position biasは既に棄却・停止済みである。局在が成立した場合の
+  次候補はそれらの係数再探索や後付けresidualではなく、**開始時からQK content scoreとlearned position-only
+  routing scoreを役割分離し、value pathを維持する一つのrecipe**に限る。これはREC-004Dの「加法bias」や
+  REC-004Zのkey/value splitと同一ではなく、実行には別の明示契約・予算・all-init接続条件が必要であり、
+  本task内では実装・学習しない。
+- 出力: `runs/phase_b_restart/rec004ae/<run_id>/` にprotocol、input/source hashes、dataset manifest、
+  position/failure/component/ablation tables、side-effect audit、summary/reportを新規保存する。失敗時もartifactを
+  残し、ADRへ判断と次の開始条件を記録する。
+
+実行結果: `run_004` はexecution PASS、source不変、optimizer更新0、candidate選択0、RG3/sealed未実行。
+length10 confirmationとnormal validation内length10では、direct token errorのoracle回復率はともに1.0、
+oracle下流error率は0.0で、残存誤りをrouting側へ局在した。出力位置ごとのQK/position-bias寄与の符号も
+両splitで一致する。しかしQK除去とposition-bias除去はともにsequence EM=0.0となり、両者の差はnormalと
+length10でいずれも0.0であった。したがって寄与の存在は示せても、どちらを単一の修復標的にすべきかを
+一意に分離できない。既に棄却済みのscore-only/gradient、global scale、compact residual、hard freeze、
+trust region、加法position biasを再試行する根拠も生じなかった。判定は `INSUFFICIENT_EVIDENCE_STOP` とし、
+単一修復介入は選定しない。
+
+次タスクの開始条件は、(1) 固定endpoint上でQK競合とposition routing不足を**非退化な**反実仮想で
+識別する事前登録、(2) 同一のvalue/readoutとcorrect map非流入を監査する対照、(3) 既棄却仮説との非重複、
+(4) その結果が一つのrecipe、全init検証、固定I01採用、RG3へ接続する明示規則、の全てである。
+これらがない限り、学習、係数追加、RG3、封印評価を開始しない。
+
+## 7A. 実行契約: B-C005REC-004AF — matched-endpoint QK/position 因果分離
+
+**状態: 完了、`INSUFFICIENT_EVIDENCE_STOP`（ADR-0131）。評価専用であり、repair target、学習、candidate、RG3、REC-005、sealed 評価は開始しない。**
+目的は、ADR-0130 で局在した length-10 routing/value-selection boundary を、保存済み AC I03@8000
+endpoint における非退化な paired counterfactual で QK-content competition と position-routing
+insufficiency のどちらか一方に分離できるか判定することである。
+
+- endpoint/data/freeze: immutable AC I03@8000 checkpoint と metric_v2 `run_003` の保存済み
+  `examples.json` と manifest-identical development strata のみを読む。Core、parent bank、target
+  primitive、value path、FFN、readout を凍結し、optimizer 構築・更新、parameter 追加、bundle write、
+  candidate selection、architecture/coefficient search、RG3、REC-005、sealed-data read は fail-closed
+  で禁止する。実行前後に checkpoint/source/data hashes を照合する。
+- score/replay: runtime score を `S = S_QK + S_position_bias + S_residual` と明示分解する。
+  `S_QK` は保存 Q/K score、`S_position_bias` は保存 position-bias score、`S_residual` は保存値のまま
+  両 counterfactual で不変とする。QK counterfactual は対象の position bias/residual を保持して
+  `S_QK` だけを control endpoint の同一 score row で置換する。position counterfactual は対象の
+  `S_QK`/residual を保持して `S_position_bias` だけを置換する。softmax 後の attention から、既存の
+  固定 value/output/FFN/readout path を通す。correct position map、oracle attention、正解 key index は
+  J0 runtime や control selection に渡さない。oracle attention は baseline failure-mode の
+  evaluation-only 再確認に限る。
+- preregistered matching: control pool は split 内の全保存例であり、baseline/介入結果・target・oracle
+  でフィルタしない。relation=`MIRROR_HALVES`、sequence length、output position、入力 token 和 modulo 4
+  だけを matching strata とする。各 endpoint identity は split 名、例 index、入力 token tuple の SHA-256
+  で昇順固定し、同一 stratum の自分以外の次の4例を circular に control rank 0--3 とする。pool が5未満なら
+  STOP。matching table は model forward 前に書出す。成功例を選別する規則、正解routingに基づく事後選択、
+  intervention result による control 変更は一切しない。
+- strata/measurement: primary strata は normal validation 内 length-10 と length-10 confirmation、
+  supplemental として normal validation 全長も別表に残す。baseline、各 control rank の QK/position
+  counterfactual について sequence EM、token accuracy、baseline direct-error token recovery、head×token
+  top-1 correct-key routing、correct-key probability/margin、QK/position-bias の correct-key margin contribution、
+  routing-change 例数、誤答→正答と正答→誤答の token/sequence 数を保存する。correct-key map はこの集計だけで
+  使用する。baseline parity は REC-004AE/AC の保存値と一致を要求する。
+- fixed selection rule: component T を選ぶには、4 control rank **すべて**で両 primary strata において、
+  baseline 比 correct-key top-1 routing が +0.05 以上、correct-key margin が +0.25 以上、direct-error
+  recovery が 0.05 以上であり、もう一方 U よりも top-1 と direct-error recovery が各 +0.05 以上、margin
+  が +0.25 以上でなければならない。T=QK のみが満たせば `QK_CONTENT_TARGET_SUPPORTED`、T=position のみが
+  満たせば `POSITION_ROUTING_TARGET_SUPPORTED` とする。双方、同程度、符号不一致、control identity 依存、
+  parity/hash/情報境界 fail、又はこの差未達は `INSUFFICIENT_EVIDENCE_STOP` とし、repair intervention を選ばない。
+- non-overlap/next connection: これは ADR-0111--0130 の global scaling、score-only continuation、gradient
+  repair、compact residual relocation、hard CVOF freeze、trust-region、duplicate additive position-bias の
+  再試行ではない。selection 成立時だけ、一つの対応 repair recipe を文書化する。その recipe は実装せず、
+  single-init pilot → preregistered all-init validation → fixed I01 adoption rule → candidate freeze →
+  full 15 non-SHIFT operation RG3 → independent 5-model/G4 接続の出口条件を記す。selection 不成立なら
+  recipe 複数比較、係数探索、architecture search へ進まず STOP する。G1/G4 は解除しない。
+- output: `runs/phase_b_restart/rec004af/run_005/` に protocol、source/checkpoint/data manifests と hashes、
+  preregistered matching table、baseline/counterfactual metrics、oracle evaluation audit、freeze/side-effect audit、
+  summary/report を新規保存する。過去 run は上書きしない。
+
+実行結果: qualified `run_005` は baseline と checkpoint/state hashを再現し、optimizer update=0、parameter
+addition=0、candidate/bundle write=0、RG3/REC-005/sealed=0 で完了した。normal validation 内 length-10 と
+length-10 confirmation の oracle direct-error recovery はともに1.0、oracle-persistent error は0.0であり、
+固定 value/FFN/readout path のまま routing/value-selection boundary を評価した。4個すべての固定 QK controls は、
+normal length-10 のdirect-error token recovery 0.135965--0.149123、confirmation 0.128295--0.138840、
+sequence EM 0.081340→0.105263--0.124402 と 0.080078→0.095703--0.101562 を示した。一方 top-1 correct-key
+routing の差は -0.001555〜+0.000488、correct-key margin差は -0.002519〜+0.003447 に留まり、事前登録した
++0.05 / +0.25 の両閾値を満たさなかった。position-bias endpointは同一length/output-position内で保存値が
+例間不変であり、4 controls全てで baseline と bitwise同一の出力・routing集計になった。
+
+従って、QK endpoint を移すと一部の誤答tokenが回復するという値選択への因果的感度は分離できたが、QK
+competition を次の単一repair targetとして支持するほどの correct-key routing/margin 改善は分離できない。
+position-routing insufficiency はこのcontrol designでは反証も支持もできない。position endpointに例間変動が
+ないため、ゼロ効果はpositionが不要という証拠ではない。control identityに依存しない有効な優位差も示せず、
+判定は `INSUFFICIENT_EVIDENCE_STOP` とする。single repair recipeは文書化せず、新しいarchitecture search、
+coefficient sweep、複数recipe比較、学習pilotを開始しない。`run_001`--`run_004` は baseline aggregate の
+float precision/parity guardで安全に停止した未qualified artifactであり、いずれもsource不変・optimizer
+非構築で保存した。`run_005`だけをqualified resultとして参照する。
+
+## 8. 実行記録
 
 - 2026-09-12: 本計画へ状態を集約。過去文書を仕様/証拠へ位置づけ直した（ADR-0127）。
 - 2026-09-12: REC-004AC metric_v2を開始。過去の監査文書・変更途中のファイルを保持。
 - 2026-09-12: metric_v2 `run_003` PASS。保存語彙を固定したruntimeでも、元の全manifest・EM・重みhashが一致（ADR-0128）。通常EM=0.7646484375、length10 J0=0.080078125、O1=1.0。RG3は未実行。
 - 2026-09-12: `mirror_score_scale_precheck/run_001` 実行完了、研究判定FAIL_STOP（ADR-0129）。4条件固定、学習0、候補選択0。
+- 2026-09-12: REC-004AE `run_004` 実行完了、`INSUFFICIENT_EVIDENCE_STOP`（ADR-0130）。length10の誤りはoracleで回復するrouting誤りだが、QKとposition biasを単一標的へ分離できなかった。修復学習・係数探索・RG3・sealedは0。
+- 2026-09-12: REC-004AF qualified `run_005` 実行完了、`INSUFFICIENT_EVIDENCE_STOP`（ADR-0131）。4固定matched controlsによるQK endpoint置換は一部direct-error tokenを回復したが、routing/marginの非退化改善を示さず、同層のposition endpointは例間不変であった。repair target、recipe、学習、RG3、sealedは0。
 - 2026-09-12: 全2,514ケースの分割検証・ruff・mypy・文書/差分確認を完了。今回の整理・修正・有限precheckを閉じる。Phase B全体やRG3の完了ではない。
 
-## 8. 最終検証と現在の停止点
+## 9. 最終検証と現在の停止点
 
 | 検証 | 結果 | 証拠・制約 |
 |---|---|---|
@@ -174,8 +294,10 @@ WSLへ移したのはartifactパスに依存しない `test_rec004x_dataset_disj
 `verification_coverage_plan.json`、`verification_events.jsonl`、`final_*.log` に保存した。
 研究の新学習0とは§5/6の研究実行を指し、検証用tiny fixtureの学習を含む全テストの更新数を指さない。
 
-**現在の停止点はMIRROR通常実行の研究性能。** 計測と親ロードの障害は修正済み。
-今回のglobal score拡縮による修復は失敗として終了し、追加係数・学習・全init展開・RG3・REC-005は実行しない。
-次に修復を再開する契約には、正しいkeyの順位を変えられる機構と、動作しているvalue経路を保持する対照を
-明示する必要がある。有限pilotの成功から全init、固定I01採用、full-bundle RG3へ接続する条件も事前固定する。
-これは新しい連番タスクの予約ではなく、次の実行判断に必要な最小条件である。G1/G4は別の未解決条件として保持する。
+**現在の停止点はMIRROR通常実行の研究性能であり、REC-004AE/AFは`INSUFFICIENT_EVIDENCE_STOP`で閉じた。**
+計測と親ロードの障害は修正済み。global score拡縮は失敗として終了し、AEはrouting誤りを局在化した。AFは
+QK endpoint置換の一部token recoveryを示したが、QK競合とposition routing不足を一意に分離しなかった。
+追加係数・学習・全init展開・RG3・REC-005は実行しない。次に修復を再開する契約には、position endpointの
+例間不変性を説明した上で非退化な因果対照により正しいkey順位の失敗源を一つに分け、動作しているvalue経路を
+保持すること、既棄却仮説と重複しないこと、有限pilotから全init、固定I01採用、full-bundle RG3へ接続する
+条件を事前固定することが必要である。これは新しい連番タスクの予約ではない。G1/G4は別の未解決条件として保持する。

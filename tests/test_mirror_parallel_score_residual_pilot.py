@@ -90,6 +90,10 @@ def test_role_split_parallel_score_residual_primitive_forward_parity() -> None:
     )
     assert torch.allclose(rs_stages["attn_probs"], res_stages["attn_probs"], atol=1e-6)
     assert torch.allclose(rs_stages["score_logits"], res_stages["score_logits"], atol=1e-6)
+    assert res_stages["s_qk"].shape == res_stages["s_base"].shape
+    assert torch.allclose(
+        res_stages["s_total"], res_stages["s_base"] + res_stages["delta_s"][:, None]
+    )
     assert torch.allclose(rs_stages["attn_out"], res_stages["attn_out"], atol=1e-6)
     assert torch.all(res_stages["delta_s"] == 0.0)
 

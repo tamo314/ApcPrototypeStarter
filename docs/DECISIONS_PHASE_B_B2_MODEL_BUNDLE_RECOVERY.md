@@ -717,3 +717,119 @@ The separately labelled `post_run_source/manifest.json` records the final source
 snapshot and working-tree patch after report/guard additions. It does not replace
 the original preregistration hashes or claim those later additions were executed
 in the recorded precheck.
+
+## ADR-0130: REC-004AE Localizes Length-10 Errors to Routing but Cannot Isolate a Single QK or Position-Bias Repair Target
+
+**Date:** 2026-09-12
+
+**Status:** Completed diagnostic; `execution_status: PASS`,
+`decision: INSUFFICIENT_EVIDENCE_STOP`.
+
+**Contract and boundary:** REC-004AE used only the immutable AC I03@8000 checkpoint and
+the seven manifest-identical development datasets reproduced by metric_v2 `run_003`.
+It froze the Core, parent bank and target primitive, fail-closed optimizer construction,
+and performed zero updates, parameter additions, selections, candidate/bundle writes,
+RG3 checks or sealed-data reads. Oracle attention was evaluation-only; it was not
+provided to the J0 runtime or proposed recipe. The two preregistered score-component
+removals (remove all position bias; remove all QK) are ablation-only diagnostics, not
+coefficient search or repair candidates.
+
+**Evidence:** `runs/phase_b_restart/rec004ae/run_004/` reproduces baseline sequence EM
+exactly and records unchanged Core/bank/primitive hashes. On the length-10 confirmation,
+baseline J0 EM is 0.080078125, oracle EM is 1.0, oracle-persistent token error is 0.0,
+and 100% of direct token errors recover under oracle attention. The normal validation's
+length-10 stratum likewise has oracle-persistent token error 0.0 and direct-error
+oracle recovery 1.0. Across the two strata, output-position QK and position-bias
+correct-key margin-contribution signs agree. Thus the retained error is localized to
+the score-routing/value-selection boundary, rather than the fixed downstream value,
+FFN or readout path.
+
+The remaining required distinction did not hold. Removing either position bias or QK
+produced sequence EM 0.0 on both normal validation and the length-10 confirmation;
+the position-bias-minus-QK ablation delta is exactly 0.0 in both. Both components are
+therefore necessary to the saved behavior under this destructive removal test, but the
+test cannot identify either as the unique repair target. The original `run_001` remains
+preserved as an initialization failure caused by a rank calculation on a sliced score
+row; it constructed no optimizer and mutated no source. The corrected `run_004` is the
+qualified result.
+
+**Decision:** Do not select a repair intervention. This rules out treating the routing
+localization itself as evidence for another global scale trial, score-only continuation,
+gradient repair, compact residual location change, hard CVOF freeze, trust-region retry,
+or a duplicate additive position-bias trial; these have already been rejected or stopped
+by ADR-0111--0129. The earlier potential role-separated position-only routing recipe is
+not selected because this result cannot show it is the unique causal remedy rather than
+another QK/position interaction.
+
+**Next-task start condition:** A new explicit contract may begin only with a
+non-degenerate, fixed-endpoint causal comparison that separates QK-content competition
+from position-routing insufficiency while holding the saved value/readout path fixed and
+keeping the correct position map out of runtime inputs. It must state non-overlap with
+the rejected hypotheses, specify a single subsequent recipe rather than an architecture
+search, and preregister how any pilot result would connect to all-init validation, the
+fixed I01 adoption rule and full-bundle RG3. Until then, no training, coefficient
+expansion, candidate selection, RG3, REC-005 or sealed evaluation may start. G1 and G4
+remain separate blocks.
+
+**Verification:** Python 3.12.13 focused REC-004AC stage tests pass (4 tests), as do
+`ruff check .`, `mypy src/apc` (162 source files), and `git diff --check`. A full-suite
+attempt under the shell default Python 3.10 stopped at collection because `tomllib` is
+unavailable; the project Python 3.12.13 attempt reported test errors before
+completion and was interrupted after progress ceased. It is not claimed as passing.
+
+## ADR-0131: REC-004AF Matched-Endpoint Counterfactuals Show QK-Sensitive Token Recovery but Do Not Support a Unique QK or Position Repair Target
+
+**Date:** 2026-09-12
+
+**Status:** Completed diagnostic; `execution_status: PASS`,
+`decision: INSUFFICIENT_EVIDENCE_STOP`.
+
+**Contract and boundary:** REC-004AF used only the immutable AC I03@8000 checkpoint,
+metric_v2 `run_003` development inputs, and the qualified REC-004AE records. It froze
+Core, parent bank, target primitive, value path, FFN and readout; fail-closed optimizer
+construction verified zero updates. There were no parameter additions, candidate or
+bundle writes, architecture/coefficient search, RG3/REC-005 activity, or sealed-data
+reads. The correct position map was used only by post-forward metrics. Oracle attention
+was evaluated only to reconfirm downstream sufficiency, never supplied to J0 or matching.
+
+**Preregistered causal comparison:** Before any model forward, each saved endpoint was
+matched within its split by relation `MIRROR_HALVES`, sequence length, output position,
+and raw input-token-sum modulo 4. The pool was every saved endpoint in that stratum--not
+only successes--sorted by SHA-256 of split, example index and input tuple. The next four
+distinct endpoints in the circular order were the fixed controls. This rule does not take
+targets, correct keys, oracle routing, baseline prediction, or intervention result as an
+input. QK counterfactuals replaced only saved `S_QK`; position counterfactuals replaced
+only saved `S_position_bias`; `S_residual` and the target endpoint's fixed value/readout
+path stayed unchanged. Thus the measured score partition was
+`S = S_QK + S_position_bias + S_residual`.
+
+**Evidence:** Qualified artifacts are in `runs/phase_b_restart/rec004af/run_005/`.
+Baseline sequence EM reproduced exactly: normal validation 0.7646484375 and length-10
+confirmation 0.080078125. State hashes before/after exactly agree with REC-004AE's Core,
+bank and primitive hashes; source hashes and all source datasets remained unchanged.
+Normal-validation length-10 and confirmation oracle controls each have direct-error
+recovery 1.0 and persistent error 0.0.
+
+Across all four controls, QK-only replacement recovered direct-error tokens consistently:
+0.135965--0.149123 on normal-validation length-10 and 0.128295--0.138840 on confirmation.
+It raised sequence EM from 0.081340 to 0.105263--0.124402 and from 0.080078 to
+0.095703--0.101562, respectively. However, correct-key top-1 routing changes span only
+-0.001555 to +0.000488 and correct-key margin changes only -0.002519 to +0.003447.
+They fail the preregistered +0.05 and +0.25 all-control/all-stratum minima. Replacing the
+position bias produces exactly baseline output and routing measurements because that saved
+position component is invariant across matched examples at fixed length and output position.
+
+**Decision:** The experiment causally separates a limited QK-sensitive value-selection
+effect: changing QK endpoints can recover some direct-error tokens while preserving the
+entire downstream path. It does **not** establish QK-content competition as the dominant
+routing repair target, because correct-key routing/margin lack a non-degenerate,
+control-robust gain. Nor does it refute or support position-routing insufficiency: the
+matched position controls have no example-level variation, so their zero effect is not an
+informative position intervention. No component satisfies the fixed selection rule;
+`QK_CONTENT_TARGET_SUPPORTED` and `POSITION_ROUTING_TARGET_SUPPORTED` are both rejected.
+No repair recipe is selected or documented, and no learning pilot may follow from this run.
+
+The non-qualified `run_001`--`run_004` artifacts preserve fail-closed baseline-parity
+stops caused by diagnostic aggregation precision checks; their side-effect audits show
+unchanged sources and zero optimizer construction. They are not scientific comparison
+results. G1 and G4 remain uncleared and independent of this diagnosis.
