@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -25,7 +26,7 @@ DEFAULT_CONFIG = APP_DIR / "config.json"
 PLANNER_SCHEMA = APP_DIR / "planner_schema.json"
 PLANNER_PROMPT_FILE = APP_DIR / "prompts" / "planner.md"
 EXECUTOR_PROMPT_FILE = APP_DIR / "prompts" / "executor.md"
-CONTEXT_FILE = APP_DIR / "README.md"
+CONTEXT_FILE = APP_DIR / "AGENTS.md"
 INITIAL_TASK_FILE = APP_DIR / "research" / "INITIAL_TASK.md"
 RUNTIME_DIR = APP_DIR / ".orchestrator"
 RUNS_DIR = RUNTIME_DIR / "runs"
@@ -126,8 +127,17 @@ def normalize_config(config: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(config[tool], dict) or not config[tool].get("command"):
             raise OrchestratorError(f"config.{tool}.command is required")
         config[tool].setdefault("extra_args", [])
+        config[tool].setdefault("model", "")
         if not isinstance(config[tool]["extra_args"], list):
             raise OrchestratorError(f"config.{tool}.extra_args must be an array")
+        if config[tool]["model"] is None:
+            config[tool]["model"] = ""
+        if not isinstance(config[tool]["model"], str):
+            raise OrchestratorError(f"config.{tool}.model must be a string")
+
+    config["antigravity"].setdefault("dangerously_skip_permissions", False)
+    if not isinstance(config["antigravity"]["dangerously_skip_permissions"], bool):
+        raise OrchestratorError("config.antigravity.dangerously_skip_permissions must be true or false")
 
     return config
 
@@ -236,13 +246,76 @@ def version_probe(command: str) -> str:
         return f"version check failed: {exc}"
 
 
+def _read_antigravity_settings_model() -> str | None:
+    path = Path.home() / ".gemini" / "antigravity-cli" / "settings.json"
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    model = data.get("model") if isinstance(data, dict) else None
+    return model.strip() if isinstance(model, str) and model.strip() else None
+
+
+def _read_codex_config_model() -> str | None:
+    path = Path.home() / ".codex" / "config.toml"
+    if not path.is_file():
+        return None
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    # Only consider a top-level model assignment before the first TOML table.
+    pattern = re.compile(r"model\s*=\s*[\"']([^\"']+)[\"']")
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("["):
+            break
+        match = pattern.match(stripped)
+        if match:
+            return match.group(1).strip()
+    return None
+
+
+def configured_model(config: dict[str, Any], tool: str) -> tuple[str, str]:
+    explicit = str(config[tool].get("model", "")).strip()
+    if explicit:
+        return explicit, "config.json"
+    if tool == "antigravity":
+        detected = _read_antigravity_settings_model()
+        if detected:
+            return detected, "Antigravity settings.json"
+    if tool == "codex":
+        detected = _read_codex_config_model()
+        if detected:
+            return detected, "Codex config.toml"
+    return "CLI default (not pinned)", "default"
+
+
+def _model_args(config: dict[str, Any], tool: str) -> list[str]:
+    model = str(config[tool].get("model", "")).strip()
+    return ["--model", model] if model else []
+
+
+def _parse_codex_runtime_model(stdout: str, stderr: str) -> str | None:
+    text = f"{stderr}\n{stdout}"
+    match = re.search(r"(?mi)^\s*model\s*:\s*([^\r\n]+)", text)
+    return match.group(1).strip() if match else None
+
+
 def run_checks(config: dict[str, Any], project_dir: Path) -> bool:
     executor = config["executor"]
     required_commands = [config["codex"]["command"], config[executor]["command"]]
     ok = True
 
+    planner_model, planner_model_source = configured_model(config, "codex")
+    executor_model, executor_model_source = configured_model(config, executor)
+
     print(f"Project directory : {project_dir}")
     print(f"Executor          : {executor}")
+    print(f"Planner model     : {planner_model} [{planner_model_source}]")
+    print(f"Executor model    : {executor_model} [{executor_model_source}]")
     print(f"Max iterations    : {config['max_iterations']}")
     print()
 
@@ -263,9 +336,13 @@ def run_checks(config: dict[str, Any], project_dir: Path) -> bool:
 
     if executor == "antigravity":
         print()
-        print("Antigravity note: agy -p is non-interactive. Ensure the project is trusted and")
-        print("its tool permissions allow the file/terminal operations you expect; otherwise")
-        print("operations requiring approval can be denied in non-interactive mode.")
+        if config["antigravity"].get("dangerously_skip_permissions"):
+            print("[WARNING] Antigravity auto-approval is ENABLED (--dangerously-skip-permissions).")
+            print("          The agent can run commands and modify files without confirmation.")
+        else:
+            print("Antigravity note: agy -p is non-interactive. For host-side code changes, set")
+            print("Tool Permission to 'always-proceed' in /permissions or /config, OR explicitly")
+            print("set antigravity.dangerously_skip_permissions=true in config.json.")
 
     return ok
 
@@ -312,12 +389,27 @@ def run_executor(
     context = read_text(CONTEXT_FILE)
     prompt = build_executor_prompt(task, context)
 
+    model_args = _model_args(config, executor)
     if executor == "claude":
-        command = [tool_config["command"], "-p", prompt, *tool_config["extra_args"]]
+        command = [tool_config["command"], *model_args, *tool_config["extra_args"], "-p", prompt]
     else:
-        command = [tool_config["command"], "-p", prompt, *tool_config["extra_args"]]
+        permission_args = (
+            ["--dangerously-skip-permissions"]
+            if tool_config.get("dangerously_skip_permissions")
+            else []
+        )
+        command = [
+            tool_config["command"],
+            *permission_args,
+            *model_args,
+            *tool_config["extra_args"],
+            "-p",
+            prompt,
+        ]
 
+    model_name, model_source = configured_model(config, executor)
     print(f"\n[{iteration}] Executor: {executor}")
+    print(f"[{iteration}] Executor model: {model_name} [{model_source}]")
     print(f"[{iteration}] Running implementation task...")
     result = run_command(command, project_dir, int(config["executor_timeout_seconds"]))
     normalized = normalize_executor_output(executor, result.stdout, result.stderr)
@@ -329,8 +421,13 @@ def run_executor(
             "timestamp": utc_now(),
             "iteration": iteration,
             "executor": executor,
+            "model": model_name,
+            "model_source": model_source,
             "task": task,
-            "command": [clean_cli_name(command[0]), *command[1:2], "<prompt>", *command[3:]],
+            "command": [
+                "<prompt>" if arg == prompt else (clean_cli_name(arg) if i == 0 else arg)
+                for i, arg in enumerate(command)
+            ],
             "return_code": result.return_code,
             "timed_out": result.timed_out,
             "duration_seconds": round(result.duration_seconds, 3),
@@ -422,9 +519,11 @@ def run_planner(
         config, iteration, executor, task, executor_result, executor_report
     )
     codex_cfg = config["codex"]
+    planner_model, planner_model_source = configured_model(config, "codex")
     command = [
         codex_cfg["command"],
         "exec",
+        *_model_args(config, "codex"),
         "--sandbox",
         "read-only",
         "--skip-git-repo-check",
@@ -437,6 +536,7 @@ def run_planner(
     ]
 
     print(f"[{iteration}] Planner: codex")
+    print(f"[{iteration}] Planner model: {planner_model} [{planner_model_source}]")
     # Feed the planner prompt through UTF-8 stdin instead of argv.  This avoids
     # Windows .cmd/cmd.exe command-line length limits for large executor reports.
     result = run_command(
@@ -473,12 +573,17 @@ def run_planner(
     if decision["status"] == "continue" and not decision["next_task"].strip():
         raise OrchestratorError("Planner returned continue with an empty next_task")
 
+    runtime_model = _parse_codex_runtime_model(result.stdout, result.stderr)
+    effective_model = runtime_model or planner_model
+
     planner_log = RUNS_DIR / f"{iteration:04d}_planner_codex.json"
     write_json(
         planner_log,
         {
             "timestamp": utc_now(),
             "iteration": iteration,
+            "model": effective_model,
+            "model_source": "Codex runtime banner" if runtime_model else planner_model_source,
             "return_code": result.return_code,
             "duration_seconds": round(result.duration_seconds, 3),
             "stdout": result.stdout,
@@ -487,6 +592,8 @@ def run_planner(
         },
     )
 
+    if runtime_model and runtime_model != planner_model:
+        print(f"[{iteration}] Planner runtime model: {runtime_model}")
     print(f"[{iteration}] Planner decision: {decision['status']}")
     print(f"[{iteration}] Analysis: {decision['analysis']}")
     if decision["status"] == "continue":

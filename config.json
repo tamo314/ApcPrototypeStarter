@@ -13,6 +13,7 @@
   },
   "claude": {
     "command": "claude",
+    "model": "gpt-5.6-terra",
     "extra_args": [
       "--output-format",
       "json",
