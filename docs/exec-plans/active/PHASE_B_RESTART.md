@@ -59,6 +59,7 @@
 | 再開: REC-004AM | 完了（§7L） | `MULTI_INIT_VIABILITY_NOT_MET` | warm-start固定レシピ5独立初期化（I01..I05）再現性検証。合格1/5（I01のみ合格）、適格性規則（5/5）未達によりfail-closed停止。candidate/bundle未作成 |
 | 再開: REC-004AR | 完了（§7M） | `I01_SPECIFIC_OR_MIXED_EFFECT_IDENTIFIED` | 5初期化matched-baseline因果複製。同時改善2/5（I01, I05）、I02/I03は負干渉。普遍的優位性は反証されI01特異的・混合効果を同定。REC-004AM FAIL保持 |
 | 再開: REC-004AS | 完了（§7N） | `INITIALIZATION_DATA_INTERACTION_IDENTIFIED` | 既存130 checkpoint state・全40 routing cell/初期化・step-1固定streamのno-update監査。step-0幾何単独/early-data単独は不十分、初期化×data interactionを確認。generic initialization-only repairは未同定、pilot禁止 |
+| 再開: REC-004AT | 完了（§7O） | `NO_SINGLE_OPTIMIZATION_FORMULATION_IDENTIFIED_STOP` | AO/AP/AM/AR/AS既存証跡のみのoracle-free standard-CE式識別性監査。alias collisionは同一CE observableに対し反対routing方向を要求し、単一式の一意導出に失敗。CE-only optimization-repairをSTOP |
 | REC-005〜008 | 未着手 | RG3に依存。ただし失敗時の引継ぎは可能 | 今後のcohort・runtime注入の原契約 |
 | R3-011〜012 | 未着手 | G1/G4に依存 | 封印・B2_PROTOCOL_V2原契約 |
 | B-C006〜014 | 未着手 | B2/G5、以降各gateに依存 | B3〜B6の原計画 |
@@ -658,6 +659,14 @@ float precision/parity guardで安全に停止した未qualified artifactであ�
 - native gradient寄与と、I02 base←I01 donorのforward-only一群移植をquery/key-position、length、Wq、Wk、QK biasへ分解。top-1変化cellは23, 37, 32, 34, 35, 0/40で単一familyへの局在は不成立。generic oracle-free initialization constraintを一意に導けないため、initialization-only learning pilotとarchitecture/init sweepをSTOPする。
 - 証拠: `runs/phase_b_restart/rec004as/run_001/`。source checkpoint SHA-256前後一致、`optimizer_updates=0`, `candidate_selected=null`, `child_bundle=null`, `bundle_write=false`, `RG3=NOT_EXECUTED`, `REC-005=BLOCKED`, sealed access=0。
 
+## 7O. 実行契約: B-C005REC-004AT — Oracle-Free Standard-CE Optimization-Formulation Identifiability Audit
+
+**状態: 完了、`NO_SINGLE_OPTIMIZATION_FORMULATION_IDENTIFIED_STOP`（ADR-0146）。artifact-only監査は実行PASSだが、CE-only optimization-repair方向はfail-closed STOP。学習、optimizer update、新seed、sampler/init/architecture変更、candidate採択、bundle write、RG3、REC-005、sealed accessはすべて0/未実行。**
+
+- ADR-0138〜0145とAO/AP/AM/AR/AS artifactだけを固定入力にした。式の導出前に許可した情報はstandard token-output CE、model outputs、入力系列のoracle-free統計、per-example CE gradientsのみ。correct-key mapはpost-forward/backwardのmargin方向評価に限定し、式、loss、sampler、初期化には渡していない。
+- ASで固定されたI01..I05、両stream、全40 routing cellのstep-0/early forward/autograd記録を監査した。stream間の`-∇M·∇L`符号変化はI01..I05で10, 13, 18, 19, 12 cell、step-0→500 basin分岐は6, 9, 5, 5, 9 cellであり、5-seed不変のoracle-free方向は存在しない。ARのmatched結果も同時改善2/5（I01, I05）、I02/I03負干渉である。
+- collision audit: APのI01・長さ10・出力位置4・step500 Stratum Cは27/206例（13.1%）でtarget tokenがkey 0とkey 7の双方にある。同一input/target/logit/CE/CE-gradientという許容observableの下で、key-0 margin改善はkey 7を相対的に下げる必要がある一方、key-7 margin改善はkey 7を上げる必要があり、方向が反対である。key 0を選ぶ情報はcorrect-key mapであり、導出に使えない。実測`dL/dS(4,7)=-0.00471519`は`dL/dS(4,0)=-0.00002454`より約192倍で、CE descentのkey-0 margin予測は`-0.00469064`、Stratum C parameter-margin変化は`-31.0566`（負96.3%）。
+- 従って係数探索・候補比較なしに一意なfixed optimization formulationは導けない。式を固定せず、条件付きの全40 cell（initial vulnerable、terminal failure、stable controlを含む）margin-directed no-update検証は`NOT_EXECUTED_PRECONDITION_UNMET`、将来6000-step I01..I05 pilotの事前登録は不可。証拠: `runs/phase_b_restart/rec004at/run_001/`。既存source manifestのSHA一致を継承し、`optimizer_updates=0`, `candidate_selected=null`, `child_bundle=null`, `bundle_write=false`, `RG3=NOT_EXECUTED`, `REC-005=BLOCKED`, sealed access=0。
 ## 8. 実行記録
 - 2026-09-12: 本計画へ状態を集約。過去文書を仕様/証拠へ位置づけ直した（ADR-0127）。
 
@@ -681,6 +690,7 @@ float precision/parity guardで安全に停止した未qualified artifactであ�
 - 2026-09-12: 全2,514ケースの分割検証・ruff・mypy・文書/差分確認を完了。今回の整理・修正・有限precheckを閉じる。Phase B全体やRG3の完了ではない。
 - 2026-09-13: REC-004AS `run_001` 実行完了、`INITIALIZATION_DATA_INTERACTION_IDENTIFIED`（ADR-0145）。既存130 checkpoint states、40 routing cells/初期化、固定step-1 standard/distinct streamのno-update監査で、step-0幾何単独とearly data単独は不十分、initialization×data interactionを確認。generic initialization-only repairは一意に未同定のためlearning pilot、architecture/init sweepをSTOP。source hash不変、optimizer update/candidate/bundle/RG3/sealedは0。
 
+- 2026-09-13: REC-004AT `run_001` 実行完了、`NO_SINGLE_OPTIMIZATION_FORMULATION_IDENTIFIED_STOP`（ADR-0146）。ADR-0138〜0145とAO/AP/AM/AR/AS既存artifactだけを監査。Stratum C（27/206）の同一CE observableに対するkey0/key7反対routing方向collision、全40 cellの5-seed early-sign/basin不一致、ARのmixed causal effectにより、係数探索・候補比較なしの固定standard-CE最適化式は一意に導出不能。CE-only optimization-repairをSTOPし、formula固定・全cell条件検証・6000-step pilotは未実行。optimizer update/new seed/training/sampler/init/architecture/candidate/bundle/RG3/sealedは0。
 ## 9. 最終検証と現在の停止点
 
 | 検証 | 結果 | 証拠・制約 |
@@ -700,7 +710,7 @@ WSLへ移したのはartifactパスに依存しない `test_rec004x_dataset_disj
 `verification_coverage_plan.json`、`verification_events.jsonl`、`final_*.log` に保存した。
 研究の新学習0とは§5/6の研究実行を指し、検証用tiny fixtureの学習を含む全テストの更新数を指さない。
 
-**現在の停止点はREC-004ASによるartifact-only interaction監査の完了（`INITIALIZATION_DATA_INTERACTION_IDENTIFIED`）、REC-004ARのmixed effect、およびREC-004AMの不合格（`MULTI_INIT_VIABILITY_NOT_MET`）によるフェイルクローズ停止である。initialization-only pilotとarchitecture/init sweepはSTOPし、candidate adoption、bundle promotion、RG3、REC-005、G1、G4はBLOCKEDを維持する。**
+**現在の停止点はREC-004ATによるoracle-free standard-CE optimization-formulation識別性STOP（`NO_SINGLE_OPTIMIZATION_FORMULATION_IDENTIFIED_STOP`）、REC-004ASのinteraction、REC-004ARのmixed effect、およびREC-004AMの不合格（`MULTI_INIT_VIABILITY_NOT_MET`）によるフェイルクローズ停止である。initialization-only pilot、architecture/init sweep、CE-only optimization-repairはSTOPし、candidate adoption、bundle promotion、RG3、REC-005、G1、G4はBLOCKEDを維持する。**
 REC-004AMのwarm-start群（I01..I05）と厳格に対照されたベースライン群（I01..I05）の全5対比較により、warm-startが全体EMおよび最悪位置精度を同時に改善したのは 2 / 5 初期化（I01: $\Delta\text{EM}=+0.1914$, I05: $\Delta\text{EM}=+0.0352$）に留まり、I02（$\Delta\text{EM}=-0.1064$, $\Delta\text{WorstPosAcc}=-0.3350$）やI03（$\Delta\text{EM}=-0.0293$, $\Delta\text{WorstPosAcc}=-0.1068$）では逆に破壊的干渉を生じさせることが因果的に実証された。
 また、ベースラインの通常復元抽出サンプラー自体が2/5の初期化（I02, I05）においてステップ500で自発的に正解アトラクタ key 0 を獲得しており、トークン重複は全初期化幾何において普遍的な致命障壁ではないことが判明した。
 この結果、普遍的因果優位性は反証され、主判定 `I01_SPECIFIC_OR_MIXED_EFFECT_IDENTIFIED` が確定した。REC-004AMの不合格判定（`MULTI_INIT_VIABILITY_NOT_MET`）は科学的証拠として確定・維持される。

@@ -1802,3 +1802,21 @@ Decision: `I01_SPECIFIC_OR_MIXED_EFFECT_IDENTIFIED`.
 
 **Decision:**
 `INITIALIZATION_DATA_INTERACTION_IDENTIFIED`. Do not begin an initialization-only repair or a learning pilot. The only permissible follow-up category is a review of whether one fixed standard-token-output-CE optimization formulation can stabilize the identified interaction; it must be separately derived and authorized before execution. Stop architecture/init sweeps. Preserve all downstream blocks.
+
+## ADR-0146: REC-004AT Oracle-Free Standard-CE Optimization-Formulation Identifiability Audit Stops CE-Only Optimization Repair (`NO_SINGLE_OPTIMIZATION_FORMULATION_IDENTIFIED_STOP`)
+
+**Date:** 2026-09-13
+
+**Status:** Completed artifact-only audit; `execution_status: PASS`, `decision: NO_SINGLE_OPTIMIZATION_FORMULATION_IDENTIFIED_STOP`. No formula is selected or preregistered. CE-only optimization repair, candidate adoption, bundle promotion, RG3, REC-005, G1, and G4 remain BLOCKED.
+
+**Scope and integrity boundary:** Read only ADR-0138 through ADR-0145 and existing REC-004AO/AP/AM/AR/AS artifacts. Before a formulation decision, the only allowed inputs were standard token-output CE, model outputs, oracle-free fixed-input statistics, and per-example CE gradients. The correct-key map was excluded from derivation and used only after forward/backward observation to evaluate a directional margin. No new checkpoint, stream, seed, sampler, architecture, optimizer, or candidate was constructed. REC-004AS's fixed step-0/early forward-and-autograd audit covers both streams, all 40 routing cells, and I01..I05; its archived source checkpoint hashes match. `optimizer_updates=0`, `candidate_selected=null`, `child_bundle=null`, `bundle_write=false`, `RG3=NOT_EXECUTED`, `REC-005=BLOCKED`, sealed-data access=0.
+
+**Identifiability audit:**
+1. A standard CE expression is defined by convention, but the evidence does not derive a unique repair formulation. Any duplicate-token weighting, exclusion, reversal, or routing-specific term requires an additional rule (and generally a coefficient) that the permitted observables do not single out. Formula/candidate comparison and coefficient search were prohibited.
+2. The fixed collision is decisive. REC-004AP's I01 length-10 position-4 step-500 Stratum C contains 27/206 examples (13.1%) where the target token occurs at both key 0 and key 7. For the same input sequence, target token, model logits, token CE, and CE gradient, the post-hoc key-0 margin requires suppressing key 7 relative to key 0, while a key-7 margin requires promoting key 7 relative to key 0. These directions are opposite, but selecting one uses the correct-key map, which is forbidden in derivation.
+3. At that collision, `dL/dS(4,0)=-2.4542e-05` and `dL/dS(4,7)=-4.7152e-03`; CE descent preferentially raises key 7 by about 192-fold and predicts a key-0 margin change of `-0.00469064`. Parameter-space Stratum-C margin change is `-31.0566`, negative for 96.3% of examples. The token-output observable cannot distinguish the two semantic routing directions.
+4. The collision is not removable by a generic oracle-free early-stream rule. AS records fixed-stream directional-sign changes in 10, 13, 18, 19, and 12 of 40 cells for I01..I05, with 6, 9, 5, 5, and 9 early basin divergences. AR co-improves only I01/I05 and has negative interference for I02/I03. Thus the admissible evidence supplies neither a unique collision resolution nor five-seed-consistent non-regression evidence.
+
+**Decision and required STOP:** `NO_SINGLE_OPTIMIZATION_FORMULATION_IDENTIFIED_STOP`.
+
+The prerequisite for the conditional full-cell no-update test was not met, so no formula was fixed and the all-40-cell test (initial vulnerable cells, terminal failures, and stable controls on both streams across five initializations) is `NOT_EXECUTED_PRECONDITION_UNMET`, not a PASS. A fixed 6,000-step I01..I05 pilot is not preregisterable and was not run. Preserve all downstream blocks and do not resume CE-only optimization repair from this evidence.
