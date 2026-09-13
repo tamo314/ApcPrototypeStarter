@@ -122,9 +122,9 @@ class PhaseDStopGateError(RuntimeError):
 class PhaseDExecutorConfig:
     """The one D-005-authorized configuration; every field is fail-closed."""
 
-    output_root: Path = Path("runs/phase_d_d011_executor")
-    cohort_root: Path = Path("runs/phase_d_d011_five_model_cohort")
-    candidate_root: Path = Path("runs/phase_d_d011_sort_repair")
+    output_root: Path = Path("runs/phase_d_d012_executor")
+    cohort_root: Path = Path("runs/phase_d_d012_five_model_cohort")
+    candidate_root: Path = Path("runs/phase_d_d012_sort_repair")
     model_seeds: tuple[int, ...] = MODEL_SEEDS
     evaluation_seeds: tuple[int, ...] = EVAL_SEEDS
     repair_steps: int = REPAIR_STEPS
@@ -309,7 +309,7 @@ def dry_run_manifest(config: PhaseDExecutorConfig | None = None) -> dict[str, An
     effective_config = config or PhaseDExecutorConfig()
     gate = _static_gate(effective_config)
     return {
-        "task": "D-011",
+        "task": "D-012",
         "mode": "DRY_RUN",
         "authorization": "ADR-0170 as amended by ADR-0172",
         "config": {
@@ -408,18 +408,18 @@ def _publish_parent(
                 argument_schema_hash="argument_scorer_schema_v1"
                 if operation in {"SELECT", "COUNT", "BIND", "SHIFT"}
                 else None,
-                training_receipt="D-011 fresh Phase-D cohort build",
+                training_receipt="D-012 fresh Phase-D cohort build",
             )
         )
     router_sd, scorer_sd = mb.load_state_dict(router_path), mb.load_state_dict(scorer_path)
     manifest = mb.build_manifest(
         schema_version=1,
         source_commit=str(get_system_info().get("git_commit") or "unknown"),
-        runtime_recipe_version="phase_d_d011_v1",
+        runtime_recipe_version="phase_d_d012_v1",
         environment_record={"python": sys.version, "torch": torch.__version__},
         model_id=f"phase-d-seed-{seed}",
         model_seed=seed,
-        training_run_id=f"phase-d-d011-seed-{seed}",
+        training_run_id=f"phase-d-d012-seed-{seed}",
         parent_bundle_ids=(),
         build_route=mb.BuildRoute.CLEAN_BUILD,
         scope=mb.BundleScope.NOMINAL,
@@ -446,7 +446,7 @@ def _publish_parent(
             "dot_product_v1",
             "select_sigmoid_v2_adr0088",
             2.0,
-            "phase_d_d011_v1",
+            "phase_d_d012_v1",
             f"phase-d-{seed}-pair",
         ),
         build_recipe_hash=hashlib.sha256(b"phase-d-d001-fixed-cohort-recipe-v2").hexdigest(),
@@ -458,7 +458,15 @@ def _publish_parent(
             "ROUTER_CALIBRATION",
             "ARGUMENT_SCORER_CALIBRATION",
         ),
-        qualification_refs=("ADR-0170", "ADR-0172", "ADR-0177", "ADR-0178", "ADR-0179", "D-011"),
+        qualification_refs=(
+            "ADR-0170",
+            "ADR-0172",
+            "ADR-0177",
+            "ADR-0178",
+            "ADR-0179",
+            "ADR-0180",
+            "D-012",
+        ),
         cohort_id=COHORT_ID,
         cohort_member_seeds=MODEL_SEEDS,
         cohort_construction_recipe_hash=hashlib.sha256(
@@ -523,7 +531,9 @@ def _build_parent(
             status=PrimitiveStatus.STABLE,
         )
         op_to_id[operation] = primitive.primitive_id
+        primitive.to(core.device)
         _train_single_primitive(core, primitive, ucfg, operation, steps=1_000)
+    bank.to(core.device)
     if len(op_to_id) != 16:
         raise PhaseDStopGateError(f"cohort bank must contain 16 primitives, got {len(op_to_id)}")
     bank.freeze_all()
@@ -900,7 +910,7 @@ def _save_candidate(
                     sort_state, architecture_signature=entry.architecture_signature
                 ),
                 source_artifact=str(bank_path.resolve()),
-                training_receipt="D-011 LOCAL_SORT_REPAIR, exactly 6,000 updates",
+                training_receipt="D-012 LOCAL_SORT_REPAIR, exactly 6,000 updates",
             )
         )
     candidate = dataclasses.replace(
@@ -910,7 +920,7 @@ def _save_candidate(
         parent_bundle_ids=(parent.bundle_id,),
         primitives=tuple(entries),
         scope=mb.BundleScope.DIAGNOSTIC,
-        training_run_id=f"phase-d-d011-local-sort-repair-seed-{seed}",
+        training_run_id=f"phase-d-d012-local-sort-repair-seed-{seed}",
     )
     candidate = mb.build_manifest(
         **{
@@ -1035,7 +1045,7 @@ def run(config: PhaseDExecutorConfig | None = None) -> dict[str, Any]:
     start = time.perf_counter()
     torch.cuda.reset_peak_memory_stats()
     report: dict[str, Any] = {
-        "task": "D-011",
+        "task": "D-012",
         "static_gate": gate,
         "models": {},
         "sealed_access": 0,

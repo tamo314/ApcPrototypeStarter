@@ -862,3 +862,64 @@ task_result         = FAIL
 h_d1_status         = UNTESTED
 research_gate       = STOP_GATE_FAIL (incremental primitive instantiated on CPU without placement onto core.device)
 ```
+
+## ADR-0180: D-012 — Incremental Primitive CUDA Device-Placement Repair, Fresh-Load Subprocess Environment Defect, and Execution STOP GATE
+
+**Date:** 2026-09-14
+**Task:** D-012 — D-011成果物を変更せず保全し、増分primitive生成時のCPU/CUDA配置だけを標準的なcore.device配置へ修正してfocused CUDA回帰テストと全必須検証を通す。新規D-012 namespaceを明示的に一度だけ認可し、全gate通過時に限り、seed 40–44、既定予算・recipe・評価panel・FROZEN_PARENT/LOCAL_SORT_REPAIR/SYMBOLIC_REFERENCE条件を一切変えずに確証実験を最初から一回実行する。部分構築済みseed 40の再利用、再試行、seed交換、予算変更、sealed access、候補採用・昇格は禁止する。
+**Status:** **STOP_GATE_FAIL — Incremental primitive CUDA device placement repaired and seed 40 parent build succeeded, but separate-process fresh-load parity halted on subprocess PYTHONHASHSEED range defect.** `task_result: FAIL`, `h_d1_status: UNTESTED`.
+
+**Namespace Replacement and Evidence Preservation:**
+- D-011 artifacts under `runs/phase_d_d011_executor/`, `runs/phase_d_d011_five_model_cohort/`, and `runs/phase_d_d011_sort_repair/` are preserved completely unmodified as historical evidence.
+- D-012 reserved and authorized:
+  - `runs/phase_d_d012_executor/`
+  - `runs/phase_d_d012_five_model_cohort/`
+  - `runs/phase_d_d012_sort_repair/`
+
+**Incremental Primitive Device Placement Repair:**
+- Repaired `src/apc/evaluation/phase_d_executor.py`: incremental primitives instantiated in `_build_parent` via `bank.new_cross_position_primitive(...)` are now explicitly co-located onto `core.device` (`primitive.to(core.device)`) before `_train_single_primitive`, and `bank.to(core.device)` is called.
+- Added focused CUDA regression test `test_d012_incremental_primitive_cuda_device_placement` in `tests/test_phase_d_executor.py`, confirming that new primitives instantiate on CPU and co-locating onto `core.device` executes on CUDA without device mismatch errors.
+
+**Verification Results (Prerequisites Passed):**
+1. Focused CUDA regression and executor test suite: 9 passed in 2.22s.
+2. Full focused compatibility tests: 34 passed in 146.22s (`test_phase_d_executor.py`, `test_nrq004_bundle_reconstruction.py`, `test_nrq005_exact_depth3_benchmark.py`, `test_nrq006_argument_closed_depth3_audit.py`, `test_nrq008_replication_and_support_budget.py`, `test_controller_ablation_benchmark.py`).
+3. Static provenance and seed registry gates: `python scripts/verify_phase_d_seed_registry.py` passed cleanly (`candidate_model_seeds=[40,41,42,43,44]`, `sealed_access=0`).
+4. Static dry-run: `scripts/phase_d_executor.py --dry-run` passed with static gate `PASS`, preregistration hashes verified, and reserved D-012 output roots verified non-existent.
+5. Code hygiene: `ruff check .` passed (all checks passed); `mypy src/apc` passed (181 source files).
+
+**Execution Attempt & Blocker (STOP GATE FAIL):**
+- One-time confirmation launched via `scripts/phase_d_executor.py`.
+- Static gates passed strictly before directory creation.
+- Seed 40 parent build executed from scratch on CUDA:
+  - Core pretraining completed (16,000 steps; `shared_encoder.pt` [7.2 MB] saved).
+  - Learned routing bank training completed (6,000 steps; `primitive_bank.pt` [786 KB] saved).
+  - SHIFT dedicated iid baseline repair training completed.
+  - Incremental 6 operations trained on CUDA without device mismatch (confirming device placement repair succeeded).
+  - Router and ArgumentScorer calibration completed.
+  - Parent bundle artifacts and `manifest.json` published in `runs/phase_d_d012_five_model_cohort/seed_40/parent/`.
+- Halted at separate-process fresh-load parity check (`_run_fresh_load_parity`):
+  - Fresh-load check spawned `sys.executable` in an isolated scratch directory.
+  - The subprocess failed on startup with: `Fatal Python error: config_init_hash_seed: PYTHONHASHSEED must be "random" or an integer in range [0; 4294967295]`.
+  - Root cause: during parent build, `_train_shift_candidate` called `set_seed(derive_seed(...))`. `derive_seed` returns a 63-bit integer (`(1 << 63) - 1` mask), and `set_seed` sets `os.environ["PYTHONHASHSEED"] = str(seed)`. Child Python subprocesses inherit the parent's environment, but Python requires `PYTHONHASHSEED` in `[0; 4294967295]` (32-bit unsigned int), crashing before initialization.
+- In accordance with AGENTS.md and task contract:
+  - "部分構築済みseed 40の再利用、再試行、seed交換、予算変更、sealed access、候補採用・昇格は禁止する。"
+  - "開始済み・中断済み・namespace使用済みの場合も、未使用の実験として扱い直してはいけない。既存契約に再開許可がなければ、証拠を保持してSTOPしてください。"
+- The executor stopped immediately, writing `runs/phase_d_d012_executor/report.json` and `stop_gate.json` (wall clock 560.17s, peak CUDA memory 188,792,320 bytes, reserved 314,572,800 bytes).
+- All D-012 artifacts are preserved in place. Zero candidate selections, zero promotions, and zero sealed data accesses occurred.
+
+**Scientific Interpretation & Status:**
+- Per preregistered decision contract:
+  - Termination at fresh-load parity gate: **`task_result: FAIL`**
+  - Scientific hypothesis H-D1: **`UNTESTED`** (Fresh-load subprocess environment defect, not an empirical refutation of H-D1).
+- Next recovery requirement: repair subprocess environment isolation in `_run_fresh_load_parity` (e.g. sanitizing/masking `PYTHONHASHSEED` in child environment to uint32 or excluding it), authorize replacement D-013 namespace, and re-execute.
+
+```
+cohort_construction = STOP_GATE_FAIL_FRESH_LOAD_SUBPROCESS_ENV
+pilot_execution     = NOT_EXECUTED
+candidate_selected  = null
+bundle_promotion    = NOT_AUTHORIZED
+sealed_access       = 0
+task_result         = FAIL
+h_d1_status         = UNTESTED
+research_gate       = STOP_GATE_FAIL (fresh-load subprocess crashed on inherited 63-bit PYTHONHASHSEED > 4294967295)
+```

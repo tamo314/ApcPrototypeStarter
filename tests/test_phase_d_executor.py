@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+import torch
 
 from apc.evaluation.phase_d_executor import (
     CAUSAL_ARMS,
@@ -18,6 +19,16 @@ from apc.evaluation.phase_d_executor import (
     dry_run_manifest,
     run,
 )
+from apc.evaluation.shared_encoder_architecture_gate import (
+    SharedEncoderArchitectureConfig,
+    _build_shared_encoder,
+)
+from apc.evaluation.unified_oracle_causal_benchmark import (
+    UnifiedBenchmarkConfig,
+    _train_single_primitive,
+)
+from apc.primitives.bank import PrimitiveBank
+from apc.primitives.primitive import CrossPositionPrimitiveConfig, PrimitiveStatus
 
 
 def test_d008_dry_run_records_only_the_fixed_authorization(monkeypatch) -> None:
@@ -134,3 +145,52 @@ def test_d011_run_executes_static_gate_before_creating_directories(tmp_path, mon
     assert not output_root.exists()
     assert not cohort_root.exists()
     assert not candidate_root.exists()
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="requires CUDA")
+def test_d012_incremental_primitive_cuda_device_placement() -> None:
+    arch_cfg = SharedEncoderArchitectureConfig(
+        seed=42,
+        device="cuda",
+        vocab_size=10,
+        sequence_length_range=(6, 8),
+        d_operator=16,
+        n_operator_head=2,
+        d_operator_ff=32,
+        arg_dim=8,
+        max_sequence_length=16,
+        model={
+            "d_model": 16,
+            "n_layer": 1,
+            "n_head": 2,
+            "d_ff": 32,
+            "max_seq_len": 24,
+            "dropout": 0.0,
+        },
+    )
+    core = _build_shared_encoder(arch_cfg)
+    bank = PrimitiveBank()
+    primitive = bank.new_cross_position_primitive(
+        CrossPositionPrimitiveConfig(
+            operation="REVERSE",
+            d_model=core.model.config.d_model,
+            d_operator=16,
+            n_head=2,
+            d_operator_ff=32,
+            vocab_size=10,
+            max_sequence_length=16,
+        ),
+        status=PrimitiveStatus.STABLE,
+    )
+    # Regression check: newly created primitive defaults to CPU
+    assert next(primitive.parameters()).device.type == "cpu"
+
+    # Co-locate onto core.device as required by D-012 standard placement
+    primitive.to(core.device)
+    bank.to(core.device)
+    assert next(primitive.parameters()).device.type == "cuda"
+
+    # Verify execution runs on CUDA without RuntimeError (device mismatch)
+    ucfg = UnifiedBenchmarkConfig(seed=42, device="cuda")
+    loss = _train_single_primitive(core, primitive, ucfg, "REVERSE", steps=2)
+    assert loss >= 0.0
