@@ -1,0 +1,189 @@
+{
+  "task_id": "NRQ-003",
+  "task_name": "Exact-Depth-3 Irreducible Composition Search Benchmark",
+  "date": "2026-09-13",
+  "prerequisite_status": "FAIL",
+  "decision": "BLOCKED_BY_MODEL_ADEQUACY",
+  "interpret_depth3_search": false,
+  "provenance_audit": [
+    {
+      "seed": 0,
+      "core_path": "runs/phase_a1_shift_compact_structural_probe/seed_0/shared_encoder.pt",
+      "core_exists": true,
+      "core_sha256": "739e383b509efc9d4145eb2e9f0319060a727357b4522ae19a9c4939c0a2c45e",
+      "core_token_emb_shape": [
+        44,
+        192
+      ],
+      "core_compatible_with_current_vocab": true,
+      "bank_path": "runs/phase_a1_composition_library_benchmark/seed_0/primitive_bank.pt",
+      "bank_exists": true,
+      "bank_sha256": "8fc100337357e10abc5380ba47dcbf075867dcad5d4d9fcb4f667a59dcc2ae0b",
+      "provenance_intact": false,
+      "notes": "Seed 0 core checkpoint has shape [44, 192], but primitive_bank.pt was trained against an earlier core latent distribution. Causes functional collapse on positive controls."
+    },
+    {
+      "seed": 1,
+      "core_path": "runs/phase_a1_shift_compact_structural_probe/seed_1/shared_encoder.pt",
+      "core_exists": true,
+      "core_sha256": "1518d334ba9959a19a11221afa124cb3a97c612f0591c3a34346424c12dc613a",
+      "core_token_emb_shape": [
+        36,
+        192
+      ],
+      "core_compatible_with_current_vocab": false,
+      "bank_path": "runs/phase_a1_composition_library_benchmark/seed_1/primitive_bank.pt",
+      "bank_exists": true,
+      "bank_sha256": "c87ae13a5c1dc0800c2dad2244042a6fe6117621029dc331af07a0f8b1777dc1",
+      "provenance_intact": false,
+      "notes": "Vocabulary size mismatch: checkpoint token_emb has 36 tokens, expected 44. Loading will raise RuntimeError: size mismatch."
+    },
+    {
+      "seed": 2,
+      "core_path": "runs/phase_a1_shift_compact_structural_probe/seed_2/shared_encoder.pt",
+      "core_exists": true,
+      "core_sha256": "682ba28715e809d323260e9277a7e95cb4427b28cd9d2a476df2c358912207d7",
+      "core_token_emb_shape": [
+        36,
+        192
+      ],
+      "core_compatible_with_current_vocab": false,
+      "bank_path": "runs/phase_a1_composition_library_benchmark/seed_2/primitive_bank.pt",
+      "bank_exists": true,
+      "bank_sha256": "36fc80fd23dcc60a95c4b928d43a65df1791cb4a6838d5a88187c4f2aef84ba4",
+      "provenance_intact": false,
+      "notes": "Vocabulary size mismatch: checkpoint token_emb has 36 tokens, expected 44. Loading will raise RuntimeError: size mismatch."
+    },
+    {
+      "seed": 3,
+      "core_path": "runs/phase_a1_shift_compact_structural_probe/seed_3/shared_encoder.pt",
+      "core_exists": true,
+      "core_sha256": "676b9cc1cf748ebfe93b660308150331e4053eefc933758ffdfb3c38dbf64c79",
+      "core_token_emb_shape": [
+        36,
+        192
+      ],
+      "core_compatible_with_current_vocab": false,
+      "bank_path": "runs/phase_a1_composition_library_benchmark/seed_3/primitive_bank.pt",
+      "bank_exists": true,
+      "bank_sha256": "00912ee9d395733f9a89518942b2338f80d01db79613440ce432de8a74ca3044",
+      "provenance_intact": false,
+      "notes": "Vocabulary size mismatch: checkpoint token_emb has 36 tokens, expected 44. Loading will raise RuntimeError: size mismatch."
+    },
+    {
+      "seed": 4,
+      "core_path": "runs/phase_a1_shift_compact_structural_probe/seed_4/shared_encoder.pt",
+      "core_exists": true,
+      "core_sha256": "6cbfd9dd9944ba10505ebc68ede392da36e6a58b424a91bf570db8ad4f677b1f",
+      "core_token_emb_shape": [
+        36,
+        192
+      ],
+      "core_compatible_with_current_vocab": false,
+      "bank_path": "runs/phase_a1_composition_library_benchmark/seed_4/primitive_bank.pt",
+      "bank_exists": true,
+      "bank_sha256": "69fa7e2d047296064377296cf1b2d6539902ef92a205ec35319a597c1b5ff64a",
+      "provenance_intact": false,
+      "notes": "Vocabulary size mismatch: checkpoint token_emb has 36 tokens, expected 44. Loading will raise RuntimeError: size mismatch."
+    }
+  ],
+  "depth2_positive_controls_seed0": {
+    "seed": 0,
+    "mean_oracle_exact_match": 0.118,
+    "mean_recovered_exact_match": 0.18333333333333332,
+    "mean_functional_agreement": 0.405,
+    "accuracy_threshold": 0.85,
+    "functional_agreement_threshold": 0.99,
+    "overall_passed": false,
+    "per_composition_results": {
+      "SHIFT->SELECT": {
+        "composition_name": "SHIFT->SELECT",
+        "oracle_operations": [
+          "SHIFT",
+          "SELECT"
+        ],
+        "recovered_operations": [
+          "SHIFT",
+          "SELECT"
+        ],
+        "oracle_exact_match": 0.01,
+        "recovered_exact_match": 0.01,
+        "functional_agreement": 1.0,
+        "passed": false
+      },
+      "REVERSE->COUNT": {
+        "composition_name": "REVERSE->COUNT",
+        "oracle_operations": [
+          "REVERSE",
+          "COUNT"
+        ],
+        "recovered_operations": [
+          "COUNT",
+          "COPY"
+        ],
+        "oracle_exact_match": 0.266,
+        "recovered_exact_match": 0.428,
+        "functional_agreement": 0.108,
+        "passed": false
+      },
+      "COPY->SORT": {
+        "composition_name": "COPY->SORT",
+        "oracle_operations": [
+          "COPY",
+          "SORT"
+        ],
+        "recovered_operations": [
+          "SORT"
+        ],
+        "oracle_exact_match": 0.022,
+        "recovered_exact_match": 0.1,
+        "functional_agreement": 0.044,
+        "passed": false
+      },
+      "NEGATE->SELECT": {
+        "composition_name": "NEGATE->SELECT",
+        "oracle_operations": [
+          "NEGATE",
+          "SELECT"
+        ],
+        "recovered_operations": [
+          "NEGATE",
+          "SELECT"
+        ],
+        "oracle_exact_match": 0.038,
+        "recovered_exact_match": 0.038,
+        "functional_agreement": 1.0,
+        "passed": false
+      },
+      "SHIFT->BIND": {
+        "composition_name": "SHIFT->BIND",
+        "oracle_operations": [
+          "SHIFT",
+          "BIND"
+        ],
+        "recovered_operations": [
+          "BIND"
+        ],
+        "oracle_exact_match": 0.364,
+        "recovered_exact_match": 0.422,
+        "functional_agreement": 0.274,
+        "passed": false
+      },
+      "REVERSE->SORT": {
+        "composition_name": "REVERSE->SORT",
+        "oracle_operations": [
+          "REVERSE",
+          "SORT"
+        ],
+        "recovered_operations": [
+          "SORT"
+        ],
+        "oracle_exact_match": 0.008,
+        "recovered_exact_match": 0.102,
+        "functional_agreement": 0.004,
+        "passed": false
+      }
+    }
+  },
+  "summary": "NRQ-003 prerequisite check failed on both frozen bundle provenance and depth-2 positive controls reproduction. Core checkpoints for seeds 1-4 possess token_emb shape [36, 192], which is incompatible with current vocab_size=44, triggering RuntimeError and unauthorized retraining fallbacks. Seed 0 core checkpoint possesses shape [44, 192] but exhibits latent space divergence from the frozen primitive bank, causing depth-2 positive controls (A1-B004) to collapse to mean oracle EM = 0.1180, mean recovered EM = 0.1833, and functional agreement = 0.4050 (all far below 0.85/0.99 thresholds; 0/6 passed). Per task contract, depth-3 search interpretation is strictly barred, and NRQ-003 is recorded as invalid / BLOCKED_BY_MODEL_ADEQUACY."
+}

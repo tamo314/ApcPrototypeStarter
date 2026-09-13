@@ -679,3 +679,42 @@ core-separation evidence, and do not assert APC's general impossibility.
 - Review Document: `docs/research/CONSTRUCTIVE_FALSIFICATION_NRQ002.md`  
 - Verification Record: `docs/research/NRQ002_REVIEW_RECORD.json`
 
+---
+
+## ADR-0163: NRQ-003 Exact-Depth-3 Composition Search Prerequisite Check Blocked by Bundle Provenance and Model Inadequacy (`BLOCKED_BY_MODEL_ADEQUACY`)
+
+**Date:** 2026-09-13  
+**Task:** NRQ-003 — Exact-Depth-3 Irreducible Composition Search Benchmark  
+**Status:** Prerequisite audit completed; `prerequisite_status: FAIL`, `decision: BLOCKED_BY_MODEL_ADEQUACY`. Depth-3 search interpretation barred.  
+
+**Scope and Integrity Boundary:**  
+- Evaluated frozen core checkpoints (`runs/phase_a1_shift_compact_structural_probe/seed_{0..4}/shared_encoder.pt`) and primitive bank checkpoints (`runs/phase_a1_composition_library_benchmark/seed_{0..4}/primitive_bank.pt`) under the pre-registered requirement that existing frozen bundles be used without unauthorized retraining, architecture changes, or sealed data access.
+- Evaluated Task A1-B004 depth-2 positive controls across 6 canonical recipes (`SHIFT->SELECT`, `REVERSE->COUNT`, `COPY->SORT`, `NEGATE->SELECT`, `SHIFT->BIND`, `REVERSE->SORT`) on seed 0 without retraining.
+- Zero new training updates, zero relation registrations, zero architecture modifications, zero sealed-partition access.
+- No historical ADR or benchmark threshold modified.
+
+**Key Findings:**  
+1. **Broken Checkpoint Bundle Provenance:**  
+   - Core checkpoints for seeds 1–4 have `token_emb.weight` shape `[36, 192]`, incompatible with current repository vocabulary size 44 (`[44, 192]`), raising `RuntimeError: size mismatch` upon loading.
+   - Seed 0 core checkpoint (`[44, 192]`) was overwritten on 2026-09-13, desynchronizing its latent representation from the frozen primitive bank saved on 2026-09-04.
+2. **Depth-2 Positive Control Reproduction Collapse (Model Inadequacy):**  
+   - Running the depth-2 positive controls benchmark on seed 0 yielded mean oracle exact match = 0.1180, mean recovered exact match = 0.1833, and mean functional agreement = 0.4050 (0/6 passed, far below the >=0.85 / >=0.99 thresholds).
+   - Because oracle recipe execution itself collapses to 11.8% EM, the failure reflects substrate degradation in the core/primitive bank coupling rather than combinatorial search limits.
+3. **Enforcement of Stop Gate:**  
+   - Following the mandatory prerequisite contract ("require the depth-2 positive controls to reproduce; if that prerequisite fails, record NRQ-003 as invalid/blocked by model adequacy without interpreting depth-3 search"), execution of depth-3 search is strictly blocked from interpretation.
+
+**Decision:**  
+Declare **`BLOCKED_BY_MODEL_ADEQUACY`**. Record NRQ-003 as invalid/blocked by prerequisite model adequacy failure without interpreting depth-3 search results.
+
+**Consequences:**  
+- Depth-3 composition search is not interpreted as evidence for or against ADR-0162's Bounded-Resource Corollary or program-line closure.
+- The research line remains terminated under ADR-0160 (`PHASE_C_CURRENT_CHARTER_FALSIFICATION_SUFFICIENT`) and ADR-0161 (`PROGRAM_LINE_CLOSURE_CONFIRMED`).
+- Any future composition search benchmark requires an explicitly authorized bundle alignment and retraining cycle under a new charter.
+
+**Primary Artifacts:**  
+- Review Document: `docs/research/EXACT_DEPTH3_COMPOSITION_SEARCH_AUDIT_NRQ003.md`  
+- Verification Record: `docs/research/NRQ003_REVIEW_RECORD.json`  
+- Implementation / Runner: `src/apc/evaluation/nrq003_prerequisite_audit.py`  
+- Verification Suite: `tests/test_nrq003_prerequisite_audit.py`
+
+
