@@ -1,0 +1,682 @@
+{
+  "task_id": "NRQ-004",
+  "task_name": "Frozen Bundle Compatibility Reconstruction & Depth-2 Control Reproduction",
+  "date": "2026-09-13",
+  "environment": {
+    "python_version": "3.12",
+    "device": "cuda",
+    "elapsed_seconds": 8.423687400005292
+  },
+  "provenance_audit": {
+    "0": {
+      "seed": 0,
+      "core_path": "C:/Work/ApcPrototypeStarter/runs/phase_a1_shift_compact_structural_probe/seed_0/shared_encoder.pt",
+      "core_sha256": "739e383b509efc9d4145eb2e9f0319060a727357b4522ae19a9c4939c0a2c45e",
+      "core_token_emb_shape": [
+        44,
+        192
+      ],
+      "core_status": "OVERWRITTEN_INCOMPATIBLE",
+      "bank_path": "C:/Work/ApcPrototypeStarter/runs/phase_a1_composition_library_benchmark/seed_0/primitive_bank.pt",
+      "bank_sha256": "8fc100337357e10abc5380ba47dcbf075867dcad5d4d9fcb4f667a59dcc2ae0b",
+      "bank_status": "INTACT",
+      "bundle_status": "BUNDLE_LOSS",
+      "notes": "Checkpoint has token_emb shape [44, 192], expected 36.; Original A1-B004 [36, 192] core checkpoint was overwritten on 2026-09-13 by an incompatible [44, 192] checkpoint. Coherent pre-trained pair unrecoverable without retraining."
+    },
+    "1": {
+      "seed": 1,
+      "core_path": "C:/Work/ApcPrototypeStarter/runs/phase_a1_shift_compact_structural_probe/seed_1/shared_encoder.pt",
+      "core_sha256": "1518d334ba9959a19a11221afa124cb3a97c612f0591c3a34346424c12dc613a",
+      "core_token_emb_shape": [
+        36,
+        192
+      ],
+      "core_status": "INTACT",
+      "bank_path": "C:/Work/ApcPrototypeStarter/runs/phase_a1_composition_library_benchmark/seed_1/primitive_bank.pt",
+      "bank_sha256": "c87ae13a5c1dc0800c2dad2244042a6fe6117621029dc331af07a0f8b1777dc1",
+      "bank_status": "INTACT",
+      "bundle_status": "COHERENT_VERIFIED",
+      "notes": ""
+    },
+    "2": {
+      "seed": 2,
+      "core_path": "C:/Work/ApcPrototypeStarter/runs/phase_a1_shift_compact_structural_probe/seed_2/shared_encoder.pt",
+      "core_sha256": "682ba28715e809d323260e9277a7e95cb4427b28cd9d2a476df2c358912207d7",
+      "core_token_emb_shape": [
+        36,
+        192
+      ],
+      "core_status": "INTACT",
+      "bank_path": "C:/Work/ApcPrototypeStarter/runs/phase_a1_composition_library_benchmark/seed_2/primitive_bank.pt",
+      "bank_sha256": "36fc80fd23dcc60a95c4b928d43a65df1791cb4a6838d5a88187c4f2aef84ba4",
+      "bank_status": "INTACT",
+      "bundle_status": "COHERENT_VERIFIED",
+      "notes": ""
+    },
+    "3": {
+      "seed": 3,
+      "core_path": "C:/Work/ApcPrototypeStarter/runs/phase_a1_shift_compact_structural_probe/seed_3/shared_encoder.pt",
+      "core_sha256": "676b9cc1cf748ebfe93b660308150331e4053eefc933758ffdfb3c38dbf64c79",
+      "core_token_emb_shape": [
+        36,
+        192
+      ],
+      "core_status": "INTACT",
+      "bank_path": "C:/Work/ApcPrototypeStarter/runs/phase_a1_composition_library_benchmark/seed_3/primitive_bank.pt",
+      "bank_sha256": "00912ee9d395733f9a89518942b2338f80d01db79613440ce432de8a74ca3044",
+      "bank_status": "INTACT",
+      "bundle_status": "COHERENT_VERIFIED",
+      "notes": ""
+    },
+    "4": {
+      "seed": 4,
+      "core_path": "C:/Work/ApcPrototypeStarter/runs/phase_a1_shift_compact_structural_probe/seed_4/shared_encoder.pt",
+      "core_sha256": "6cbfd9dd9944ba10505ebc68ede392da36e6a58b424a91bf570db8ad4f677b1f",
+      "core_token_emb_shape": [
+        36,
+        192
+      ],
+      "core_status": "INTACT",
+      "bank_path": "C:/Work/ApcPrototypeStarter/runs/phase_a1_composition_library_benchmark/seed_4/primitive_bank.pt",
+      "bank_sha256": "69fa7e2d047296064377296cf1b2d6539902ef92a205ec35319a597c1b5ff64a",
+      "bank_status": "INTACT",
+      "bundle_status": "COHERENT_VERIFIED",
+      "notes": ""
+    }
+  },
+  "evaluation_results": {
+    "0": {
+      "seed": 0,
+      "bundle_status": "BUNDLE_LOSS",
+      "core_sha256": "739e383b509efc9d4145eb2e9f0319060a727357b4522ae19a9c4939c0a2c45e",
+      "bank_sha256": "8fc100337357e10abc5380ba47dcbf075867dcad5d4d9fcb4f667a59dcc2ae0b",
+      "mean_oracle_exact_match": 0.11916666666666666,
+      "mean_recovered_exact_match": 0.1958333333333334,
+      "mean_functional_agreement": 0.4124999999999999,
+      "compositions_passed": 0,
+      "total_compositions": 6,
+      "seed_passed": false,
+      "per_composition_results": {
+        "SHIFT->SELECT": {
+          "composition_name": "SHIFT->SELECT",
+          "oracle_operations": [
+            "SHIFT",
+            "SELECT"
+          ],
+          "recovered_operations": [
+            "SHIFT",
+            "SELECT"
+          ],
+          "oracle_exact_match": 0.01,
+          "recovered_exact_match": 0.01,
+          "functional_agreement": 1.0,
+          "accuracy_passed": false,
+          "agreement_passed": true,
+          "passed": false
+        },
+        "REVERSE->COUNT": {
+          "composition_name": "REVERSE->COUNT",
+          "oracle_operations": [
+            "REVERSE",
+            "COUNT"
+          ],
+          "recovered_operations": [
+            "COUNT",
+            "COPY"
+          ],
+          "oracle_exact_match": 0.24,
+          "recovered_exact_match": 0.44,
+          "functional_agreement": 0.11,
+          "accuracy_passed": false,
+          "agreement_passed": false,
+          "passed": false
+        },
+        "COPY->SORT": {
+          "composition_name": "COPY->SORT",
+          "oracle_operations": [
+            "COPY",
+            "SORT"
+          ],
+          "recovered_operations": [
+            "SORT"
+          ],
+          "oracle_exact_match": 0.02,
+          "recovered_exact_match": 0.11,
+          "functional_agreement": 0.065,
+          "accuracy_passed": false,
+          "agreement_passed": false,
+          "passed": false
+        },
+        "NEGATE->SELECT": {
+          "composition_name": "NEGATE->SELECT",
+          "oracle_operations": [
+            "NEGATE",
+            "SELECT"
+          ],
+          "recovered_operations": [
+            "NEGATE",
+            "SELECT"
+          ],
+          "oracle_exact_match": 0.055,
+          "recovered_exact_match": 0.055,
+          "functional_agreement": 1.0,
+          "accuracy_passed": false,
+          "agreement_passed": true,
+          "passed": false
+        },
+        "SHIFT->BIND": {
+          "composition_name": "SHIFT->BIND",
+          "oracle_operations": [
+            "SHIFT",
+            "BIND"
+          ],
+          "recovered_operations": [
+            "BIND"
+          ],
+          "oracle_exact_match": 0.385,
+          "recovered_exact_match": 0.44,
+          "functional_agreement": 0.295,
+          "accuracy_passed": false,
+          "agreement_passed": false,
+          "passed": false
+        },
+        "REVERSE->SORT": {
+          "composition_name": "REVERSE->SORT",
+          "oracle_operations": [
+            "REVERSE",
+            "SORT"
+          ],
+          "recovered_operations": [
+            "SORT"
+          ],
+          "oracle_exact_match": 0.005,
+          "recovered_exact_match": 0.12,
+          "functional_agreement": 0.005,
+          "accuracy_passed": false,
+          "agreement_passed": false,
+          "passed": false
+        }
+      },
+      "failure_attribution": "BUNDLE_LOSS"
+    },
+    "1": {
+      "seed": 1,
+      "bundle_status": "COHERENT_VERIFIED",
+      "core_sha256": "1518d334ba9959a19a11221afa124cb3a97c612f0591c3a34346424c12dc613a",
+      "bank_sha256": "c87ae13a5c1dc0800c2dad2244042a6fe6117621029dc331af07a0f8b1777dc1",
+      "mean_oracle_exact_match": 1.0,
+      "mean_recovered_exact_match": 1.0,
+      "mean_functional_agreement": 1.0,
+      "compositions_passed": 6,
+      "total_compositions": 6,
+      "seed_passed": true,
+      "per_composition_results": {
+        "SHIFT->SELECT": {
+          "composition_name": "SHIFT->SELECT",
+          "oracle_operations": [
+            "SHIFT",
+            "SELECT"
+          ],
+          "recovered_operations": [
+            "SHIFT",
+            "SELECT"
+          ],
+          "oracle_exact_match": 1.0,
+          "recovered_exact_match": 1.0,
+          "functional_agreement": 1.0,
+          "accuracy_passed": true,
+          "agreement_passed": true,
+          "passed": true
+        },
+        "REVERSE->COUNT": {
+          "composition_name": "REVERSE->COUNT",
+          "oracle_operations": [
+            "REVERSE",
+            "COUNT"
+          ],
+          "recovered_operations": [
+            "COUNT"
+          ],
+          "oracle_exact_match": 1.0,
+          "recovered_exact_match": 1.0,
+          "functional_agreement": 1.0,
+          "accuracy_passed": true,
+          "agreement_passed": true,
+          "passed": true
+        },
+        "COPY->SORT": {
+          "composition_name": "COPY->SORT",
+          "oracle_operations": [
+            "COPY",
+            "SORT"
+          ],
+          "recovered_operations": [
+            "SORT"
+          ],
+          "oracle_exact_match": 1.0,
+          "recovered_exact_match": 1.0,
+          "functional_agreement": 1.0,
+          "accuracy_passed": true,
+          "agreement_passed": true,
+          "passed": true
+        },
+        "NEGATE->SELECT": {
+          "composition_name": "NEGATE->SELECT",
+          "oracle_operations": [
+            "NEGATE",
+            "SELECT"
+          ],
+          "recovered_operations": [
+            "SELECT",
+            "NEGATE"
+          ],
+          "oracle_exact_match": 1.0,
+          "recovered_exact_match": 1.0,
+          "functional_agreement": 1.0,
+          "accuracy_passed": true,
+          "agreement_passed": true,
+          "passed": true
+        },
+        "SHIFT->BIND": {
+          "composition_name": "SHIFT->BIND",
+          "oracle_operations": [
+            "SHIFT",
+            "BIND"
+          ],
+          "recovered_operations": [
+            "SHIFT",
+            "BIND"
+          ],
+          "oracle_exact_match": 1.0,
+          "recovered_exact_match": 1.0,
+          "functional_agreement": 1.0,
+          "accuracy_passed": true,
+          "agreement_passed": true,
+          "passed": true
+        },
+        "REVERSE->SORT": {
+          "composition_name": "REVERSE->SORT",
+          "oracle_operations": [
+            "REVERSE",
+            "SORT"
+          ],
+          "recovered_operations": [
+            "SORT"
+          ],
+          "oracle_exact_match": 1.0,
+          "recovered_exact_match": 1.0,
+          "functional_agreement": 1.0,
+          "accuracy_passed": true,
+          "agreement_passed": true,
+          "passed": true
+        }
+      },
+      "failure_attribution": "NONE_PASSED"
+    },
+    "2": {
+      "seed": 2,
+      "bundle_status": "COHERENT_VERIFIED",
+      "core_sha256": "682ba28715e809d323260e9277a7e95cb4427b28cd9d2a476df2c358912207d7",
+      "bank_sha256": "36fc80fd23dcc60a95c4b928d43a65df1791cb4a6838d5a88187c4f2aef84ba4",
+      "mean_oracle_exact_match": 0.9941666666666666,
+      "mean_recovered_exact_match": 0.9941666666666666,
+      "mean_functional_agreement": 1.0,
+      "compositions_passed": 6,
+      "total_compositions": 6,
+      "seed_passed": true,
+      "per_composition_results": {
+        "SHIFT->SELECT": {
+          "composition_name": "SHIFT->SELECT",
+          "oracle_operations": [
+            "SHIFT",
+            "SELECT"
+          ],
+          "recovered_operations": [
+            "SHIFT",
+            "SELECT"
+          ],
+          "oracle_exact_match": 0.975,
+          "recovered_exact_match": 0.975,
+          "functional_agreement": 1.0,
+          "accuracy_passed": true,
+          "agreement_passed": true,
+          "passed": true
+        },
+        "REVERSE->COUNT": {
+          "composition_name": "REVERSE->COUNT",
+          "oracle_operations": [
+            "REVERSE",
+            "COUNT"
+          ],
+          "recovered_operations": [
+            "COUNT"
+          ],
+          "oracle_exact_match": 1.0,
+          "recovered_exact_match": 1.0,
+          "functional_agreement": 1.0,
+          "accuracy_passed": true,
+          "agreement_passed": true,
+          "passed": true
+        },
+        "COPY->SORT": {
+          "composition_name": "COPY->SORT",
+          "oracle_operations": [
+            "COPY",
+            "SORT"
+          ],
+          "recovered_operations": [
+            "SORT"
+          ],
+          "oracle_exact_match": 1.0,
+          "recovered_exact_match": 1.0,
+          "functional_agreement": 1.0,
+          "accuracy_passed": true,
+          "agreement_passed": true,
+          "passed": true
+        },
+        "NEGATE->SELECT": {
+          "composition_name": "NEGATE->SELECT",
+          "oracle_operations": [
+            "NEGATE",
+            "SELECT"
+          ],
+          "recovered_operations": [
+            "NEGATE",
+            "SELECT"
+          ],
+          "oracle_exact_match": 1.0,
+          "recovered_exact_match": 1.0,
+          "functional_agreement": 1.0,
+          "accuracy_passed": true,
+          "agreement_passed": true,
+          "passed": true
+        },
+        "SHIFT->BIND": {
+          "composition_name": "SHIFT->BIND",
+          "oracle_operations": [
+            "SHIFT",
+            "BIND"
+          ],
+          "recovered_operations": [
+            "SHIFT",
+            "BIND"
+          ],
+          "oracle_exact_match": 0.99,
+          "recovered_exact_match": 0.99,
+          "functional_agreement": 1.0,
+          "accuracy_passed": true,
+          "agreement_passed": true,
+          "passed": true
+        },
+        "REVERSE->SORT": {
+          "composition_name": "REVERSE->SORT",
+          "oracle_operations": [
+            "REVERSE",
+            "SORT"
+          ],
+          "recovered_operations": [
+            "SORT"
+          ],
+          "oracle_exact_match": 1.0,
+          "recovered_exact_match": 1.0,
+          "functional_agreement": 1.0,
+          "accuracy_passed": true,
+          "agreement_passed": true,
+          "passed": true
+        }
+      },
+      "failure_attribution": "NONE_PASSED"
+    },
+    "3": {
+      "seed": 3,
+      "bundle_status": "COHERENT_VERIFIED",
+      "core_sha256": "676b9cc1cf748ebfe93b660308150331e4053eefc933758ffdfb3c38dbf64c79",
+      "bank_sha256": "00912ee9d395733f9a89518942b2338f80d01db79613440ce432de8a74ca3044",
+      "mean_oracle_exact_match": 0.9975,
+      "mean_recovered_exact_match": 0.9983333333333334,
+      "mean_functional_agreement": 0.9991666666666666,
+      "compositions_passed": 6,
+      "total_compositions": 6,
+      "seed_passed": true,
+      "per_composition_results": {
+        "SHIFT->SELECT": {
+          "composition_name": "SHIFT->SELECT",
+          "oracle_operations": [
+            "SHIFT",
+            "SELECT"
+          ],
+          "recovered_operations": [
+            "SHIFT",
+            "SELECT"
+          ],
+          "oracle_exact_match": 0.995,
+          "recovered_exact_match": 0.995,
+          "functional_agreement": 1.0,
+          "accuracy_passed": true,
+          "agreement_passed": true,
+          "passed": true
+        },
+        "REVERSE->COUNT": {
+          "composition_name": "REVERSE->COUNT",
+          "oracle_operations": [
+            "REVERSE",
+            "COUNT"
+          ],
+          "recovered_operations": [
+            "COUNT"
+          ],
+          "oracle_exact_match": 1.0,
+          "recovered_exact_match": 1.0,
+          "functional_agreement": 1.0,
+          "accuracy_passed": true,
+          "agreement_passed": true,
+          "passed": true
+        },
+        "COPY->SORT": {
+          "composition_name": "COPY->SORT",
+          "oracle_operations": [
+            "COPY",
+            "SORT"
+          ],
+          "recovered_operations": [
+            "SORT"
+          ],
+          "oracle_exact_match": 1.0,
+          "recovered_exact_match": 1.0,
+          "functional_agreement": 1.0,
+          "accuracy_passed": true,
+          "agreement_passed": true,
+          "passed": true
+        },
+        "NEGATE->SELECT": {
+          "composition_name": "NEGATE->SELECT",
+          "oracle_operations": [
+            "NEGATE",
+            "SELECT"
+          ],
+          "recovered_operations": [
+            "NEGATE",
+            "SELECT"
+          ],
+          "oracle_exact_match": 1.0,
+          "recovered_exact_match": 1.0,
+          "functional_agreement": 1.0,
+          "accuracy_passed": true,
+          "agreement_passed": true,
+          "passed": true
+        },
+        "SHIFT->BIND": {
+          "composition_name": "SHIFT->BIND",
+          "oracle_operations": [
+            "SHIFT",
+            "BIND"
+          ],
+          "recovered_operations": [
+            "SHIFT",
+            "BIND"
+          ],
+          "oracle_exact_match": 0.995,
+          "recovered_exact_match": 0.995,
+          "functional_agreement": 1.0,
+          "accuracy_passed": true,
+          "agreement_passed": true,
+          "passed": true
+        },
+        "REVERSE->SORT": {
+          "composition_name": "REVERSE->SORT",
+          "oracle_operations": [
+            "REVERSE",
+            "SORT"
+          ],
+          "recovered_operations": [
+            "SORT"
+          ],
+          "oracle_exact_match": 0.995,
+          "recovered_exact_match": 1.0,
+          "functional_agreement": 0.995,
+          "accuracy_passed": true,
+          "agreement_passed": true,
+          "passed": true
+        }
+      },
+      "failure_attribution": "NONE_PASSED"
+    },
+    "4": {
+      "seed": 4,
+      "bundle_status": "COHERENT_VERIFIED",
+      "core_sha256": "6cbfd9dd9944ba10505ebc68ede392da36e6a58b424a91bf570db8ad4f677b1f",
+      "bank_sha256": "69fa7e2d047296064377296cf1b2d6539902ef92a205ec35319a597c1b5ff64a",
+      "mean_oracle_exact_match": 0.9883333333333333,
+      "mean_recovered_exact_match": 0.9874999999999999,
+      "mean_functional_agreement": 0.9991666666666666,
+      "compositions_passed": 6,
+      "total_compositions": 6,
+      "seed_passed": true,
+      "per_composition_results": {
+        "SHIFT->SELECT": {
+          "composition_name": "SHIFT->SELECT",
+          "oracle_operations": [
+            "SHIFT",
+            "SELECT"
+          ],
+          "recovered_operations": [
+            "SHIFT",
+            "SELECT"
+          ],
+          "oracle_exact_match": 0.94,
+          "recovered_exact_match": 0.94,
+          "functional_agreement": 1.0,
+          "accuracy_passed": true,
+          "agreement_passed": true,
+          "passed": true
+        },
+        "REVERSE->COUNT": {
+          "composition_name": "REVERSE->COUNT",
+          "oracle_operations": [
+            "REVERSE",
+            "COUNT"
+          ],
+          "recovered_operations": [
+            "COUNT"
+          ],
+          "oracle_exact_match": 1.0,
+          "recovered_exact_match": 0.995,
+          "functional_agreement": 0.995,
+          "accuracy_passed": true,
+          "agreement_passed": true,
+          "passed": true
+        },
+        "COPY->SORT": {
+          "composition_name": "COPY->SORT",
+          "oracle_operations": [
+            "COPY",
+            "SORT"
+          ],
+          "recovered_operations": [
+            "SORT"
+          ],
+          "oracle_exact_match": 1.0,
+          "recovered_exact_match": 1.0,
+          "functional_agreement": 1.0,
+          "accuracy_passed": true,
+          "agreement_passed": true,
+          "passed": true
+        },
+        "NEGATE->SELECT": {
+          "composition_name": "NEGATE->SELECT",
+          "oracle_operations": [
+            "NEGATE",
+            "SELECT"
+          ],
+          "recovered_operations": [
+            "NEGATE",
+            "SELECT"
+          ],
+          "oracle_exact_match": 1.0,
+          "recovered_exact_match": 1.0,
+          "functional_agreement": 1.0,
+          "accuracy_passed": true,
+          "agreement_passed": true,
+          "passed": true
+        },
+        "SHIFT->BIND": {
+          "composition_name": "SHIFT->BIND",
+          "oracle_operations": [
+            "SHIFT",
+            "BIND"
+          ],
+          "recovered_operations": [
+            "SHIFT",
+            "BIND"
+          ],
+          "oracle_exact_match": 0.99,
+          "recovered_exact_match": 0.99,
+          "functional_agreement": 1.0,
+          "accuracy_passed": true,
+          "agreement_passed": true,
+          "passed": true
+        },
+        "REVERSE->SORT": {
+          "composition_name": "REVERSE->SORT",
+          "oracle_operations": [
+            "REVERSE",
+            "SORT"
+          ],
+          "recovered_operations": [
+            "SORT"
+          ],
+          "oracle_exact_match": 1.0,
+          "recovered_exact_match": 1.0,
+          "functional_agreement": 1.0,
+          "accuracy_passed": true,
+          "agreement_passed": true,
+          "passed": true
+        }
+      },
+      "failure_attribution": "NONE_PASSED"
+    }
+  },
+  "all_seeds_passed": false,
+  "resumption_decision": "STOP_NRQ003_BLOCKED",
+  "attribution_summary": {
+    "bundle_loss_seeds": [
+      0
+    ],
+    "intrinsic_inadequacy_seeds": [],
+    "passed_seeds": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "root_cause": "BUNDLE_LOSS: Seeds 1-4 reproduce ceiling performance (>98.7% EM, >99.9% agreement) under reconstructed 36-token vocabulary schema, proving the model architecture is intrinsically adequate. Seed 0 failure is exclusively caused by checkpoint destruction (overwrite on 2026-09-13). Because retraining is prohibited without authorization, the 5-seed prerequisite cannot be completed."
+  },
+  "conclusions": [
+    "1. Schema incompatibility resolved: The apparent size mismatch on seeds 1-4 was caused by vocabulary schema drift (36 vs 44 tokens) due to post-A1-B004 novel operation registrations.",
+    "2. Functional adequacy preserved on seeds 1-4: When evaluated under their native generation-lineage 36-token schema, seeds 1-4 achieve near-ceiling performance across all 6 depth-2 compositions (mean recovered EM = 99.50%, mean agreement = 99.96%).",
+    "3. Intrinsic model inadequacy REJECTED: The hypothesis that APC's primitive composition substrate is intrinsically inadequate for depth-2 composition is falsified by the 4/4 passing reproduction on intact seeds.",
+    "4. Seed 0 failure isolated to BUNDLE LOSS: Seed 0's core checkpoint was overwritten at 13:44 on 2026-09-13 by an uncoordinated run with vocab 44, permanently breaking synchronization with its frozen primitive bank (dating from 2026-09-04).",
+    "5. Enforcement of FAIL-CLOSED STOP GATE: Under the strict constraint prohibiting unauthorized retraining or parameter updates, Seed 0 cannot be recovered. Consequently, the 5-seed completion criterion is NOT met.",
+    "6. Final Decision: STOP_NRQ003_BLOCKED. Halts without proceeding to training or depth-3 search."
+  ]
+}

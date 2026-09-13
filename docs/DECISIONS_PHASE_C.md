@@ -717,4 +717,47 @@ Declare **`BLOCKED_BY_MODEL_ADEQUACY`**. Record NRQ-003 as invalid/blocked by pr
 - Implementation / Runner: `src/apc/evaluation/nrq003_prerequisite_audit.py`  
 - Verification Suite: `tests/test_nrq003_prerequisite_audit.py`
 
+---
 
+## ADR-0164: NRQ-004 Frozen Bundle Compatibility Reconstruction & Depth-2 Control Reproduction Fails on Bundle Loss (`STOP_NRQ003_BLOCKED`)
+
+**Date:** 2026-09-13  
+**Task:** NRQ-004 — Frozen Bundle Compatibility Reconstruction & Depth-2 Control Reproduction  
+**Status:** Audit and reproduction completed; `decision: STOP_NRQ003_BLOCKED`. Resumption of NRQ-003 barred.  
+
+**Scope and Integrity Boundary:**  
+- Audited git history at commit `c3f291f` (Task A1-B004), run manifests, and checkpoint hashes. Reconstructed native Phase A.1 36-token vocabulary schema into a non-destructive bundle namespace (`runs/nrq004_reconstructed_bundles/`).
+- Evaluated Task A1-B004 depth-2 positive controls across all 5 fixed seeds (0, 1, 2, 3, 4) on all 6 designated compositions with heuristic beam search.
+- Zero new training updates, zero parameter modifications, zero sealed-partition access.
+- No historical ADR or benchmark threshold modified.
+
+**Key Findings:**  
+1. **Vocabulary Schema Drift Resolved:**  
+   The `RuntimeError: size mismatch` on seeds 1–4 was caused by post-A1-B004 novel operation registrations that expanded the active token table from 36 to 44 tokens. Reconstructing the 10-operation schema (`SharedCoreTokens(vocab_size=10, num_operations=10, arg_span=10)`) eliminates the mismatch without weight modification.
+2. **Ceiling Reproduction on Intact Seeds (1–4) — Intrinsic Inadequacy Rejected:**  
+   Seeds 1, 2, 3, and 4 achieve near-perfect performance across all 6 compositions:
+   - Seed 1: Oracle EM = 1.0000, Recovered EM = 1.0000, Agreement = 1.0000 (PASS 6/6)
+   - Seed 2: Oracle EM = 0.9942, Recovered EM = 0.9942, Agreement = 1.0000 (PASS 6/6)
+   - Seed 3: Oracle EM = 0.9975, Recovered EM = 0.9983, Agreement = 0.9992 (PASS 6/6)
+   - Seed 4: Oracle EM = 0.9883, Recovered EM = 0.9875, Agreement = 0.9992 (PASS 6/6)
+   - Mean (Seeds 1–4): Recovered EM = **0.9950**, Agreement = **0.9996** (both $\gg$ 0.85 / 0.99 thresholds).  
+   This definitively refutes ADR-0163's hypothesis that the APC neural substrate is intrinsically inadequate for depth-2 compositions.
+3. **Causal Attribution of Seed 0 Failure to Bundle Loss:**  
+   Seed 0's original 36-token core checkpoint was destructively overwritten on 2026-09-13 13:44 by an uncoordinated run with vocab 44. The original weights are unrecoverable from disk or git. Evaluated against the available 44-token core, Seed 0 exhibits latent de-synchronization: Oracle EM = 0.1192, Recovered EM = 0.1958, Agreement = 0.4125 (FAIL 0/6).
+4. **Enforcement of Fail-Closed Stop Gate:**  
+   Because resumption of NRQ-003 strictly requires all 5 seeds to reproduce ceiling controls, and because Seed 0 cannot be reconstituted without unauthorized retraining, the 5-seed completion criterion is not met.
+
+**Decision:**  
+Declare **`STOP_NRQ003_BLOCKED`**. Record failure cause as **`BUNDLE_LOSS`** (not intrinsic model inadequacy). Bar resumption of NRQ-003, and stop without proceeding to training or depth-3 composition search.
+
+**Consequences:**  
+- Depth-3 composition search remains barred from execution and interpretation.
+- The research line remains terminated under ADR-0160 (`PHASE_C_CURRENT_CHARTER_FALSIFICATION_SUFFICIENT`) and ADR-0161 (`PROGRAM_LINE_CLOSURE_CONFIRMED`).
+- Reconstructed coherent bundles for seeds 1–4 are preserved in `runs/nrq004_reconstructed_bundles/` as reference evidence.
+
+**Primary Artifacts:**  
+- Review Document: `docs/research/FROZEN_BUNDLE_COMPATIBILITY_RECONSTRUCTION_NRQ004.md`  
+- Verification Record: `docs/research/NRQ004_REVIEW_RECORD.json`  
+- Reconstructed Bundles: `runs/nrq004_reconstructed_bundles/`  
+- Implementation / Runner: `src/apc/evaluation/nrq004_bundle_reconstruction.py`, `scripts/nrq004_bundle_reconstruction.py`  
+- Verification Suite: `tests/test_nrq004_bundle_reconstruction.py`
