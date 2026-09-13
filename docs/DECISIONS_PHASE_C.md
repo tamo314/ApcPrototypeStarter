@@ -761,3 +761,44 @@ Declare **`STOP_NRQ003_BLOCKED`**. Record failure cause as **`BUNDLE_LOSS`** (no
 - Reconstructed Bundles: `runs/nrq004_reconstructed_bundles/`  
 - Implementation / Runner: `src/apc/evaluation/nrq004_bundle_reconstruction.py`, `scripts/nrq004_bundle_reconstruction.py`  
 - Verification Suite: `tests/test_nrq004_bundle_reconstruction.py`
+
+---
+
+## ADR-0165: NRQ-005 Missing-Artifact-Robust Exact-Depth-3 Irreducible Composition Benchmark Supports Depth <= 3 Closure (`EMPIRICALLY_SUPPORT_CLOSURE_DEPTH_LE_3`)
+
+**Date:** 2026-09-13  
+**Task:** NRQ-005 — Missing-Artifact-Robust Exact-Depth-3 Irreducible Composition Benchmark  
+**Status:** Completed independent benchmark; `decision: EMPIRICALLY_SUPPORT_CLOSURE_DEPTH_LE_3`.  
+
+**Scope and Integrity Boundary:**  
+- Executed an independent replacement protocol for NRQ-003 without treating NRQ-003 as resumed or completed. Seed 0 exclusion reason pre-fixed to existing artifact loss (`BUNDLE_LOSS` due to checkpoint overwrite on 2026-09-13, documented in NRQ-004 / ADR-0164).
+- Utilized all four integrity-verified coherent seeds (1, 2, 3, 4) from reconstructed bundles in `runs/nrq004_reconstructed_bundles/` under native Phase A.1 36-token vocabulary schema.
+- Zero new training updates, zero parameter modifications, zero relation additions, zero sealed-partition access.
+- Evaluated on 5 fixed data seeds (101, 102, 103, 104, 105), support $N=32$, and disjoint held-out inputs ($N=100$) per recipe.
+
+**Key Findings:**  
+1. **Symbolic Probe Guarantees Exact-Depth-3 Irreducibility:**  
+   Prior to inspecting model outputs, symbolic interpreter execution proved that all six designated exact-depth-3 recipes (`SHIFT->REVERSE->SELECT`, `SHIFT->NEGATE->SELECT`, `REVERSE->NEGATE->SELECT`, `SHIFT->REVERSE->BIND`, `NEGATE->SHIFT->SELECT`, `REVERSE->SHIFT->BIND`) possess zero functional equivalents across all 72 depth $\le 2$ candidate recipes. Six reducible depth-3 recipes and the six canonical Task A1-B004 depth-2 recipes were evaluated in parallel as controls.
+2. **Oracle Floor Passed:**  
+   The neural substrates execute depth-3 compositions at ceiling accuracy under oracle routing: mean Oracle EM on the irreducible panel is **0.9905** (Seed 1: 1.0000, Seed 2: 0.9907, Seed 3: 0.9997, Seed 4: 0.9717), comfortably exceeding the $\ge 0.85$ oracle floor. Reducible depth-3 controls achieved 0.9933; canonical depth-2 controls achieved 0.9961.
+3. **Strongest Deterministic Baseline Reaches Near-Ceiling Performance ($\ge 0.95$ Across All Bundles):**  
+   Exhaustive lawful search over all 584 candidates of depth $\le 3$ achieves a mean test functional EM of **0.9904** (Seed 1: 1.0000, Seed 2: 0.9903, Seed 3: 0.9997, Seed 4: 0.9717), exceeding 0.95 across every tested bundle. Structural pruning eliminates an average of 498 candidates, leaving only 86 candidates evaluated in 1.28 seconds per task on CPU.
+4. **Beam Search Sensitivity Identified:**  
+   The default heuristic beam search algorithm (`beam_width=16`) achieved 0.3660 mean EM due to length-mismatch prefix truncation, but scaling beam width to 64 restored 100.0% EM, demonstrating that difficulty at depth 3 is a beam-budget artifact rather than intrinsic computational intractability.
+5. **ADR-0162 Closure Falsification Evaluated:**  
+   Because the strongest deterministic baseline also scores $\ge 0.95$ across all bundles and data seeds, no separation between APC and lawful deterministic search exists at depth 3 for the current 8-primitive registry. ADR-0162's closure is not rejected; instead, its Bounded-Resource Corollary is empirically supported and confirmed for depth $\le 3$.
+
+**Decision:**  
+Declare **`EMPIRICALLY_SUPPORT_CLOSURE_DEPTH_LE_3`**. Empirically support and confirm ADR-0162's closure restricted to depth $\le 3$ of the current registry. Reaffirm `PROGRAM_LINE_CLOSURE_CONFIRMED`.
+
+**Consequences:**  
+- ADR-0162's Bounded-Resource Corollary is experimentally validated for depth $\le 3$: lawful deterministic search easily recovers irreducible compositions from small support sets.
+- Phase C research charter remains terminated under ADR-0160, ADR-0161, and ADR-0162.
+- NRQ-005 completes the evaluation of exact-depth-3 irreducible compositions with full evidence provenance.
+
+**Primary Artifacts:**  
+- Review Document: `docs/research/EXACT_DEPTH3_COMPOSITION_BENCHMARK_NRQ005.md`  
+- Verification Record: `docs/research/NRQ005_REVIEW_RECORD.json`  
+- Run Summary: `runs/nrq005_exact_depth3_benchmark/summary.json`  
+- Implementation / Runner: `src/apc/evaluation/nrq005_exact_depth3_benchmark.py`, `scripts/nrq005_exact_depth3_benchmark.py`  
+- Test Suite: `tests/test_nrq005_exact_depth3_benchmark.py`
