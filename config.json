@@ -1,6 +1,6 @@
 {
   "project_dir": ".",
-  "executor": "claude",
+  "executor": "antigravity",
   "max_iterations": 10,
   "executor_timeout_seconds": 10800,
   "planner_timeout_seconds": 1800,
@@ -12,21 +12,18 @@
   "codex": {
     "command": "codex",
     "model": "gpt-5.6-sol",
+    "sandbox": "danger-full-access",
     "extra_args": [
       "--config",
-      "sandbox_workspace_write.network_access=true",
-      "--sandbox",
-      "danger-full-access"
+      "sandbox_workspace_write.network_access=true"
     ],
 
     "executor_model": "gpt-5.6-terra",
-    "executor_sandbox": "workspace-write",
+    "executor_sandbox": "danger-full-access",
     "executor_approval_policy": "never",
     "executor_extra_args": [
       "--config",
-      "sandbox_workspace_write.network_access=true",
-      "--sandbox",
-      "danger-full-access"
+      "sandbox_workspace_write.network_access=true"
     ]
   },
   "claude": {
@@ -44,6 +41,7 @@
   },
   "antigravity": {
     "command": "agy",
+    "model": "gemini-3.8-flash-medium",
     "extra_args": [
       "--print-timeout",
       "120m",
