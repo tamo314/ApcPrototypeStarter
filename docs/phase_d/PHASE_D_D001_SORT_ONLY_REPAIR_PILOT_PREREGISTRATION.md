@@ -12,6 +12,15 @@ authorized. This document fixes a single repair recipe, its comparison condition
 criteria, and its resource budget before any execution. No optimizer step, no model initialization,
 and no candidate construction was performed to produce this document or by the D-003 approval
 review.
+
+**Execution attempt STOP-GATE-FAILed (Task D-004,
+[ADR-0171](../DECISIONS_PHASE_D.md#adr-0171-d-004-sort-only-repair-confirmation-execution-stop-gate-fails-on-the-data-boundary-prerequisite-seeds-30-34-collide-with-the-sealed-v2-partition)):**
+before building the seed-`30-34` cohort this recipe depends on, D-004 found that those five seeds
+collide with `src/apc/evaluation/relation_split_protocol.py`'s `NEW_SEALED_V2_SEEDS` — a sealed
+model-seed partition Phase B task B-C005R3-002 reserved for the not-yet-executed R3-011/R3-012
+sealed-gate pathway. No cohort was built, no repair step ran, and no evaluation was performed; every
+number in this document (recipe, comparison conditions, sample sizes, acceptance criteria, budget)
+is unchanged and remains valid once a conforming, non-sealed seed set is authorized.
 **Depends on:** `docs/design-docs/PHASE_D_COMPOSITION_EXECUTION_CONTRACT.md` (input-domain derivation, ownership boundary, dependency hashes), `docs/phase_d/PHASE_D_D001_TARGET_PANEL_MANIFEST.md` (target/regression/causal-control panels), `docs/design-docs/PHASE_D_FIVE_MODEL_COHORT_CONSTRUCTION_CONTRACT.md` (model cohort this pilot runs against).
 
 ---

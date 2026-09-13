@@ -5,6 +5,14 @@
 `training_execution: AUTHORIZED`、本契約のseed 30-34・手順に厳密限定）。ただしD-003自体はcohortを
 生成していない。以下の契約内容・数値は本認可によって変更されない。**
 
+**STOP GATE FAIL（Task D-004、[ADR-0171](../DECISIONS_PHASE_D.md#adr-0171-d-004-sort-only-repair-confirmation-execution-stop-gate-fails-on-the-data-boundary-prerequisite-seeds-30-34-collide-with-the-sealed-v2-partition)）：本契約§2が固定したseed `30,31,32,33,34` は、
+`src/apc/evaluation/relation_split_protocol.py`の`NEW_SEALED_V2_SEEDS`（既存のPhase B task
+B-C005R3-002が、未実行のR3-011/R3-012 sealed-gate pathway専用として予約した sealed
+model-seed partition）と完全に衝突することが判明した。本契約§2の「既存使用範囲」表は
+`relation_split_protocol.py`の登録を確認しておらず、この衝突を見落としていた。D-004はcohort構築を
+一切実行せず（0 optimizer step、0 model init）、この文書のseed値・手順・予算数値はいずれも変更して
+いない。新たなseed集合の再選定には別途の認可が必要。**
+
 **新規の提案契約。本契約はcohortの構築・検証*手順*を確定するものであり、本タスク内でcohortを
 生成しない。** `docs/design-docs/B2_MODEL_BUNDLE_RECOVERY_CONTRACT.md`（以下「REC契約」）が
 定義した `ModelBundleManifest` / `load_bundle` / hash方式を**そのまま再利用**し、独自の

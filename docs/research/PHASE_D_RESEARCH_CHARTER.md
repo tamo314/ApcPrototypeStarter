@@ -1,6 +1,6 @@
 # Phase D — Compositional Execution & Local Repair, Research Charter (APPROVED, scoped execution authorized)
 
-Date: 2026-09-13. Version: charter-v1. **Status: `APPROVED` (Task D-003, [ADR-0170](../DECISIONS_PHASE_D.md#adr-0170-d-003-phase-d-charter-authorization-decision-scoped-approval)).**
+Date: 2026-09-13. Version: charter-v1. **Status: `APPROVED` (Task D-003, [ADR-0170](../DECISIONS_PHASE_D.md#adr-0170-d-003-phase-d-charter-authorization-decision-scoped-approval)); execution attempt STOP-GATE-FAILed (Task D-004, [ADR-0171](../DECISIONS_PHASE_D.md#adr-0171-d-004-sort-only-repair-confirmation-execution-stop-gate-fails-on-the-data-boundary-prerequisite-seeds-30-34-collide-with-the-sealed-v2-partition)) — the registered seed-`30-34` cohort collides with a pre-existing sealed model-seed partition (`relation_split_protocol.py: NEW_SEALED_V2_SEEDS`); no cohort was built, no training occurred, H-D1 remains untested, and a new seed authorization is required before any future execution.**
 `training_execution: AUTHORIZED`, scoped strictly to (a) the seed-`30,31,32,33,34` five-model
 cohort construction (`PHASE_D_FIVE_MODEL_COHORT_CONSTRUCTION_CONTRACT.md`), (b) the single
 preregistered `LOCAL_SORT_REPAIR` recipe (`PHASE_D_D001_SORT_ONLY_REPAIR_PILOT_PREREGISTRATION.md`

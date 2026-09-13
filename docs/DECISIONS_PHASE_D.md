@@ -283,3 +283,157 @@ noted):**
   `docs/design-docs/PHASE_D_FIVE_MODEL_COHORT_CONSTRUCTION_CONTRACT.md` (unchanged; pointer note
   added)
 - Prior ADR: [ADR-0169](#adr-0169-d-001-phase-d-charter-draft-composition-execution-contract-and-sort-only-repair-pilot-preregistration)
+
+## ADR-0171: D-004 — SORT-Only Repair Confirmation Execution STOP GATE FAILS on the Data-Boundary Prerequisite (Seeds 30-34 Collide with the Sealed V2 Partition)
+
+**Date:** 2026-09-13
+**Task:** D-004 — Execute the D-001-preregistered, D-003-authorized single 5-model `LOCAL_SORT_REPAIR`
+confirmation experiment (seed `30-34` cohort construction, then repair, then the full registered
+evaluation suite).
+**Status:** **STOP GATE FAIL**, at the data-boundary/sealed-partition prerequisite check, before any
+cohort construction. `training_execution` remains `AUTHORIZED` per ADR-0170 in principle, but this
+task performed **zero** optimizer steps, **zero** model initializations, **zero** candidate
+constructions, and **zero** sealed-data accesses — execution did not begin. `candidate_selected: null`,
+`bundle_promotion: NOT_AUTHORIZED`, `sealed_access: 0` (unchanged).
+
+**What this task attempted:** per its own instruction, D-004 was to verify provenance, data boundary
+(データ境界), hash integrity, strict fresh-load, and `FROZEN_PARENT` eligibility as STOP GATEs
+*before* constructing the seed-`30,31,32,33,34` cohort registered by
+`docs/design-docs/PHASE_D_FIVE_MODEL_COHORT_CONSTRUCTION_CONTRACT.md` (D-001) and approved by
+ADR-0170 (D-003). Before writing any orchestration code, this task re-verified the cohort contract's
+own seed-disjointness claim (§2 of that document) against the repository's *complete* existing
+seed-namespace registry, not only the four namespaces that document's own table checked
+(NRQ-005–008 reconstructed-bundle model seeds `1-4`; Model Bundle Recovery dev seeds `10-14`;
+NRQ-006/007 data seed `101-105`; NRQ-008 data seed pool `201-220`).
+
+**Finding — a genuine, mechanically-enforced seed collision:**
+
+`src/apc/evaluation/relation_split_protocol.py:95` registers
+`NEW_SEALED_V2_SEEDS: Final[tuple[int, ...]] = (30, 31, 32, 33, 34)` — **the exact same five integers**
+the Phase D cohort contract independently chose, believing them unused. This is not a coincidental
+namespace (e.g. an unrelated data-seed range): `build_seed_partition_registration`
+(`relation_split_protocol.py:393-427`) fixes `"sealed_v2": {"seeds": list(NEW_SEALED_V2_SEEDS),
+"model_seed_recipe": "model_seed = seed", "status": "MEMBERSHIP_REGISTERED_NOT_MEASURED", "note":
+"Model outputs for these seeds are not measured by R3-002; measurement is R3-012's job, after R3-011
+seals this membership."}` — i.e. it is the **same `ModelBundleManifest.model_seed` namespace** the
+Phase D cohort contract's §5 proposes to populate, reserved by an earlier Phase B task
+(`B-C005R3-002`, `docs/design-docs/B2_REPRODUCIBILITY_AND_RELATION_SPLITS.md`) specifically as a
+**held-out sealed partition** for the not-yet-executed `R3-011` (seal) / `R3-012` (sealed gate)
+pathway.
+
+`assert_sealed_access_permitted` (`relation_split_protocol.py:105-119`) mechanically enforces this
+reservation: `sealed = set(SEALED_GATE_SEEDS) | set(DEFAULT_REGATE_SEEDS) | set(NEW_SEALED_V2_SEEDS)`
+— i.e. `{0,1,2,3,4} | {20,21,22,23,24} | {30,31,32,33,34}` (values independently confirmed at
+`src/apc/evaluation/retrieval_repair_benchmark.py:73-74` and
+`src/apc/evaluation/hard_negative_repair_gate.py:53`) — and raises `ValueError` on any access to a
+seed in that set unless `purpose == "R3-011_seal_or_R3-012_gate"`. Every existing caller of this guard
+in the repository (e.g. `shift_functional_generalization_repair.py:673-675`, the exact SHIFT-repair
+module the cohort contract's §3 depends on for its `SHIFT_DEDICATED` stage) passes its own
+task-specific purpose string and is therefore correctly blocked from touching seeds `30-34`.
+`docs/DECISIONS_PHASE_B_B2_POST_D2_REPAIR.md:64` confirms the current status in prose: "no model
+output for these seeds is measured until R3-011 seals this membership and R3-012 runs the sealed
+gate," and `docs/exec-plans/active/PHASE_B_B2_POST_D2_REPAIR.md:4,18` confirm `R3-011`/`R3-012` remain
+paused/blocked and have never executed (independently confirmed here by `git log --all --oneline`
+across the full repository history: no commit references either task). This finding was independently
+re-derived from source during this task, not taken on the sub-agent report's word alone.
+
+**Why this is a STOP GATE, not a routing-around problem:** building the Phase D cohort on seeds
+`30-34` — training a fresh Core + primitive bank per seed, running `LOCAL_SORT_REPAIR`, and evaluating
+the registered target/regression/canary/causal-control panels on the result — would be exactly the
+"measurement of model output" for these seeds that `B-C005R3-002` reserved exclusively for the
+`R3-011`/`R3-012` pathway, performed instead by an unrelated charter outside that pathway. This
+directly conflicts with `AGENTS.md`'s non-negotiable invariant ("Protect sealed data and enforce the
+applicable data-disjointness checks before training") and with the Phase D charter's own explicit,
+repeated promise that "the sealed-partition boundary... [is] preserved unmodified" by this charter
+(`docs/research/PHASE_D_RESEARCH_CHARTER.md`). It would not merely be an undesirable side effect —
+`assert_sealed_access_permitted` would raise `ValueError` the moment any orchestration script reused
+the existing SHIFT-repair module (as the cohort contract's own §3 stage table requires) with these
+seeds, so the collision is also mechanically fail-closed, not just a documentation inconsistency.
+
+**Root cause:** `docs/design-docs/PHASE_D_FIVE_MODEL_COHORT_CONSTRUCTION_CONTRACT.md` §2's
+seed-disjointness table cross-checked only four specific prior-usage namespaces and concluded seeds
+`30-34` were disjoint from "既存repo内で使用済みの全seed namespace" (every seed namespace already used
+in the existing repo). It did not check `relation_split_protocol.py`'s `NEW_SEALED_V2_SEEDS`
+registration (nor `NEW_VALIDATION_SEEDS = (15,16,17,18,19)`, nor `DEFAULT_REGATE_SEEDS =
+(20,21,22,23,24)`), which predates the Phase D charter and was registered by the earlier Phase B task
+`B-C005R3-002`. ADR-0169 (D-001)'s own artifact authorship and ADR-0170 (D-003)'s independent
+source spot-check both missed this collision — D-003's spot-check re-verified `SortOp`/`SelectOp`/
+`PrimitiveBank.freeze`-family citations but did not re-derive the cohort contract's seed-disjointness
+claim against `relation_split_protocol.py`.
+
+**Decision: STOP.** D-004 does not proceed to cohort construction, `LOCAL_SORT_REPAIR` training, or
+any registered evaluation. This is recorded as a STOP GATE FAIL on the data-boundary/sealed-partition
+prerequisite check — **not** a pilot result. H-D1 (the SORT local-repair hypothesis) is neither
+confirmed nor refuted by this task; it remains untested. No optimizer step, no model initialization,
+no candidate construction, no primitive repair, and no evaluation forward pass was performed; no
+artifacts were created under `runs/phase_d_five_model_cohort/` or `runs/phase_d_d001_sort_repair/`
+(none exist on disk — confirmed before writing this record).
+
+Per this task's own explicit instruction and `AGENTS.md`'s STOP-GATE handling: the failed criterion is
+reported here precisely (data-boundary / sealed-partition disjointness, not a recipe/hash/regression/
+causal-control failure), this ADR is the evidence handoff, and dependent work stops — no additional
+updates, seed exchange, alternate recipe/primitive, sealed access, candidate selection, or bundle
+promotion follows from this finding.
+
+**What this finding does *not* authorize or imply:**
+- Does **not** authorize this task to unilaterally substitute different seeds and proceed — that is an
+  unauthorized recipe/seed deviation requiring a new, separately recorded authorization per both
+  ADR-0169's and ADR-0170's own explicit terms.
+- Does **not** authorize invoking `assert_sealed_access_permitted(..., purpose="R3-011_seal_or_R3-012_gate")`
+  to bypass the guard — this task is not the `R3-011`/`R3-012` sealed-gate pathway, and mischaracterizing
+  its purpose to pass the guard would itself be the sealed-data violation the guard exists to prevent.
+- Does **not** reverse or weaken ADR-0169/ADR-0170's approval of the `LOCAL_SORT_REPAIR` recipe design,
+  the composition execution contract, or the panel manifests — those remain sound and approved; only
+  the specific seed values `30-34` collide with a pre-existing reservation.
+- Does **not** touch any Phase B/C terminal state, the G1 independent-relation deficit, or the
+  sealed-partition boundary. This finding's purpose is to *protect* that boundary from being
+  inadvertently breached by an unrelated charter, consistent with every prior Phase B/C/D document's
+  repeated commitment to preserve it unmodified.
+
+**Recommendation (not self-authorized by this task):** a future task would need either (a) a new,
+explicitly authorized charter amendment selecting a genuinely unused model-seed set — checked against
+`relation_split_protocol.py`'s complete registry (`SEALED_GATE_SEEDS={0-4}`,
+`DEFAULT_REGATE_SEEDS=(20-24)`, `NEW_SEALED_V2_SEEDS=(30-34)`, `NEW_VALIDATION_SEEDS=(15-19)`) and
+`RECOVERY_DEV_SEEDS=(10-14)`, not only the four namespaces D-001 originally checked — or (b) an
+explicit, knowing decision by the charter owner to consume the `sealed_v2` partition for this
+unrelated purpose, accepting that doing so would foreclose or complicate the future `R3-011`/`R3-012`
+sealed-gate pathway Phase B reserved seeds `30-34` for. Both are charter-level decisions for the user,
+not something this execution task can decide for itself.
+
+```
+design_status       = READY_FOR_REVIEW    (unchanged, ADR-0169)
+charter_status       = APPROVED            (unchanged, ADR-0170)
+training_execution   = AUTHORIZED          (unchanged, ADR-0170; scope unaffected, but execution
+                                             did not begin due to this STOP GATE)
+cohort_construction  = STOP_GATE_FAIL_DATA_BOUNDARY   (seeds 30-34 collide with NEW_SEALED_V2_SEEDS)
+pilot_execution      = NOT_PERFORMED       (blocked on cohort_construction)
+candidate_selected   = null
+bundle_promotion     = NOT_AUTHORIZED
+sealed_access        = 0
+```
+
+**Consequences:**
+- Phase B/C terminal states, their FAILs, the G1 independent-relation deficit, and the sealed-data
+  boundary (now including the `sealed_v2` partition specifically) remain unmodified and continue to
+  apply.
+- No cohort exists, no repair candidate exists, and no evaluation result exists for H-D1 under any
+  seed. A future execution task requires a new authorization step (charter amendment or explicit
+  sealed-partition-consumption decision, per the Recommendation above) before it may proceed; it is
+  not a resumption of D-004's authorization as-is, since D-004's authorized seed values are precisely
+  what collided.
+- The `LOCAL_SORT_REPAIR` recipe, panel manifests, and evaluation/acceptance-criteria design
+  (ADR-0169/ADR-0170) remain valid and reusable once a conforming seed set is authorized; none of
+  their numeric content is invalidated by this finding.
+
+**Primary Artifacts (reviewed; none created by this task's execution attempt):**
+- Blocking source citation: `src/apc/evaluation/relation_split_protocol.py:95,105-119,393-427`
+- Corroborating status record: `docs/DECISIONS_PHASE_B_B2_POST_D2_REPAIR.md:64`,
+  `docs/exec-plans/active/PHASE_B_B2_POST_D2_REPAIR.md:4,18`
+- Reviewed, unmodified: `docs/research/PHASE_D_RESEARCH_CHARTER.md`,
+  `docs/design-docs/PHASE_D_FIVE_MODEL_COHORT_CONSTRUCTION_CONTRACT.md`,
+  `docs/phase_d/PHASE_D_D001_SORT_ONLY_REPAIR_PILOT_PREREGISTRATION.md`,
+  `docs/phase_d/PHASE_D_D001_TARGET_PANEL_MANIFEST.md` (pointer notes added to the cohort
+  construction contract and pilot preregistration status headers only; no fixed seed, recipe,
+  budget, or acceptance-criterion value changed)
+- Prior ADRs: [ADR-0169](#adr-0169-d-001-phase-d-charter-draft-composition-execution-contract-and-sort-only-repair-pilot-preregistration),
+  [ADR-0170](#adr-0170-d-003-phase-d-charter-authorization-decision-scoped-approval)
