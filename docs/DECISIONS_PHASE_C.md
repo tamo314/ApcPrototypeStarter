@@ -847,5 +847,57 @@ Declare **`ADR0165_QUALIFIED_BY_FULL_REGISTRY_AUDIT`**. Qualify ADR-0165: confir
 - Process Summaries: `runs/nrq006_depth3_audit/summary_process_1.json`, `summary_process_2.json`  
 - Reproducibility Record: `runs/nrq006_depth3_audit/process_reproducibility_verification.json`  
 - Implementation / Runner: `src/apc/evaluation/nrq006_argument_closed_depth3_audit.py`, `scripts/nrq006_argument_closed_depth3_audit.py`  
-- Test Suite: `tests/test_nrq006_argument_closed_depth3_audit.py`
+- Test Suite: `tests/test_nrq006_argument_closed_depth3_audit.py`  
+
+**Amendment Note (2026-09-13, Task NRQ-007):**  
+Task NRQ-007 re-aggregates all 1200 cells of NRQ-006 and applies the non-averaging all-cell gate, formally amending ADR-0166 to **`QUALIFIED`** (`ADR0166_QUALIFIED_BY_STEPWISE_CAUSAL_ATTRIBUTION`). Programmatic reconciliation establishes that: (1) Exactly 29 classes are length-adequate ($L \ge 6$) and 31 classes have `SELECT` in the first two steps causing intermediate length collapse ($L < 6$), reconciling the draft count of 41. (2) Exactly 35 classes fail at mean level (27 contracted, 8 length-adequate), correcting the draft count of 16. (3) Under the non-averaging all-cell gate, only 19/60 classes pass all 20 cells, while 41 classes fail. (4) Stepwise causal intervention disentangles the 35 failure classes into 7 short-sequence capacity deficit classes, 4 argument handling classes, and 24 bundle-divergent component failures. See [ADR-0167](#adr-0167-nrq-007-stepwise-causal-attribution-disentangles-depth-3-failure-mechanisms-adr0166_qualified_by_stepwise_causal_attribution).
+
+---
+
+## ADR-0167: NRQ-007 Stepwise Causal Attribution Disentangles Depth-3 Failure Mechanisms (`ADR0166_QUALIFIED_BY_STEPWISE_CAUSAL_ATTRIBUTION`)
+
+**Date:** 2026-09-13  
+**Task:** NRQ-007 — Stepwise Causal Attribution of NRQ-006 Composition Failures  
+**Status:** Completed stepwise causal attribution; `decision: ADR0166_QUALIFIED_BY_STEPWISE_CAUSAL_ATTRIBUTION` (`QUALIFIED`).  
+
+**Scope and Integrity Boundary:**  
+- Operating strictly under the post-STOP-GATE diagnostic charter: zero new training, zero parameter updates, zero relation additions, zero sealed access, zero candidate selection.
+- Evaluated on Python 3.12 across the exact same 60 canonical equivalence classes, intact reconstructed bundles 1–4, and data seeds 101–105 from NRQ-006 with deterministic SHA-256 splits.
+- Re-aggregated all 1200 cells from NRQ-006 before attribution, reconciling class partitions and documentation.
+- Evaluated each prefix of all 35 failure recipes ($35 \times 4 \times 5 = 700$ cells) under Condition (A) continuous execution, Condition (B) diagnostic reset with ground truth intermediate re-encoding, Condition (C) standalone length-matched controls, and parameterized controls (Correct, Wrong-argument, None, Wrong-family).
+- Enforced 100% cross-bundle reproducibility across all 4 bundles $\times$ 5 data seeds for uniform attribution.
+
+**Key Findings:**  
+1. **Programmatic 1200-Cell Re-aggregation & Class Partition Reconciliation:**  
+   Re-aggregation of all 1200 cells corrects historical draft counts in ADR-0166:
+   - Canonical partition: 29 length-adequate classes ($L \ge 6$) vs 31 length-contracted classes ($L < 6$).
+   - Mean-threshold failures: Exactly 35 classes fail (27 length-contracted, 8 length-adequate), while 25 classes pass.
+   - All-cell gate: Only **19 / 60 classes** pass all 20 cells (all 4 bundles and 5 data seeds achieve Oracle EM $\ge 0.85$ and Exhaustive EM $\ge 0.95$); 41 classes fail at least one cell. Overall, 558 / 1200 cells (46.50%) pass both thresholds.
+2. **Stepwise Causal Attribution Across 35 Failure Classes:**  
+   Applying pre-fixed hierarchical rules across all 4 bundles and 5 data seeds:
+   - **`SHORT_SEQUENCE_CAPACITY_DEFICIT` (7 classes, 20.0%):** All 7 classes share the motif `SORT` immediately following `SELECT` (`NEGATE->SELECT->SORT`, `SELECT->SORT->*`, `SHIFT->SELECT->SORT`). Across all 4 bundles, `SORT` collapses in standalone length-matched control on $L \in [3, 5]$ ($\text{EM} \le 0.133$), demonstrating an intrinsic sub-curriculum capacity deficit in the frozen primitive.
+   - **`ARGUMENT_HANDLING` (4 classes, 11.4%):** All 4 classes share the motif `*->BIND->COUNT` (`REVERSE->BIND->COUNT`, `SELECT->BIND->COUNT`, `SHIFT->BIND->COUNT`, `SORT->BIND->COUNT`). `BIND` outputs length 1; on length 1, `COUNT` loses counterfactual argument sensitivity ($\text{EM}_{\text{wr\_arg}} \approx \text{EM}_{\text{corr}}$), yielding subthreshold causal gap ($\Delta_{\text{causal}} < 0.20$).
+   - **`BUNDLE_SPECIFIC_COMPONENT_FAILURE` (24 classes, 68.6%):** 24 classes fail due to cross-bundle parameter divergence rather than universal substrate failure. E.g., Bundle 1 successfully executes `SHIFT` on $L \in [3, 5]$ ($\text{EM} = 1.000$) and `NEGATE` on $L = 1$ ($\text{EM} \ge 0.88$), whereas Bundles 2–4 collapse ($\text{EM} \le 0.367$ and $\le 0.10$); Bundle 4 exhibits slight degradation in `SHIFT` accuracy ($\text{EM} = 0.867$), causing chained shifts (`SHIFT->SHIFT->SHIFT`, `REVERSE->SHIFT->SHIFT`) to drop below 0.95.
+3. **Cell-Level Mechanism Distribution (700 Cells Evaluated):**  
+   Short-sequence capacity deficit: 330 cells (47.1%); Argument handling: 250 cells (35.7%); Passed cells: 79 cells (11.3%); Upstream error accumulation: 26 cells (3.7%); Hidden-state interface failure: 15 cells (2.1%).
+
+**Decision:**  
+Declare **`ADR0166_QUALIFIED_BY_STEPWISE_CAUSAL_ATTRIBUTION`**. Formally amend ADR-0166:
+- Depth $\le 3$ closure is qualified under the all-cell gate (19/60 classes pass all cells).
+- Historical failure count of 16 is corrected to 35 failure classes under mean threshold and 41 under all-cell gate.
+- Failure mechanisms are permanently attributed to short-sequence capacity deficit (7 classes), argument handling on length 1 (4 classes), and bundle-divergent component failure (24 classes).
+- Reaffirm `PROGRAM_LINE_CLOSURE_CONFIRMED`. Zero retraining or candidate search authorized.
+
+**Consequences:**  
+- The exact failure signatures and causal breakdowns are permanently recorded in `runs/nrq007_causal_attribution/`.
+- Resolving length-contracting failures would require multi-scale length curriculum training, which remains unauthorized without a new charter.
+- ADR-0166's historical counts are formally reconciled and corrected.
+
+**Primary Artifacts:**  
+- Review Document: `docs/research/STEPWISE_CAUSAL_ATTRIBUTION_NRQ007.md`  
+- Reaggregation Summary: `runs/nrq007_causal_attribution/reaggregation_summary.json`  
+- Attribution Report: `runs/nrq007_causal_attribution/nrq007_attribution_report.json`  
+- Implementation / Runner: `src/apc/evaluation/nrq007_stepwise_causal_attribution.py`, `scripts/nrq007_stepwise_causal_attribution.py`  
+- Test Suite: `tests/test_nrq007_stepwise_causal_attribution.py`  
+
 

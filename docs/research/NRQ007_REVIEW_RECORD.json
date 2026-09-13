@@ -1,0 +1,1310 @@
+{
+  "task_id": "NRQ-007",
+  "task_name": "Stepwise Causal Attribution of NRQ-006 Composition Failures",
+  "date": "2026-09-13",
+  "total_canonical_classes": 60,
+  "total_benchmark_cells": 1200,
+  "failure_classes_count": 35,
+  "bundle_seeds_evaluated": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "data_seeds_evaluated": [
+    101,
+    102,
+    103,
+    104,
+    105
+  ],
+  "attribution_class_counts": {
+    "BUNDLE_SPECIFIC_COMPONENT_FAILURE": 24,
+    "SHORT_SEQUENCE_CAPACITY_DEFICIT": 7,
+    "ARGUMENT_HANDLING": 4
+  },
+  "reproducible_class_counts": {
+    "BUNDLE_SPECIFIC_COMPONENT_FAILURE": 24,
+    "SHORT_SEQUENCE_CAPACITY_DEFICIT": 7,
+    "ARGUMENT_HANDLING": 3
+  },
+  "class_attributions": [
+    {
+      "canonical_class": "BIND->COUNT->NEGATE",
+      "recipe": [
+        "BIND",
+        "COUNT",
+        "NEGATE"
+      ],
+      "final_attribution": "BUNDLE_SPECIFIC_COMPONENT_FAILURE",
+      "is_reproducible": true,
+      "bundle_attributions": {
+        "seed_1": "UPSTREAM_ERROR_ACCUMULATION",
+        "seed_2": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_3": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_4": "SHORT_SEQUENCE_CAPACITY_DEFICIT"
+      },
+      "cell_attribution_counts": {
+        "ARGUMENT_HANDLING": 8,
+        "UPSTREAM_ERROR_ACCUMULATION": 3,
+        "SHORT_SEQUENCE_CAPACITY_DEFICIT": 9
+      },
+      "mean_continuous_step_ems": [
+        1.0,
+        0.8800000000000001,
+        0.22000000000000003
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        1.0,
+        0.8800000000000001,
+        0.25
+      ],
+      "mean_standalone_step_ems": [
+        1.0,
+        0.9199999999999999,
+        0.35
+      ],
+      "attribution_rationale": "Attributed to bundle-specific failure due to differing modal failure mechanisms across bundles: {'seed_1': 'UPSTREAM_ERROR_ACCUMULATION', 'seed_2': 'SHORT_SEQUENCE_CAPACITY_DEFICIT', 'seed_3': 'SHORT_SEQUENCE_CAPACITY_DEFICIT', 'seed_4': 'SHORT_SEQUENCE_CAPACITY_DEFICIT'}."
+    },
+    {
+      "canonical_class": "COUNT->COUNT->NEGATE",
+      "recipe": [
+        "COUNT",
+        "COUNT",
+        "NEGATE"
+      ],
+      "final_attribution": "BUNDLE_SPECIFIC_COMPONENT_FAILURE",
+      "is_reproducible": true,
+      "bundle_attributions": {
+        "seed_1": "UPSTREAM_ERROR_ACCUMULATION",
+        "seed_2": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_3": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_4": "SHORT_SEQUENCE_CAPACITY_DEFICIT"
+      },
+      "cell_attribution_counts": {
+        "UPSTREAM_ERROR_ACCUMULATION": 4,
+        "PASSED_CELL": 1,
+        "SHORT_SEQUENCE_CAPACITY_DEFICIT": 15
+      },
+      "mean_continuous_step_ems": [
+        0.998,
+        0.9039999999999999,
+        0.22599999999999998
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        0.998,
+        0.9039999999999999,
+        0.25
+      ],
+      "mean_standalone_step_ems": [
+        1.0,
+        0.9199999999999999,
+        0.35
+      ],
+      "attribution_rationale": "Attributed to bundle-specific failure due to differing modal failure mechanisms across bundles: {'seed_1': 'UPSTREAM_ERROR_ACCUMULATION', 'seed_2': 'SHORT_SEQUENCE_CAPACITY_DEFICIT', 'seed_3': 'SHORT_SEQUENCE_CAPACITY_DEFICIT', 'seed_4': 'SHORT_SEQUENCE_CAPACITY_DEFICIT'}."
+    },
+    {
+      "canonical_class": "NEGATE->SELECT->SELECT",
+      "recipe": [
+        "NEGATE",
+        "SELECT",
+        "SELECT"
+      ],
+      "final_attribution": "BUNDLE_SPECIFIC_COMPONENT_FAILURE",
+      "is_reproducible": true,
+      "bundle_attributions": {
+        "seed_1": "ARGUMENT_HANDLING",
+        "seed_2": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_3": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_4": "SHORT_SEQUENCE_CAPACITY_DEFICIT"
+      },
+      "cell_attribution_counts": {
+        "ARGUMENT_HANDLING": 8,
+        "SHORT_SEQUENCE_CAPACITY_DEFICIT": 12
+      },
+      "mean_continuous_step_ems": [
+        1.0,
+        1.0,
+        0.517
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        1.0,
+        1.0,
+        0.517
+      ],
+      "mean_standalone_step_ems": [
+        1.0,
+        1.0,
+        0.49000000000000005
+      ],
+      "attribution_rationale": "Attributed to bundle-specific failure due to differing modal failure mechanisms across bundles: {'seed_1': 'ARGUMENT_HANDLING', 'seed_2': 'SHORT_SEQUENCE_CAPACITY_DEFICIT', 'seed_3': 'SHORT_SEQUENCE_CAPACITY_DEFICIT', 'seed_4': 'SHORT_SEQUENCE_CAPACITY_DEFICIT'}."
+    },
+    {
+      "canonical_class": "NEGATE->SELECT->SHIFT",
+      "recipe": [
+        "NEGATE",
+        "SELECT",
+        "SHIFT"
+      ],
+      "final_attribution": "BUNDLE_SPECIFIC_COMPONENT_FAILURE",
+      "is_reproducible": true,
+      "bundle_attributions": {
+        "seed_1": "PASSED_CELL",
+        "seed_2": "ARGUMENT_HANDLING",
+        "seed_3": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_4": "ARGUMENT_HANDLING"
+      },
+      "cell_attribution_counts": {
+        "PASSED_CELL": 5,
+        "ARGUMENT_HANDLING": 10,
+        "SHORT_SEQUENCE_CAPACITY_DEFICIT": 5
+      },
+      "mean_continuous_step_ems": [
+        1.0,
+        1.0,
+        0.41
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        1.0,
+        1.0,
+        0.41
+      ],
+      "mean_standalone_step_ems": [
+        1.0,
+        1.0,
+        0.41
+      ],
+      "attribution_rationale": "Class passes ceiling on bundle(s) [1] but collapses on others, demonstrating bundle-specific parameter divergence."
+    },
+    {
+      "canonical_class": "NEGATE->SELECT->SORT",
+      "recipe": [
+        "NEGATE",
+        "SELECT",
+        "SORT"
+      ],
+      "final_attribution": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+      "is_reproducible": true,
+      "bundle_attributions": {
+        "seed_1": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_2": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_3": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_4": "SHORT_SEQUENCE_CAPACITY_DEFICIT"
+      },
+      "cell_attribution_counts": {
+        "SHORT_SEQUENCE_CAPACITY_DEFICIT": 20
+      },
+      "mean_continuous_step_ems": [
+        1.0,
+        1.0,
+        0.078
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        1.0,
+        1.0,
+        0.078
+      ],
+      "mean_standalone_step_ems": [
+        1.0,
+        1.0,
+        0.075
+      ],
+      "attribution_rationale": "100% uniform attribution across all 4 bundles x 5 data seeds (20/20 cells)."
+    },
+    {
+      "canonical_class": "REVERSE->BIND->COUNT",
+      "recipe": [
+        "REVERSE",
+        "BIND",
+        "COUNT"
+      ],
+      "final_attribution": "ARGUMENT_HANDLING",
+      "is_reproducible": true,
+      "bundle_attributions": {
+        "seed_1": "ARGUMENT_HANDLING",
+        "seed_2": "ARGUMENT_HANDLING",
+        "seed_3": "ARGUMENT_HANDLING",
+        "seed_4": "ARGUMENT_HANDLING"
+      },
+      "cell_attribution_counts": {
+        "ARGUMENT_HANDLING": 20
+      },
+      "mean_continuous_step_ems": [
+        0.999,
+        1.0,
+        0.8800000000000001
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        0.999,
+        1.0,
+        0.8800000000000001
+      ],
+      "mean_standalone_step_ems": [
+        1.0,
+        1.0,
+        0.9199999999999999
+      ],
+      "attribution_rationale": "100% uniform attribution across all 4 bundles x 5 data seeds (20/20 cells)."
+    },
+    {
+      "canonical_class": "REVERSE->SELECT->SELECT",
+      "recipe": [
+        "REVERSE",
+        "SELECT",
+        "SELECT"
+      ],
+      "final_attribution": "BUNDLE_SPECIFIC_COMPONENT_FAILURE",
+      "is_reproducible": true,
+      "bundle_attributions": {
+        "seed_1": "ARGUMENT_HANDLING",
+        "seed_2": "ARGUMENT_HANDLING",
+        "seed_3": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_4": "SHORT_SEQUENCE_CAPACITY_DEFICIT"
+      },
+      "cell_attribution_counts": {
+        "ARGUMENT_HANDLING": 11,
+        "SHORT_SEQUENCE_CAPACITY_DEFICIT": 9
+      },
+      "mean_continuous_step_ems": [
+        0.999,
+        1.0,
+        0.445
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        0.999,
+        1.0,
+        0.445
+      ],
+      "mean_standalone_step_ems": [
+        1.0,
+        1.0,
+        0.49000000000000005
+      ],
+      "attribution_rationale": "Attributed to bundle-specific failure due to differing modal failure mechanisms across bundles: {'seed_1': 'ARGUMENT_HANDLING', 'seed_2': 'ARGUMENT_HANDLING', 'seed_3': 'SHORT_SEQUENCE_CAPACITY_DEFICIT', 'seed_4': 'SHORT_SEQUENCE_CAPACITY_DEFICIT'}."
+    },
+    {
+      "canonical_class": "REVERSE->SELECT->SHIFT",
+      "recipe": [
+        "REVERSE",
+        "SELECT",
+        "SHIFT"
+      ],
+      "final_attribution": "BUNDLE_SPECIFIC_COMPONENT_FAILURE",
+      "is_reproducible": true,
+      "bundle_attributions": {
+        "seed_1": "PASSED_CELL",
+        "seed_2": "ARGUMENT_HANDLING",
+        "seed_3": "ARGUMENT_HANDLING",
+        "seed_4": "SHORT_SEQUENCE_CAPACITY_DEFICIT"
+      },
+      "cell_attribution_counts": {
+        "PASSED_CELL": 5,
+        "ARGUMENT_HANDLING": 10,
+        "SHORT_SEQUENCE_CAPACITY_DEFICIT": 5
+      },
+      "mean_continuous_step_ems": [
+        0.999,
+        1.0,
+        0.398
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        0.999,
+        1.0,
+        0.398
+      ],
+      "mean_standalone_step_ems": [
+        1.0,
+        1.0,
+        0.41
+      ],
+      "attribution_rationale": "Class passes ceiling on bundle(s) [1] but collapses on others, demonstrating bundle-specific parameter divergence."
+    },
+    {
+      "canonical_class": "REVERSE->SHIFT->SHIFT",
+      "recipe": [
+        "REVERSE",
+        "SHIFT",
+        "SHIFT"
+      ],
+      "final_attribution": "BUNDLE_SPECIFIC_COMPONENT_FAILURE",
+      "is_reproducible": true,
+      "bundle_attributions": {
+        "seed_1": "PASSED_CELL",
+        "seed_2": "UPSTREAM_ERROR_ACCUMULATION",
+        "seed_3": "PASSED_CELL",
+        "seed_4": "UPSTREAM_ERROR_ACCUMULATION"
+      },
+      "cell_attribution_counts": {
+        "PASSED_CELL": 11,
+        "UPSTREAM_ERROR_ACCUMULATION": 8,
+        "HIDDEN_STATE_INTERFACE": 1
+      },
+      "mean_continuous_step_ems": [
+        0.998,
+        0.968,
+        0.9410000000000001
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        0.998,
+        0.969,
+        0.966
+      ],
+      "mean_standalone_step_ems": [
+        1.0,
+        0.975,
+        0.975
+      ],
+      "attribution_rationale": "Class passes ceiling on bundle(s) [1, 3] but collapses on others, demonstrating bundle-specific parameter divergence."
+    },
+    {
+      "canonical_class": "SELECT->BIND->COUNT",
+      "recipe": [
+        "SELECT",
+        "BIND",
+        "COUNT"
+      ],
+      "final_attribution": "ARGUMENT_HANDLING",
+      "is_reproducible": false,
+      "bundle_attributions": {
+        "seed_1": "ARGUMENT_HANDLING",
+        "seed_2": "ARGUMENT_HANDLING",
+        "seed_3": "ARGUMENT_HANDLING",
+        "seed_4": "ARGUMENT_HANDLING"
+      },
+      "cell_attribution_counts": {
+        "ARGUMENT_HANDLING": 16,
+        "PASSED_CELL": 4
+      },
+      "mean_continuous_step_ems": [
+        1.0,
+        1.0,
+        0.8800000000000001
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        1.0,
+        1.0,
+        0.8800000000000001
+      ],
+      "mean_standalone_step_ems": [
+        1.0,
+        1.0,
+        0.9199999999999999
+      ],
+      "attribution_rationale": "Modal attribution with 16/20 concordant cells."
+    },
+    {
+      "canonical_class": "SELECT->COUNT->NEGATE",
+      "recipe": [
+        "SELECT",
+        "COUNT",
+        "NEGATE"
+      ],
+      "final_attribution": "BUNDLE_SPECIFIC_COMPONENT_FAILURE",
+      "is_reproducible": true,
+      "bundle_attributions": {
+        "seed_1": "PASSED_CELL",
+        "seed_2": "ARGUMENT_HANDLING",
+        "seed_3": "ARGUMENT_HANDLING",
+        "seed_4": "SHORT_SEQUENCE_CAPACITY_DEFICIT"
+      },
+      "cell_attribution_counts": {
+        "PASSED_CELL": 5,
+        "ARGUMENT_HANDLING": 8,
+        "SHORT_SEQUENCE_CAPACITY_DEFICIT": 5,
+        "HIDDEN_STATE_INTERFACE": 2
+      },
+      "mean_continuous_step_ems": [
+        0.999,
+        0.8480000000000001,
+        0.254
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        0.999,
+        0.849,
+        0.256
+      ],
+      "mean_standalone_step_ems": [
+        1.0,
+        0.9199999999999999,
+        0.35
+      ],
+      "attribution_rationale": "Class passes ceiling on bundle(s) [1] but collapses on others, demonstrating bundle-specific parameter divergence."
+    },
+    {
+      "canonical_class": "SELECT->SELECT->BIND",
+      "recipe": [
+        "SELECT",
+        "SELECT",
+        "BIND"
+      ],
+      "final_attribution": "BUNDLE_SPECIFIC_COMPONENT_FAILURE",
+      "is_reproducible": true,
+      "bundle_attributions": {
+        "seed_1": "ARGUMENT_HANDLING",
+        "seed_2": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_3": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_4": "SHORT_SEQUENCE_CAPACITY_DEFICIT"
+      },
+      "cell_attribution_counts": {
+        "ARGUMENT_HANDLING": 6,
+        "SHORT_SEQUENCE_CAPACITY_DEFICIT": 14
+      },
+      "mean_continuous_step_ems": [
+        0.998,
+        0.481,
+        0.166
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        0.998,
+        0.481,
+        0.325
+      ],
+      "mean_standalone_step_ems": [
+        1.0,
+        0.49000000000000005,
+        1.0
+      ],
+      "attribution_rationale": "Attributed to bundle-specific failure due to differing modal failure mechanisms across bundles: {'seed_1': 'ARGUMENT_HANDLING', 'seed_2': 'SHORT_SEQUENCE_CAPACITY_DEFICIT', 'seed_3': 'SHORT_SEQUENCE_CAPACITY_DEFICIT', 'seed_4': 'SHORT_SEQUENCE_CAPACITY_DEFICIT'}."
+    },
+    {
+      "canonical_class": "SELECT->SELECT->COUNT",
+      "recipe": [
+        "SELECT",
+        "SELECT",
+        "COUNT"
+      ],
+      "final_attribution": "BUNDLE_SPECIFIC_COMPONENT_FAILURE",
+      "is_reproducible": true,
+      "bundle_attributions": {
+        "seed_1": "ARGUMENT_HANDLING",
+        "seed_2": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_3": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_4": "SHORT_SEQUENCE_CAPACITY_DEFICIT"
+      },
+      "cell_attribution_counts": {
+        "ARGUMENT_HANDLING": 5,
+        "SHORT_SEQUENCE_CAPACITY_DEFICIT": 15
+      },
+      "mean_continuous_step_ems": [
+        1.0,
+        0.522,
+        0.8310000000000001
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        1.0,
+        0.522,
+        0.845
+      ],
+      "mean_standalone_step_ems": [
+        1.0,
+        0.49000000000000005,
+        0.9199999999999999
+      ],
+      "attribution_rationale": "Attributed to bundle-specific failure due to differing modal failure mechanisms across bundles: {'seed_1': 'ARGUMENT_HANDLING', 'seed_2': 'SHORT_SEQUENCE_CAPACITY_DEFICIT', 'seed_3': 'SHORT_SEQUENCE_CAPACITY_DEFICIT', 'seed_4': 'SHORT_SEQUENCE_CAPACITY_DEFICIT'}."
+    },
+    {
+      "canonical_class": "SELECT->SELECT->SELECT",
+      "recipe": [
+        "SELECT",
+        "SELECT",
+        "SELECT"
+      ],
+      "final_attribution": "BUNDLE_SPECIFIC_COMPONENT_FAILURE",
+      "is_reproducible": true,
+      "bundle_attributions": {
+        "seed_1": "ARGUMENT_HANDLING",
+        "seed_2": "ARGUMENT_HANDLING",
+        "seed_3": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_4": "SHORT_SEQUENCE_CAPACITY_DEFICIT"
+      },
+      "cell_attribution_counts": {
+        "ARGUMENT_HANDLING": 10,
+        "SHORT_SEQUENCE_CAPACITY_DEFICIT": 10
+      },
+      "mean_continuous_step_ems": [
+        0.999,
+        0.47000000000000003,
+        0.323
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        0.999,
+        0.47000000000000003,
+        0.348
+      ],
+      "mean_standalone_step_ems": [
+        1.0,
+        0.49000000000000005,
+        0.49000000000000005
+      ],
+      "attribution_rationale": "Attributed to bundle-specific failure due to differing modal failure mechanisms across bundles: {'seed_1': 'ARGUMENT_HANDLING', 'seed_2': 'ARGUMENT_HANDLING', 'seed_3': 'SHORT_SEQUENCE_CAPACITY_DEFICIT', 'seed_4': 'SHORT_SEQUENCE_CAPACITY_DEFICIT'}."
+    },
+    {
+      "canonical_class": "SELECT->SELECT->SHIFT",
+      "recipe": [
+        "SELECT",
+        "SELECT",
+        "SHIFT"
+      ],
+      "final_attribution": "BUNDLE_SPECIFIC_COMPONENT_FAILURE",
+      "is_reproducible": true,
+      "bundle_attributions": {
+        "seed_1": "ARGUMENT_HANDLING",
+        "seed_2": "ARGUMENT_HANDLING",
+        "seed_3": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_4": "SHORT_SEQUENCE_CAPACITY_DEFICIT"
+      },
+      "cell_attribution_counts": {
+        "ARGUMENT_HANDLING": 10,
+        "SHORT_SEQUENCE_CAPACITY_DEFICIT": 10
+      },
+      "mean_continuous_step_ems": [
+        0.999,
+        0.442,
+        0.173
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        0.999,
+        0.442,
+        0.364
+      ],
+      "mean_standalone_step_ems": [
+        1.0,
+        0.49000000000000005,
+        0.41
+      ],
+      "attribution_rationale": "Attributed to bundle-specific failure due to differing modal failure mechanisms across bundles: {'seed_1': 'ARGUMENT_HANDLING', 'seed_2': 'ARGUMENT_HANDLING', 'seed_3': 'SHORT_SEQUENCE_CAPACITY_DEFICIT', 'seed_4': 'SHORT_SEQUENCE_CAPACITY_DEFICIT'}."
+    },
+    {
+      "canonical_class": "SELECT->SELECT->SORT",
+      "recipe": [
+        "SELECT",
+        "SELECT",
+        "SORT"
+      ],
+      "final_attribution": "BUNDLE_SPECIFIC_COMPONENT_FAILURE",
+      "is_reproducible": true,
+      "bundle_attributions": {
+        "seed_1": "ARGUMENT_HANDLING",
+        "seed_2": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_3": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_4": "SHORT_SEQUENCE_CAPACITY_DEFICIT"
+      },
+      "cell_attribution_counts": {
+        "ARGUMENT_HANDLING": 9,
+        "SHORT_SEQUENCE_CAPACITY_DEFICIT": 11
+      },
+      "mean_continuous_step_ems": [
+        1.0,
+        0.465,
+        0.065
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        1.0,
+        0.465,
+        0.067
+      ],
+      "mean_standalone_step_ems": [
+        1.0,
+        0.49000000000000005,
+        0.075
+      ],
+      "attribution_rationale": "Attributed to bundle-specific failure due to differing modal failure mechanisms across bundles: {'seed_1': 'ARGUMENT_HANDLING', 'seed_2': 'SHORT_SEQUENCE_CAPACITY_DEFICIT', 'seed_3': 'SHORT_SEQUENCE_CAPACITY_DEFICIT', 'seed_4': 'SHORT_SEQUENCE_CAPACITY_DEFICIT'}."
+    },
+    {
+      "canonical_class": "SELECT->SHIFT->BIND",
+      "recipe": [
+        "SELECT",
+        "SHIFT",
+        "BIND"
+      ],
+      "final_attribution": "BUNDLE_SPECIFIC_COMPONENT_FAILURE",
+      "is_reproducible": true,
+      "bundle_attributions": {
+        "seed_1": "PASSED_CELL",
+        "seed_2": "ARGUMENT_HANDLING",
+        "seed_3": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_4": "ARGUMENT_HANDLING"
+      },
+      "cell_attribution_counts": {
+        "PASSED_CELL": 5,
+        "ARGUMENT_HANDLING": 9,
+        "SHORT_SEQUENCE_CAPACITY_DEFICIT": 6
+      },
+      "mean_continuous_step_ems": [
+        1.0,
+        0.42400000000000004,
+        0.687
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        1.0,
+        0.42400000000000004,
+        1.0
+      ],
+      "mean_standalone_step_ems": [
+        1.0,
+        0.41,
+        1.0
+      ],
+      "attribution_rationale": "Class passes ceiling on bundle(s) [1] but collapses on others, demonstrating bundle-specific parameter divergence."
+    },
+    {
+      "canonical_class": "SELECT->SHIFT->SELECT",
+      "recipe": [
+        "SELECT",
+        "SHIFT",
+        "SELECT"
+      ],
+      "final_attribution": "BUNDLE_SPECIFIC_COMPONENT_FAILURE",
+      "is_reproducible": true,
+      "bundle_attributions": {
+        "seed_1": "ARGUMENT_HANDLING",
+        "seed_2": "ARGUMENT_HANDLING",
+        "seed_3": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_4": "ARGUMENT_HANDLING"
+      },
+      "cell_attribution_counts": {
+        "ARGUMENT_HANDLING": 15,
+        "SHORT_SEQUENCE_CAPACITY_DEFICIT": 5
+      },
+      "mean_continuous_step_ems": [
+        0.999,
+        0.391,
+        0.376
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        0.999,
+        0.391,
+        0.458
+      ],
+      "mean_standalone_step_ems": [
+        1.0,
+        0.41,
+        0.49000000000000005
+      ],
+      "attribution_rationale": "Attributed to bundle-specific failure due to differing modal failure mechanisms across bundles: {'seed_1': 'ARGUMENT_HANDLING', 'seed_2': 'ARGUMENT_HANDLING', 'seed_3': 'SHORT_SEQUENCE_CAPACITY_DEFICIT', 'seed_4': 'ARGUMENT_HANDLING'}."
+    },
+    {
+      "canonical_class": "SELECT->SHIFT->SHIFT",
+      "recipe": [
+        "SELECT",
+        "SHIFT",
+        "SHIFT"
+      ],
+      "final_attribution": "BUNDLE_SPECIFIC_COMPONENT_FAILURE",
+      "is_reproducible": true,
+      "bundle_attributions": {
+        "seed_1": "PASSED_CELL",
+        "seed_2": "ARGUMENT_HANDLING",
+        "seed_3": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_4": "ARGUMENT_HANDLING"
+      },
+      "cell_attribution_counts": {
+        "PASSED_CELL": 5,
+        "ARGUMENT_HANDLING": 11,
+        "SHORT_SEQUENCE_CAPACITY_DEFICIT": 4
+      },
+      "mean_continuous_step_ems": [
+        1.0,
+        0.393,
+        0.31
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        1.0,
+        0.393,
+        0.377
+      ],
+      "mean_standalone_step_ems": [
+        1.0,
+        0.41,
+        0.41
+      ],
+      "attribution_rationale": "Class passes ceiling on bundle(s) [1] but collapses on others, demonstrating bundle-specific parameter divergence."
+    },
+    {
+      "canonical_class": "SELECT->SORT->BIND",
+      "recipe": [
+        "SELECT",
+        "SORT",
+        "BIND"
+      ],
+      "final_attribution": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+      "is_reproducible": true,
+      "bundle_attributions": {
+        "seed_1": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_2": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_3": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_4": "SHORT_SEQUENCE_CAPACITY_DEFICIT"
+      },
+      "cell_attribution_counts": {
+        "SHORT_SEQUENCE_CAPACITY_DEFICIT": 20
+      },
+      "mean_continuous_step_ems": [
+        1.0,
+        0.049,
+        0.395
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        1.0,
+        0.049,
+        1.0
+      ],
+      "mean_standalone_step_ems": [
+        1.0,
+        0.075,
+        1.0
+      ],
+      "attribution_rationale": "100% uniform attribution across all 4 bundles x 5 data seeds (20/20 cells)."
+    },
+    {
+      "canonical_class": "SELECT->SORT->NEGATE",
+      "recipe": [
+        "SELECT",
+        "SORT",
+        "NEGATE"
+      ],
+      "final_attribution": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+      "is_reproducible": true,
+      "bundle_attributions": {
+        "seed_1": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_2": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_3": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_4": "SHORT_SEQUENCE_CAPACITY_DEFICIT"
+      },
+      "cell_attribution_counts": {
+        "SHORT_SEQUENCE_CAPACITY_DEFICIT": 20
+      },
+      "mean_continuous_step_ems": [
+        0.998,
+        0.082,
+        0.047
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        0.998,
+        0.082,
+        0.41
+      ],
+      "mean_standalone_step_ems": [
+        1.0,
+        0.075,
+        0.35
+      ],
+      "attribution_rationale": "100% uniform attribution across all 4 bundles x 5 data seeds (20/20 cells)."
+    },
+    {
+      "canonical_class": "SELECT->SORT->REVERSE",
+      "recipe": [
+        "SELECT",
+        "SORT",
+        "REVERSE"
+      ],
+      "final_attribution": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+      "is_reproducible": true,
+      "bundle_attributions": {
+        "seed_1": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_2": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_3": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_4": "SHORT_SEQUENCE_CAPACITY_DEFICIT"
+      },
+      "cell_attribution_counts": {
+        "SHORT_SEQUENCE_CAPACITY_DEFICIT": 20
+      },
+      "mean_continuous_step_ems": [
+        0.999,
+        0.063,
+        0.01
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        0.999,
+        0.063,
+        0.043
+      ],
+      "mean_standalone_step_ems": [
+        1.0,
+        0.075,
+        0.05
+      ],
+      "attribution_rationale": "100% uniform attribution across all 4 bundles x 5 data seeds (20/20 cells)."
+    },
+    {
+      "canonical_class": "SELECT->SORT->SELECT",
+      "recipe": [
+        "SELECT",
+        "SORT",
+        "SELECT"
+      ],
+      "final_attribution": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+      "is_reproducible": true,
+      "bundle_attributions": {
+        "seed_1": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_2": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_3": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_4": "SHORT_SEQUENCE_CAPACITY_DEFICIT"
+      },
+      "cell_attribution_counts": {
+        "SHORT_SEQUENCE_CAPACITY_DEFICIT": 20
+      },
+      "mean_continuous_step_ems": [
+        1.0,
+        0.066,
+        0.272
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        1.0,
+        0.066,
+        0.475
+      ],
+      "mean_standalone_step_ems": [
+        1.0,
+        0.075,
+        0.49000000000000005
+      ],
+      "attribution_rationale": "100% uniform attribution across all 4 bundles x 5 data seeds (20/20 cells)."
+    },
+    {
+      "canonical_class": "SELECT->SORT->SHIFT",
+      "recipe": [
+        "SELECT",
+        "SORT",
+        "SHIFT"
+      ],
+      "final_attribution": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+      "is_reproducible": true,
+      "bundle_attributions": {
+        "seed_1": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_2": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_3": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_4": "SHORT_SEQUENCE_CAPACITY_DEFICIT"
+      },
+      "cell_attribution_counts": {
+        "SHORT_SEQUENCE_CAPACITY_DEFICIT": 20
+      },
+      "mean_continuous_step_ems": [
+        0.999,
+        0.086,
+        0.037
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        0.999,
+        0.086,
+        0.395
+      ],
+      "mean_standalone_step_ems": [
+        1.0,
+        0.075,
+        0.41
+      ],
+      "attribution_rationale": "100% uniform attribution across all 4 bundles x 5 data seeds (20/20 cells)."
+    },
+    {
+      "canonical_class": "SHIFT->BIND->COUNT",
+      "recipe": [
+        "SHIFT",
+        "BIND",
+        "COUNT"
+      ],
+      "final_attribution": "ARGUMENT_HANDLING",
+      "is_reproducible": true,
+      "bundle_attributions": {
+        "seed_1": "ARGUMENT_HANDLING",
+        "seed_2": "ARGUMENT_HANDLING",
+        "seed_3": "ARGUMENT_HANDLING",
+        "seed_4": "ARGUMENT_HANDLING"
+      },
+      "cell_attribution_counts": {
+        "ARGUMENT_HANDLING": 20
+      },
+      "mean_continuous_step_ems": [
+        0.9810000000000001,
+        0.992,
+        0.908
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        0.9810000000000001,
+        1.0,
+        0.908
+      ],
+      "mean_standalone_step_ems": [
+        0.975,
+        1.0,
+        0.9199999999999999
+      ],
+      "attribution_rationale": "100% uniform attribution across all 4 bundles x 5 data seeds (20/20 cells)."
+    },
+    {
+      "canonical_class": "SHIFT->SELECT->COUNT",
+      "recipe": [
+        "SHIFT",
+        "SELECT",
+        "COUNT"
+      ],
+      "final_attribution": "BUNDLE_SPECIFIC_COMPONENT_FAILURE",
+      "is_reproducible": true,
+      "bundle_attributions": {
+        "seed_1": "PASSED_CELL",
+        "seed_2": "ARGUMENT_HANDLING",
+        "seed_3": "HIDDEN_STATE_INTERFACE",
+        "seed_4": "ARGUMENT_HANDLING"
+      },
+      "cell_attribution_counts": {
+        "PASSED_CELL": 5,
+        "SHORT_SEQUENCE_CAPACITY_DEFICIT": 2,
+        "ARGUMENT_HANDLING": 6,
+        "HIDDEN_STATE_INTERFACE": 4,
+        "UPSTREAM_ERROR_ACCUMULATION": 3
+      },
+      "mean_continuous_step_ems": [
+        0.978,
+        0.9880000000000001,
+        0.853
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        0.978,
+        0.999,
+        0.8550000000000001
+      ],
+      "mean_standalone_step_ems": [
+        0.975,
+        1.0,
+        0.9199999999999999
+      ],
+      "attribution_rationale": "Class passes ceiling on bundle(s) [1] but collapses on others, demonstrating bundle-specific parameter divergence."
+    },
+    {
+      "canonical_class": "SHIFT->SELECT->SELECT",
+      "recipe": [
+        "SHIFT",
+        "SELECT",
+        "SELECT"
+      ],
+      "final_attribution": "BUNDLE_SPECIFIC_COMPONENT_FAILURE",
+      "is_reproducible": true,
+      "bundle_attributions": {
+        "seed_1": "ARGUMENT_HANDLING",
+        "seed_2": "ARGUMENT_HANDLING",
+        "seed_3": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_4": "SHORT_SEQUENCE_CAPACITY_DEFICIT"
+      },
+      "cell_attribution_counts": {
+        "ARGUMENT_HANDLING": 9,
+        "SHORT_SEQUENCE_CAPACITY_DEFICIT": 11
+      },
+      "mean_continuous_step_ems": [
+        0.976,
+        0.985,
+        0.458
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        0.976,
+        1.0,
+        0.458
+      ],
+      "mean_standalone_step_ems": [
+        0.975,
+        1.0,
+        0.49000000000000005
+      ],
+      "attribution_rationale": "Attributed to bundle-specific failure due to differing modal failure mechanisms across bundles: {'seed_1': 'ARGUMENT_HANDLING', 'seed_2': 'ARGUMENT_HANDLING', 'seed_3': 'SHORT_SEQUENCE_CAPACITY_DEFICIT', 'seed_4': 'SHORT_SEQUENCE_CAPACITY_DEFICIT'}."
+    },
+    {
+      "canonical_class": "SHIFT->SELECT->SHIFT",
+      "recipe": [
+        "SHIFT",
+        "SELECT",
+        "SHIFT"
+      ],
+      "final_attribution": "BUNDLE_SPECIFIC_COMPONENT_FAILURE",
+      "is_reproducible": true,
+      "bundle_attributions": {
+        "seed_1": "PASSED_CELL",
+        "seed_2": "ARGUMENT_HANDLING",
+        "seed_3": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_4": "ARGUMENT_HANDLING"
+      },
+      "cell_attribution_counts": {
+        "PASSED_CELL": 5,
+        "ARGUMENT_HANDLING": 8,
+        "SHORT_SEQUENCE_CAPACITY_DEFICIT": 7
+      },
+      "mean_continuous_step_ems": [
+        0.9720000000000001,
+        0.991,
+        0.40700000000000003
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        0.9720000000000001,
+        1.0,
+        0.409
+      ],
+      "mean_standalone_step_ems": [
+        0.975,
+        1.0,
+        0.41
+      ],
+      "attribution_rationale": "Class passes ceiling on bundle(s) [1] but collapses on others, demonstrating bundle-specific parameter divergence."
+    },
+    {
+      "canonical_class": "SHIFT->SELECT->SORT",
+      "recipe": [
+        "SHIFT",
+        "SELECT",
+        "SORT"
+      ],
+      "final_attribution": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+      "is_reproducible": true,
+      "bundle_attributions": {
+        "seed_1": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_2": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_3": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_4": "SHORT_SEQUENCE_CAPACITY_DEFICIT"
+      },
+      "cell_attribution_counts": {
+        "SHORT_SEQUENCE_CAPACITY_DEFICIT": 20
+      },
+      "mean_continuous_step_ems": [
+        0.974,
+        0.9890000000000001,
+        0.06999999999999999
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        0.974,
+        0.998,
+        0.071
+      ],
+      "mean_standalone_step_ems": [
+        0.975,
+        1.0,
+        0.075
+      ],
+      "attribution_rationale": "100% uniform attribution across all 4 bundles x 5 data seeds (20/20 cells)."
+    },
+    {
+      "canonical_class": "SHIFT->SHIFT->SHIFT",
+      "recipe": [
+        "SHIFT",
+        "SHIFT",
+        "SHIFT"
+      ],
+      "final_attribution": "BUNDLE_SPECIFIC_COMPONENT_FAILURE",
+      "is_reproducible": true,
+      "bundle_attributions": {
+        "seed_1": "PASSED_CELL",
+        "seed_2": "UPSTREAM_ERROR_ACCUMULATION",
+        "seed_3": "PASSED_CELL",
+        "seed_4": "UPSTREAM_ERROR_ACCUMULATION"
+      },
+      "cell_attribution_counts": {
+        "PASSED_CELL": 12,
+        "UPSTREAM_ERROR_ACCUMULATION": 8
+      },
+      "mean_continuous_step_ems": [
+        0.978,
+        0.9470000000000001,
+        0.924
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        0.978,
+        0.968,
+        0.97
+      ],
+      "mean_standalone_step_ems": [
+        0.975,
+        0.975,
+        0.975
+      ],
+      "attribution_rationale": "Class passes ceiling on bundle(s) [1, 3] but collapses on others, demonstrating bundle-specific parameter divergence."
+    },
+    {
+      "canonical_class": "SORT->BIND->COUNT",
+      "recipe": [
+        "SORT",
+        "BIND",
+        "COUNT"
+      ],
+      "final_attribution": "ARGUMENT_HANDLING",
+      "is_reproducible": true,
+      "bundle_attributions": {
+        "seed_1": "ARGUMENT_HANDLING",
+        "seed_2": "ARGUMENT_HANDLING",
+        "seed_3": "ARGUMENT_HANDLING",
+        "seed_4": "ARGUMENT_HANDLING"
+      },
+      "cell_attribution_counts": {
+        "ARGUMENT_HANDLING": 20
+      },
+      "mean_continuous_step_ems": [
+        1.0,
+        1.0,
+        0.8800000000000001
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        1.0,
+        1.0,
+        0.8800000000000001
+      ],
+      "mean_standalone_step_ems": [
+        0.99,
+        1.0,
+        0.9199999999999999
+      ],
+      "attribution_rationale": "100% uniform attribution across all 4 bundles x 5 data seeds (20/20 cells)."
+    },
+    {
+      "canonical_class": "SORT->BIND->NEGATE",
+      "recipe": [
+        "SORT",
+        "BIND",
+        "NEGATE"
+      ],
+      "final_attribution": "BUNDLE_SPECIFIC_COMPONENT_FAILURE",
+      "is_reproducible": true,
+      "bundle_attributions": {
+        "seed_1": "PASSED_CELL",
+        "seed_2": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_3": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_4": "SHORT_SEQUENCE_CAPACITY_DEFICIT"
+      },
+      "cell_attribution_counts": {
+        "PASSED_CELL": 5,
+        "SHORT_SEQUENCE_CAPACITY_DEFICIT": 15
+      },
+      "mean_continuous_step_ems": [
+        1.0,
+        1.0,
+        0.32
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        1.0,
+        1.0,
+        0.32
+      ],
+      "mean_standalone_step_ems": [
+        0.99,
+        1.0,
+        0.35
+      ],
+      "attribution_rationale": "Class passes ceiling on bundle(s) [1] but collapses on others, demonstrating bundle-specific parameter divergence."
+    },
+    {
+      "canonical_class": "SORT->SELECT->COUNT",
+      "recipe": [
+        "SORT",
+        "SELECT",
+        "COUNT"
+      ],
+      "final_attribution": "BUNDLE_SPECIFIC_COMPONENT_FAILURE",
+      "is_reproducible": true,
+      "bundle_attributions": {
+        "seed_1": "PASSED_CELL",
+        "seed_2": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_3": "HIDDEN_STATE_INTERFACE",
+        "seed_4": "HIDDEN_STATE_INTERFACE"
+      },
+      "cell_attribution_counts": {
+        "PASSED_CELL": 6,
+        "ARGUMENT_HANDLING": 3,
+        "SHORT_SEQUENCE_CAPACITY_DEFICIT": 3,
+        "HIDDEN_STATE_INTERFACE": 8
+      },
+      "mean_continuous_step_ems": [
+        1.0,
+        1.0,
+        0.868
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        1.0,
+        1.0,
+        0.868
+      ],
+      "mean_standalone_step_ems": [
+        0.99,
+        1.0,
+        0.9199999999999999
+      ],
+      "attribution_rationale": "Class passes ceiling on bundle(s) [1] but collapses on others, demonstrating bundle-specific parameter divergence."
+    },
+    {
+      "canonical_class": "SORT->SELECT->SELECT",
+      "recipe": [
+        "SORT",
+        "SELECT",
+        "SELECT"
+      ],
+      "final_attribution": "BUNDLE_SPECIFIC_COMPONENT_FAILURE",
+      "is_reproducible": true,
+      "bundle_attributions": {
+        "seed_1": "ARGUMENT_HANDLING",
+        "seed_2": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_3": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_4": "SHORT_SEQUENCE_CAPACITY_DEFICIT"
+      },
+      "cell_attribution_counts": {
+        "ARGUMENT_HANDLING": 7,
+        "SHORT_SEQUENCE_CAPACITY_DEFICIT": 13
+      },
+      "mean_continuous_step_ems": [
+        0.999,
+        0.998,
+        0.47800000000000004
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        0.999,
+        0.999,
+        0.47800000000000004
+      ],
+      "mean_standalone_step_ems": [
+        0.99,
+        1.0,
+        0.49000000000000005
+      ],
+      "attribution_rationale": "Attributed to bundle-specific failure due to differing modal failure mechanisms across bundles: {'seed_1': 'ARGUMENT_HANDLING', 'seed_2': 'SHORT_SEQUENCE_CAPACITY_DEFICIT', 'seed_3': 'SHORT_SEQUENCE_CAPACITY_DEFICIT', 'seed_4': 'SHORT_SEQUENCE_CAPACITY_DEFICIT'}."
+    },
+    {
+      "canonical_class": "SORT->SELECT->SHIFT",
+      "recipe": [
+        "SORT",
+        "SELECT",
+        "SHIFT"
+      ],
+      "final_attribution": "BUNDLE_SPECIFIC_COMPONENT_FAILURE",
+      "is_reproducible": true,
+      "bundle_attributions": {
+        "seed_1": "PASSED_CELL",
+        "seed_2": "ARGUMENT_HANDLING",
+        "seed_3": "SHORT_SEQUENCE_CAPACITY_DEFICIT",
+        "seed_4": "ARGUMENT_HANDLING"
+      },
+      "cell_attribution_counts": {
+        "PASSED_CELL": 5,
+        "ARGUMENT_HANDLING": 11,
+        "SHORT_SEQUENCE_CAPACITY_DEFICIT": 4
+      },
+      "mean_continuous_step_ems": [
+        0.999,
+        0.999,
+        0.377
+      ],
+      "mean_diagnostic_reset_step_ems": [
+        0.999,
+        1.0,
+        0.378
+      ],
+      "mean_standalone_step_ems": [
+        0.99,
+        1.0,
+        0.41
+      ],
+      "attribution_rationale": "Class passes ceiling on bundle(s) [1] but collapses on others, demonstrating bundle-specific parameter divergence."
+    }
+  ],
+  "cell_attribution_distribution": {
+    "ARGUMENT_HANDLING": 250,
+    "UPSTREAM_ERROR_ACCUMULATION": 26,
+    "PASSED_CELL": 79,
+    "SHORT_SEQUENCE_CAPACITY_DEFICIT": 330,
+    "HIDDEN_STATE_INTERFACE": 15
+  },
+  "all_cell_gate_status": "QUALIFIED_UNDER_ALL_CELL_GATE",
+  "adr0166_status_amendment": "QUALIFIED",
+  "adr_decision": "ADR0166_QUALIFIED_BY_STEPWISE_CAUSAL_ATTRIBUTION",
+  "decision_rationale": "NRQ-007 stepwise causal attribution rigorously resolves NRQ-006 composition failures: Across all 35 failure classes (700 cells), failures are attributed to 7 short-sequence capacity deficit classes (SORT immediately following SELECT), 4 argument handling classes (*->BIND->COUNT on length-1 intermediates), and 24 bundle-specific component failure classes. Applying the mandatory all-cell gate, only 19/60 classes pass all 20 cells. Therefore, ADR-0166's claim of depth <= 3 closure is formally QUALIFIED, its historical count of 16 failure classes is corrected to 35 failure classes (and 41 under all-cell gate), and program line closure remains reaffirmed."
+}
