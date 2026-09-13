@@ -1,0 +1,122 @@
+{
+  "task": "C-D001AA",
+  "task_title": "Phase C Falsification Sufficiency & Charter Termination Audit",
+  "date": "2026-09-13",
+  "status": "PASS",
+  "decision": "PHASE_C_CURRENT_CHARTER_FALSIFICATION_SUFFICIENT",
+  "charter_status_transition": {
+    "from": "READY_FOR_REVIEW_NOT_APPROVED",
+    "to": "TERMINATED_CURRENT_CHARTER"
+  },
+  "method": "Read-only review of docs/research/PHASE_C_RESEARCH_CHARTER.md, docs/DECISIONS_PHASE_C.md (ADR-0150-0159), the ten docs/phase_c/PHASE_C_C_D001*.md review documents, and their JSON artifacts. Markdown/path/link checks and git diff --check via standard shell tools. No apc import, model load, inference, autograd, optimizer, or dataset generator invoked.",
+  "changed_document_count": 7,
+  "new_document_count": 3,
+  "checks": {
+    "adr_chain_consistency": {
+      "adr_headings_found_in_decisions_phase_c": 11,
+      "expected_range": "ADR-0150..ADR-0160",
+      "adr_0160_present": true,
+      "adr_0150_through_0159_byte_content_unmodified": true,
+      "note": "ADR-0160 appended after the existing ADR-0159 entry; no prior ADR heading, finding, or decision line was edited."
+    },
+    "retraction_reference_verification": [
+      {
+        "retracted": "ADR-0152 (quantifier-complete impossibility theorem claim)",
+        "retracted_by": "ADR-0153",
+        "quoted_source_confirms": true
+      },
+      {
+        "retracted": "ADR-0154 (z-computable = oracle-equivalent criterion; universal STOP; Contract v1.1 rejection)",
+        "retracted_by": "ADR-0155",
+        "quoted_source_confirms": true
+      }
+    ],
+    "current_state_field_verification": {
+      "fields_checked": 14,
+      "fields_matching_source_adrs": 14,
+      "fields_requiring_correction": 0
+    },
+    "artifact_existence": {
+      "phase_c_audit_json_artifacts": {
+        "expected_dir": "docs/phase_c/artifacts/",
+        "count_found": 11,
+        "missing": []
+      },
+      "baseline_implementations": {
+        "checked": [
+          "src/apc/evaluation/embedding_aware_baseline.py",
+          "src/apc/evaluation/blind_codebook_audit.py"
+        ],
+        "missing": []
+      },
+      "verification_test_suites": {
+        "checked": [
+          "tests/test_adversarial_mixed_control_validation.py",
+          "tests/test_contract_v1_1_hypothesis_preservation_audit.py",
+          "tests/test_embedding_aware_deterministic_baseline_audit.py",
+          "tests/test_blind_codebook_identifiability_audit.py"
+        ],
+        "missing": []
+      },
+      "new_documents_created": {
+        "checked": [
+          "docs/phase_c/PHASE_C_C_D001AA_FALSIFICATION_SUFFICIENCY_AND_CHARTER_TERMINATION_AUDIT.md",
+          "docs/results/PHASE_C_TERMINATION_EVIDENCE_LEDGER.md",
+          "docs/results/PHASE_C_TERMINATION_AUDIT.json"
+        ],
+        "missing": []
+      }
+    },
+    "charter_status_consistency": {
+      "documents_checked": [
+        "docs/research/PHASE_C_RESEARCH_CHARTER.md",
+        "docs/DECISIONS.md",
+        "docs/TASKS.md",
+        "README.md",
+        "docs/exec-plans/active/PHASE_B_RESTART.md"
+      ],
+      "all_reflect_terminated_current_charter": true,
+      "stale_ready_for_review_references_left_unqualified": 0
+    },
+    "sealed_access_check": {
+      "sealed_input_access": 0,
+      "sealed_label_or_output_access": 0
+    },
+    "integrity_boundary_zero_check": {
+      "optimizer_updates": 0,
+      "model_training": 0,
+      "new_initialization": 0,
+      "new_dataset_generation": 0,
+      "relation_registration": 0,
+      "candidate_creation": 0,
+      "architecture_implementation": 0,
+      "gpu_experiment": 0,
+      "checkpoint_model_load": 0,
+      "model_forward_or_backward": 0
+    },
+    "git_diff_check": {
+      "scope": "README.md and docs/ only (config.json excluded as a pre-existing unrelated harness-config change)",
+      "exit_code": 2,
+      "findings": "Trailing-whitespace warnings on 9 lines, all within the new ADR-0160 entry in docs/DECISIONS_PHASE_C.md",
+      "disposition": "NOT_A_DEFECT: every flagged line ends with the file's own pre-existing two-space Markdown hard-break convention, used identically by every prior ADR-0150-0159 heading/label line (verified against ADR-0159's Date/Task/Status lines, which use the same trailing double-space and would trigger the same warning if re-diffed). No space-before-tab or other structural error was found in any changed file.",
+      "other_files_clean": true
+    }
+  },
+  "not_executed": {
+    "pytest": "Documentation-only change; no implementation file modified.",
+    "ruff": "Documentation-only change; no implementation file modified.",
+    "mypy": "Documentation-only change; no implementation file modified.",
+    "research_experiments": "Explicitly prohibited by this task's integrity boundary."
+  },
+  "limitations": [
+    "This audit re-reads and re-classifies ADR-0150-0159; it does not re-derive or re-verify their underlying mathematics from first principles beyond the quoted retraction/consequence text already in those ADRs.",
+    "Relation-inventory counts (validation 1/2, sealed 1/2) are taken from ADR-0150 as the only measurement on record; this audit did not re-run the relation-registry scan.",
+    "No hash-based freeze manifest (analogous to PHASE_B_CLOSEOUT_FREEZE_MANIFEST.json) was produced, because no run artifacts, checkpoints, or binary evidence were generated by ADR-0150-0159 beyond the already-existing docs/phase_c/artifacts/*.json files, whose existence (not byte-hash) was verified here."
+  ],
+  "excluded_existing_user_change": "config.json",
+  "audit_commands": [
+    "grep -c \"^## ADR-\" docs/DECISIONS_PHASE_C.md",
+    "ls docs/phase_c/artifacts/",
+    "git diff --check -- README.md docs"
+  ]
+}

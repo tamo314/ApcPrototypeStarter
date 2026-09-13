@@ -435,6 +435,47 @@ Confirm **`ROUTING_IDENTIFIABILITY_QUALIFIED_STOP`** (`BLIND_GROUNDING_IDENTIFIA
 - Audit Implementation: `src/apc/evaluation/blind_codebook_audit.py`  
 - Verification Suite: `tests/test_blind_codebook_identifiability_audit.py`
 
+---
+
+## ADR-0160: C-D001AA Phase C Falsification Sufficiency & Charter Termination Audit Closes the Current Charter (`PHASE_C_CURRENT_CHARTER_FALSIFICATION_SUFFICIENT`)
+
+**Date:** 2026-09-13  
+**Task:** C-D001AA — Phase C Falsification Sufficiency & Charter Termination Audit  
+**Status:** Completed documentation/artifact-consistency audit; `execution_status: PASS`, `decision: PHASE_C_CURRENT_CHARTER_FALSIFICATION_SUFFICIENT`.  
+Phase C charter status transitions from `READY_FOR_REVIEW_NOT_APPROVED` to **`TERMINATED_CURRENT_CHARTER`**. Research execution remains, and has always been, `NOT_AUTHORIZED`.
+
+**Scope and Integrity Boundary:**  
+- Read only the Phase C Research Charter, ADR-0150 through ADR-0159 and their ten review documents and eleven JSON artifacts, `docs/TASKS.md`, `README.md`, `docs/DECISIONS.md`, and `docs/exec-plans/active/PHASE_B_RESTART.md`.
+- Sealed partition data (inputs, labels, model outputs) access count: **0**.
+- Zero training updates, zero optimizer construction, zero model initialization, zero dataset generation, zero relation registration, zero candidate construction, zero architecture implementation, and zero GPU execution time.
+- No historical ADR text (ADR-0150–ADR-0159 or earlier phases) is rewritten, renumbered, or deleted. No charter threshold, floor, oracle-boundary criterion, initialization count, or relation requirement is relaxed, added to, or removed.
+
+**Key Findings:**  
+1. **Source-of-truth state confirmed, not corrected:** all fourteen candidate state fields (charter status, research-execution authorization, C-D002 bar, Contract v1/v1.1 status, continuous-grounding and blind-grounding residual status, relation inventory 1/2·1/2, sealed access 0, candidate none) were checked directly against ADR-0150–0159 text and found accurate without modification.
+2. **ADR validity map:** ADR-0152 and ADR-0154 are `RETRACTED` by their explicit successors (ADR-0153 and ADR-0155 respectively); ADR-0150's stop rationale is `SUPERSEDED` by ADR-0151 while its relation-inventory measurement remains an independently current, never-revisited fact; ADR-0151, ADR-0153, ADR-0155, ADR-0156 (validation methodology), ADR-0157, ADR-0158, and ADR-0159 are `CURRENT`. ADR-0154's "z-computable = oracle-equivalent" criterion is confirmed retracted by ADR-0155/0156, whose 5-dimensional oracle criterion is confirmed as the current, unmodified source of truth through ADR-0159.
+3. **Scientific estimand clarified:** descriptor-based identifiability (ADR-0153/0155/0156) and H-C1 satisfaction are not the same accomplishment. The same descriptor that resolves identifiability makes $H(Z\mid X,D)=0$ exactly, so identifiability was purchased by supplying enough information to make the coordinate a 0-parameter deterministic function — meaning H-C1 ("learn routing identity under ambiguous supervision") was never actually tested; its estimand was replaced (ADR-0157).
+4. **Impossibility-claim scope fixed:** the record supports "unidentifiable OR deterministic-baseline-dominated" only across the enumerated representation classes and the permutation/orthogonal group-symmetry assumptions of ADR-0159 (§3.3 of the audit). It explicitly does **not** support any claim of APC's general impossibility, universal task-information-contract futility, or impossibility of nonlinear/stochastic/interactive/future formulations or of routing architectures in general — none of these was constructed or tested.
+5. **Impossibility–Dominance Dilemma audited:** the Case A/B dichotomy is exhaustive over the charter-permitted space *as modeled* (linear/group-symmetric representations, anchor-count-parameterized information), verified in part by ADR-0159's own partial-anchor control landing inside Case A rather than a third regime. Exhaustiveness is scoped to that representation model, not asserted for arbitrary non-group-structured representations.
+6. **Non-trivial residual set audited as empty:** $H_{\text{nontrivial}}$ cannot be shown non-empty from existing evidence; every charter-permitted, oracle-free case constructed across ADR-0150–0159 (opaque ID, descriptor without/with tie-break, deterministic reduction, invertible/lossy continuous embeddings, blind codebook under four anchor regimes) resolves to Case A or Case B. No new residual hypothesis is proposed, per task instruction.
+7. **Conclusion-changing experiment audit:** no independently executable, in-charter task remains that could change Phase C's conclusion. C-D002, architecture implementation, optimizer trial, extra seed, new relation family, new dataset, coefficient search, descriptor variants, anchor-count variants, and sealed evaluation are all classified `OUTSIDE_CURRENT_CHARTER` or excluded per task instruction.
+8. **Relation-inventory blocker re-positioned:** ADR-0150's validation 1/2, sealed 1/2 deficit stands as an independent necessary-condition FAIL, explicitly **not** framed as "adding relations reopens Phase C" — the estimand/identifiability chain (ADR-0151–0159) is a second, independent blocker that relation-count repair alone cannot cure.
+9. **Charter-amendment boundary respected:** no threshold, floor, oracle-boundary criterion, initialization count, relation requirement, or H-C1 wording was changed by this audit.
+10. **Termination checklist:** all ten conditions in the task contract (H-C1 formulation fails; Contract v1 falsified; Contract v1.1 trivializes estimand; continuous-grounding residual dominated; blind-grounding residual closed by the dilemma; no lawful residual remains; relation inventory independently insufficient; research execution never authorized; sealed access 0; no in-charter conclusion-changing task remains) are satisfied.
+
+**Decision:**  
+Declare **`PHASE_C_CURRENT_CHARTER_FALSIFICATION_SUFFICIENT`**. Transition Phase C charter status to **`TERMINATED_CURRENT_CHARTER`**.
+
+**Consequences:**  
+- The Phase C charter (`docs/research/PHASE_C_RESEARCH_CHARTER.md`) is preserved as a historical artifact: original hypothesis intact, never approved, never executed experimentally, falsified/retracted entirely during pre-execution mathematical review (ADR-0150–0159), now formally closed by this audit.
+- `docs/results/PHASE_C_TERMINATION_EVIDENCE_LEDGER.md` is the authoritative claim classification for ADR-0150–ADR-0159, analogous to the Phase-B closeout ledger.
+- No Phase D hypothesis, architecture, supervision scheme, relation family, or learning formulation is proposed by this ADR. A future research question requires a separate, independently authorized `NEXT-RESEARCH-QUESTION REVIEW`.
+- `candidate=null`, `C-D002=NOT_AUTHORIZED`, sealed access remains `0`, relation inventory deficit remains unresolved and independently blocking. ADR-0150 through ADR-0159 are preserved verbatim; this ADR adds no new retraction of their text, only a consolidated reading of retractions they already record.
+- Phase B's separate terminal state (ADR-0148/0149, `NEGATIVE_CONCLUSION_TERMINATED_CURRENT_ARCHITECTURE`) is unaffected and not reused as evidence for this closure.
+
+**Primary Artifacts:**  
+- Audit Document: `docs/phase_c/PHASE_C_C_D001AA_FALSIFICATION_SUFFICIENCY_AND_CHARTER_TERMINATION_AUDIT.md`  
+- Evidence Ledger: `docs/results/PHASE_C_TERMINATION_EVIDENCE_LEDGER.md`  
+- Verification Record: `docs/results/PHASE_C_TERMINATION_AUDIT.json`
 
 
 

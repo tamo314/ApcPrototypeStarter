@@ -18,8 +18,12 @@ PHASE-B-CLOSEOUTの判定は **`PHASE_B_CLOSED_NEXT_RESEARCH_CHARTER_READY`**。
 Phase Bの実験待ち行列は空。RG3、REC-005〜008、R3-011/012、B-C006以降は
 upstream STOPによる非実行としてarchiveし、未完了backlogへ戻さない。
 独立した[Phase C research charter](../../research/PHASE_C_RESEARCH_CHARTER.md)は
-`READY_FOR_REVIEW_NOT_APPROVED`。architecture未選択、最初の実験未定義。
-charter承認・固定後の別taskより前に実装・学習・relation追加・seed/pilot実行を開始しない。
+`TERMINATED_CURRENT_CHARTER`（ADR-0160、C-D001AA、2026-09-13）。承認されたことは一度もなく、
+実験実行も一度もない。ADR-0150〜0159のpre-execution数学的レビューで完全にfalsified/retracted
+され、ADR-0160がfalsification十分性を監査した上でcharterを正式終了した。詳細は
+[Phase C termination evidence ledger](../../results/PHASE_C_TERMINATION_EVIDENCE_LEDGER.md)
+および本ファイル末尾の第12節を参照。architecture未選択、最初の実験未定義のまま終了。
+新しい研究課題には別の独立したcharterと承認が必要。
 
 本ファイルはリンク互換性のため旧 `active/` pathへ保存するが、運用状態はarchived。
 以下の完了契約・実行順・当時の継続許可は歴史記録であり、新たな実行許可ではない。
@@ -762,3 +766,51 @@ ADR-0149により証拠台帳・hash manifest・検証記録を固定し、Phase
 [closeout検証](../../results/PHASE_B_CLOSEOUT_AUDIT.json)が成果物。
 独立したPhase C charterはレビュー可能な状態であり、承認済み・実行可能という意味ではない。
 architecture/optimizer実装、学習、candidate、dataset/relation生成、seed、pilot、sealed評価は0。
+
+## 12. PHASE-C-TERMINATION — C-D001AA Falsification Sufficiency & Charter Termination Audit
+
+**状態: 完了。`PHASE_C_CURRENT_CHARTER_FALSIFICATION_SUFFICIENT`（ADR-0160）。
+Phase C charter status: `TERMINATED_CURRENT_CHARTER`。**
+
+独立したPhase C charter（`READY_FOR_REVIEW_NOT_APPROVED`のまま一度も承認されず、
+研究実行も一度も認可されなかった）は、ADR-0150〜0159のpre-execution数学的レビューにより
+以下の順で完全にfalsified/retractedされた: Contract v1 falsified (ADR-0151) → 記述子による
+identifiability回復 (ADR-0153) → 同じ記述子がH-C1のestimandを0-parameter deterministic
+reductionへtrivialize (ADR-0157) → continuous groundingも$B_{\text{det\_emb}}$に支配され
+trivial (ADR-0158) → blind manifold/codebook residualもImpossibility-Dominance Dilemmaで
+identifiability impossibilityとdeterministic dominanceの二分法に閉じ、`H-C1-Residual`が
+formally retracted (ADR-0159)。
+
+C-D001AA（[監査文書](../../phase_c/PHASE_C_C_D001AA_FALSIFICATION_SUFFICIENCY_AND_CHARTER_TERMINATION_AUDIT.md)）
+はこの記録を新しいrepair・architecture・training contract・residual hypothesisを一切考案せずに
+監査し、以下を確認した:
+- ADR-0152とADR-0154はそれぞれ後続ADR-0153・ADR-0155により明示的にretractedされている。
+- 現在のoracle boundaryはADR-0155/0156の5次元criterionのまま、ADR-0159まで無修正で維持。
+- descriptor-based identifiabilityはH-C1を検証したのではなく、estimandを置き換えた
+  ($H(Z\mid X,D)=0$になった時点でlearning問題が消滅する)。
+- impossibility claimの範囲は監査済みのrepresentation/group-symmetry classに厳密限定され、
+  APC一般の不可能性、あらゆるtask information contractの無意味化、nonlinear/stochastic/
+  interactive/future formulationsの不可能性、routing-based architecture一般の不可能性は
+  一切主張しない。
+- 現在のcharter内に結論を変え得る独立タスクは残っていない（C-D002・architecture実装・
+  optimizer trial・追加seed・新relation family・新dataset・coefficient search・descriptor
+  variant・anchor count variant・sealed evaluationのいずれも`OUTSIDE_CURRENT_CHARTER`）。
+- relation inventory不足（validation 1/2、sealed 1/2、ADR-0150）は独立の必要条件FAILとして
+  維持されるが、これを満たしてもH-C1/residualが自動復活するわけではない。
+- charter threshold・oracle boundary・initialization数・relation要件はいずれも緩和していない。
+- sealed access=0、candidate=null、C-D002=NOT_AUTHORIZEDを維持。
+
+終了条件10項目（H-C1不成立、Contract v1 falsified、Contract v1.1がestimand trivialize、
+continuous residual dominated、blind residual closed、lawful residualなし、relation
+inventory独立FAIL、research execution未認可、sealed access=0、結論変更taskなし）を
+すべて満たしたため、`PHASE_C_CURRENT_CHARTER_FALSIFICATION_SUFFICIENT`を宣言し、
+Phase C charterを`TERMINATED_CURRENT_CHARTER`へ移行した。charterは
+「original hypothesis保持・未承認・未実験実行・pre-execution数学的レビューでfalsified/
+retracted」という状態のhistorical artifactとして保存される。
+
+成果物: [終端監査文書](../../phase_c/PHASE_C_C_D001AA_FALSIFICATION_SUFFICIENCY_AND_CHARTER_TERMINATION_AUDIT.md)、
+[termination evidence ledger](../../results/PHASE_C_TERMINATION_EVIDENCE_LEDGER.md)、
+[termination audit record](../../results/PHASE_C_TERMINATION_AUDIT.json)。
+本節のためのarchitecture/optimizer実装、学習、candidate作成、dataset/relation生成、
+seed実行、pilot、sealed評価はすべて0。このtask内でPhase D相当のhypothesisは一切作成していない。
+次の研究課題を検討する場合は、別taskで独立した`NEXT-RESEARCH-QUESTION REVIEW`を開始すること。
