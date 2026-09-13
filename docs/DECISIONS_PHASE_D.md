@@ -660,3 +660,65 @@ bundle_promotion    = NOT_AUTHORIZED
 sealed_access       = 0
 research_gate       = STOP_GATE_FAIL (executor evidence incomplete)
 ```
+
+## ADR-0176: D-009 — Required Evaluation Evidence Implemented; Verification STOP Before Pilot
+
+**Date:** 2026-09-14
+**Task:** D-009 — complete only ADR-0175's two missing executor evidence paths
+**Status:** **STOP_GATE_FAIL — no valid five-model confirmation executed.**
+
+D-009 completes the two omissions recorded by ADR-0175 without changing the registered cohort,
+recipe, panels, update ceiling, namespace, or information boundary.  The executor now generates
+and records every SORT causal-control cell for every fixed evaluation seed: Correct,
+Wrong-family, and None, at both `{3,4,5}` and `{6,...,10}` length groups.  It fails closed if an
+arm, a seed, or its fixed sample count is absent.  `SORT` is parameter-free, so Wrong-argument is
+recorded as `NOT_APPLICABLE_PARAMETER_FREE_SORT`; this is the manifest's registered exception,
+not an omitted arm.  Each metric cell records Wilson intervals and a SHA-256 digest of its ordered
+discrete outputs.
+
+The executor also now serializes the parent and staged candidate manifests plus bank structure,
+then launches an independent Python process from a different working directory for each.  That
+process calls `load_bundle` in the appropriate mode, reconstitutes only from loader-verified
+artifacts, and requires exact equality of manifest bundle/digest, panel metrics, causal metrics,
+and ordered-output digests.  Parent loads use `nominal`; candidates use `diagnostic`.  Any
+subprocess failure, missing required loader check, or mismatch is a STOP.  Repair accounting now
+records resident/active/temporary parameters and the run report records actual wall time and peak
+CUDA allocated/reserved memory.
+
+Focused Phase-D tests passed (`7 passed`); `ruff` and `mypy src/apc` passed.  Before the namespace
+check was elevated into the dry-run gate, the corrected Python-3.12 D-007 environment passed its
+runtime/registry/hash preconditions: Torch `2.13.0+cu130`, CUDA `13.0`, RTX 5060 Ti, the D-005
+seed registry for exactly `40–44`, preregistration hashes, and `sealed_access=0`.  The generic
+shell `python` was deliberately rejected because it is Python 3.10 with Torch `2.11.0+cu128`,
+outside `pyproject.toml`'s `torch>=2.12,<2.14` constraint.
+
+Read-only inspection also found that the fixed `runs/phase_d_d008_executor` and
+`runs/phase_d_d001_sort_repair` paths already exist as empty directories timestamped before
+D-009.  They are not removed or reused.  D-009 therefore moves the existing new-namespace check
+into the dry-run static gate as well: an occupied registered namespace is a pre-construction STOP,
+including when it contains no usable evidence.
+
+The required full suite in the compliant D-007 environment completed with `2662 passed, 7 failed`
+in `2421.12s`.  None of the failures intersects D-009's changed files or Phase-D evaluation:
+`test_controller_ablation_benchmark.py::test_cpu_smoke_decision_ablations` observed its existing
+controller result `0.3 < 0.9`; the six NRQ004–008 failures either load historical 44-token
+artifacts into a 49-token model or mix existing CPU bank weights with CUDA activations.  These
+are pre-existing controller/NRQ runtime issues, not a Phase-D causal/fresh-load implementation or
+H-D1 result.  They are isolated rather than repaired here because repairing them would expand the
+authorized D-009 scope and does not establish the pilot's scientific validity.
+
+**Decision: STOP before cohort construction.**  The executor's required evidence paths are now
+implemented, but the full required verification is not clean.  No seed `40–44` model was
+initialized; no optimizer step, candidate, panel result, fresh-load run artifact, sealed access,
+candidate selection, or promotion occurred.  The single authorized confirmation remains unspent;
+it does not authorize retries, seed changes, recipe/panel changes, additional updates, sealed
+access, or promotion.
+
+```
+cohort_construction = NOT_PERFORMED
+pilot_execution     = NOT_EXECUTED
+candidate_selected  = null
+bundle_promotion    = NOT_AUTHORIZED
+sealed_access       = 0
+research_gate       = STOP_GATE_FAIL (occupied registered namespace and full verification not clean)
+```

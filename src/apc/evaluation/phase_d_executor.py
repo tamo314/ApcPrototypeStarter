@@ -13,7 +13,9 @@ import dataclasses
 import hashlib
 import json
 import random
+import subprocess
 import sys
+import tempfile
 import time
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
@@ -41,6 +43,8 @@ from apc.evaluation.shift_functional_generalization_repair import (
     _train_shift_candidate,
 )
 from apc.evaluation.unified_oracle_causal_benchmark import (
+    NATURAL_BASELINES,
+    WRONG_FAMILY_MAP,
     UnifiedBenchmarkConfig,
     _generate_parameter_free_examples,
     _labels_for_examples,
@@ -67,6 +71,8 @@ REQUIRED_LOAD_CHECKS = frozenset(
         "argument_scorer_integrity",
     }
 )
+CAUSAL_LENGTH_GROUPS = (("target_L3_L5", (3, 5)), ("regression_L6_L10", (6, 10)))
+CAUSAL_ARMS = ("correct", "wrong_family", "none")
 TARGET_CLASSES = (
     "NEGATE->SELECT->SORT",
     "SELECT->SORT->BIND",
@@ -139,8 +145,112 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _supported_torch_version(version: str) -> bool:
+    """Keep D-006's project dependency boundary executable, not documentary."""
+    release = version.split("+", 1)[0].split(".")
+    try:
+        major, minor = int(release[0]), int(release[1])
+    except (IndexError, ValueError):
+        return False
+    return (major, minor) >= (2, 12) and (major, minor) < (2, 14)
+
+
 def _json_write(path: Path, data: Any) -> None:
     path.write_text(json.dumps(data, indent=2, sort_keys=True, default=str), encoding="utf-8")
+
+
+def _manifest_to_json_dict(manifest: mb.ModelBundleManifest) -> dict[str, Any]:
+    """Serialize every manifest field needed by the independent loader."""
+    def component(value: mb.ComponentManifest | None) -> dict[str, Any] | None:
+        return None if value is None else dataclasses.asdict(value)
+
+    return {
+        "schema_version": manifest.schema_version,
+        "bundle_id": manifest.bundle_id,
+        "content_manifest_digest": manifest.content_manifest_digest,
+        "source_commit": manifest.source_commit,
+        "runtime_recipe_version": manifest.runtime_recipe_version,
+        "environment_record": dict(manifest.environment_record),
+        "model_id": manifest.model_id,
+        "model_seed": manifest.model_seed,
+        "training_run_id": manifest.training_run_id,
+        "parent_bundle_ids": list(manifest.parent_bundle_ids),
+        "build_route": manifest.build_route.value,
+        "scope": manifest.scope.value,
+        "requested_capabilities": sorted(manifest.requested_capabilities),
+        "publish_status": manifest.publish_status.value,
+        "core": component(manifest.core),
+        "vocabulary": component(manifest.vocabulary),
+        "primitives": [
+            {**dataclasses.asdict(entry), "provenance_status": entry.provenance_status.value}
+            for entry in manifest.primitives
+        ],
+        "router": dataclasses.asdict(manifest.router),
+        "argument_scorer": dataclasses.asdict(manifest.argument_scorer),
+        "scoring_policy": dataclasses.asdict(manifest.scoring_policy),
+        "task_encoder": component(manifest.task_encoder),
+        "query_projection": component(manifest.query_projection),
+        "decoder": component(manifest.decoder),
+        "controller_verifier_signature": manifest.controller_verifier_signature,
+        "build_recipe_hash": manifest.build_recipe_hash,
+        "dataset_role_hashes": dict(manifest.dataset_role_hashes),
+        "generator_version": manifest.generator_version,
+        "known_defects": list(manifest.known_defects),
+        "exposure_manifest": dict(manifest.exposure_manifest),
+        "clean_build_exercised_stages": list(manifest.clean_build_exercised_stages),
+        "qualification_refs": list(manifest.qualification_refs),
+        "cohort_id": manifest.cohort_id,
+        "cohort_member_seeds": list(manifest.cohort_member_seeds),
+        "cohort_construction_recipe_hash": manifest.cohort_construction_recipe_hash,
+    }
+
+
+def manifest_from_json_dict(raw: dict[str, Any]) -> mb.ModelBundleManifest:
+    """Rehydrate a manifest without trusting paths outside its declaration."""
+    def component(value: dict[str, Any] | None) -> mb.ComponentManifest | None:
+        return None if value is None else mb.ComponentManifest(**value)
+
+    return mb.ModelBundleManifest(
+        schema_version=int(raw["schema_version"]),
+        bundle_id=str(raw["bundle_id"]),
+        content_manifest_digest=str(raw["content_manifest_digest"]),
+        source_commit=str(raw["source_commit"]),
+        runtime_recipe_version=str(raw["runtime_recipe_version"]),
+        environment_record=dict(raw["environment_record"]),
+        model_id=str(raw["model_id"]),
+        model_seed=int(raw["model_seed"]),
+        training_run_id=str(raw["training_run_id"]),
+        parent_bundle_ids=tuple(raw["parent_bundle_ids"]),
+        build_route=mb.BuildRoute(raw["build_route"]),
+        scope=mb.BundleScope(raw["scope"]),
+        requested_capabilities=frozenset(raw["requested_capabilities"]),
+        publish_status=mb.PublishStatus(raw["publish_status"]),
+        core=mb.ComponentManifest(**raw["core"]),
+        vocabulary=mb.ComponentManifest(**raw["vocabulary"]),
+        primitives=tuple(
+            mb.PrimitiveManifestEntry(
+                **{**entry, "provenance_status": mb.ProvenanceStatus(entry["provenance_status"])}
+            )
+            for entry in raw["primitives"]
+        ),
+        router=mb.RouterManifest(**raw["router"]),
+        argument_scorer=mb.ArgumentScorerManifest(**raw["argument_scorer"]),
+        scoring_policy=mb.ScoringPolicyManifest(**raw["scoring_policy"]),
+        task_encoder=component(raw.get("task_encoder")),
+        query_projection=component(raw.get("query_projection")),
+        decoder=component(raw.get("decoder")),
+        controller_verifier_signature=raw.get("controller_verifier_signature"),
+        build_recipe_hash=raw.get("build_recipe_hash"),
+        dataset_role_hashes=dict(raw.get("dataset_role_hashes", {})),
+        generator_version=raw.get("generator_version"),
+        known_defects=tuple(raw.get("known_defects", ())),
+        exposure_manifest=dict(raw.get("exposure_manifest", {})),
+        clean_build_exercised_stages=tuple(raw.get("clean_build_exercised_stages", ())),
+        qualification_refs=tuple(raw.get("qualification_refs", ())),
+        cohort_id=raw.get("cohort_id"),
+        cohort_member_seeds=tuple(raw.get("cohort_member_seeds", ())),
+        cohort_construction_recipe_hash=raw.get("cohort_construction_recipe_hash"),
+    )
 
 
 def _assert_new_namespace(path: Path) -> None:
@@ -154,11 +264,25 @@ def _static_gate(config: PhaseDExecutorConfig) -> dict[str, Any]:
         raise PhaseDStopGateError("seed registry does not declare the authorized cohort")
     if not torch.cuda.is_available():
         raise PhaseDStopGateError("CUDA runtime unavailable; no model/data access permitted")
+    if not _supported_torch_version(torch.__version__):
+        raise PhaseDStopGateError(
+            f"torch {torch.__version__} is outside the registered project range >=2.12,<2.14"
+        )
     if tuple(torch.version.cuda or "") == ():  # defensive: no CUDA build is ineligible
         raise PhaseDStopGateError("Torch has no CUDA build")
     for relative in PREREG_FILES:
         if not (REPO_ROOT / relative).is_file():
             raise PhaseDStopGateError(f"missing preregistration evidence: {relative}")
+    occupied_namespaces = [
+        str(path)
+        for path in (config.output_root, config.cohort_root, config.candidate_root)
+        if (REPO_ROOT / path).exists()
+    ]
+    if occupied_namespaces:
+        raise PhaseDStopGateError(
+            "registered Phase-D namespace already exists and cannot be reused: "
+            f"{occupied_namespaces}"
+        )
     # Generic caches would make the helper restore rather than fresh-build.
     stale = [
         str(Path("runs/phase_a1_shift_compact_structural_probe") / f"seed_{seed}")
@@ -252,6 +376,8 @@ def _publish_parent(
     torch.save(router.state_dict(), router_path)
     torch.save(scorer.state_dict(), scorer_path)
     torch.save(_vocab_state(core), vocab_path)
+    bank_structure_path = publish / "primitive_bank_structure.json"
+    _json_write(bank_structure_path, bank.to_manifest())
     core_raw, core_hash = mb.canonical_state_hash_from_file(core_path)
     vocab_raw, vocab_hash = mb.canonical_state_hash_from_file(vocab_path)
     schema = _schema_hash(core)
@@ -346,8 +472,9 @@ def _publish_parent(
     _json_write(
         manifest_path,
         {
-            "manifest": asdict(manifest),
+            "manifest": _manifest_to_json_dict(manifest),
             "op_to_id": op_to_id,
+            "primitive_bank_structure": str(bank_structure_path.resolve()),
             "loader_checks": list(loaded.checks_performed),
         },
     )
@@ -460,18 +587,56 @@ def _examples_for_recipe(
 
 def _em(
     core: Any, bank: Any, op_to_id: dict[str, int], examples: Sequence[Example]
-) -> tuple[int, int]:
+) -> tuple[int, int, str]:
     successes = 0
+    outputs = hashlib.sha256()
     with torch.no_grad():
         for start in range(0, len(examples), 128):
             chunk = examples[start : start + 128]
             logits = execute_composition_recipe(core, bank, op_to_id, chunk)
             pred = logits.argmax(dim=-1)
-            successes += sum(
-                tuple(pred[i, : len(ex.target_tokens)].tolist()) == ex.target_tokens
-                for i, ex in enumerate(chunk)
-            )
-    return successes, len(examples)
+            for i, ex in enumerate(chunk):
+                tokens = tuple(pred[i, : len(ex.target_tokens)].tolist())
+                successes += tokens == ex.target_tokens
+                outputs.update(json.dumps(tokens, separators=(",", ":")).encode())
+                outputs.update(b"\n")
+    return successes, len(examples), outputs.hexdigest()
+
+
+def _primitive_em(
+    core: Any, primitive: Any, examples: Sequence[Example], operation: str
+) -> tuple[int, int, str]:
+    """Direct primitive-arm measurement with a digest of every discrete output."""
+    from apc.environments.operations import get_operation
+    from apc.primitives.primitive import (
+        CrossPositionPrimitive,
+        ReverseRelativePrimitive,
+        ShiftRelativePrimitive,
+    )
+
+    successes = 0
+    outputs = hashlib.sha256()
+    with torch.no_grad():
+        for start in range(0, len(examples), 128):
+            chunk = examples[start : start + 128]
+            lengths = [len(example.input_tokens) for example in chunk]
+            output_lengths = [get_operation(operation).output_length(length) for length in lengths]
+            inputs = collate_content_only_batch(chunk, core.tokens, device=core.device)
+            hidden = core.model.encode(inputs)[:, 1 : 1 + max(lengths), :]
+            if isinstance(
+                primitive,
+                (CrossPositionPrimitive, ReverseRelativePrimitive, ShiftRelativePrimitive),
+            ):
+                logits = primitive(hidden, lengths, output_lengths, None)
+            else:
+                logits = primitive(hidden)
+            prediction = logits.argmax(dim=-1)
+            for index, example in enumerate(chunk):
+                tokens = tuple(prediction[index, : len(example.target_tokens)].tolist())
+                successes += tokens == example.target_tokens
+                outputs.update(json.dumps(tokens, separators=(",", ":")).encode())
+                outputs.update(b"\n")
+    return successes, len(examples), outputs.hexdigest()
 
 
 def _wilson(successes: int, total: int) -> tuple[float, float]:
@@ -493,15 +658,22 @@ def _evaluate_panels(core: Any, bank: Any, op_to_id: dict[str, int], seed: int) 
         ("canary", CANARY_CLASSES, 500, (6, 10)),
     ):
         for klass in classes:
-            per_seed = []
+            per_seed: list[dict[str, Any]] = []
             for eval_seed in EVAL_SEEDS:
-                successes, total = _em(
+                successes, total, outputs_hash = _em(
                     core,
                     bank,
                     op_to_id,
                     _examples_for_recipe(eval_seed, tuple(klass.split("->")), n, lengths),
                 )
-                per_seed.append({"seed": eval_seed, "successes": successes, "n": total})
+                per_seed.append(
+                    {
+                        "seed": eval_seed,
+                        "successes": successes,
+                        "n": total,
+                        "outputs_sha256": outputs_hash,
+                    }
+                )
             s = sum(row["successes"] for row in per_seed)
             total = sum(row["n"] for row in per_seed)
             lo, hi = _wilson(s, total)
@@ -511,32 +683,141 @@ def _evaluate_panels(core: Any, bank: Any, op_to_id: dict[str, int], seed: int) 
                 "em": s / total,
                 "wilson_95": [lo, hi],
                 "per_evaluation_seed": per_seed,
+                "outputs_sha256": hashlib.sha256(
+                    "".join(row["outputs_sha256"] for row in per_seed).encode()
+                ).hexdigest(),
             }
     for length in (3, 4, 5):
         examples = _examples_for_recipe(seed, ("SORT",), 10**length, (length, length))
-        s, total = _em(core, bank, op_to_id, examples)
+        s, total, outputs_hash = _em(core, bank, op_to_id, examples)
         records[f"standalone_target_L{length}"] = {
             "successes": s,
             "n": total,
             "em": s / total,
             "population": "exhaustive",
+            "outputs_sha256": outputs_hash,
         }
     for length in range(6, 11):
-        per_seed = []
+        regression_per_seed: list[dict[str, Any]] = []
         for eval_seed in EVAL_SEEDS[:3]:
             examples = _examples_for_recipe(eval_seed, ("SORT",), 2_000, (length, length))
-            successes, total = _em(core, bank, op_to_id, examples)
-            per_seed.append({"seed": eval_seed, "successes": successes, "n": total})
-        s = sum(row["successes"] for row in per_seed)
-        total = sum(row["n"] for row in per_seed)
+            successes, total, outputs_hash = _em(core, bank, op_to_id, examples)
+            regression_per_seed.append(
+                {
+                    "seed": eval_seed,
+                    "successes": successes,
+                    "n": total,
+                    "outputs_sha256": outputs_hash,
+                }
+            )
+        s = sum(row["successes"] for row in regression_per_seed)
+        total = sum(row["n"] for row in regression_per_seed)
         records[f"standalone_regression_L{length}"] = {
             "successes": s,
             "n": total,
             "em": s / total,
             "wilson_95": list(_wilson(s, total)),
-            "per_evaluation_seed": per_seed,
+            "per_evaluation_seed": regression_per_seed,
+            "outputs_sha256": hashlib.sha256(
+                "".join(row["outputs_sha256"] for row in regression_per_seed).encode()
+            ).hexdigest(),
         }
     return records
+
+
+def _evaluate_causal_controls(
+    core: Any, bank: Any, op_to_id: dict[str, int]
+) -> dict[str, Any]:
+    """Measure every preregistered SORT control arm in both length groups.
+
+    SORT is parameter-free, so no Wrong-argument arm exists.  The report is
+    deliberately per evaluation seed and arm: an aggregate without a cell is
+    invalid evidence, not a value that may be averaged into a pass.
+    """
+    sort = bank.get(op_to_id["SORT"])
+    wrong_family = bank.get(op_to_id[WRONG_FAMILY_MAP["SORT"]])
+    results: dict[str, Any] = {}
+    for group_name, lengths in CAUSAL_LENGTH_GROUPS:
+        arms: dict[str, Any] = {}
+        for arm in CAUSAL_ARMS:
+            per_seed: list[dict[str, Any]] = []
+            for eval_seed in EVAL_SEEDS:
+                examples = _generate_parameter_free_examples(
+                    eval_seed,
+                    1_000,
+                    operation="SORT",
+                    split=f"phase_d_causal_{group_name}_{arm}",
+                    sequence_length_range=lengths,
+                )
+                primitive = sort if arm != "wrong_family" else wrong_family
+                was_enabled = primitive.enabled
+                if arm == "none":
+                    primitive.enabled = False
+                try:
+                    successes, total, outputs_hash = _primitive_em(
+                        core, primitive, examples, "SORT"
+                    )
+                finally:
+                    primitive.enabled = was_enabled
+                per_seed.append(
+                    {
+                        "seed": eval_seed,
+                        "successes": successes,
+                        "n": total,
+                        "em": successes / total,
+                        "wilson_95": list(_wilson(successes, total)),
+                        "outputs_sha256": outputs_hash,
+                    }
+                )
+            successes = sum(row["successes"] for row in per_seed)
+            total = sum(row["n"] for row in per_seed)
+            arms[arm] = {
+                "successes": successes,
+                "n": total,
+                "em": successes / total,
+                "wilson_95": list(_wilson(successes, total)),
+                "per_evaluation_seed": per_seed,
+                "outputs_sha256": hashlib.sha256(
+                    "".join(row["outputs_sha256"] for row in per_seed).encode()
+                ).hexdigest(),
+            }
+        correct = arms["correct"]["em"]
+        wrong = arms["wrong_family"]["em"]
+        none = arms["none"]["em"]
+        results[group_name] = {
+            "arms": arms,
+            "wrong_argument": "NOT_APPLICABLE_PARAMETER_FREE_SORT",
+            "causal_gap": correct - max(wrong, none),
+            "correct_pass": correct >= 0.95,
+            "causal_gap_pass": correct - max(wrong, none) >= 0.50,
+            "none_pass": none <= NATURAL_BASELINES["SORT"] + 0.05,
+        }
+        results[group_name]["pass"] = all(
+            results[group_name][key]
+            for key in ("correct_pass", "causal_gap_pass", "none_pass")
+        )
+    _assert_causal_controls_complete(results)
+    return results
+
+
+def _assert_causal_controls_complete(results: dict[str, Any]) -> None:
+    """Reject missing arms/seeds rather than treating absent cells as zeroes."""
+    if set(results) != {name for name, _ in CAUSAL_LENGTH_GROUPS}:
+        raise PhaseDStopGateError("causal controls missing a preregistered length group")
+    for group_name, _lengths in CAUSAL_LENGTH_GROUPS:
+        group = results[group_name]
+        if set(group.get("arms", ())) != set(CAUSAL_ARMS):
+            raise PhaseDStopGateError(f"causal controls missing an arm for {group_name}")
+        for arm in CAUSAL_ARMS:
+            records = group["arms"][arm].get("per_evaluation_seed", ())
+            if tuple(row.get("seed") for row in records) != EVAL_SEEDS:
+                raise PhaseDStopGateError(
+                    f"causal controls missing or reordered evaluation seeds for {group_name}:{arm}"
+                )
+            if any(row.get("n", 0) != 1_000 for row in records):
+                raise PhaseDStopGateError(
+                    f"causal controls have wrong sample count for {group_name}:{arm}"
+                )
 
 
 def _repair(core: Any, bank: Any, op_to_id: dict[str, int], seed: int) -> dict[str, Any]:
@@ -581,6 +862,9 @@ def _repair(core: Any, bank: Any, op_to_id: dict[str, int], seed: int) -> dict[s
     return {
         "steps": REPAIR_STEPS,
         "examples": REPAIR_STEPS * 32,
+        "resident_parameters_touched": target.num_parameters(),
+        "active_parameters": target.num_parameters(),
+        "temporary_parameters": 0,
         "before_hashes": before,
         "after_hashes": after,
     }
@@ -592,12 +876,14 @@ def _save_candidate(
     op_to_id: dict[str, int],
     seed: int,
     config: PhaseDExecutorConfig,
-) -> str:
+) -> tuple[mb.ModelBundleManifest, Path, Path]:
     """Persist a diagnostic candidate in its own namespace, never in the parent path."""
     candidate_dir = REPO_ROOT / config.candidate_root / f"seed_{seed}" / "candidate"
     candidate_dir.mkdir(parents=True)
     bank_path = candidate_dir / "primitive_bank.pt"
     torch.save(bank.state_dict(), bank_path)
+    bank_manifest_path = candidate_dir / "primitive_bank_structure.json"
+    _json_write(bank_manifest_path, bank.to_manifest())
     state = mb.load_state_dict(bank_path)
     entries = []
     for entry in parent.primitives:
@@ -636,19 +922,28 @@ def _save_candidate(
     loaded = mb.load_bundle(candidate, mode="diagnostic", expected_primitive_count=16)
     if not REQUIRED_LOAD_CHECKS.issubset(loaded.checks_performed):
         raise PhaseDStopGateError("candidate strict loader omitted required integrity checks")
+    manifest_path = candidate_dir / "candidate_manifest.json"
     _json_write(
-        candidate_dir / "candidate_manifest.json",
+        manifest_path,
         {
+            "manifest": _manifest_to_json_dict(candidate),
+            "op_to_id": op_to_id,
+            "primitive_bank_structure": str(bank_manifest_path.resolve()),
             "bundle_id": candidate.bundle_id,
             "parent_bundle_id": parent.bundle_id,
             "loader_checks": list(loaded.checks_performed),
         },
     )
-    return candidate.bundle_id
+    return candidate, manifest_path, bank_manifest_path
 
 
-def _acceptance(baseline: dict[str, Any], repaired: dict[str, Any]) -> dict[str, Any]:
-    """Fixed cellwise floors.  Missing causal/fresh-process evidence is never a pass."""
+def _acceptance(
+    baseline: dict[str, Any],
+    repaired: dict[str, Any],
+    causal: dict[str, Any],
+    fresh: dict[str, Any],
+) -> dict[str, Any]:
+    """Fixed cellwise floors. Missing or mismatched evidence is never a pass."""
     target_keys = [key for key in repaired if key.startswith("target:")]
     target_keys.extend(f"standalone_target_L{length}" for length in (3, 4, 5))
     preservation_keys = [
@@ -661,13 +956,70 @@ def _acceptance(baseline: dict[str, Any], repaired: dict[str, Any]) -> dict[str,
         repaired[key]["em"] >= baseline[key]["em"] - 0.01 and repaired[key]["em"] >= 0.95
         for key in preservation_keys
     )
+    causal_pass = all(causal[name]["pass"] for name, _ in CAUSAL_LENGTH_GROUPS)
+    fresh_pass = bool(fresh.get("parity_pass"))
     return {
         "target_recovery_pass": target_pass,
         "existing_capability_preservation_pass": preservation_pass,
-        "causal_control": "NOT_EXECUTED_INVALIDATES_PASS",
-        "fresh_load_parity": "NOT_EXECUTED_INVALIDATES_PASS",
-        "pass": False,
+        "causal_control_pass": causal_pass,
+        "fresh_load_parity_pass": fresh_pass,
+        "pass": target_pass and preservation_pass and causal_pass and fresh_pass,
     }
+
+
+def _run_fresh_load_parity(
+    candidate_manifest: Path,
+    bank_structure: Path,
+    seed: int,
+    expected: dict[str, Any],
+    mode: str,
+) -> dict[str, Any]:
+    """Re-evaluate a candidate in a separate interpreter and require exact parity."""
+    script = REPO_ROOT / "scripts" / "phase_d_fresh_load_check.py"
+    if not script.is_file():
+        raise PhaseDStopGateError("fresh-load checker script is missing")
+    expected_path = candidate_manifest.parent / "in_process_metrics.json"
+    _json_write(expected_path, expected)
+    scratch = Path(tempfile.gettempdir()) / f"apc_phase_d_fresh_load_seed_{seed}"
+    scratch.mkdir(parents=True, exist_ok=True)
+    process = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "--candidate-manifest",
+            str(candidate_manifest.resolve()),
+            "--bank-structure",
+            str(bank_structure.resolve()),
+            "--expected-metrics",
+            str(expected_path.resolve()),
+            "--mode",
+            mode,
+        ],
+        cwd=scratch,
+        capture_output=True,
+        text=True,
+        timeout=1_800,
+        check=False,
+    )
+    result: dict[str, Any] = {
+        "separate_process": True,
+        "mode": mode,
+        "different_working_directory_confirmed": scratch.resolve() != REPO_ROOT.resolve(),
+        "subprocess_returncode": process.returncode,
+        "stdout_tail": process.stdout[-4000:],
+        "stderr_tail": process.stderr[-4000:],
+        "parity_pass": False,
+    }
+    if process.returncode == 0:
+        try:
+            fresh = json.loads(process.stdout.strip().splitlines()[-1])
+        except (IndexError, json.JSONDecodeError) as exc:
+            raise PhaseDStopGateError(f"fresh-load checker returned invalid JSON: {exc}") from exc
+        result.update(fresh)
+        result["parity_pass"] = bool(fresh.get("parity_pass"))
+    if not result["parity_pass"]:
+        raise PhaseDStopGateError(f"fresh-load parity failed for seed {seed}: {result}")
+    return result
 
 
 def run(config: PhaseDExecutorConfig | None = None) -> dict[str, Any]:
@@ -680,6 +1032,7 @@ def run(config: PhaseDExecutorConfig | None = None) -> dict[str, Any]:
     root.mkdir(parents=True)
     (REPO_ROOT / effective_config.candidate_root).mkdir(parents=True)
     start = time.perf_counter()
+    torch.cuda.reset_peak_memory_stats()
     report: dict[str, Any] = {
         "task": "D-008",
         "static_gate": _static_gate(effective_config),
@@ -694,6 +1047,22 @@ def run(config: PhaseDExecutorConfig | None = None) -> dict[str, Any]:
             )
             parents.append(manifest)
             baseline = _evaluate_panels(core, bank, op_to_id, seed)
+            parent_causal_controls = _evaluate_causal_controls(core, bank, op_to_id)
+            parent_record = json.loads(manifest_path.read_text(encoding="utf-8"))
+            parent_fresh_load = _run_fresh_load_parity(
+                manifest_path,
+                Path(parent_record["primitive_bank_structure"]),
+                seed,
+                {
+                    "manifest": {
+                        "bundle_id": manifest.bundle_id,
+                        "content_manifest_digest": manifest.content_manifest_digest,
+                    },
+                    "panels": baseline,
+                    "causal_controls": parent_causal_controls,
+                },
+                "nominal",
+            )
             # FROZEN_PARENT eligibility means an independently built, strict-loaded parent whose
             # known length-adequate capabilities are present; the known target deficit is measured,
             # not silently used to reject the preregistered repair.
@@ -705,14 +1074,33 @@ def run(config: PhaseDExecutorConfig | None = None) -> dict[str, Any]:
                 raise PhaseDStopGateError(f"FROZEN_PARENT eligibility failed for seed {seed}")
             repair = _repair(core, bank, op_to_id, seed)
             repaired = _evaluate_panels(core, bank, op_to_id, seed)
-            candidate_bundle_id = _save_candidate(manifest, bank, op_to_id, seed, effective_config)
-            acceptance = _acceptance(baseline, repaired)
+            causal_controls = _evaluate_causal_controls(core, bank, op_to_id)
+            candidate, candidate_manifest, bank_structure = _save_candidate(
+                manifest, bank, op_to_id, seed, effective_config
+            )
+            in_process_metrics = {
+                "manifest": {
+                    "bundle_id": candidate.bundle_id,
+                    "content_manifest_digest": candidate.content_manifest_digest,
+                },
+                "panels": repaired,
+                "causal_controls": causal_controls,
+            }
+            fresh_load = _run_fresh_load_parity(
+                candidate_manifest, bank_structure, seed, in_process_metrics, "diagnostic"
+            )
+            acceptance = _acceptance(baseline, repaired, causal_controls, fresh_load)
             report["models"][str(seed)] = {
                 "parent_manifest": str(manifest_path),
-                "candidate_bundle_id": candidate_bundle_id,
+                "candidate_manifest": str(candidate_manifest),
+                "candidate_bundle_id": candidate.bundle_id,
                 "frozen_parent": baseline,
+                "frozen_parent_causal_controls": parent_causal_controls,
+                "frozen_parent_fresh_load": parent_fresh_load,
                 "local_sort_repair": repair,
                 "repaired": repaired,
+                "causal_controls": causal_controls,
+                "fresh_load": fresh_load,
                 "symbolic_reference": "SortOp.apply; evaluator only",
                 "frozen_parent_eligible": eligible,
                 "acceptance": acceptance,
@@ -731,6 +1119,8 @@ def run(config: PhaseDExecutorConfig | None = None) -> dict[str, Any]:
         raise
     finally:
         report["wall_clock_seconds"] = time.perf_counter() - start
+        report["peak_cuda_memory_bytes"] = torch.cuda.max_memory_allocated()
+        report["peak_cuda_memory_reserved_bytes"] = torch.cuda.max_memory_reserved()
         report["bundle_promotion"] = "NOT_AUTHORIZED"
         report["sealed_access"] = 0
         _json_write(root / "report.json", report)
