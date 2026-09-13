@@ -130,7 +130,9 @@ Expected to be straightforward for full training on 16GB with mixed precision.
 Feasible with controlled batch/context sizes and memory-conscious optimizer/configuration. Use only after smaller experiments validate the loop.
 
 ### 0.5B–2B pretrained LM
-Use parameter-efficient adaptation (LoRA/QLoRA) rather than full fine-tuning. This belongs to Phase D, not Phase A.
+Use parameter-efficient adaptation (LoRA/QLoRA) rather than full fine-tuning. This is out-of-scope,
+hypothetical future work, not Phase A, and not any currently named or active phase (pretrained LMs
+are excluded by `AGENTS.md`'s non-negotiable invariants unless the user changes scope).
 
 ### 7B-class model
 Quantized inference/adaptation may fit depending on configuration, but it is unnecessary for validating APC and should not become an early dependency.

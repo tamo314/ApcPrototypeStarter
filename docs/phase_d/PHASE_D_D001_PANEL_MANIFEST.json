@@ -1,0 +1,117 @@
+{
+  "task_id": "D-001",
+  "document_id": "DOC-PHASE-D-D001-PANEL-MANIFEST",
+  "date": "2026-09-13",
+  "derivation": "Re-aggregation of existing NRQ-006/NRQ-007 artifacts only. No model forward pass, no new training, no new data generation was executed to produce this manifest.",
+  "source_artifacts": [
+    "docs/research/NRQ006_REVIEW_RECORD.json",
+    "docs/research/NRQ007_REVIEW_RECORD.json",
+    "docs/research/ARGUMENT_CLOSED_DEPTH3_CLOSURE_AUDIT_NRQ006.md",
+    "docs/research/STEPWISE_CAUSAL_ATTRIBUTION_NRQ007.md",
+    "docs/research/REPLICATION_AND_SUPPORT_BUDGET_SENSITIVITY_NRQ008.md"
+  ],
+  "registry": {
+    "canonical_primitives": ["SELECT", "COUNT", "BIND", "SHIFT", "COPY", "REVERSE", "SORT", "NEGATE"],
+    "total_canonical_classes": 60,
+    "total_cells": 1200,
+    "cell_definition": "60 classes x 4 bundle seeds (1,2,3,4) x 5 data seeds (101-105)",
+    "mean_threshold_failure_class_count": 35,
+    "all_cell_gate_failure_class_count": 41,
+    "all_cell_gate_passing_class_count": 19
+  },
+  "cross_check_35_vs_41": {
+    "note": "Task instruction: cross-check the 60-class/1200-cell base, the mean-threshold 35 failure classes, and the all-cell-gate 41 failure classes; record the 6-class difference as unclassified if not already classified, without conflating it with the existing 35-class causal-attribution registry.",
+    "diff_count": 6,
+    "diff_classes_pass_mean_fail_all_cell": [
+      "NEGATE->REVERSE->SHIFT",
+      "NEGATE->SHIFT->SHIFT",
+      "REVERSE->SHIFT->SELECT",
+      "SHIFT->SHIFT->BIND",
+      "SHIFT->SHIFT->SELECT",
+      "SORT->SHIFT->SHIFT"
+    ],
+    "derivation_method": "Direct re-aggregation of the 1200 raw per-cell records in docs/research/NRQ006_REVIEW_RECORD.json['records']: all_cell_pass(class) = all(cell.oracle_em >= 0.85 and cell.exhaustive_functional_em >= 0.95 for cell in the class's 20 cells); diff = {classes failing all_cell_pass} - {classes in NRQ006_REVIEW_RECORD.json['failure_classes'] (the 35 mean-threshold failures)}.",
+    "formal_attribution_status": "UNCLASSIFIED_BY_NRQ007",
+    "formal_attribution_status_rationale": "NRQ-007's stepwise causal attribution (3-arm intervention: continuous/diagnostic-reset/standalone) was executed only over 'all 35 failure recipes' (STEPWISE_CAUSAL_ATTRIBUTION_NRQ007.md section 2.1); these 6 classes pass the mean-level floor and were therefore never inputs to that procedure. This manifest does not run a new causal attribution for them.",
+    "descriptive_observation_not_a_new_causal_claim": {
+      "all_6_classes_are_length_adequate": true,
+      "all_6_classes_contain_at_least_one_SHIFT_step": true,
+      "failing_cells_concentration": "5 of 6 classes have every failing cell on bundle_seed=4 (the 6th, NEGATE->SHIFT->SHIFT, has 2/7 failing cells on bundle_seed=2, the rest on bundle_seed=4)",
+      "cross_reference": "Consistent with NRQ-007 section 3.2's already-attributed 'Chained Shifts' subset of BUNDLE_SPECIFIC_COMPONENT_FAILURE ('Bundle 4 exhibits slight degradation in SHIFT accuracy... causing 3-step chained shifts to drop below the 0.95 threshold on Bundle 4') and with NRQ-008/ADR-0168's independently measured Bundle 4 oracle EM of 0.9147 (< the 0.95 per-cell floor) on an unrelated cell, both of which independently document a weaker Bundle-4 SHIFT/attention substrate. This is offered as a plausible, pre-existing explanation, not a new formally-attributed conclusion."
+    },
+    "per_class_detail": [
+      {"class": "NEGATE->REVERSE->SHIFT", "mean_oracle_em": 0.973, "mean_exhaustive_em": 0.971, "failing_cells_of_20": 5, "failing_bundle_seeds": [4]},
+      {"class": "NEGATE->SHIFT->SHIFT", "mean_oracle_em": 0.955, "mean_exhaustive_em": 0.953, "failing_cells_of_20": 7, "failing_bundle_seeds": [2, 4]},
+      {"class": "REVERSE->SHIFT->SELECT", "mean_oracle_em": 0.984, "mean_exhaustive_em": 0.984, "failing_cells_of_20": 3, "failing_bundle_seeds": [2, 4]},
+      {"class": "SHIFT->SHIFT->BIND", "mean_oracle_em": 0.985, "mean_exhaustive_em": 0.985, "failing_cells_of_20": 1, "failing_bundle_seeds": [4]},
+      {"class": "SHIFT->SHIFT->SELECT", "mean_oracle_em": 0.971, "mean_exhaustive_em": 0.971, "failing_cells_of_20": 3, "failing_bundle_seeds": [4]},
+      {"class": "SORT->SHIFT->SHIFT", "mean_oracle_em": 0.988, "mean_exhaustive_em": 0.988, "failing_cells_of_20": 2, "failing_bundle_seeds": [4]}
+    ]
+  },
+  "target_panel": {
+    "name": "SHORT_SEQUENCE_CAPACITY_DEFICIT_SORT_AFTER_SELECT",
+    "count": 7,
+    "membership_source": "NRQ-007 section 3.2.1 (STEPWISE_CAUSAL_ATTRIBUTION_NRQ007.md) and NRQ007_REVIEW_RECORD.json class_attributions, filtered on final_attribution == 'SHORT_SEQUENCE_CAPACITY_DEFICIT'",
+    "membership_taken_verbatim_from_source": true,
+    "classes": [
+      {"class": "NEGATE->SELECT->SORT", "recipe": ["NEGATE", "SELECT", "SORT"], "sort_step_index": 3, "sort_input_length_set": [3, 4, 5], "all_20_cells_attribution": "SHORT_SEQUENCE_CAPACITY_DEFICIT", "mean_continuous_step_ems": [0.998, 0.082, 0.047], "mean_standalone_step_ems": [1.0, 0.075, 0.35]},
+      {"class": "SELECT->SORT->BIND", "recipe": ["SELECT", "SORT", "BIND"], "sort_step_index": 2, "sort_input_length_set": [3, 4, 5], "all_20_cells_attribution": "SHORT_SEQUENCE_CAPACITY_DEFICIT", "mean_continuous_step_ems": [1.0, 0.049, 0.395], "mean_standalone_step_ems": [1.0, 0.075, 1.0]},
+      {"class": "SELECT->SORT->NEGATE", "recipe": ["SELECT", "SORT", "NEGATE"], "sort_step_index": 2, "sort_input_length_set": [3, 4, 5], "all_20_cells_attribution": "SHORT_SEQUENCE_CAPACITY_DEFICIT", "mean_continuous_step_ems": [0.998, 0.082, 0.047], "mean_standalone_step_ems": [1.0, 0.075, 0.35]},
+      {"class": "SELECT->SORT->REVERSE", "recipe": ["SELECT", "SORT", "REVERSE"], "sort_step_index": 2, "sort_input_length_set": [3, 4, 5], "all_20_cells_attribution": "SHORT_SEQUENCE_CAPACITY_DEFICIT", "mean_continuous_step_ems": [0.999, 0.063, 0.01], "mean_standalone_step_ems": [1.0, 0.075, 0.05]},
+      {"class": "SELECT->SORT->SELECT", "recipe": ["SELECT", "SORT", "SELECT"], "sort_step_index": 2, "sort_input_length_set": [3, 4, 5], "all_20_cells_attribution": "SHORT_SEQUENCE_CAPACITY_DEFICIT", "mean_continuous_step_ems": [1.0, 0.066, 0.272], "mean_standalone_step_ems": [1.0, 0.075, 0.49]},
+      {"class": "SELECT->SORT->SHIFT", "recipe": ["SELECT", "SORT", "SHIFT"], "sort_step_index": 2, "sort_input_length_set": [3, 4, 5], "all_20_cells_attribution": "SHORT_SEQUENCE_CAPACITY_DEFICIT", "mean_continuous_step_ems": [0.999, 0.086, 0.037], "mean_standalone_step_ems": [1.0, 0.075, 0.41]},
+      {"class": "SHIFT->SELECT->SORT", "recipe": ["SHIFT", "SELECT", "SORT"], "sort_step_index": 3, "sort_input_length_set": [3, 4, 5], "all_20_cells_attribution": "SHORT_SEQUENCE_CAPACITY_DEFICIT", "mean_continuous_step_ems": [0.974, 0.989, 0.07], "mean_standalone_step_ems": [0.975, 1.0, 0.075]}
+    ],
+    "derivation_of_sort_input_length_set": "SelectOp.output_length(L) = max(1, L // 2) applied to the training-exposure length range L in {6,7,8,9,10} (src/apc/environments/operations.py SelectOp; src/apc/evaluation/unified_oracle_causal_benchmark.py UnifiedBenchmarkConfig.sequence_length_range default (6,10)) yields {3,3,4,4,5} = {3,4,5}. Not assumed; derived from the operation's own output_length function."
+  },
+  "regression_panel": {
+    "standalone_length_adequate": {
+      "description": "SORT executed standalone on its original training-exposure length domain L in {6,7,8,9,10}, i.i.d. sampled exactly as in the historical training/eval generator.",
+      "length_set": [6, 7, 8, 9, 10],
+      "pre_repair_reference": "Baseline SORT correct_exact_match on this domain from the unified oracle causal benchmark's own historical acceptance criterion (>= 0.95, unified_oracle_causal_benchmark.py:905) and per-bundle NRQ-006/007 evidence (e.g. NEGATE->SORT->BIND/SELECT/SHIFT and SORT->REVERSE->*/SORT->SHIFT->*/SORT->SELECT->BIND classes, all length-adequate, mean_oracle_em >= 0.988)."
+    },
+    "composition_length_adequate_sort_classes": {
+      "description": "Depth-3 composition classes containing SORT at a length-adequate position (not step 1 or step 2 of SELECT), currently passing the strict all-cell gate (20/20 cells). Used to verify the repair does not regress SORT's already-adequate composition behavior.",
+      "count": 11,
+      "classes": [
+        "NEGATE->SORT->BIND", "NEGATE->SORT->SELECT", "NEGATE->SORT->SHIFT",
+        "SORT->NEGATE->SELECT", "SORT->NEGATE->SHIFT",
+        "SORT->REVERSE->BIND", "SORT->REVERSE->SELECT", "SORT->REVERSE->SHIFT",
+        "SORT->SELECT->BIND", "SORT->SHIFT->BIND", "SORT->SHIFT->SELECT"
+      ],
+      "all_currently_all_cell_pass": true
+    },
+    "non_sort_capability_canary": {
+      "description": "Classes not containing SORT at all, currently passing the strict all-cell gate (20/20 cells). Used to verify Core / other-primitive / router / scorer invariance during the SORT-only repair (non_target_parameter_updates == 0 proxy check at the behavioral level).",
+      "count": 8,
+      "classes": [
+        "NEGATE->REVERSE->BIND", "NEGATE->REVERSE->SELECT", "NEGATE->SELECT->BIND",
+        "NEGATE->SHIFT->BIND", "NEGATE->SHIFT->SELECT",
+        "REVERSE->SELECT->BIND", "REVERSE->SHIFT->BIND", "SHIFT->SELECT->BIND"
+      ],
+      "all_currently_all_cell_pass": true
+    }
+  },
+  "causal_control_panel": {
+    "applicable_primitive": "SORT",
+    "sort_is_parameter_free": true,
+    "sort_required_argument_names": [],
+    "note": "SORT has no required_argument_names (src/apc/environments/operations.py SortOp), so the applicable causal-control triple is Correct / Wrong-family / None -- there is no Wrong-argument arm for SORT (matches the task's literal wording, which names Correct/Wrong-family/None, not Wrong-argument, for this primitive).",
+    "existing_mechanism_reused": "src/apc/evaluation/unified_oracle_causal_benchmark.py lines 883-908 (parameter-free branch of the acceptance-criteria loop). Not reimplemented; reused as-is.",
+    "arms": {
+      "correct": {"definition": "prim(h) with prim = SORT's own CrossPositionPrimitive, argument_provider=None", "symbolic_reference": "SortOp.apply == tuple(sorted(sequence))"},
+      "wrong_family": {"definition": "WRONG_FAMILY_MAP['SORT'] = 'NEGATE'; evaluate NEGATE's primitive on the same input, score against SORT's correct target", "symbolic_reference": "NegateOp.apply == tuple(vocab_size - 1 - t for t in sequence)"},
+      "none": {"definition": "SORT's own primitive with prim.enabled = False, which returns all-zero logits (src/apc/primitives/primitive.py: 'if not self.enabled: return content_features.new_zeros(...)'), i.e. argmax predicts token 0 at every position", "symbolic_reference": "constant-zero sequence of the correct output length"}
+    },
+    "existing_acceptance_thresholds": {
+      "correct_passed": ">= 0.95 (unified_oracle_causal_benchmark.py:905)",
+      "causal_gap_passed": "correct_exact_match - max(wrong_family_exact_match, none_exact_match) >= 0.50 (:906)",
+      "none_passed": "none_exact_match <= natural_baseline + 0.05, natural_baseline['SORT'] = 0.01, i.e. <= 0.06 (:907, NATURAL_BASELINES:107)"
+    },
+    "coincidence_exclusion_rules": [
+      "Exclude any evaluation example where sorted(seq) == seq (input already sorted) from the None-arm causal-sensitivity computation, since the all-zero None output could coincidentally equal the correct output only if seq is the all-zero sequence -- registered as a general exclusion rule, not a per-example post-hoc filter chosen after seeing outputs.",
+      "Exclude any evaluation example where sorted(seq) == negate(seq) (vocab_size - 1 - t applied elementwise equals a sorted permutation of seq) from the Wrong-family-arm causal-sensitivity computation."
+    ],
+    "extension_beyond_existing_benchmark": "The existing unified_oracle_causal_benchmark.py causal-control evaluation only exercises sequence_length_range=(6,10). This pilot registers the identical Correct/Wrong-family/None procedure additionally at L in {3,4,5} (the target panel's reachable intermediate length set) as part of the repair pilot's evaluation, not as a new methodology."
+  }
+}
