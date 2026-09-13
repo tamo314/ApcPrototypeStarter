@@ -2,7 +2,16 @@
 
 **Document ID:** `DOC-PHASE-D-D001-SORT-REPAIR-PREREGISTRATION`
 **Date:** 2026-09-13
-**Status:** Design/preregistration only. **`training_execution: NOT_AUTHORIZED`.** This document fixes a single repair recipe, its comparison conditions, its acceptance criteria, and its resource budget before any execution. No optimizer step, no model initialization, and no candidate construction was performed to produce this document.
+**Status:** Design/preregistration complete (Task D-001). **`training_execution: AUTHORIZED`**, per
+Task D-003's bulk approval review
+([ADR-0170](../DECISIONS_PHASE_D.md#adr-0170-d-003-phase-d-charter-authorization-decision-scoped-approval)),
+strictly scoped to executing exactly the recipe fixed in section 4 below, on exactly the seed-`30-34`
+cohort, evaluated only against the comparison conditions and panels registered in sections 5 and
+7-8. No sweep, no additional seed, no other primitive, and no candidate/bundle promotion is
+authorized. This document fixes a single repair recipe, its comparison conditions, its acceptance
+criteria, and its resource budget before any execution. No optimizer step, no model initialization,
+and no candidate construction was performed to produce this document or by the D-003 approval
+review.
 **Depends on:** `docs/design-docs/PHASE_D_COMPOSITION_EXECUTION_CONTRACT.md` (input-domain derivation, ownership boundary, dependency hashes), `docs/phase_d/PHASE_D_D001_TARGET_PANEL_MANIFEST.md` (target/regression/causal-control panels), `docs/design-docs/PHASE_D_FIVE_MODEL_COHORT_CONSTRUCTION_CONTRACT.md` (model cohort this pilot runs against).
 
 ---
@@ -260,8 +269,13 @@ boundary from Phase B (`docs/DECISIONS_PHASE_B.md`, `docs/DECISIONS_PHASE_B_B2_P
 are preserved unmodified. This pilot does not evaluate unknown-relation transfer and does not
 touch sealed data (`sealed_access: 0`).
 
-## 11. Non-authorization statement
+## 11. Authorization statement
 
 This document is a preregistration. **No optimizer step, model initialization, candidate
-construction, or sealed-data access was performed to produce it.** `training_execution:
-NOT_AUTHORIZED` until a separate, explicit execution authorization is recorded.
+construction, or sealed-data access was performed to produce it, nor by Task D-003's subsequent
+approval review.** `training_execution: AUTHORIZED` as of Task D-003
+([ADR-0170](../DECISIONS_PHASE_D.md#adr-0170-d-003-phase-d-charter-authorization-decision-scoped-approval)),
+strictly scoped to the exact recipe, cohort, comparison conditions, and panels this document fixes
+— any deviation from those fixed values requires a new, separately recorded authorization.
+`bundle_promotion` remains `NOT_AUTHORIZED` and `sealed_access` remains `0` regardless of this
+authorization or of the pilot's eventual outcome (section 6, section 10).

@@ -1,5 +1,10 @@
 # Design Contract — Phase D Five-Model Cohort Construction & Provenance Plan (Task D-001)
 
+**Task D-003によりcohort構築の実行が認可された
+（[ADR-0170](../DECISIONS_PHASE_D.md#adr-0170-d-003-phase-d-charter-authorization-decision-scoped-approval)、
+`training_execution: AUTHORIZED`、本契約のseed 30-34・手順に厳密限定）。ただしD-003自体はcohortを
+生成していない。以下の契約内容・数値は本認可によって変更されない。**
+
 **新規の提案契約。本契約はcohortの構築・検証*手順*を確定するものであり、本タスク内でcohortを
 生成しない。** `docs/design-docs/B2_MODEL_BUNDLE_RECOVERY_CONTRACT.md`（以下「REC契約」）が
 定義した `ModelBundleManifest` / `load_bundle` / hash方式を**そのまま再利用**し、独自の

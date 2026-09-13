@@ -1,14 +1,19 @@
-# Phase D — Compositional Execution & Local Repair, Research Charter (DRAFT)
+# Phase D — Compositional Execution & Local Repair, Research Charter (APPROVED, scoped execution authorized)
 
-Date: 2026-09-13. Version: charter-v1. **Status: `DRAFT_NOT_APPROVED`.** This charter has not been
-approved and research execution has not been authorized. It is an independent, narrowly-scoped
-new research charter opened by Task D-001, not a resumption of Phase B (`CLOSED_ARCHIVED`,
-`NEGATE_CONCLUSION_TERMINATED_CURRENT_ARCHITECTURE`), Phase C (`TERMINATED_CURRENT_CHARTER`), or
-NRQ-003 (`BLOCKED_BY_MODEL_ADEQUACY`). Those terminal states, their FAILs, their G1 deficit, and
-their sealed-partition boundary are preserved unmodified by this document (`docs/DECISIONS.md`
-Phase B/C sections). A diagnostic success (NRQ-007's causal attribution) or a proposed follow-up
-alone does not authorize execution or satisfy a recovery/research gate (`AGENTS.md`, "Find the
-applicable contract").
+Date: 2026-09-13. Version: charter-v1. **Status: `APPROVED` (Task D-003, [ADR-0170](../DECISIONS_PHASE_D.md#adr-0170-d-003-phase-d-charter-authorization-decision-scoped-approval)).**
+`training_execution: AUTHORIZED`, scoped strictly to (a) the seed-`30,31,32,33,34` five-model
+cohort construction (`PHASE_D_FIVE_MODEL_COHORT_CONSTRUCTION_CONTRACT.md`), (b) the single
+preregistered `LOCAL_SORT_REPAIR` recipe (`PHASE_D_D001_SORT_ONLY_REPAIR_PILOT_PREREGISTRATION.md`
+section 4), and (c) its registered `FROZEN_PARENT`/`SYMBOLIC_REFERENCE` comparison-condition and
+panel evaluations (same document, sections 5, 7-8) — no other primitive, no additional seed, no
+recipe/budget deviation, no candidate/bundle promotion, and no sealed-data access is authorized.
+It is an independent, narrowly-scoped new research charter opened by Task D-001, not a resumption
+of Phase B (`CLOSED_ARCHIVED`, `NEGATE_CONCLUSION_TERMINATED_CURRENT_ARCHITECTURE`), Phase C
+(`TERMINATED_CURRENT_CHARTER`), or NRQ-003 (`BLOCKED_BY_MODEL_ADEQUACY`). Those terminal states,
+their FAILs, their G1 deficit, and their sealed-partition boundary are preserved unmodified by this
+document (`docs/DECISIONS.md` Phase B/C sections). A diagnostic success (NRQ-007's causal
+attribution) or a proposed follow-up alone does not authorize execution or satisfy a
+recovery/research gate (`AGENTS.md`, "Find the applicable contract").
 
 **Note on a pre-existing name collision:** `docs/HARDWARE_ENVIRONMENT.md` previously used the
 label "Phase D" as a placeholder for hypothetical future 0.5B-2B pretrained-LM/LoRA adaptation
@@ -148,7 +153,7 @@ updates/seeds/architectures/other-primitive repairs from within this task. A pil
 not authorize a replacement recipe, extra seeds, a larger budget, or an escalated claim about APC
 in general (`PHASE_D_D001_SORT_ONLY_REPAIR_PILOT_PREREGISTRATION.md` section 10).
 
-## Final decision
+## Final decision (D-001)
 
 **`COMPOSITION_REPAIR_CONTRACT_READY_FOR_REVIEW`.**
 
@@ -169,12 +174,34 @@ document's own status fields (below), no new execution permission is recorded.
 
 ```
 design_status       = READY_FOR_REVIEW
-charter_status       = DRAFT_NOT_APPROVED
-training_execution   = NOT_AUTHORIZED
+charter_status       = DRAFT_NOT_APPROVED   (as of D-001; superseded by D-003, see below)
+training_execution   = NOT_AUTHORIZED       (as of D-001; superseded by D-003, see below)
 candidate_selected   = null
 bundle_promotion     = NOT_AUTHORIZED
 sealed_access        = 0
 ```
+
+## Authorization decision (D-003)
+
+Task D-003 performed a bulk approval review of this charter and all D-001 deliverables and
+**approved** them, per
+[ADR-0170](../DECISIONS_PHASE_D.md#adr-0170-d-003-phase-d-charter-authorization-decision-scoped-approval).
+Approval does not relax or re-open any dimension D-001 fixed; it only authorizes executing the
+already-fixed recipe.
+
+```
+charter_status       = APPROVED
+training_execution   = AUTHORIZED   # scoped: seed 30-34 cohort construction +
+                                     # the single registered LOCAL_SORT_REPAIR recipe +
+                                     # its registered comparison-condition/panel evaluations only
+candidate_selected   = null
+bundle_promotion     = NOT_AUTHORIZED
+sealed_access        = 0
+```
+
+No training, cohort construction, candidate construction, or sealed-data access was performed by
+D-003 itself. A separate execution task is still required to actually build the cohort and run the
+recipe; that task may not deviate from any value D-001 fixed without a new authorization.
 
 ## Deliverables (Task D-001)
 
@@ -193,3 +220,12 @@ sealed_access        = 0
   construction contract, per [ADR-0169](../DECISIONS_PHASE_D.md#adr-0169-d-001-phase-d-charter-draft-composition-execution-contract-and-sort-only-repair-pilot-preregistration).
   Decision: `COMPOSITION_REPAIR_CONTRACT_READY_FOR_REVIEW`. Research execution remains
   `NOT_AUTHORIZED`.
+- **D-003 (2026-09-13):** Bulk approval review of all D-001 deliverables (no training, cohort
+  construction, or sealed access performed), per
+  [ADR-0170](../DECISIONS_PHASE_D.md#adr-0170-d-003-phase-d-charter-authorization-decision-scoped-approval).
+  Decision: **`APPROVED`**, `training_execution: AUTHORIZED` scoped to seed-`30-34` cohort
+  construction, the single registered `LOCAL_SORT_REPAIR` recipe, and its registered
+  comparison-condition/panel evaluations only. `candidate_selected: null`,
+  `bundle_promotion: NOT_AUTHORIZED`, `sealed_access: 0` unchanged. No other primitive, seed,
+  recipe deviation, or Phase B/C reversal is authorized. Cohort construction and pilot execution
+  remain a separate, not-yet-performed execution task.

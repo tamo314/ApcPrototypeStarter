@@ -142,3 +142,144 @@ sealed_access        = 0
   `docs/research/NRQ007_REVIEW_RECORD.json`, `docs/research/ARGUMENT_CLOSED_DEPTH3_CLOSURE_AUDIT_NRQ006.md`,
   `docs/research/STEPWISE_CAUSAL_ATTRIBUTION_NRQ007.md`,
   `docs/research/REPLICATION_AND_SUPPORT_BUDGET_SENSITIVITY_NRQ008.md`
+
+## ADR-0170: D-003 — Phase D Charter Authorization Decision (Scoped Approval)
+
+**Date:** 2026-09-13
+**Task:** D-003 — Phase D Charter Authorization Decision
+**Status:** Authorization decision recorded. `charter_status: APPROVED`, `training_execution: AUTHORIZED`
+(scoped, see Decision below), `candidate_selected: null`, `bundle_promotion: NOT_AUTHORIZED`,
+`sealed_access: 0`.
+
+**Nature of this task:** a bulk approval review of D-001's completed deliverables, not an
+implementation or execution task. No training, cohort construction, candidate construction, or
+sealed-data access was performed to produce this decision.
+
+**Review performed:**
+The reviewer independently re-read, in full, the four D-001 primary artifacts and ADR-0169 itself:
+- `docs/research/PHASE_D_RESEARCH_CHARTER.md` (charter, H-D1, exclusions, final decision block)
+- `docs/design-docs/PHASE_D_COMPOSITION_EXECUTION_CONTRACT.md` (four-state distinction, derived
+  valid-length set, dependency-hash contract)
+- `docs/phase_d/PHASE_D_D001_TARGET_PANEL_MANIFEST.md` and `PHASE_D_D001_PANEL_MANIFEST.json`
+  (target/regression/canary/causal-control panels, 60/1200/35/41 cross-check, 6-class
+  `UNCLASSIFIED_BY_NRQ007` diff)
+- `docs/design-docs/PHASE_D_FIVE_MODEL_COHORT_CONSTRUCTION_CONTRACT.md` (seeds 30-34, construction
+  stage graph, budget table, unresolved items)
+- `docs/phase_d/PHASE_D_D001_SORT_ONLY_REPAIR_PILOT_PREREGISTRATION.md` (single recipe,
+  ownership/freeze boundary, comparison conditions, information-boundary flags, sample sizes, six
+  acceptance criteria, budget, claim-scope statement)
+
+As an independent spot-check (not a full re-verification of every citation already re-verified
+during D-001), the reviewer re-read source directly and confirmed: `SortOp`
+(`src/apc/environments/operations.py:279-303`) has no `required_argument_names` override
+(parameter-free), `output_length` is the identity map, and `apply` is exactly
+`tuple(sorted(sequence))`; `SelectOp.output_length` (`:151-152`) is exactly
+`max(1, input_length // 2)`, confirming the derived `{3,4,5}` intermediate-length set;
+`PrimitiveBank.freeze` / `.unfreeze` / `.freeze_all` (`src/apc/primitives/bank.py:235-249`) exist
+exactly as cited and give the per-primitive freeze granularity the repair recipe's ownership
+boundary depends on. No discrepancy was found between the preregistration's claims and the current
+repository state.
+
+**Findings:**
+1. All four D-001 deliverables and ADR-0169 are internally consistent with each other and with
+   `AGENTS.md`'s non-negotiable invariants: Core stays frozen and content-only
+   (`h_content = f(content)` preserved), only SORT's own parameter slice is unfrozen, execution
+   uses the existing unmodified `execute_composition_recipe` path (no ground-truth intermediate
+   injection as a training or primary-metric signal), a Correct/Wrong-family/None causal control is
+   registered, candidate output is staged into a new namespace with `bundle_promotion` remaining
+   `NOT_AUTHORIZED` regardless of outcome, and `sealed_access` remains `0` throughout with the
+   Phase-B G1 deficit and sealed-partition boundary explicitly preserved.
+2. The registered budget (repair: 6,000 updates/model, 30,000/5-model cohort; cohort construction:
+   16,000 Core-pretrain + 42,400 bank/router steps/model, plus the already-bounded existing
+   SHIFT-dedicated-repair recipe) fits `AGENTS.md`'s single RTX 5060 Ti (16GB)/64GB-RAM default
+   hardware envelope as a one-time milestone experiment, not a routine test; wall-time/VRAM/RAM
+   figures are explicitly labeled planning estimates and the preregistration already commits to
+   replacing them with measurements at execution time.
+3. Every dimension the task instructions require to be fixed before execution (architecture,
+   optimizer/scheduler/loss, input domain, cohort seeds/procedure, evaluation sample sizes/regime,
+   numeric acceptance floors, budget ceilings) is resolved to a single fixed value with no
+   simultaneous sweep, and STOP conditions and non-escalation-on-failure are explicitly registered
+   (pilot preregistration section 10; charter "STOP and execution budget boundary").
+4. No prerequisite gap remains open that would block execution under the exact registered recipe.
+   Two items are explicitly left as future/registered-only (not gaps in this review): the
+   `cohort_id`/`cohort_member_seeds`/`cohort_construction_recipe_hash` manifest fields are a
+   proposal the execution task must still implement or explicitly forgo before/while building the
+   cohort, and `STANDALONE_QUALIFIED`/`COMPOSITION_QUALIFIED` remain `UNDETERMINED` pending the
+   pilot's own result — both are correctly scoped as execution-task responsibilities, not
+   authorization blockers.
+
+**Decision:**
+**Approve**, limited exactly to the scope named in this task's instruction: (a) construction and
+strict fresh-load verification of the five-model cohort at seeds `30,31,32,33,34` per
+`PHASE_D_FIVE_MODEL_COHORT_CONSTRUCTION_CONTRACT.md`, (b) execution of the single preregistered
+`LOCAL_SORT_REPAIR` recipe (`PHASE_D_D001_SORT_ONLY_REPAIR_PILOT_PREREGISTRATION.md` section 4)
+exactly as fixed, with no architecture/optimizer/LR/loss/sampling/step-budget sweep, and (c) the
+registered `FROZEN_PARENT`/`SYMBOLIC_REFERENCE` comparison-condition evaluations and the registered
+target/regression/canary/causal-control panels (sections 5, 7-8 of the pilot preregistration; the
+panel manifest). No broader authorization is granted or implied.
+
+```
+charter_status       = APPROVED
+training_execution   = AUTHORIZED   # scoped to (a)+(b)+(c) above only
+candidate_selected   = null
+bundle_promotion     = NOT_AUTHORIZED
+sealed_access        = 0
+design_status        = READY_FOR_REVIEW  (unchanged from ADR-0169)
+```
+
+**Explicitly not authorized by this decision:**
+- Any primitive other than `SORT` (e.g. the `*->BIND->COUNT` `ARGUMENT_HANDLING` class) — requires
+  a separate charter task.
+- Any deviation from the single fixed recipe: no additional seeds beyond `30-34`, no step-budget
+  increase beyond 6,000/model repair (30,000/5-model) or the registered cohort-construction budget,
+  no architecture/optimizer/LR/loss/sampling sweep.
+- Candidate/bundle promotion of any kind — `bundle_promotion` remains `NOT_AUTHORIZED` regardless of
+  pilot outcome.
+- Any sealed-data read, generation, or evaluation — `sealed_access` remains `0`.
+- Any resumption of Phase B (`CLOSED_ARCHIVED`) or Phase C (`TERMINATED_CURRENT_CHARTER`), any
+  relaxation of the Phase-B G1 independent-relation deficit, or any reversal of NRQ-003's
+  `BLOCKED_BY_MODEL_ADEQUACY` status.
+- Extension of a pilot pass into a claim beyond the registered 7-class target panel and `{3,4,5}`
+  standalone domain on this specific 5-model cohort (pilot preregistration section 10), or
+  extension of a pilot fail into a general APC-infeasibility claim.
+- Selection or exclusion of cohort members based on results (the 5 seeds are fixed
+  pre-registration; no post-hoc replacement).
+
+**This approval-decision task itself performed no training, no cohort construction, no candidate
+construction, and no sealed-data access.** It consisted only of reading the existing D-001
+artifacts, this ADR's own independent source spot-check, and recording this decision. The actual
+cohort build and the `LOCAL_SORT_REPAIR` execution remain a separate, subsequent execution task's
+responsibility, which must itself record commit/config/seeds, budgets, hardware/time/memory,
+parameter accounting, and the full result set for every registered run per `AGENTS.md`'s evidence
+requirements, and which is bound by the exact recipe, panels, and acceptance criteria fixed by
+D-001 — this authorization does not permit that task to re-open or re-fix any of those numbers.
+
+**Consequences:**
+- Phase B/C terminal states, their FAILs, the G1 independent-relation deficit, and the sealed-data
+  boundary remain unmodified and continue to apply, unaffected by this approval.
+- A future execution task may now build the seed-`30-34` cohort and run the exact registered
+  `LOCAL_SORT_REPAIR` recipe and its registered evaluations without a further charter-level
+  approval step, provided it does not deviate from any fixed value in the D-001 documents; any
+  deviation (recipe, budget, seeds, panels, criteria) requires a new authorization.
+- If that execution task's pilot fails any of the six acceptance criteria, the failure must be
+  recorded as a failure of the exact registered recipe on the exact registered cohort, artifacts
+  preserved, and dependent work (any `bundle_promotion`, any other-primitive repair, any
+  composition-level retraining) stopped pending a new authorized task, per `AGENTS.md`'s STOP-GATE
+  handling.
+
+**Primary Artifacts (reviewed; unmodified by this decision except the status-field/pointer updates
+noted):**
+- Charter: `docs/research/PHASE_D_RESEARCH_CHARTER.md` (status header and final-decision block
+  updated to reflect this approval)
+- Composition execution contract: `docs/design-docs/PHASE_D_COMPOSITION_EXECUTION_CONTRACT.md`
+  (unchanged)
+- Panel manifests: `docs/phase_d/PHASE_D_D001_TARGET_PANEL_MANIFEST.md`,
+  `docs/phase_d/PHASE_D_D001_PANEL_MANIFEST.json` (unchanged)
+- SORT-only repair pilot preregistration:
+  `docs/phase_d/PHASE_D_D001_SORT_ONLY_REPAIR_PILOT_PREREGISTRATION.md` (status/non-authorization
+  statement updated to point to this ADR; no numeric criterion, recipe field, or budget number
+  changed)
+- Five-model cohort construction/provenance contract:
+  `docs/design-docs/PHASE_D_FIVE_MODEL_COHORT_CONSTRUCTION_CONTRACT.md` (unchanged; pointer note
+  added)
+- Prior ADR: [ADR-0169](#adr-0169-d-001-phase-d-charter-draft-composition-execution-contract-and-sort-only-repair-pilot-preregistration)
