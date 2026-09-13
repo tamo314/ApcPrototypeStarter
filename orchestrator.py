@@ -26,7 +26,7 @@ DEFAULT_CONFIG = APP_DIR / "config.json"
 PLANNER_SCHEMA = APP_DIR / "planner_schema.json"
 PLANNER_PROMPT_FILE = APP_DIR / "prompts" / "planner.md"
 EXECUTOR_PROMPT_FILE = APP_DIR / "prompts" / "executor.md"
-CONTEXT_FILE = APP_DIR / "AGENTS.md"
+CONTEXT_FILE = APP_DIR / "research" / "CONTEXT.md"
 INITIAL_TASK_FILE = APP_DIR / "research" / "INITIAL_TASK.md"
 RUNTIME_DIR = APP_DIR / ".orchestrator"
 RUNS_DIR = RUNTIME_DIR / "runs"
@@ -269,6 +269,111 @@ def run_command(
             duration_seconds=time.monotonic() - start,
             timed_out=True,
         )
+
+
+def _truncate_text_middle(text: str, max_chars: int) -> tuple[str, bool]:
+    """Keep a bounded diagnostic excerpt while preserving both ends."""
+    if max_chars <= 0:
+        return "", bool(text)
+    if len(text) <= max_chars:
+        return text, False
+    marker = f"\n... <{len(text) - max_chars} chars omitted> ...\n"
+    usable = max(0, max_chars - len(marker))
+    head = usable // 3
+    tail = usable - head
+    return text[:head] + marker + text[-tail:], True
+
+
+def _codex_stderr_excerpt(stderr: str, max_chars: int) -> tuple[str, bool]:
+    """Compact Codex human-progress stderr for structured run JSON.
+
+    Codex exec intentionally streams human-readable progress/tool traces to
+    stderr while stdout/--output-last-message carries the final answer.  The
+    full progress stream can be megabytes, so retain only the runtime banner,
+    error/warning lines, and a bounded tail.
+    """
+    if len(stderr) <= max_chars:
+        return stderr, False
+
+    lines = stderr.splitlines()
+    banner: list[str] = []
+    for line in lines:
+        if line.strip().lower() == "user":
+            break
+        banner.append(line)
+        if len(banner) >= 40:
+            break
+
+    # Skip the echoed user prompt when looking for diagnostics. In default
+    # human-output mode Codex writes the full prompt to stderr between the
+    # `user` marker and the first subsequent `codex` marker.
+    trace_start = 0
+    try:
+        user_index = next(i for i, line in enumerate(lines) if line.strip().lower() == "user")
+        trace_start = next(
+            i for i in range(user_index + 1, len(lines))
+            if lines[i].strip().lower() == "codex"
+        )
+    except StopIteration:
+        trace_start = 0
+    trace_lines = lines[trace_start:]
+
+    interesting: list[str] = []
+    pattern = re.compile(
+        r"(?i)(\berror\b|\bwarn(?:ing)?\b|failed|rejected|timed?\s*out|panic|exception)"
+    )
+    for line in trace_lines:
+        if pattern.search(line):
+            # One tool error can itself contain a very long command.
+            interesting.append(line[:2000])
+            if len(interesting) >= 80:
+                break
+
+    tail_lines = trace_lines[-120:]
+    combined_parts = ["\n".join(banner).strip()]
+    if interesting:
+        combined_parts.append("[selected Codex diagnostics]\n" + "\n".join(interesting))
+    if tail_lines:
+        combined_parts.append("[Codex stderr tail]\n" + "\n".join(tail_lines))
+    combined = "\n\n".join(part for part in combined_parts if part)
+    excerpt, _ = _truncate_text_middle(combined, max_chars)
+    return excerpt, True
+
+
+def _prepare_codex_stderr_for_log(
+    config: dict[str, Any],
+    stderr: str,
+    *,
+    iteration: int,
+    log_stem: str,
+    success: bool,
+) -> tuple[str, dict[str, Any]]:
+    """Return compact stderr plus metadata; persist full trace only when requested.
+
+    Successful Codex runs default to compact-only storage. Failed runs always
+    preserve the full stderr sidecar because it may be needed for diagnosis.
+    Set codex.save_full_stderr=true to keep full sidecars for successful runs too.
+    """
+    codex_cfg = config.get("codex", {})
+    max_chars = int(codex_cfg.get("stderr_excerpt_chars", 20000))
+    save_full = bool(codex_cfg.get("save_full_stderr", False)) or not success
+
+    full_path: Path | None = None
+    if stderr and save_full:
+        RUNS_DIR.mkdir(parents=True, exist_ok=True)
+        full_path = RUNS_DIR / f"{iteration:04d}_{log_stem}.stderr.log"
+        full_path.write_text(stderr, encoding="utf-8", errors="replace")
+
+    excerpt, truncated = _codex_stderr_excerpt(stderr, max_chars)
+    meta: dict[str, Any] = {
+        "stderr_chars": len(stderr),
+        "stderr_truncated": truncated,
+        "stderr_excerpt_limit_chars": max_chars,
+        "stderr_full_log": (
+            str(full_path.relative_to(APP_DIR)) if full_path is not None else None
+        ),
+    }
+    return excerpt, meta
 
 
 def clean_cli_name(command: str) -> str:
@@ -749,6 +854,18 @@ def run_executor(
         logged_command = _masked_command(command, {prompt})
         prompt_transport = "stdin" if stdin_text is not None else "argv"
 
+    if executor == "codex":
+        logged_stderr, stderr_meta = _prepare_codex_stderr_for_log(
+            config,
+            result.stderr,
+            iteration=iteration,
+            log_stem="executor_codex",
+            success=result.return_code == 0 and not result.timed_out,
+        )
+    else:
+        logged_stderr = result.stderr
+        stderr_meta = {}
+
     report_payload: dict[str, Any] = {
         "timestamp": utc_now(),
         "iteration": iteration,
@@ -762,7 +879,8 @@ def run_executor(
         "timed_out": result.timed_out,
         "duration_seconds": round(result.duration_seconds, 3),
         "stdout": result.stdout,
-        "stderr": result.stderr,
+        "stderr": logged_stderr,
+        **stderr_meta,
         "normalized_report": normalized,
     }
     if executor == "claude":
@@ -937,8 +1055,15 @@ def run_planner(
         int(config["planner_timeout_seconds"]),
         stdin_text=prompt,
     )
+    logged_stderr, stderr_meta = _prepare_codex_stderr_for_log(
+        config,
+        result.stderr,
+        iteration=iteration,
+        log_stem=f"{safe_kind}_codex",
+        success=result.return_code == 0 and not result.timed_out,
+    )
     if result.return_code != 0:
-        diagnostic = (result.stderr or result.stdout).strip()
+        diagnostic = (logged_stderr or result.stdout).strip()
         raise OrchestratorError(
             f"Codex {label.lower()} failed with exit code {result.return_code}.\n{diagnostic}"
         )
@@ -983,7 +1108,8 @@ def run_planner(
             "return_code": result.return_code,
             "duration_seconds": round(result.duration_seconds, 3),
             "stdout": result.stdout,
-            "stderr": result.stderr,
+            "stderr": logged_stderr,
+            **stderr_meta,
             "decision": decision,
         },
     )
