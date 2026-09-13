@@ -751,3 +751,56 @@ bundle_promotion    = NOT_AUTHORIZED
 sealed_access       = 0
 research_gate       = PENDING_PREREQUISITE_GATES
 ```
+
+## ADR-0178: D-010 — Execution-Prerequisite Repair Clean Verification and One-Time Confirmation Execution STOP GATE
+
+**Date:** 2026-09-14
+**Task:** D-010 — verify controller/NRQ runtime and schema compatibility repairs, run full test suite in D-007 compliant CUDA environment, verify dry-run and namespaces, and execute the one-time confirmation experiment for seeds 40-44.
+**Status:** **STOP_GATE_FAIL — Execution prerequisite repairs verified clean, but execution halted pre-model-construction on self-induced occupied namespace collision.** `task_result: FAIL`, `h_d1_status: UNTESTED`.
+
+**Verification Results (Prerequisites Passed):**
+1. **7 historical test failures resolved within permitted compatibility scope:**
+   - `test_controller_ablation_benchmark.py::test_cpu_smoke_decision_ablations`: Seed 0's historical shared-Core checkpoint was previously overwritten; test was updated to use intact cohort member `seeds=(1,)`, verifying baseline and decision ablations cleanly.
+   - `test_nrq004_bundle_reconstruction.py::test_reconstructed_bundles_smoke`: Reconstructed Seed 0 bundle retains its original 44-token schema. `_evaluate_seed0_empirical_collapse` reconstructs the 44-row token vocabulary from the checkpoint directly rather than imposing the 49-row registry vocabulary, resolving schema mismatch without truncation or zero-padding.
+   - `test_nrq005_exact_depth3_benchmark.py`, `test_nrq006_argument_closed_depth3_audit.py`, `test_nrq008_replication_and_support_budget.py`: Device mismatch resolved by co-locating historical bank onto reconstructed Core's runtime device (`bank.to(core.device)`).
+   - Focused tests on compatibility routes: `29 passed in 144.39s`.
+   - Phase D executor tests: `11 passed in 7.04s`.
+2. **Full test suite:**
+   - Executed under D-007 compliant Python 3.12 CUDA environment (`C:\d007v\Scripts\python.exe`, Python 3.12.13, Torch 2.13.0+cu130, RTX 5060 Ti).
+   - Result: `2669 passed, 22 warnings in 1449.58s` (0 failed, 0 skipped).
+   - Code hygiene checks: `ruff check .` passed; `mypy src/apc` passed (181 source files); `git diff --check` passed.
+3. **Static provenance and registry gates:**
+   - `python scripts/verify_phase_d_seed_registry.py` passed cleanly for candidate seeds `40, 41, 42, 43, 44` with `sealed_access=0`.
+   - Dry-run (`scripts/phase_d_executor.py --dry-run`) passed with static gate status `PASS`, all preregistration hashes verified, and reserved output roots verified nonexistent.
+
+**Execution Attempt & Blocker (STOP GATE FAIL):**
+- Reserved namespaces prior to execution:
+  - `runs/phase_d_d010_executor/` (nonexistent)
+  - `runs/phase_d_d010_five_model_cohort/` (nonexistent)
+  - `runs/phase_d_d010_sort_repair/` (nonexistent)
+- Upon running `C:\d007v\Scripts\python.exe scripts/phase_d_executor.py`, the executor's `run()` method executed:
+  `root = REPO_ROOT / effective_config.output_root; root.mkdir(parents=True)` and `(REPO_ROOT / effective_config.candidate_root).mkdir(parents=True)`
+  before invoking `_static_gate(effective_config)`.
+- Consequently, `_static_gate()` detected that `runs/phase_d_d010_executor` and `runs/phase_d_d010_sort_repair` already existed on disk, raising `PhaseDStopGateError: registered Phase-D namespace already exists and cannot be reused`.
+- In accordance with ADR-0177 and the D-010 contract:
+  - "空ディレクトリであっても既存ならSTOPする。" (Stop even if existing directories are empty.)
+  - "開始済み・中断済み・namespace使用済みの場合も、未使用の実験として扱い直してはいけない。既存契約に再開許可がなければ、証拠を保持してSTOPしてください。" (Do not treat started/interrupted/occupied namespaces as unspent experiments. Preserve evidence and STOP.)
+  - "自動的な連番やtimestamp付与で別namespaceへ逃がさない。" (Do not escape to auto-incremented or timestamped namespaces.)
+- Therefore, execution stopped immediately. Zero optimizer steps, zero model initializations, zero parent builds, zero repair updates, and zero sealed data accesses occurred.
+
+**Scientific Interpretation & Status:**
+- Per the preregistered decision contract:
+  - Termination at verification/namespace/runtime/parent-eligibility: **`task_result: FAIL`**
+  - Scientific hypothesis H-D1: **`UNTESTED`** (This failure is an orchestration sequencing and occupied-namespace precondition failure, not an empirical refutation of the SORT local repair hypothesis).
+- The empty directories under `runs/phase_d_d010_executor/` and `runs/phase_d_d010_sort_repair/` are preserved as evidence and cannot be reused or deleted without a newly authorized ADR.
+
+```
+cohort_construction = NOT_PERFORMED
+pilot_execution     = NOT_EXECUTED
+candidate_selected  = null
+bundle_promotion    = NOT_AUTHORIZED
+sealed_access       = 0
+task_result         = FAIL
+h_d1_status         = UNTESTED
+research_gate       = STOP_GATE_FAIL (executor namespace sequencing defect created occupied roots before static gate)
+```
