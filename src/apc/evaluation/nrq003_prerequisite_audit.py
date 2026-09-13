@@ -17,7 +17,6 @@ from typing import Any
 
 import torch
 
-from apc.environments.vocab import DEFAULT_VOCAB_SIZE
 from apc.evaluation.composition_search_benchmark import (
     COMPOSITION_SEARCH_ACCURACY_THRESHOLD,
     FUNCTIONAL_AGREEMENT_THRESHOLD,
@@ -83,7 +82,7 @@ def audit_checkpoint_provenance(
     repo_root: Path = Path("."),
 ) -> list[CheckpointProvenanceResult]:
     results: list[CheckpointProvenanceResult] = []
-    expected_vocab = 44  # Current SharedCoreModel token_emb vocabulary size (vocab 10 + special/structural tokens)
+    expected_vocab = 44  # Current SharedCoreModel token_emb vocabulary size (vocab 10 + special)
 
     for seed in seeds:
         core_path = (
@@ -119,8 +118,8 @@ def audit_checkpoint_provenance(
                     compatible = (shape[0] == expected_vocab)
                     if not compatible:
                         notes.append(
-                            f"Vocabulary size mismatch: checkpoint token_emb has {shape[0]} tokens, "
-                            f"expected {expected_vocab}. Loading will raise RuntimeError: size mismatch."
+                            f"Vocabulary size mismatch: checkpoint token_emb has {shape[0]} "
+                            f"tokens, expected {expected_vocab}. Loading will raise RuntimeError."
                         )
                 else:
                     notes.append("No token_emb.weight key found in core checkpoint.")
@@ -132,12 +131,11 @@ def audit_checkpoint_provenance(
         if seed == 0 and core_exists:
             # Seed 0 has vocab 44 but was overwritten recently, breaking latent alignment with bank
             notes.append(
-                "Seed 0 core checkpoint has shape [44, 192], but primitive_bank.pt was trained against "
-                "an earlier core latent distribution. Causes functional collapse on positive controls."
+                "Seed 0 core checkpoint has shape [44, 192], but primitive_bank.pt was trained "
+                "against an earlier core latent distribution. Causes functional collapse."
             )
 
-        provenance_intact = compatible and core_exists and bank_exists and (seed != 0 or False)
-        # For seed 0, even though shape matches 44, the alignment is broken as shown by 11.8% oracle EM
+        # For seed 0, even though shape matches 44, the alignment is broken (11.8% oracle EM)
 
         results.append(
             CheckpointProvenanceResult(
@@ -193,9 +191,6 @@ def run_nrq003_prerequisite_audit(
     """Execute complete NRQ-003 prerequisite audit and record verdict."""
     provenance = audit_checkpoint_provenance()
     depth2_res = run_depth2_positive_controls_audit(seed=0)
-
-    # Prerequisite verification
-    prereq_passed = False
     decision = "BLOCKED_BY_MODEL_ADEQUACY"
     interpret_depth3 = False
 
@@ -207,8 +202,8 @@ def run_nrq003_prerequisite_audit(
         "shape [44, 192] but exhibits latent space divergence from the frozen primitive bank, "
         "causing depth-2 positive controls (A1-B004) to collapse to mean oracle EM = 0.1180, "
         "mean recovered EM = 0.1833, and functional agreement = 0.4050 (all far below 0.85/0.99 "
-        "thresholds; 0/6 passed). Per task contract, depth-3 search interpretation is strictly barred, "
-        "and NRQ-003 is recorded as invalid / BLOCKED_BY_MODEL_ADEQUACY."
+        "thresholds; 0/6 passed). Per task contract, depth-3 search interpretation is strictly "
+        "barred, and NRQ-003 is recorded as invalid / BLOCKED_BY_MODEL_ADEQUACY."
     )
 
     report = NRQ003AuditReport(
