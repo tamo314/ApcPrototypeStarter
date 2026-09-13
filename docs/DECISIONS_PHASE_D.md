@@ -722,3 +722,32 @@ bundle_promotion    = NOT_AUTHORIZED
 sealed_access       = 0
 research_gate       = STOP_GATE_FAIL (occupied registered namespace and full verification not clean)
 ```
+
+## ADR-0177: D-010 — Execution-Prerequisite Repair and One-Time Confirmation Reservation
+
+**Date:** 2026-09-14
+**Task:** D-010 — clear D-009's controller/NRQ runtime and occupied-namespace prerequisites, then execute the one still-unspent confirmation exactly once if every gate passes.
+**Status:** `EXECUTION_PENDING_PREREQUISITE_GATES`; this record reserves no alternate cohort, recipe, panel, metric, threshold, data source, or update budget.
+
+**Namespace amendment (charter-level and pre-result):** read-only inspection confirms that `runs/phase_d_d008_executor/` and `runs/phase_d_d001_sort_repair/` already exist as empty, pre-D-009 directories. They are preserved and are neither deleted nor reused. D-010 reserves these three previously absent output roots, all of which must be nonexistent at dry-run and before the first model construction:
+
+- `runs/phase_d_d010_executor/`
+- `runs/phase_d_d010_five_model_cohort/`
+- `runs/phase_d_d010_sort_repair/`
+
+This replaces only the occupied run-path fields in the executor and corresponding provenance documents. The fail-closed executor records the new paths and recalculates the SHA-256 hashes of the complete preregistration input set at dry-run; an existing replacement path is still a STOP, including an empty one. The old roots remain historical evidence and cannot be treated as this run's parent, candidate, or report namespace.
+
+**Unchanged confirmation contract:** model seeds remain exactly `(40, 41, 42, 43, 44)`; evaluation seeds remain exactly `(301, 302, 303, 304, 305)`; the only comparison conditions remain `FROZEN_PARENT`, `LOCAL_SORT_REPAIR`, and `SYMBOLIC_REFERENCE`; the target, regression, canary, and Correct/Wrong-family/None causal cells are unchanged; and `LOCAL_SORT_REPAIR` remains exactly 6,000 updates per model (30,000 total). Data lineage, model construction budgets, independent fresh-load parity, parameter-invariance checks, confidence intervals, `sealed_access=0`, `candidate_selected=null`, and `bundle_promotion=NOT_AUTHORIZED` are unchanged. No post-result seed exchange, retry, extra update, selection, promotion, or sealed access is authorized.
+
+**Prerequisite repair scope:** the only code repair permitted before execution is compatibility of historical controller/NRQ artifacts with their runtime device/schema. In particular, portable NRQ reconstructed-bank loads now move the rebuilt bank to the reconstructed Core's selected device after `map_location` loading; this changes no checkpoint tensor values, benchmark panel, recipe, or acceptance criterion. Full pytest must be clean in the compliant D-007 Python-3.12 CUDA environment before cohort construction. A remaining verification, CUDA/runtime, seed/provenance, namespace, dry-run, parent eligibility, fresh-load, invariance, or scientific gate failure is an unconditional STOP: preserve the new evidence and do not run or retry the confirmation.
+
+**Decision:** D-010 may execute the already-authorized confirmation one time only after all named gates pass. Its final ADR must record an unconditional preregistered `PASS` or `FAIL`; a scientific failure is not grounds for any second run or protocol change.
+
+```
+cohort_construction = NOT_PERFORMED
+pilot_execution     = NOT_EXECUTED
+candidate_selected  = null
+bundle_promotion    = NOT_AUTHORIZED
+sealed_access       = 0
+research_gate       = PENDING_PREREQUISITE_GATES
+```

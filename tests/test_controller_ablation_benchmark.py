@@ -107,7 +107,9 @@ def test_router_confidence_only_policy() -> None:
 def test_cpu_smoke_decision_ablations(tmp_path: pytest.TempPathFactory) -> None:
     """Fast CPU test verifying controller decision ablations on a mini stream."""
     cfg = ControllerAblationConfig(
-        seeds=(0,),
+        # Seed 0's historical shared-Core checkpoint was overwritten; this
+        # artifact-backed smoke test must use an intact controller cohort member.
+        seeds=(1,),
         num_k=14,
         num_c=12,
         num_n=6,
@@ -117,7 +119,7 @@ def test_cpu_smoke_decision_ablations(tmp_path: pytest.TempPathFactory) -> None:
         device_str="cpu",
     )
 
-    reports = evaluate_decision_ablations_across_stream(seeds=(0,), config=cfg)
+    reports = evaluate_decision_ablations_across_stream(seeds=(1,), config=cfg)
     assert "baseline" in reports
     assert "no_composition_evidence" in reports
     assert "no_support_functional_score" in reports

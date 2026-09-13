@@ -486,7 +486,18 @@ def _evaluate_seed0_empirical_collapse(
         max_sequence_length=config.max_sequence_length,
     )
 
-    # Current vocab 44
+    # Seed 0's retained overwritten Core predates the current registry.  Build
+    # the schema recorded by its checkpoint so this audit measures bundle loss,
+    # rather than failing first on unrelated vocabulary drift.
+    overwritten_core_state = torch.load(
+        provenance.core_path, map_location="cpu", weights_only=True
+    )
+    token_rows = int(overwritten_core_state["token_emb.weight"].shape[0])
+    overwritten_tokens = build_shared_core_tokens(
+        config.vocab_size,
+        num_operations=token_rows - (config.vocab_size + 6 + A1_B004_ARG_SPAN),
+        arg_span=A1_B004_ARG_SPAN,
+    )
     arch_cfg = SharedEncoderArchitectureConfig(
         seed=seed,
         vocab_size=config.vocab_size,
@@ -501,10 +512,8 @@ def _evaluate_seed0_empirical_collapse(
         arg_dim=config.arg_dim,
         max_sequence_length=config.max_sequence_length,
     )
-    arch = build_shared_encoder_architecture(arch_cfg)
-    arch.core.model.load_state_dict(
-        torch.load(provenance.core_path, map_location=arch.core.device, weights_only=True)
-    )
+    arch = build_shared_encoder_architecture(arch_cfg, tokens=overwritten_tokens)
+    arch.core.model.load_state_dict(overwritten_core_state)
     core = arch.core
 
     bank, op_to_id = _build_heterogeneous_bank(u_config)

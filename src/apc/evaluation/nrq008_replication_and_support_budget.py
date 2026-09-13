@@ -251,6 +251,9 @@ def _load_reconstructed_bundle(
     bank.load_state_dict(
         torch.load(bank_file, map_location=device, weights_only=True)
     )
+    # Artifact loading is portable; execution must co-locate the historical
+    # bank with the reconstructed Core selected at runtime.
+    bank.to(core.device)
 
     return core, bank, op_to_id
 
