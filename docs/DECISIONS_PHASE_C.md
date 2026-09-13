@@ -802,3 +802,50 @@ Declare **`EMPIRICALLY_SUPPORT_CLOSURE_DEPTH_LE_3`**. Empirically support and co
 - Run Summary: `runs/nrq005_exact_depth3_benchmark/summary.json`  
 - Implementation / Runner: `src/apc/evaluation/nrq005_exact_depth3_benchmark.py`, `scripts/nrq005_exact_depth3_benchmark.py`  
 - Test Suite: `tests/test_nrq005_exact_depth3_benchmark.py`
+
+---
+
+## ADR-0166: NRQ-006 Argument-Closed Deterministic Full-Registry Depth-3 Audit Qualifies ADR-0165 Closure (`ADR0165_QUALIFIED_BY_FULL_REGISTRY_AUDIT`)
+
+**Date:** 2026-09-13  
+**Task:** NRQ-006 — Argument-Closed Deterministic Full-Registry Depth-3 Closure Audit  
+**Status:** Completed full-registry audit; `decision: ADR0165_QUALIFIED_BY_FULL_REGISTRY_AUDIT` (`QUALIFIED`).  
+
+**Scope and Integrity Boundary:**  
+- Audited all 512 candidate exact-depth-3 recipes over the canonical 8-primitive registry against all 72 depth $\le 2$ candidates under a pre-fixed, finite, lawful argument-transform grammar.
+- Derived all dataset seeds deterministically from SHA-256 digests of canonical recipe strings, ensuring bitwise cross-process reproducibility.
+- Re-executed the audit command across two separate independent processes, verifying exact match of dataset manifest hash (`eeee5ac21698a6567e697991f0f97616c0c7963c72635bf922621803f9284d45`), selected classes, and primary metrics ($\Delta = 0.00\times 10^0$).
+- Zero new training updates, zero parameter modifications, zero relation additions, zero sealed access.
+- Evaluated on intact bundles 1–4 $\times$ data seeds 101–105 with support $N=32$, disjoint held-out inputs ($N=50$) per class against all 584 candidates.
+
+**Key Findings:**  
+1. **Exhaustive 512-Recipe Audit & 60 Irreducible Equivalence Classes:**  
+   Prior to inspecting model outputs, the symbolic audit partitioned the 512 depth-3 recipes into:
+   - 42 Structurally Invalid (length constraints violated on all inputs)
+   - 370 Reducible to depth $\le 2$ under the argument grammar
+   - 100 Exact-depth-3 Irreducible recipes, partitioned by algebraic and group symmetries into **60 irreducible equivalence classes**.
+   All 6 recipes from NRQ-005 were confirmed present in the irreducible set.
+2. **Length-Adequate Panel Robustly Confirms Depth $\le 3$ Closure:**  
+   For all 41 equivalence classes where intermediate lengths remain within Phase A.1 curriculum bounds ($L \ge 6$), the neural substrate passes oracle floor (mean Oracle EM = **0.9000** $\ge 0.85$), and exhaustive lawful search achieves **0.9352** mean functional EM (Seed 1 = 0.9804, Seed 2 = 0.9411, Seed 3 = 0.9557, Seed 4 = 0.8636), confirming ADR-0162's closure on length-adequate inputs.
+3. **Sub-Curriculum Intermediate Length Contraction Identified:**  
+   Across the 16 canonical classes where `SELECT` appears at step 1 or step 2, sequence length contracts below the curriculum minimum ($L < 6$), causing positional attention breakdown in downstream primitives. Oracle EM collapses to subthreshold levels (< 0.85, down to 0.0100 for `SELECT->SORT->REVERSE`). Exhaustive baseline mirrors this failure (mean EM = 0.4072).
+4. **Qualification of ADR-0165:**  
+   Because the irreducible space was expanded from 6 to 60 classes and revealed 16 failure classes due to substrate length collapse, ADR-0165's unconditional claim of closure is formally **QUALIFIED**.
+
+**Decision:**  
+Declare **`ADR0165_QUALIFIED_BY_FULL_REGISTRY_AUDIT`**. Qualify ADR-0165: confirm depth $\le 3$ closure for length-adequate compositions; declare closure unconfirmed for the 16 length-contracting failure classes and preserve their failure signatures. Reaffirm `PROGRAM_LINE_CLOSURE_CONFIRMED`.
+
+**Consequences:**  
+- ADR-0165's closure is qualified: lawful search solves all length-adequate depth-3 compositions, but current frozen primitives cannot execute compositions with sub-curriculum intermediate lengths ($L < 6$).
+- Multi-scale length curriculum training would be required to resolve length-contracting compositions, which remains unauthorized without a new research charter.
+- 16 failure classes and cross-process reproducibility verification records are preserved in `runs/nrq006_depth3_audit/`.
+
+**Primary Artifacts:**  
+- Review Document: `docs/research/ARGUMENT_CLOSED_DEPTH3_CLOSURE_AUDIT_NRQ006.md`  
+- Verification Record: `docs/research/NRQ006_REVIEW_RECORD.json`  
+- Dataset Manifest: `runs/nrq006_depth3_audit/dataset_manifest.json`  
+- Process Summaries: `runs/nrq006_depth3_audit/summary_process_1.json`, `summary_process_2.json`  
+- Reproducibility Record: `runs/nrq006_depth3_audit/process_reproducibility_verification.json`  
+- Implementation / Runner: `src/apc/evaluation/nrq006_argument_closed_depth3_audit.py`, `scripts/nrq006_argument_closed_depth3_audit.py`  
+- Test Suite: `tests/test_nrq006_argument_closed_depth3_audit.py`
+
