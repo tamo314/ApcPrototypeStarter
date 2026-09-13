@@ -1,0 +1,85 @@
+{
+  "task_id": "NRQ-001",
+  "task_name": "NEXT-RESEARCH-QUESTION REVIEW - Non-Trivial Identifiable Estimand Existence Test",
+  "date": "2026-09-13",
+  "task_type": "non_experimental_mathematical_design_review",
+  "phase_c_task": false,
+  "phase_d_charter_proposed": false,
+  "research_execution": "NOT_AUTHORIZED",
+  "decision": "NO_NONTRIVIAL_ESTIMAND_IDENTIFIED",
+  "admissible_set_empty": true,
+  "minimal_experiment_preregistered": false,
+  "adr_number": "ADR-0161",
+  "review_document": "docs/research/NEXT_RESEARCH_QUESTION_REVIEW_NRQ001.md",
+  "admission_criteria": [
+    "not_solved_by_deterministic_lawful_baseline",
+    "information_theoretically_identifiable",
+    "oracle_free",
+    "relation_transfer_compatible",
+    "tests_apc_core_separation_and_conclusion_changing"
+  ],
+  "integrity_boundary": {
+    "training_or_optimizer_updates": 0,
+    "model_initializations_or_seed_draws": 0,
+    "dataset_or_relation_generations": 0,
+    "relation_registrations": 0,
+    "architecture_or_primitive_implementations": 0,
+    "candidate_constructions_or_bundle_writes": 0,
+    "gpu_experiment_seconds": 0,
+    "sealed_partition_access_count": 0
+  },
+  "candidate_estimands_evaluated": [
+    {
+      "id": "N1",
+      "name": "nonlinear_nongroup_routing_coordinate_recovery",
+      "excluded_by": ["criterion_1_or_2_generalized_dichotomy"],
+      "note": "Absorbed by the representation-agnostic Lawful-Disambiguation Dichotomy (review section 3), a strict generalization of ADR-0159 beyond its stated linear/group-symmetric scope."
+    },
+    {
+      "id": "N2",
+      "name": "stochastic_ground_truth_relation",
+      "excluded_by": ["criterion_4", "out_of_current_scope"],
+      "note": "The one theoretically open case; requires an unauthorized new-primitive scope change and independently fails the relation-transfer gate."
+    },
+    {
+      "id": "N3",
+      "name": "interactive_multi_round_disambiguation_query",
+      "excluded_by": ["criterion_2_reduces_to_known_class"],
+      "note": "Query answers are lawful data already covered by C-D001's cross-example structural-consistency category; no new information class."
+    },
+    {
+      "id": "N4",
+      "name": "sample_efficiency_of_rule_induction_vs_symbolic_baseline",
+      "excluded_by": ["criterion_4", "criterion_5_marginal"],
+      "note": "Not foreclosed by criteria 1-3 alone, but any held-out-relation claim needs the same insufficient 2-of-4 relation inventory."
+    },
+    {
+      "id": "N5",
+      "name": "failure_containment_graceful_degradation_under_forced_guess",
+      "excluded_by": ["criterion_5_not_conclusion_changing"],
+      "note": "Substantially covered already by Correct/Wrong/None causal controls and Phase A2/B failure-mode attribution work."
+    },
+    {
+      "id": "N6",
+      "name": "compute_and_parameter_savings_scaling_beyond_current_bank_size",
+      "excluded_by": ["out_of_genre"],
+      "note": "A scaling/engineering question, not an identifiability estimand with a hidden variable to recover; distinct future task, not this review's subject."
+    }
+  ],
+  "relation_inventory_gate": {
+    "required_validation_components": 2,
+    "available_validation_components": 1,
+    "required_sealed_components": 2,
+    "available_sealed_components": 1,
+    "independent_confirmations": ["ADR-0147 (Phase B G1, coupling-graph audit)", "ADR-0150 (Phase C C-D001, catalog/metadata audit)"],
+    "remedied": false
+  },
+  "program_status": {
+    "core_separation_explicit_taskspec": "VALIDATED_UNCHANGED",
+    "semantic_task_inference_architecture_phase_b": "NEGATIVE_CONCLUSION_TERMINATED_CURRENT_ARCHITECTURE_RECONFIRMED",
+    "routing_identifiability_estimand_phase_c": "TERMINATED_CURRENT_CHARTER_RECONFIRMED",
+    "oracle_free_task_relation_inference_program_line": "PROGRAM_LINE_CLOSURE_CONFIRMED",
+    "relation_inventory": "STRUCTURALLY_INSUFFICIENT_NOT_TERMINATED",
+    "apc_general_impossibility_claim": "NOT_CLAIMED"
+  }
+}

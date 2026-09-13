@@ -814,3 +814,19 @@ retracted」という状態のhistorical artifactとして保存される。
 本節のためのarchitecture/optimizer実装、学習、candidate作成、dataset/relation生成、
 seed実行、pilot、sealed評価はすべて0。このtask内でPhase D相当のhypothesisは一切作成していない。
 次の研究課題を検討する場合は、別taskで独立した`NEXT-RESEARCH-QUESTION REVIEW`を開始すること。
+
+## 13. NRQ-001 — Next-Research-Question Review 完了（`NO_NONTRIVIAL_ESTIMAND_IDENTIFIED`）
+
+2026-09-13、上記で予告された独立review `NRQ-001` を実施した（Phase Cタスクではない）。
+ADR-0159のImpossibility-Dominance Dilemmaをrepresentation非依存の一般形へ拡張し
+（nonlinear/interactive再定式化も同じdichotomyへ吸収）、6件の候補estimandを検査したが、
+non-trivial・identifiable・oracle-free・relation-transfer両立・APC中核分離の実検証という
+5条件を同時に満たす候補は0件だった。relation inventory不足（validation 1/2、sealed 1/2）は
+ADR-0147・ADR-0150の独立2経路で再確認済みのまま未解消。
+
+結論として、oracle-freeなsemantic/relation task inference研究系列（Phase B→Phase Cの本流）は
+program levelでclosure確定（`PROGRAM_LINE_CLOSURE_CONFIRMED`）とした。これはAPC一般の不可能性
+主張ではなく、Phase A/A1/A2のexplicit TaskSpec下core separation実証結果を覆すものでもない。
+新規学習・候補選択・sealed評価・relation登録はすべて0。詳細は
+[review文書](../../research/NEXT_RESEARCH_QUESTION_REVIEW_NRQ001.md)と
+[ADR-0161](../../DECISIONS_PHASE_C.md#adr-0161-nrq-001-next-research-question-review-finds-no-non-trivial-identifiable-estimand-no_nontrivial_estimand_identified)を参照。

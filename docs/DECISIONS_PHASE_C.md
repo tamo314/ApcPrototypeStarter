@@ -477,6 +477,111 @@ Declare **`PHASE_C_CURRENT_CHARTER_FALSIFICATION_SUFFICIENT`**. Transition Phase
 - Evidence Ledger: `docs/results/PHASE_C_TERMINATION_EVIDENCE_LEDGER.md`  
 - Verification Record: `docs/results/PHASE_C_TERMINATION_AUDIT.json`
 
+---
 
+## ADR-0161: NRQ-001 Next-Research-Question Review Finds No Non-Trivial Identifiable Estimand (`NO_NONTRIVIAL_ESTIMAND_IDENTIFIED`)
+
+**Date:** 2026-09-13  
+**Task:** NRQ-001 — Next-Research-Question Review: Non-Trivial Identifiable Estimand Existence Test.
+**Not a Phase C task.** Phase C remains `TERMINATED_CURRENT_CHARTER` (ADR-0160), unmodified. This
+is the independent, cross-phase review that ADR-0160 §11 and the
+[Phase C termination evidence ledger](../results/PHASE_C_TERMINATION_EVIDENCE_LEDGER.md) both name
+as the required next step before any future research question may be proposed. Filed in this
+ledger per `docs/DECISIONS.md`'s "append to the latest record file" instruction, mirroring how
+ADR-0149 (a Phase B/C boundary event) was filed in the then-latest active decision file.  
+**Status:** Completed non-experimental mathematical/design review; `decision: NO_NONTRIVIAL_ESTIMAND_IDENTIFIED`.
+Research execution remains, and has always been, `NOT_AUTHORIZED`.
+
+**Scope and Integrity Boundary:**  
+- Read-only review of `docs/DECISIONS.md`, `docs/DECISIONS_PHASE_C.md` (ADR-0150–0160), the
+  Phase C charter and its ten `PHASE_C_C_D001*.md` review documents, the Phase C and Phase B
+  termination evidence ledgers, `docs/design-docs/B2_REPRODUCIBILITY_AND_RELATION_SPLITS.md`,
+  `docs/design-docs/CAUSAL_PRIMITIVE_EXECUTION.md`, `AGENTS.md`, and the Phase A/A.1/A.2 decision
+  ledgers via `docs/DECISIONS.md`'s index.
+- Zero training, optimizer construction, model initialization, dataset generation, relation
+  registration, candidate construction, architecture implementation, GPU execution time, and
+  sealed-partition access (input/label/output).
+- No ADR text (ADR-0001–ADR-0160) is rewritten, renumbered, or deleted. No charter threshold,
+  floor, oracle-boundary criterion, initialization count, or relation requirement is relaxed,
+  added to, or removed.
+
+**Task instruction (five admission criteria):** an admissible estimand must (1) not be solvable
+by a deterministic lawful baseline, (2) be information-theoretically identifiable, (3) be
+oracle-free, (4) be compatible with the standing relation-transfer requirement (>=2 independent
+clean relation components in validation, >=2 in sealed), and (5) actually test at least one of
+APC's non-negotiable core-separation invariants in a way not already settled by existing evidence.
+
+**Key Findings:**  
+1. **Already-settled evidence excluded from the search.** Core separation under explicit,
+   oracle-provided task specification is extensively `VALIDATED` (ADR-0025–0028, A1-B002–B008,
+   A2-C002–C012) and not re-opened. Phase B's architecture-level negative conclusion (ADR-0148)
+   and Phase C's estimand-level closure (ADR-0150–0159) are reconfirmed, not re-litigated.
+2. **Generalized Lawful-Disambiguation Dichotomy (review §3):** for any discrete latent quantity
+   that is a deterministic function of frozen task semantics (true of every APC primitive
+   registered to date) and any lawful oracle-free observable set — regardless of whether the
+   representation map is linear, nonlinear, invertible, lossy, or delivered interactively —
+   exactly one of two cases holds: (A) $H(Z\mid\mathcal O)>0$, informationally unidentifiable by
+   any learner of any function class; or (B) $H(Z\mid\mathcal O)=0$, hence $Z$ is a lawfully
+   computable deterministic function of $\mathcal O$ and is dominated by a zero-learned-parameter
+   baseline by definition. This strictly generalizes ADR-0159's Impossibility–Dominance Dilemma
+   beyond its stated linear/group-symmetric scope, closing nonlinear-representation and
+   interactive-query reformulations without a fresh proof for each.
+3. **The one honest loophole is closed under current scope.** Case B assumes the disambiguating
+   function is tractable to state as a baseline; an intractable-but-true function could in
+   principle escape into a non-trivial learning regime. This does not apply to any currently
+   registered APC relation, because AGENTS.md's own invariant (oracle/deterministic controls
+   must be established before crediting learned mechanisms) requires every relation's ground
+   truth to already be exactly and tractably computable — that is how ground truth is generated
+   and scored throughout Phase A–C. An intentionally intractable relation would be a new-primitive
+   scope change, not a minimal experiment on the existing registry.
+4. **Six-candidate survey (review §4):** nonlinear/interactive reformulations of routing-identity
+   recovery (N1, N3) are absorbed by finding 2; a genuinely stochastic ground-truth relation (N2)
+   is the one theoretically open case but requires an unauthorized new-primitive scope change and
+   independently fails the relation-transfer gate; sample-efficiency-of-induction (N4),
+   failure-containment (N5), and compute-scaling (N6) framings either fail the relation-transfer
+   gate, are not conclusion-changing (already substantially covered by existing Correct/Wrong/None
+   causal-control and Phase A2 ablation evidence), or fall outside the identifiability genre the
+   task specifies.
+5. **Relation-transfer gate independently re-confirmed insufficient.** The non-sealed relation
+   inventory provides exactly 1 clean independent component usable for validation and 1 for
+   sealed (2 total against 4 required), confirmed by two independent audits using different
+   methods on the same day (ADR-0147's coupling-graph audit and ADR-0150's catalog/metadata
+   audit), unremedied as of this review.
+6. **Decision:** $H_{\text{admissible}}=\emptyset$. No estimand survives all five criteria.
+   Per the task's own branching rule, no minimal conclusion-changing experiment is pre-registered
+   and no execution-authorization question arises.
+7. **Program-termination re-audit (review §7):** the oracle-free, open-world semantic/relation
+   task-inference research line — the throughline connecting Phase B's architecture-level closure
+   and Phase C's estimand-level closure, now extended by this review's representation-agnostic
+   argument and six-candidate survey — has no remaining conclusion-changing, executable, in-scope
+   research question, and is confirmed closed at the **program level** for this line. This is
+   explicitly **not** a claim of APC's general impossibility, not a re-opening or invalidation of
+   Phase A/A.1/A.2's positive core-separation evidence, and not a claim that a differently-scoped
+   future premise (e.g., a stochastic-ground-truth relation family, pursued under separate,
+   explicit scope authorization) is impossible. The relation-inventory deficit is separately
+   classified as a resource/engineering gap, not a scientific impossibility, and remains an
+   open, unauthorized, separately schedulable task.
+
+**Decision:**  
+Declare **`NO_NONTRIVIAL_ESTIMAND_IDENTIFIED`**. Confirm `PROGRAM_LINE_CLOSURE_CONFIRMED` for the
+oracle-free task/relation-inference research line (Phase B -> Phase C throughline). Do not extend
+this closure to Phase A/A.1/A.2's core-separation evidence, and do not assert APC's general
+impossibility.
+
+**Consequences:**  
+- No Phase D (or any other) hypothesis, architecture, supervision scheme, relation family, or
+  learning formulation is proposed or authorized by this ADR.
+- `candidate=null`, `research_execution=NOT_AUTHORIZED`, sealed access remains `0`, relation
+  inventory deficit remains unresolved and independently blocking.
+- ADR-0001 through ADR-0160 are preserved verbatim; this ADR adds no retraction of any prior
+  entry, only a new, independent finding building on their existing (unmodified) conclusions.
+- A future research question that adopts a genuinely different premise (e.g., a scope change
+  admitting stochastic task semantics, or a dedicated relation-inventory-expansion project) would
+  require its own separate, explicit user authorization and its own charter; this ADR does not
+  grant either.
+
+**Primary Artifacts:**  
+- Review Document: `docs/research/NEXT_RESEARCH_QUESTION_REVIEW_NRQ001.md`  
+- Verification Record: `docs/research/NRQ001_REVIEW_RECORD.json`
 
 
