@@ -1,0 +1,108 @@
+{
+  "task_id": "NRQ-002",
+  "task_name": "Constructive Falsification Experiment for the Lawful-Disambiguation Dichotomy",
+  "date": "2026-09-13",
+  "task_type": "non_experimental_constructive_falsification_attempt",
+  "phase_c_task": false,
+  "phase_d_charter_proposed": false,
+  "research_execution": "NOT_AUTHORIZED",
+  "decision": "NO_COUNTEREXAMPLE_CONSTRUCTED",
+  "sub_finding": "BOUNDED_RESOURCE_LOOPHOLE_CLOSED_FOR_CURRENT_REGISTRY",
+  "counterexample_found": false,
+  "adr_number": "ADR-0162",
+  "review_document": "docs/research/CONSTRUCTIVE_FALSIFICATION_NRQ002.md",
+  "predecessor_task": {
+    "task_id": "NRQ-001",
+    "adr_number": "ADR-0161",
+    "decision": "NO_NONTRIVIAL_ESTIMAND_IDENTIFIED",
+    "gap_targeted": "the_one_honest_loophole_tractability_of_g_under_finite_composition"
+  },
+  "admission_criteria": [
+    "identifiability_H_Z_given_O_equals_zero",
+    "oracle_free_no_task_identity_or_ground_truth_apply_given_to_baseline",
+    "relation_transfer_compatible",
+    "strongest_lawful_deterministic_baseline_below_0_95_under_prefixed_finite_budget"
+  ],
+  "integrity_boundary": {
+    "training_or_optimizer_updates": 0,
+    "model_initializations_or_seed_draws": 0,
+    "dataset_or_relation_generations": 0,
+    "relation_registrations": 0,
+    "architecture_or_primitive_implementations": 0,
+    "candidate_constructions_or_bundle_writes": 0,
+    "gpu_experiment_seconds": 0,
+    "sealed_partition_access_count": 0,
+    "ground_truth_apply_given_to_baseline_count": 0,
+    "task_identity_given_to_baseline_count": 0
+  },
+  "construction_attempts": [
+    {
+      "id": "A",
+      "name": "recipe_space_composition_identification_at_tested_scale",
+      "criterion_1_identifiable": true,
+      "criterion_2_oracle_free": true,
+      "criterion_3_relation_transfer_compatible": "trivially_compatible_no_transfer_claim_needed",
+      "criterion_4_baseline_below_0_95": false,
+      "closure_reason": "empirical",
+      "evidence": "Task A1-B004 (ADR-0049): heuristic beam search, zero oracle primitive identity, bank size 8, max_depth<=3 (raw bound 584 candidates), 99.62% mean exact match (threshold >=85%), 99.93% functional agreement, zero bank expansion, N=32 adaptation set.",
+      "verdict": "CLOSED_EMPIRICAL_BASELINE_DOMINANT"
+    },
+    {
+      "id": "B",
+      "name": "recipe_space_pushed_past_any_fixed_budget",
+      "criterion_1_identifiable": "would_pass_in_principle",
+      "criterion_2_oracle_free": "would_pass_in_principle",
+      "criterion_3_relation_transfer_compatible": "trivially_compatible",
+      "criterion_4_baseline_below_0_95": "unreachable_within_scope",
+      "closure_reason": "scope_hardware_invariant",
+      "evidence": "Largest bank scale ever exercised: N=128 (Task A2-C004, ADR-0065). 128^3 ~= 2.1e6, trivially enumerable; m^k > 1e12 requires depth >=6, never used or authorized; single-workstation/no-architecture-search invariant (AGENTS.md) forbids manufacturing such scale as a default experiment.",
+      "verdict": "CLOSED_SCOPE_BOUNDARY"
+    },
+    {
+      "id": "C",
+      "name": "argument_space_combinatorial_blowup",
+      "criterion_1_identifiable": "would_pass_in_principle",
+      "criterion_2_oracle_free": "would_pass_in_principle",
+      "criterion_3_relation_transfer_compatible": "trivially_compatible",
+      "criterion_4_baseline_below_0_95": "unreachable_measured_domain_size",
+      "closure_reason": "measured_domain_size",
+      "evidence": "ADR-0031 (A1-R005D-002): SHIFT/COUNT/BIND argument domains are range(10), bucketed <=32 embedding rows, injective; joint 2-argument combinations reach at most ~100 combinations, already exhaustively audited as routine verification.",
+      "verdict": "CLOSED_MEASURED_DOMAIN_SIZE"
+    },
+    {
+      "id": "D",
+      "name": "deliberately_hard_cryptographic_style_composition_target",
+      "criterion_1_identifiable": "unclear",
+      "criterion_2_oracle_free": false,
+      "criterion_3_relation_transfer_compatible": false,
+      "criterion_4_baseline_below_0_95": "untested_moot",
+      "closure_reason": "scope_new_primitive_same_disposition_as_NRQ001_N2",
+      "evidence": "No registered primitive (SHIFT/SELECT/COUNT/BIND/MIRROR_HALVES/NEIGHBOR_MAX) has cryptographic one-wayness or average-case hardness; manufacturing this requires a new, unauthorized primitive family, itself an unregistered relation subject to the same 2-of-4 inventory deficit as NRQ-001's N2.",
+      "verdict": "CLOSED_SCOPE_SAME_AS_N2"
+    }
+  ],
+  "bounded_resource_corollary": {
+    "claim": "For any finite composition of the currently registered, non-cryptographic, structurally-pruneable APC primitives, evaluated at any in-scope scale, the Lawful-Disambiguation Dichotomy's Case B holds without the tractability caveat: the disambiguating function g remains tractable to state and is already empirically stated and baseline-dominant (A1-B004).",
+    "supporting_arguments": [
+      "structural_pruning_defeats_naive_combinatorial_blowup_for_these_primitives",
+      "no_free_lunch_exploitable_structure_available_to_lawful_search_too",
+      "genuine_intractability_requires_out_of_scope_scale_or_new_primitive"
+    ]
+  },
+  "relation_inventory_gate": {
+    "required_validation_components": 2,
+    "available_validation_components": 1,
+    "required_sealed_components": 2,
+    "available_sealed_components": 1,
+    "unchanged_since": "ADR-0161 (2026-09-13, same day)",
+    "remedied": false
+  },
+  "program_status": {
+    "core_separation_explicit_taskspec": "VALIDATED_UNCHANGED",
+    "semantic_task_inference_architecture_phase_b": "NEGATIVE_CONCLUSION_TERMINATED_CURRENT_ARCHITECTURE_UNCHANGED",
+    "routing_identifiability_estimand_phase_c": "TERMINATED_CURRENT_CHARTER_UNCHANGED",
+    "oracle_free_task_relation_inference_program_line": "PROGRAM_LINE_CLOSURE_CONFIRMED_REINFORCED",
+    "relation_inventory": "STRUCTURALLY_INSUFFICIENT_NOT_TERMINATED_UNCHANGED",
+    "apc_general_impossibility_claim": "NOT_CLAIMED"
+  }
+}

@@ -584,4 +584,98 @@ impossibility.
 - Review Document: `docs/research/NEXT_RESEARCH_QUESTION_REVIEW_NRQ001.md`  
 - Verification Record: `docs/research/NRQ001_REVIEW_RECORD.json`
 
+## ADR-0162: NRQ-002 Constructive Falsification Experiment Finds No Counterexample to the Lawful-Disambiguation Dichotomy (`NO_COUNTEREXAMPLE_CONSTRUCTED`)
+
+**Date:** 2026-09-13  
+**Task:** NRQ-002 — Constructive Falsification Experiment for the Lawful-Disambiguation Dichotomy.
+**Not a Phase C task.** Phase C remains `TERMINATED_CURRENT_CHARTER` (ADR-0160), unmodified. A
+direct, targeted follow-on to NRQ-001 (ADR-0161): rather than surveying candidate estimands against
+the dichotomy NRQ-001 derived, this task actively attempts to *construct* a counterexample to it,
+specifically targeting the "one honest loophole" NRQ-001 §3 flagged as closed only for a single
+relation's ground truth, not for arbitrary finite compositions. Filed in this ledger per
+`docs/DECISIONS.md`'s "append to the latest record file" instruction, as ADR-0161 was.  
+**Status:** Completed non-experimental constructive falsification attempt;
+`decision: NO_COUNTEREXAMPLE_CONSTRUCTED` (sub-finding:
+`BOUNDED_RESOURCE_LOOPHOLE_CLOSED_FOR_CURRENT_REGISTRY`). Research execution remains, and has
+always been, `NOT_AUTHORIZED`.
+
+**Scope and Integrity Boundary:**  
+- Read-only construction/reasoning task over NRQ-001's review and JSON record, ADR-0161,
+  `src/apc/primitives/composition_search.py` (the actual A1-B004 beam-search implementation), the
+  A1-B004/A1-B005/A2-C004 ADR entries, and `docs/design-docs/B2_REPRODUCIBILITY_AND_RELATION_SPLITS.md`.
+- Zero training, optimizer construction, model initialization, dataset generation, relation
+  registration, candidate construction, architecture/primitive implementation, GPU execution time,
+  and sealed-partition access. Zero instances of a constructed baseline receiving task identity or
+  the ground-truth `apply` that generated a target quantity.
+- No ADR text (ADR-0001–ADR-0161) is rewritten, renumbered, or deleted. No charter threshold,
+  floor, oracle-boundary criterion, initialization count, or relation requirement is relaxed,
+  added to, or removed.
+
+**Task instruction (four admission criteria for a counterexample):** a constructed estimand $E$
+falsifies the dichotomy only if it simultaneously satisfies (1) $H(Z\mid\mathcal O)=0$
+(identifiable), (2) oracle-free (no task identity or ground-truth `apply` given to the baseline),
+(3) relation-transfer compatible, and (4) the strongest lawful deterministic baseline, under a
+pre-fixed finite compute/description-length budget, scores below 0.95.
+
+**Key Findings:**  
+1. **Four construction attempts, each closed by a different mechanism.** (A) Composition-recipe
+   identification via recipe-space combinatorics — closed **empirically**: this exact construction
+   already exists in this repository as Task A1-B004 (ADR-0049), where a zero-oracle heuristic beam
+   search (bank size 8, `max_depth<=3`, raw bound 584 candidates, structurally pruned far below
+   that) achieves 99.62% mean exact match and 99.93% functional agreement from a 32-example
+   adaptation set with zero bank expansion — the strongest lawful deterministic baseline already
+   exceeds 0.95, falling directly on criterion 4. (B) Pushing recipe-space size past any pre-fixed
+   budget — closed on **scope grounds**: the largest bank scale ever exercised is $N=128$
+   (ADR-0065), where depth-3 enumeration is $\approx 2.1\times10^6$, trivially tractable; reaching
+   $m^k>10^{12}$ requires depth $\ge 6$, never used, and would itself violate `AGENTS.md`'s
+   single-workstation/no-architecture-search invariant. (C) Argument-space combinatorial blow-up —
+   closed by **measured domain size**: ADR-0031 confirms registered argument domains are small
+   (range(10), $\le 32$ buckets, injective), so joint combinations stay near $100$, already
+   exhaustively audited as routine verification. (D) A deliberately hard (cryptographic/NP-hard-
+   style) composition target — closed on the **same scope/inventory grounds as NRQ-001's candidate
+   N2**: no registered primitive has cryptographic hardness properties, and manufacturing one is an
+   unauthorized new-primitive scope change that is itself an unregistered relation, independently
+   failing criterion 3 via the unchanged 2-of-4 relation-inventory deficit.
+2. **Bounded-Resource Corollary (review §4).** Generalizing beyond the four instances: for any
+   finite composition of the currently registered, non-cryptographic, structurally-pruneable APC
+   primitives, at any scale this repository could exercise within its own stated invariants,
+   structural pruning defeats naive combinatorial blow-up, any exploitable statistical structure
+   available to a learner is equally available to a structured lawful deterministic search (no
+   known statistical-query-style separation exists for these primitives), and reaching genuine
+   intractability requires either an out-of-scope scale escalation or a new, unauthorized primitive
+   family. This extends NRQ-001's closure of its own flagged loophole from "a single relation's
+   ground truth" to "any finite composition of registered relations at in-scope depth/domain size."
+3. **Relation-transfer criterion re-confirmed, not re-derived.** The 2-of-4 independent-clean-
+   component deficit (ADR-0147, ADR-0150) is unchanged as of this task (same day as ADR-0161, no
+   relation-registration work performed in between).
+4. **Decision.** No constructed estimand survives all four criteria. Per the task's own branching
+   rule, §7 of the review document records the search space and reasons for impossibility and
+   re-audits the termination decision.
+5. **Termination re-audit.** `PROGRAM_LINE_CLOSURE_CONFIRMED` (ADR-0161) is **reinforced, not
+   reopened**: this task closes a specific gap ADR-0161 itself left open (tractability under finite
+   composition) rather than reversing any of its conclusions. No component of the program-status
+   table changes; the relation-inventory deficit remains a separate, unremedied, non-terminated
+   engineering gap; no claim of APC's general impossibility is made or implied.
+
+**Decision:**  
+Declare **`NO_COUNTEREXAMPLE_CONSTRUCTED`**. Reaffirm `PROGRAM_LINE_CLOSURE_CONFIRMED` for the
+oracle-free task/relation-inference research line, now with the composition/tractability gap
+explicitly closed rather than merely unexamined. Do not extend this closure to Phase A/A.1/A.2's
+core-separation evidence, and do not assert APC's general impossibility.
+
+**Consequences:**  
+- No Phase D (or any other) hypothesis, architecture, supervision scheme, relation family, or
+  learning formulation is proposed or authorized by this ADR.
+- `candidate=null`, `research_execution=NOT_AUTHORIZED`, sealed access remains `0`, relation
+  inventory deficit remains unresolved and independently blocking.
+- ADR-0001 through ADR-0161 are preserved verbatim; this ADR adds no retraction of any prior entry,
+  only a new, independent construction attempt closing a gap ADR-0161 itself flagged as open.
+- A future research question that adopts a genuinely different premise (e.g., a scope change
+  admitting a new, deliberately hard primitive family, or a dedicated relation-inventory-expansion
+  project) would require its own separate, explicit user authorization and its own charter; this
+  ADR does not grant either.
+
+**Primary Artifacts:**  
+- Review Document: `docs/research/CONSTRUCTIVE_FALSIFICATION_NRQ002.md`  
+- Verification Record: `docs/research/NRQ002_REVIEW_RECORD.json`
 
