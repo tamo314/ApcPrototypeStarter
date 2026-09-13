@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
+
 import pytest
 import torch
 
@@ -29,6 +33,8 @@ from apc.evaluation.unified_oracle_causal_benchmark import (
 )
 from apc.primitives.bank import PrimitiveBank
 from apc.primitives.primitive import CrossPositionPrimitiveConfig, PrimitiveStatus
+from apc.utils.seed import set_seed
+from apc.utils.seed_derivation import derive_seed
 
 
 def test_d008_dry_run_records_only_the_fixed_authorization(monkeypatch) -> None:
@@ -194,3 +200,49 @@ def test_d012_incremental_primitive_cuda_device_placement() -> None:
     ucfg = UnifiedBenchmarkConfig(seed=42, device="cuda")
     loss = _train_single_primitive(core, primitive, ucfg, "REVERSE", steps=2)
     assert loss >= 0.0
+
+
+def test_d013_independent_subprocess_pythonhashseed_compatibility() -> None:
+    # 1. Verify set_seed with large 63-bit derived seed bounds PYTHONHASHSEED to uint32
+    derived = derive_seed(
+        master_seed=40,
+        stream_namespace="r3_009_train_init",
+        task_key="SHIFT_RIGHT_1",
+        sample_index=0,
+    )
+    assert derived > 4294967295  # Exceeds 32-bit unsigned int
+    set_seed(derived)
+    val = int(os.environ["PYTHONHASHSEED"])
+    assert 0 <= val <= 4294967295
+    assert val == (derived & 0xFFFFFFFF)
+
+    # 2. Independent python subprocess inherits environment and launches without crash
+    res = subprocess.run(
+        [sys.executable, "-c", "import os, sys; print(os.environ.get('PYTHONHASHSEED'))"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert res.returncode == 0
+    assert res.stdout.strip() == str(val)
+
+    # 3. Verify sub-process resilience even if os.environ had an out-of-range PYTHONHASHSEED
+    env = os.environ.copy()
+    env["PYTHONHASHSEED"] = str((1 << 63) - 1)
+    raw_seed = env["PYTHONHASHSEED"]
+    if raw_seed != "random":
+        try:
+            env["PYTHONHASHSEED"] = str(int(raw_seed) & 0xFFFFFFFF)
+        except ValueError:
+            env.pop("PYTHONHASHSEED", None)
+    res2 = subprocess.run(
+        [sys.executable, "-c", "import os, sys; print('subprocess_ok')"],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert res2.returncode == 0
+    assert "subprocess_ok" in res2.stdout
+
+

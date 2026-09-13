@@ -155,7 +155,7 @@ execution success rate, per the composition execution contract section 1/8.
 ## 6. Staged candidate handling (repair output is not a promoted bundle)
 
 `LOCAL_SORT_REPAIR` writes to a **new namespace** per model
-(`runs/phase_d_d012_sort_repair/seed_{40..44}/candidate/`), never overwriting the parent bundle's
+(`runs/phase_d_d013_sort_repair/seed_{40..44}/candidate/`), never overwriting the parent bundle's
 files. The candidate is evaluated exactly like a shadow-validation candidate: it must pass every
 acceptance criterion in section 8 before it is anything more than a recorded, evaluated candidate.
 Per the task's charter-level status (section 10 of this pilot and the Phase D charter),

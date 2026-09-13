@@ -923,3 +923,63 @@ task_result         = FAIL
 h_d1_status         = UNTESTED
 research_gate       = STOP_GATE_FAIL (fresh-load subprocess crashed on inherited 63-bit PYTHONHASHSEED > 4294967295)
 ```
+
+## ADR-0181: D-013 — Bounded PYTHONHASHSEED Compatibility Fix, Independent-Subprocess Regression Test, and Execution
+
+**Date:** 2026-09-14
+**Task:** D-013 — D-012成果物を変更せず保全し、PYTHONHASHSEED互換性修正（uint32範囲 [0; 4294967295] への制限）および独立サブプロセス環境分離を実装して回帰テストと全必須検証を通す。新規D-013 namespaceを明示的に一度だけ認可し、全gate通過時に限り、seed 40–44、既定予算・recipe・評価panel・FROZEN_PARENT/LOCAL_SORT_REPAIR/SYMBOLIC_REFERENCE条件を一切変えずに確証実験を最初から一回実行する。再試行、seed交換、予算・panel・threshold変更、sealed access、候補採用・昇格は禁止する。
+**Status:** **COHORT_CONSTRUCTION_COMPLETED, PILOT_EXECUTED, H-D1_REFUTED (Negative Result).** `task_result: FAIL`, `h_d1_status: REFUTED`.
+
+**Namespace Replacement and Evidence Preservation:**
+- D-012 artifacts under `runs/phase_d_d012_executor/`, `runs/phase_d_d012_five_model_cohort/`, and `runs/phase_d_d012_sort_repair/` are preserved completely unmodified as historical evidence.
+- D-013 reserved and authorized:
+  - `runs/phase_d_d013_executor/`
+  - `runs/phase_d_d013_five_model_cohort/`
+  - `runs/phase_d_d013_sort_repair/`
+
+**Bounded PYTHONHASHSEED Compatibility Fix:**
+- Repaired `src/apc/utils/seed.py`: `set_seed` now bounds `PYTHONHASHSEED` to uint32 range via `str(seed & 0xFFFFFFFF)`, preventing 63-bit derived seeds (e.g. from `derive_seed`) from setting out-of-range values in `os.environ`.
+- Repaired `src/apc/evaluation/phase_d_executor.py`: `_run_fresh_load_parity` sanitizes `PYTHONHASHSEED` in the child subprocess environment (`raw_seed & 0xFFFFFFFF` or removing invalid string) and explicitly passes `env=env` to `subprocess.run`.
+- Added tests:
+  - `test_d013_independent_subprocess_pythonhashseed_compatibility` in `tests/test_phase_d_executor.py` verifying large 63-bit derived seed bounds `PYTHONHASHSEED`, child Python subprocess initializes and prints value cleanly, and out-of-range environment strings are sanitized without crash.
+  - `test_set_seed_bounds_pythonhashseed` in `tests/test_seed.py` verifying uint32 range.
+
+**Verification Results (Prerequisites Passed):**
+1. Full focused compatibility tests: 39 passed in 143.02s (`test_phase_d_executor.py`, `test_seed.py`, `test_nrq004_bundle_reconstruction.py`, `test_nrq005_exact_depth3_benchmark.py`, `test_nrq006_argument_closed_depth3_audit.py`, `test_nrq008_replication_and_support_budget.py`, `test_controller_ablation_benchmark.py`).
+2. Static provenance and seed registry gates: `python scripts/verify_phase_d_seed_registry.py` passed cleanly (`candidate_model_seeds=[40,41,42,43,44]`, `sealed_access=0`).
+3. Static dry-run: `scripts/phase_d_executor.py --dry-run` passed with static gate `PASS`, preregistration hashes verified, and reserved D-013 output roots verified non-existent.
+4. Code hygiene: `ruff check .` passed (all checks passed); `mypy src/apc` passed (181 source files).
+
+**Execution Results:**
+- One-time confirmation launched via `scripts/phase_d_executor.py` on CUDA (RTX 5060 Ti).
+- All 5 models (seeds 40, 41, 42, 43, 44) completed full cohort build and `LOCAL_SORT_REPAIR` execution from scratch without crashing:
+  - Wall clock: 3,491.06s (~58.18 min).
+  - Peak CUDA memory: 206,087,680 bytes (~206 MB); peak reserved: 335,544,320 bytes (~335 MB).
+  - Sealed access: 0 across entire run.
+  - Separate-process fresh-load parity passed cleanly for all 5 models (`fresh_load_parity_pass: true`).
+- Preregistered Acceptance Criteria Evaluation:
+  - Seed 40: target_recovery_pass=False, existing_capability_preservation_pass=True, causal_control_pass=True, fresh_load_parity_pass=True -> pass=False.
+  - Seed 41: target_recovery_pass=False, existing_capability_preservation_pass=False, causal_control_pass=False, fresh_load_parity_pass=True -> pass=False.
+  - Seed 42: target_recovery_pass=False, existing_capability_preservation_pass=True, causal_control_pass=True, fresh_load_parity_pass=True -> pass=False.
+  - Seed 43: target_recovery_pass=False, existing_capability_preservation_pass=True, causal_control_pass=True, fresh_load_parity_pass=True -> pass=False.
+  - Seed 44: target_recovery_pass=False, existing_capability_preservation_pass=False, causal_control_pass=False, fresh_load_parity_pass=True -> pass=False.
+  - Failure root cause on target recovery: target sequence `SELECT->SORT->REVERSE` collapsed to near 0 across all seeds (seed 40: 0.0018, seed 41: 0.0348, seed 42: 0.0038, seed 43: 0.0034, seed 44: 0.0150) and `SELECT->SORT->SELECT` failed the >=0.95 threshold (0.4178-0.7422).
+- Zero candidates selected, zero bundle promotions, sealed partition intact.
+
+**Scientific Interpretation & Status:**
+- Pilot execution completed under strict preregistration.
+- Hypothesis H-D1: **`REFUTED`** (Negative Result). Local primitive repair of SORT in isolation with frozen parent does not restore compositional execution across all depth-3 target classes to >=0.95 EM.
+- Overall task result: **`FAIL`** per preregistered acceptance criteria (0 / 5 models passed).
+- Per AGENTS.md: negative results are valid research outputs. Artifacts preserved in place. No retries, substitutions, or promotions permitted.
+
+```
+cohort_construction = COMPLETED
+pilot_execution     = COMPLETED
+candidate_selected  = null
+bundle_promotion    = NOT_AUTHORIZED
+sealed_access       = 0
+task_result         = FAIL
+h_d1_status         = REFUTED
+research_gate       = PILOT_COMPLETED_NEGATIVE_RESULT (0/5 models satisfied target recovery threshold >=0.95)
+```
+

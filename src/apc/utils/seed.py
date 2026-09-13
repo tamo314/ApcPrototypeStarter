@@ -18,7 +18,9 @@ def set_seed(seed: int, *, deterministic_algorithms: bool = False) -> None:
             and is off by default; enable it for exact-reproducibility
             experiments rather than default training runs.
     """
-    os.environ["PYTHONHASHSEED"] = str(seed)
+    # CPython requires PYTHONHASHSEED to be in [0; 4294967295] (uint32).
+    # Bound the seed so spawned subprocesses inheriting os.environ do not fail startup.
+    os.environ["PYTHONHASHSEED"] = str(seed & 0xFFFFFFFF)
     random.seed(seed)
     torch.manual_seed(seed)
     if torch.cuda.is_available():
