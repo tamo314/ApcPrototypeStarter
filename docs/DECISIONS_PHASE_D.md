@@ -619,3 +619,44 @@ executor for the already-preregistered cohort, repair, panels, fresh-load proces
 measurements.  No seed was exchanged, no recipe/panel/budget changed, no cohort model was
 initialized, no optimizer step occurred, and no sealed data/model output was accessed.  This is
 an implementation-precondition blocker, not an H-D1 result or a scientific STOP verdict.
+
+## ADR-0175: D-008 — Phase-D Executor Review STOP — Incomplete Required Evaluation Evidence
+
+**Date:** 2026-09-13
+**Task:** D-008 — implement and review the ADR-0170/0172/D-001 fail-closed executor
+**Status:** **STOP_GATE_FAIL — no valid confirmation result.**
+
+D-008 adds `apc.evaluation.phase_d_executor` and its CLI/dry-run review.  The static dry-run
+passes the D-005 AST/JSON registry audit for exactly model seeds `40–44`, confirms the recovered
+Python-3.12 CUDA runtime, records the hashes of the preregistration inputs, fixes the three allowed
+conditions (`FROZEN_PARENT`, `LOCAL_SORT_REPAIR`, `SYMBOLIC_REFERENCE`), and records
+`sealed_access=0`.  It rejects a changed seed, repair budget, or existing namespace before model
+construction.  Focused tests also cover the old sealed candidate `30–34` through the underlying
+registry checker.
+
+During the executor's first launch review, its composition-panel evaluator was found to aggregate
+only one evaluation seed where the preregistration requires the fixed five-seed evaluation
+derivation.  The process was terminated before it produced a parent manifest, candidate, panel
+result, or usable cohort artifact; no partial process state is evidence.  The evaluator was then
+corrected to aggregate all five fixed seeds (and the three fixed standalone-regression seeds), but
+the review found two further required acceptance components are not yet implemented: the
+registered Correct/Wrong-family/None causal-control measurement at both length groups and a
+separate-process candidate fresh-load metric-parity check.  The executor marks either missing
+component as invalidating PASS rather than manufacturing a result.
+
+**Decision: STOP before the preregistered five-model confirmation.**  Without those two required
+measurements, a run cannot evaluate every registered cell or the D-001 criteria; proceeding would
+turn the authorized single confirmation into an unreviewed protocol deviation.  No scientific
+claim about H-D1, no FROZEN_PARENT/LOCAL_SORT_REPAIR performance result, no candidate selection,
+and no bundle promotion follows.  The fixed `40–44` authorization remains unspent for a corrected,
+separately reviewed executor; it does not authorize a new seed, recipe, panel, update budget, or
+sealed access.
+
+```
+cohort_construction = NOT_COMPLETED_AS_VALID_COHORT
+pilot_execution     = NOT_EXECUTED
+candidate_selected  = null
+bundle_promotion    = NOT_AUTHORIZED
+sealed_access       = 0
+research_gate       = STOP_GATE_FAIL (executor evidence incomplete)
+```

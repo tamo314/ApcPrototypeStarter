@@ -430,6 +430,14 @@ class ModelBundleManifest:
     exposure_manifest: Mapping[str, Any] = field(default_factory=dict)
     clean_build_exercised_stages: tuple[str, ...] = ()
     qualification_refs: tuple[str, ...] = ()
+    # Cohort metadata is deliberately excluded from the content digest: it
+    # records the independently preregistered execution cohort, not model
+    # weights or the execution ABI.  Keeping it here (rather than only in a
+    # run report) makes relabelling a member or silently exchanging a seed
+    # mechanically visible to a loader/auditor.
+    cohort_id: str | None = None
+    cohort_member_seeds: tuple[int, ...] = ()
+    cohort_construction_recipe_hash: str | None = None
 
 
 @dataclass(frozen=True)
