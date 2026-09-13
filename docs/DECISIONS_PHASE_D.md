@@ -527,3 +527,48 @@ relax G1, or consume the R3-011/R3-012 sealed V2 reservation.
 - Prior ADRs: [ADR-0169](#adr-0169-d-001-phase-d-charter-draft-composition-execution-contract-and-sort-only-repair-pilot-preregistration),
   [ADR-0170](#adr-0170-d-003-phase-d-charter-authorization-decision-scoped-approval), and
   [ADR-0171](#adr-0171-d-004-sort-only-repair-confirmation-execution-stop-gate-fails-on-the-data-boundary-prerequisite-seeds-30-34-collide-with-the-sealed-v2-partition)
+
+## ADR-0173: D-006 — Execution-precondition STOP — Python 3.12 environment has CPU-only Torch and no constraint-compatible CUDA wheel
+
+**Date:** 2026-09-13
+**Task:** D-006 — Execute the ADR-0172-reauthorized seed-`40-44` single five-model SORT-only confirmation
+**Status:** **EXECUTION_PRECONDITION_STOP — no scientific result.**
+
+**Checks completed before any model/data access:**
+
+1. `python scripts/verify_phase_d_seed_registry.py` passed.  It confirmed that cohort model seeds
+   `40,41,42,43,44` are unique, disjoint from every registered model/data seed namespace, and do
+   not access the sealed V2 partition.  This was a static AST/JSON provenance check only.
+2. The repository's required runtime (`.venv\\Scripts\\python.exe`) is Python `3.12.13`, satisfying
+   `pyproject.toml`'s `requires-python = ">=3.12"`.  Its installed Torch reports
+   `2.13.0+cpu`, `torch.version.cuda is None`, `torch.backends.cuda.is_built() is False`, and
+   `torch.cuda.is_available() is False`.
+3. The only locally available CUDA-enabled interpreter reports CUDA on the RTX 5060 Ti, but is
+   Python `3.10.11`, which is outside the project dependency contract.  It was not used for the
+   experiment.
+4. Read-only package-index inspection of the official CUDA 12.8 wheel index found its newest
+   available wheel is `torch 2.11.0+cu128`.  That version is excluded by the tracked dependency
+   range `torch>=2.12,<2.14`; replacing the 3.12 environment with it, lowering the constraint, or
+   using the Python-3.10 environment would silently change the registered execution environment.
+
+**Decision: STOP before cohort construction.**  The D-006 task requires the recorded wall-time,
+GPU, and RAM measurements for five independently built models.  Running the registered
+`16,000`-step Core pretraining, `42,400`-step bank/router construction (plus the registered SHIFT
+recipe), and up-to-`6,000` SORT-repair updates per model in a CPU-only environment would not be
+the registered single-GPU execution.  Per `AGENTS.md`'s implementation rule to use Python 3.12 and
+the dependency constraints in `pyproject.toml`, this environment is not eligible for the cohort
+build.  This is a missing execution prerequisite, not a failed FROZEN_PARENT or H-D1 cell.
+
+No model was initialized; no training/evaluation examples, parent bundle, candidate, or
+`LOCAL_SORT_REPAIR` optimizer were constructed; and sealed data/model outputs were not accessed.
+`cohort_construction=NOT_PERFORMED`, `pilot_execution=NOT_PERFORMED`,
+`candidate_selected=null`, `bundle_promotion=NOT_AUTHORIZED`, `sealed_access=0`, and all
+pre-registered seed, recipe, panel, and budget values remain unchanged.  In particular, this STOP
+does **not** authorize a seed exchange, additional updates, another recipe, sealed access,
+candidate selection, or bundle promotion.
+
+**Required condition to resume the already-authorized task:** install or otherwise provide a
+Python-3.12 environment whose CUDA-enabled Torch satisfies the tracked dependency constraint and
+can see the single RTX 5060 Ti; then rerun the unchanged D-006 execution from the static registry
+gate.  This requires no change to the D-005 cohort authorization, but no CPU result may be used as
+a substitute for it.
