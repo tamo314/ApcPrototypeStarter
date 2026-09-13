@@ -804,3 +804,61 @@ task_result         = FAIL
 h_d1_status         = UNTESTED
 research_gate       = STOP_GATE_FAIL (executor namespace sequencing defect created occupied roots before static gate)
 ```
+
+## ADR-0179: D-011 — Replacement Namespaces, Executor Static-Gate Sequencing Repair, and One-Time Confirmation Execution
+
+**Date:** 2026-09-14
+**Task:** D-011 — Authorize an evidence-preserving replacement namespace, fix the executor so all static gates run before any directory creation, revalidate the unchanged preregistration, and—only if every prerequisite passes—execute exactly once the unchanged seed-40–44 five-model experiment comparing FROZEN_PARENT, LOCAL_SORT_REPAIR, and SYMBOLIC_REFERENCE. Preserve all D-010 namespaces and evidence; permit no retry, seed substitution, budget change, candidate selection, promotion, or sealed access.
+**Status:** **STOP_GATE_FAIL — All static gates and full verification passed clean, but one-time confirmation halted during seed 40 parent build on incremental primitive device mismatch.** `task_result: FAIL`, `h_d1_status: UNTESTED`.
+
+**Namespace replacement and evidence preservation:**
+The pre-existing empty directories `runs/phase_d_d010_executor/` and `runs/phase_d_d010_sort_repair/` from the D-010 pre-model STOP GATE are preserved unmodified as historical evidence and are neither deleted nor reused. D-011 reserves and authorizes the following three new output roots:
+- `runs/phase_d_d011_executor/`
+- `runs/phase_d_d011_five_model_cohort/`
+- `runs/phase_d_d011_sort_repair/`
+
+**Executor defect repair:**
+The executor sequencing defect identified in ADR-0178 (where `run()` created output directories before calling `_static_gate()`, triggering its own occupied-namespace fail-closed check) was repaired: `_static_gate(effective_config)` now executes strictly before any directory creation or resource allocation. If any static gate fails (e.g. occupied namespace, missing preregistration files, unsupported Torch/CUDA runtime), the executor fails closed immediately without creating any filesystem directory. Verified by unit test `test_d011_run_executes_static_gate_before_creating_directories`.
+
+**Verification Results (Prerequisites Passed):**
+1. Full test suite under D-007 compliant Python 3.12 CUDA environment (`C:\d007v\Scripts\python.exe`, Python 3.12.13, Torch 2.13.0+cu130, RTX 5060 Ti): `2670 passed, 22 warnings in 1418.82s` (0 failed, 0 skipped).
+2. Static provenance and registry gates: `python scripts/verify_phase_d_seed_registry.py` passed cleanly for candidate seeds `40, 41, 42, 43, 44` with `sealed_access=0`.
+3. Static dry-run: `scripts/phase_d_executor.py --dry-run` passed with static gate status `PASS`, all preregistration hashes verified, and reserved output roots verified nonexistent.
+4. Code quality & typing: `ruff check` passed; `mypy src/apc` passed (181 source files); `tests/test_phase_d_executor.py` passed (8 passed).
+
+**Execution Attempt & Blocker (STOP GATE FAIL):**
+- The one-time confirmation was launched via `scripts/phase_d_executor.py`.
+- Static gates ran strictly before directory creation and passed.
+- Reserved output roots `runs/phase_d_d011_executor/`, `runs/phase_d_d011_five_model_cohort/`, `runs/phase_d_d011_sort_repair/` were created.
+- Seed 40 parent construction began:
+  - Core pretraining completed (16,000 steps; `runs/phase_d_d011_five_model_cohort/seed_40/canonical_branch_b/shared_encoder.pt` [7.2 MB] saved).
+  - Learned routing initial bank training completed (6,000 steps; `primitive_bank.pt` [786 KB] saved).
+  - SHIFT dedicated iid baseline repair training completed.
+  - Incremental 6 operations training loop began: `PHASE_A2_INCREMENTAL_NEW_OPERATIONS`.
+  - At the first incremental operation, `bank.new_cross_position_primitive(...)` instantiated the module on CPU (default PyTorch module device).
+  - When `_train_single_primitive(core, primitive, ucfg, operation, steps=1_000)` executed, `core.model.encode(inp)` produced embeddings `h` on `cuda:0`, while `primitive` parameters were on CPU.
+  - PyTorch raised: `RuntimeError: Expected all tensors to be on the same device, but got mat2 is on cpu, different from other tensors on cuda:0 (when checking argument in method wrapper_CUDA_mm)`.
+- In accordance with the contract:
+  - "permit no retry, seed substitution, budget change, candidate selection, promotion, or sealed access"
+  - "開始済み・中断済み・namespace使用済みの場合も、未使用の実験として扱い直してはいけない。既存契約に再開許可がなければ、証拠を保持してSTOPしてください。"
+  - "自動的な連番やtimestamp付与で別namespaceへ逃がさない。"
+- The executor stopped immediately. The `finally` block wrote `runs/phase_d_d011_executor/report.json` (wall clock 509.35s, peak CUDA memory 232,783,872 bytes reserved).
+- All artifacts under `runs/phase_d_d011_*` are preserved as evidence without modification or deletion.
+- Zero candidate constructions, zero repair updates, and zero sealed data accesses occurred.
+
+**Scientific Interpretation & Status:**
+- Per the preregistered decision contract:
+  - Termination at verification/namespace/runtime/parent-eligibility: **`task_result: FAIL`**
+  - Scientific hypothesis H-D1: **`UNTESTED`** (Orchestration device-placement defect in `_build_parent`, not an empirical evaluation or refutation of H-D1).
+- Root cause precisely identified: in `src/apc/evaluation/phase_d_executor.py:513-526`, `primitive = bank.new_cross_position_primitive(...)` requires `primitive.to(core.device)` and `bank.to(core.device)` before calling `_train_single_primitive`.
+
+```
+cohort_construction = STOP_GATE_FAIL_DEVICE_MISMATCH
+pilot_execution     = NOT_EXECUTED
+candidate_selected  = null
+bundle_promotion    = NOT_AUTHORIZED
+sealed_access       = 0
+task_result         = FAIL
+h_d1_status         = UNTESTED
+research_gate       = STOP_GATE_FAIL (incremental primitive instantiated on CPU without placement onto core.device)
+```

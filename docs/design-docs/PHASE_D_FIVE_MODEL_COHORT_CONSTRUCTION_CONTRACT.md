@@ -119,7 +119,7 @@ cohortの5モデルに対して実行し、同一Core内容が異なるseed labe
 
 ## 6. strict fresh-load検証（namespace保護）
 
-新規cohortの保存先namespaceを次に固定する：`runs/phase_d_d010_five_model_cohort/seed_{40..44}/`。
+新規cohortの保存先namespaceを次に固定する：`runs/phase_d_d011_five_model_cohort/seed_{40..44}/`。
 既存の `RECOVERY_NAMESPACE_ROOT`（`runs/phase_b_b2_model_bundle_recovery/staging`）や
 NRQ系runs（`runs/nrq00{4,5,6,7,8}_*`）とは独立した新namespaceであり、既存ファイルへの
 上書きを行わない。`load_bundle`のfail-closed性質（`model_bundle.py:692-948`、

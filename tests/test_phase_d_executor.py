@@ -16,6 +16,7 @@ from apc.evaluation.phase_d_executor import (
     _evaluate_causal_controls,
     _supported_torch_version,
     dry_run_manifest,
+    run,
 )
 
 
@@ -109,3 +110,27 @@ def test_causal_control_completeness_rejects_missing_evaluation_cell() -> None:
 
     with pytest.raises(PhaseDStopGateError, match="missing or reordered"):
         _assert_causal_controls_complete(incomplete)
+
+
+def test_d011_run_executes_static_gate_before_creating_directories(tmp_path, monkeypatch) -> None:
+    output_root = tmp_path / "runs" / "test_executor"
+    cohort_root = tmp_path / "runs" / "test_cohort"
+    candidate_root = tmp_path / "runs" / "test_candidate"
+
+    def failing_gate(_config):
+        raise PhaseDStopGateError("forced static gate stop")
+
+    monkeypatch.setattr("apc.evaluation.phase_d_executor._static_gate", failing_gate)
+
+    cfg = PhaseDExecutorConfig(
+        output_root=output_root,
+        cohort_root=cohort_root,
+        candidate_root=candidate_root,
+    )
+
+    with pytest.raises(PhaseDStopGateError, match="forced static gate stop"):
+        run(cfg)
+
+    assert not output_root.exists()
+    assert not cohort_root.exists()
+    assert not candidate_root.exists()
