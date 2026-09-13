@@ -572,3 +572,50 @@ Python-3.12 environment whose CUDA-enabled Torch satisfies the tracked dependenc
 can see the single RTX 5060 Ti; then rerun the unchanged D-006 execution from the static registry
 gate.  This requires no change to the D-005 cohort authorization, but no CPU result may be used as
 a substitute for it.
+
+## ADR-0174: D-007 — CUDA Runtime Recovery PASS; D-006 Has No Implemented Executor
+
+**Date:** 2026-09-13
+**Task:** D-007 — recover the Python-3.12 CUDA runtime before resuming D-006
+**Status:** **RUNTIME_GATE_PASS; D-006_EXECUTION_NOT_STARTED.**
+
+The official PyTorch CUDA indexes were inspected before changing any tracked dependency.  The
+official CUDA 13.0 index contains CPython-3.12 Windows wheels for `torch 2.12.0+cu130`,
+`2.12.1+cu130`, and `2.13.0+cu130`; all satisfy the existing
+`pyproject.toml` constraint `torch>=2.12,<2.14`.  Therefore the conditional `2.11.0+cu128`
+fallback and any lower-bound change are not applicable.  `pyproject.toml` is unchanged.
+
+An isolated Python 3.12.13 venv was created at `C:\\d007v` after two preserved, gitignored
+attempts under `runs/phase_d_d007_cuda_runtime_recovery/`: the first was interrupted while a
+1.9GB wheel was being installed and the second demonstrated Windows `WinError 206` from the
+deep `runs/.../venv` path.  The short-path venv installed the official
+`torch 2.13.0+cu130` wheel without modification.  Its runtime report is
+`runs/phase_d_d007_cuda_runtime_recovery/run_003/runtime_report.json`:
+
+- Python `3.12.13`; Torch `2.13.0+cu130`; built CUDA `13.0`.
+- `cuda_available=true`, one `NVIDIA GeForce RTX 5060 Ti`, compute capability `[12, 0]`.
+- fixed-module CPU/GPU forward maximum absolute error `7.450580596923828e-08`; backward-gradient
+  maximum absolute error `5.587935447692871e-09`; both below `1e-5`.
+- repeated CUDA forward is bitwise deterministic; all forward/backward gradients are finite; a
+  separate fresh process reloads the checkpoint and reproduces the CPU/GPU output digests.
+
+The new `scripts/phase_d_cuda_runtime_recovery.py` records this non-APC runtime probe.  It does
+not construct a cohort, generate model/evaluation data, initialize an APC model, or access a
+sealed partition (`cohort_construction=NOT_PERFORMED`, `model_data_or_sealed_access=0`).  The
+static `python scripts/verify_phase_d_seed_registry.py` check also passed for exactly seeds
+`40–44` with `sealed_access=0`.
+
+**D-006 execution attempt boundary:** after this PASS, the repository was inspected for an
+implemented Phase-D cohort/repair executor.  None exists: there is no Phase-D build or
+`LOCAL_SORT_REPAIR` runner under `src/`, `scripts/`, or `configs/`; the cohort contract itself
+states in section 5 that its required `cohort_id`/cohort-manifest support is a proposal and
+“not implemented.”  The only reusable build runner,
+`apc.evaluation.model_bundle_recovery.run_pilot_restore_build_task`, hard-rejects every seed
+except the historical REC-004 seed `10` and restores historical seed-10 artifacts, so using it
+for seeds `40–44` would violate the registered fresh-build and no-seed-exchange contract.
+
+Accordingly D-006 could not be started without first implementing and reviewing a new fail-closed
+executor for the already-preregistered cohort, repair, panels, fresh-load process, and resource
+measurements.  No seed was exchanged, no recipe/panel/budget changed, no cohort model was
+initialized, no optimizer step occurred, and no sealed data/model output was accessed.  This is
+an implementation-precondition blocker, not an H-D1 result or a scientific STOP verdict.
