@@ -1,9 +1,9 @@
 # Design Contract — Phase D Five-Model Cohort Construction & Provenance Plan (Task D-001)
 
-**Task D-003によりcohort構築の実行が認可された
-（[ADR-0170](../DECISIONS_PHASE_D.md#adr-0170-d-003-phase-d-charter-authorization-decision-scoped-approval)、
-`training_execution: AUTHORIZED`、本契約のseed 30-34・手順に厳密限定）。ただしD-003自体はcohortを
-生成していない。以下の契約内容・数値は本認可によって変更されない。**
+**D-005 charter amendment（[ADR-0172](../DECISIONS_PHASE_D.md#adr-0172-d-005-phase-d-cohort-seed-amendment--complete-static-registry-audit-and-replacement-authorization)）により、
+本契約の実行認可は seed `40-44` にのみ置換された。D-003/ADR-0170 の seed `30-34` に限る認可は
+失効し、`30-34` は sealed V2 として永久に禁止である。`training_execution: AUTHORIZED` は本契約の
+seed `40-44`・同一手順・同一予算に厳密限定される。D-003/D-005 自体は cohort を生成していない。**
 
 **STOP GATE FAIL（Task D-004、[ADR-0171](../DECISIONS_PHASE_D.md#adr-0171-d-004-sort-only-repair-confirmation-execution-stop-gate-fails-on-the-data-boundary-prerequisite-seeds-30-34-collide-with-the-sealed-v2-partition)）：本契約§2が固定したseed `30,31,32,33,34` は、
 `src/apc/evaluation/relation_split_protocol.py`の`NEW_SEALED_V2_SEEDS`（既存のPhase B task
@@ -30,25 +30,32 @@ seed 0のcheckpoint消失（`2026-09-13`のcheckpoint overwrite）を修復す�
 **同一の登録済み構築手順**で新規に5つの独立したCore/bankモデルを構築する。旧4bundleは
 reference evidence（比較対象・回帰対照）として保持し、新cohortの構成要素として混成しない。
 
-## 2. cohort seed（結果を見る前に固定）
+## 2. cohort seed（D-005で結果を見る前に再固定）
 
 既存repo内で使用済みの全seed namespaceと衝突しないよう、次の5 seedを固定する。
 
-| 用途 | 既存使用範囲 | 出典 |
+| 用途 | model-seed registry / 過去 provenance | 出典 |
 |---|---|---|
-| NRQ-005〜008 reconstructed bundle model seed | `1, 2, 3, 4`（seed 0はNRQ-004で消失確認） | `NRQ006_REVIEW_RECORD.json: bundle_seeds_evaluated` |
-| Model Bundle Recovery development seed | `10, 11, 12, 13, 14`（`RECOVERY_DEV_SEEDS`） | `src/apc/evaluation/model_bundle_recovery.py:728` |
-| NRQ-006/007 data seed | `101–105` | 同上review record |
-| NRQ-008 unused data seed pool | `201–220` | `docs/research/REPLICATION_AND_SUPPORT_BUDGET_SENSITIVITY_NRQ008.md` |
+| historical / original sealed and NRQ reconstructed bundle model seed | `0–4`（NRQ bundle は `1–4`、seed 0 はNRQ-004で消失確認） | `SEALED_GATE_SEEDS`; `NRQ005`〜`NRQ008_REVIEW_RECORD.json` |
+| Model Bundle Recovery development / existing cohort | `10–14`（`DEFAULT_DEV_SEEDS` / `RECOVERY_DEV_SEEDS`） | `retrieval_repair_benchmark.py`; `model_bundle_recovery.py` |
+| Phase B validation split | `15–19`（`NEW_VALIDATION_SEEDS`） | `relation_split_protocol.py` |
+| Phase B re-gate sealed split | `20–24`（`DEFAULT_REGATE_SEEDS`） | `hard_negative_repair_gate.py` |
+| Phase B sealed V2 / D-001 rejected candidate | `30–34`（`NEW_SEALED_V2_SEEDS`） | `relation_split_protocol.py`; ADR-0171 |
+| NRQ-005〜007 historical data-seed axis（model seedとは別軸） | `101–105` | `NRQ005`〜`NRQ007_REVIEW_RECORD.json` |
+| NRQ-008 historical data-seed axis（model seedとは別軸） | `201–220` | `NRQ008_REVIEW_RECORD.json` |
 
-**Phase D five-model cohort model seed（新規固定）：`30, 31, 32, 33, 34`。**
-上表のどの既存namespaceとも重複しない。データ生成seed（学習batch・評価batch）は
+**Phase D five-model cohort model seed（D-005で新規固定）：`40, 41, 42, 43, 44`。**
+これは `docs/phase_d/PHASE_D_D005_SEED_REGISTRY.json` と
+`python scripts/verify_phase_d_seed_registry.py` により、上表の全 source registry・全 split・
+NRQ-005〜008 の過去 run provenance と静的に機械照合される。`30–34` はこの cohort に使用できない。
+データ生成seed（学習batch・評価batch）は
 model seedとは独立のnamespaceとして `d001_train:<model_seed>:<step>:<op>` 形式の
 決定的導出（`_derive_local_seed`と同じ設計、`unified_oracle_causal_benchmark.py:139-141`）
 を用いる。評価seedは別途 §6 で固定する。
 
-この5 seedは事前登録であり、実行後の成績によるcohort除外・置換・追加を禁止する
-（本タスクの上位charter・AGENTS.mdの「試行後の候補選抜禁止」原則に従う）。
+この5 seedは結果を見る前の事前登録であり、cohort構築、学習、評価のいずれの結果による
+cohort除外・置換・追加を禁止する。欠損artifact又は新たなregistry衝突は STOP であり、交換を
+認可しない。変更には新ADRの静的再監査と明示的な charter authorization が必要である。
 
 ## 3. 構築手順（同一の登録済み手順）
 
@@ -57,7 +64,7 @@ Phase D cohortの各モデルは、reconstructed bundle（seed 1–4）を実際
 （`CORE_RESTORE → CANONICAL_AND_BRANCH_B_BUILD → SHIFT_DEDICATED → ...`）を、
 **restoreの余地がない新規seedとして**実行する。既存4bundleとの違いは次の点のみである。
 
-| Stage | 既存4bundle（seed 1–4）での実際の経路 | Phase D cohort（seed 30–34）での経路 |
+| Stage | 既存4bundle（seed 1–4）での実際の経路 | Phase D cohort（seed 40–44）での経路 |
 |---|---|---|
 | `CORE_RESTORE` | `runs/phase_a1_shift_compact_structural_probe/seed_{seed}/shared_encoder.pt` から既存checkpointを復元（新規学習不要） | 対応するseedのcheckpointは存在しないため、fallback経路
   `_get_or_train_frozen_shared_core`（`core_train_steps=16000`、既定`core_lr=0.0003`）で
@@ -65,7 +72,7 @@ Phase D cohortの各モデルは、reconstructed bundle（seed 1–4）を実際
   §7の予算表で別項目として計上する。 |
 | `CANONICAL_AND_BRANCH_B_BUILD` | `_ensure_learned_routing_bank_and_core`で8 canonical + 2 Branch-B primitiveを新規学習 | 同一手順・同一既定step数（parameterized primitiveは`bank_train_steps=6000`、
   parameter-free primitive（SORT含む）は`bank_train_steps//2=3000`、Branch-B novel opは3000） |
-| `SHIFT_DEDICATED` | seed 10/11/14はrestore、seed 12/13は`REBUILD_REQUIRED_NOT_EXECUTED`のまま | seed 30–34は全て新規seedのため、restore対象なし。既存のSHIFT専用修復recipe
+| `SHIFT_DEDICATED` | seed 10/11/14はrestore、seed 12/13は`REBUILD_REQUIRED_NOT_EXECUTED`のまま | seed 40–44は全て新規seedのため、restore対象なし。既存のSHIFT専用修復recipe
   （R3-009、ADR-0090、`shift_functional_generalization_repair.py`の`variant='iid_baseline'`既定）
   をそのまま新規実行する。この手順自体は既存実装済みであり、本契約が新設するものではない。 |
 | router / argument scorer calibration | `router_train_steps=400`（既定） | 同一 |
@@ -112,7 +119,7 @@ cohortの5モデルに対して実行し、同一Core内容が異なるseed labe
 
 ## 6. strict fresh-load検証（namespace保護）
 
-新規cohortの保存先namespaceを次に固定する：`runs/phase_d_five_model_cohort/seed_{30..34}/`。
+新規cohortの保存先namespaceを次に固定する：`runs/phase_d_five_model_cohort/seed_{40..44}/`。
 既存の `RECOVERY_NAMESPACE_ROOT`（`runs/phase_b_b2_model_bundle_recovery/staging`）や
 NRQ系runs（`runs/nrq00{4,5,6,7,8}_*`）とは独立した新namespaceであり、既存ファイルへの
 上書きを行わない。`load_bundle`のfail-closed性質（`model_bundle.py:692-948`、

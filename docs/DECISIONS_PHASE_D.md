@@ -436,4 +436,94 @@ sealed_access        = 0
   construction contract and pilot preregistration status headers only; no fixed seed, recipe,
   budget, or acceptance-criterion value changed)
 - Prior ADRs: [ADR-0169](#adr-0169-d-001-phase-d-charter-draft-composition-execution-contract-and-sort-only-repair-pilot-preregistration),
-  [ADR-0170](#adr-0170-d-003-phase-d-charter-authorization-decision-scoped-approval)
+   [ADR-0170](#adr-0170-d-003-phase-d-charter-authorization-decision-scoped-approval)
+
+## ADR-0172: D-005 — Phase D Cohort Seed Amendment — Complete Static Registry Audit and Replacement Authorization
+
+**Date:** 2026-09-13
+**Task:** D-005 — Phase D cohort seed amendment
+**Status:** **PASS — pre-result static provenance gate.** `charter_status: APPROVED`;
+`training_execution: AUTHORIZED` only for the replacement seed-`40,41,42,43,44` cohort and the
+unchanged D-001/ADR-0170 recipe, panels, controls, and budgets. `candidate_selected: null`,
+`bundle_promotion: NOT_AUTHORIZED`, `sealed_access: 0`.
+
+**Nature and boundary of this task:** This was a registry/provenance amendment only. It read Python
+source ASTs and tracked JSON review records; it did **not** import experiment modules, initialize a
+model, build a cohort, generate/evaluate data, train, inspect sealed model outputs, or access sealed
+data. D-004's `STOP_GATE_FAIL_DATA_BOUNDARY` is historical evidence of the old seed set's collision,
+not a pilot result; H-D1 remains untested.
+
+**Mechanical audit performed before fixing a replacement:**
+
+1. Added the frozen, reviewable registry
+   `docs/phase_d/PHASE_D_D005_SEED_REGISTRY.json` and the fail-closed static checker
+   `apc.evaluation.phase_d_seed_registry` / `python scripts/verify_phase_d_seed_registry.py`.
+   The checker parses source assignments with `ast` rather than importing their modules, then compares
+   them to the registry; it also checks top-level fields in each tracked NRQ review record.
+2. Source split registrations exactly matched the registry: original sealed `SEALED_GATE_SEEDS=0–4`;
+   recovery development `DEFAULT_DEV_SEEDS=10–14` and `RECOVERY_DEV_SEEDS=10–14`; validation
+   `NEW_VALIDATION_SEEDS=15–19`; re-gate sealed `DEFAULT_REGATE_SEEDS=20–24`; and sealed V2
+   `NEW_SEALED_V2_SEEDS=30–34`. The final group is explicitly a permanently forbidden Phase D
+   model-seed set, not an unused interval.
+3. Historical run provenance exactly matched: NRQ-005/006/007 report reconstructed bundle model
+   seeds `1–4` and data seeds `101–105`; NRQ-008 reports bundle model seeds `1–4` and data seeds
+   `201–220`. These data-seed axes are documented separately from model identity and are nevertheless
+   checked for numeric collision as a conservative guard.
+4. Candidate seed-`40–44` is sorted, unique, five members, and has an empty intersection with every
+   source registry, historical bundle model seed, and historical data seed above. The checker would
+   fail closed for the old candidate `30–34`; regression coverage records that case.
+
+**Data lineage and invariants:** The amendment changes only `ModelBundleManifest.model_seed` values.
+The construction lineage remains D-001's existing Model Bundle Recovery stage graph, fresh model
+initialization per new model seed, frozen-parent/repair boundaries, and new Phase D namespaces. The
+repair/evaluation data lineage remains the registered deterministic role-derived scheme
+`d001_train:<model_seed>:<step>:<op>` and the separately registered evaluation derivation; it neither
+uses a Phase B validation/sealed split nor reuses an NRQ data split. Core freezing after cohort build,
+the `h_content = f(content)` boundary, sparse primitive execution, Correct/Wrong/None controls,
+fresh-load parity, and all sealed-data prohibitions are unchanged.
+
+**Decision — replace, do not broaden, ADR-0170's seed scope:**
+
+ADR-0170's authorization to construct/evaluate the seed-`30–34` cohort is **revoked and replaced**.
+Only seed-`40,41,42,43,44` is now authorized for: (a) five-model cohort construction and strict
+fresh-load verification under the amended cohort contract, (b) the one pre-registered
+`LOCAL_SORT_REPAIR` recipe, and (c) its already-registered `FROZEN_PARENT` / `SYMBOLIC_REFERENCE`
+conditions and target/regression/canary/causal-control evaluations. The construction procedure,
+architecture, optimizer, scheduler, loss, sampling, acceptance criteria, panels, output namespaces,
+and both budgets are unchanged: cohort construction remains 16,000 Core-pretrain plus 42,400
+bank/router steps per model (excluding the existing bounded SHIFT recipe); repair remains at most
+6,000 updates/model and 30,000/5-model cohort.
+
+```
+design_status       = READY_FOR_REVIEW
+charter_status      = APPROVED
+training_execution  = AUTHORIZED  # seed 40-44 only; same D-001 recipe/panels/budgets
+cohort_construction = NOT_PERFORMED
+pilot_execution     = NOT_PERFORMED
+candidate_selected  = null
+bundle_promotion    = NOT_AUTHORIZED
+sealed_access       = 0
+```
+
+**Adoption/replace prohibition:** The five seeds are fixed before any Phase D result. No cohort member
+may be excluded, added, or exchanged after a build, training, or evaluation observation. A missing
+artifact, registry mismatch, or a newly discovered collision is a STOP condition: preserve evidence,
+record the exact failed check, and do not substitute a seed, increase a budget, or run a partial
+cohort. Any change requires a new ADR with a complete static re-audit and explicit charter-level
+authorization. Seed-`30–34` cannot be adopted or exchanged into this charter under any result.
+
+**Not authorized:** consuming any sealed partition; any model/data access outside the registered
+development lineage; another primitive; a recipe or budget change; an additional model seed; model
+selection/promotion; or any Phase B/C status change. This amendment does not reopen Phase B,
+relax G1, or consume the R3-011/R3-012 sealed V2 reservation.
+
+**Artifacts changed by this amendment:**
+- `docs/phase_d/PHASE_D_D005_SEED_REGISTRY.json` (complete static registry and lineage declaration)
+- `src/apc/evaluation/phase_d_seed_registry.py`, `scripts/verify_phase_d_seed_registry.py`, and
+  `tests/test_phase_d_seed_registry.py` (static fail-closed verification)
+- `docs/design-docs/PHASE_D_FIVE_MODEL_COHORT_CONSTRUCTION_CONTRACT.md`,
+  `docs/research/PHASE_D_RESEARCH_CHARTER.md`, and
+  `docs/phase_d/PHASE_D_D001_SORT_ONLY_REPAIR_PILOT_PREREGISTRATION.md` (seed scope only)
+- Prior ADRs: [ADR-0169](#adr-0169-d-001-phase-d-charter-draft-composition-execution-contract-and-sort-only-repair-pilot-preregistration),
+  [ADR-0170](#adr-0170-d-003-phase-d-charter-authorization-decision-scoped-approval), and
+  [ADR-0171](#adr-0171-d-004-sort-only-repair-confirmation-execution-stop-gate-fails-on-the-data-boundary-prerequisite-seeds-30-34-collide-with-the-sealed-v2-partition)

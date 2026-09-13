@@ -2,10 +2,10 @@
 
 **Document ID:** `DOC-PHASE-D-D001-SORT-REPAIR-PREREGISTRATION`
 **Date:** 2026-09-13
-**Status:** Design/preregistration complete (Task D-001). **`training_execution: AUTHORIZED`**, per
-Task D-003's bulk approval review
-([ADR-0170](../DECISIONS_PHASE_D.md#adr-0170-d-003-phase-d-charter-authorization-decision-scoped-approval)),
-strictly scoped to executing exactly the recipe fixed in section 4 below, on exactly the seed-`30-34`
+**Status:** Design/preregistration complete (Task D-001). **`training_execution: AUTHORIZED`**, as
+seed-amended by Task D-005
+([ADR-0172](../DECISIONS_PHASE_D.md#adr-0172-d-005-phase-d-cohort-seed-amendment--complete-static-registry-audit-and-replacement-authorization)),
+strictly scoped to executing exactly the recipe fixed in section 4 below, on exactly the seed-`40-44`
 cohort, evaluated only against the comparison conditions and panels registered in sections 5 and
 7-8. No sweep, no additional seed, no other primitive, and no candidate/bundle promotion is
 authorized. This document fixes a single repair recipe, its comparison conditions, its acceptance
@@ -20,7 +20,8 @@ collide with `src/apc/evaluation/relation_split_protocol.py`'s `NEW_SEALED_V2_SE
 model-seed partition Phase B task B-C005R3-002 reserved for the not-yet-executed R3-011/R3-012
 sealed-gate pathway. No cohort was built, no repair step ran, and no evaluation was performed; every
 number in this document (recipe, comparison conditions, sample sizes, acceptance criteria, budget)
-is unchanged and remains valid once a conforming, non-sealed seed set is authorized.
+is unchanged. D-005 has now authorized the statically verified seed-`40-44` cohort; seed-`30-34`
+remains forbidden to this charter.
 **Depends on:** `docs/design-docs/PHASE_D_COMPOSITION_EXECUTION_CONTRACT.md` (input-domain derivation, ownership boundary, dependency hashes), `docs/phase_d/PHASE_D_D001_TARGET_PANEL_MANIFEST.md` (target/regression/causal-control panels), `docs/design-docs/PHASE_D_FIVE_MODEL_COHORT_CONSTRUCTION_CONTRACT.md` (model cohort this pilot runs against).
 
 ---
@@ -177,8 +178,8 @@ enumeration; longer lengths do not. The two regimes are treated differently and 
 | Non-SORT canary (8 classes) | composed | i.i.d. sample | 500/class/model, 5 fixed eval seeds (`301-305`) | Wilson 95% CI. |
 | Causal control (Correct/Wrong-family/None) | `L in {3,4,5}` and `L in {6,...,10}`, separately | i.i.d. sample | 1,000/arm/length-group/model, seeds `301-305` | Wilson 95% CI on each arm; causal gap computed from the point estimates. |
 
-Eval seeds `301-305` are fixed now, chosen to avoid every previously used seed namespace (model
-seeds `0-4`,`10-14`,`30-34`; data seeds `101-105`,`201-220`) — see
+Eval seeds `301-305` are fixed now, chosen to avoid every registered model-seed namespace (model
+seeds `0-4`,`10-14`,`15-19`,`20-24`,`30-34`,`40-44`; data seeds `101-105`,`201-220`) — see
 `PHASE_D_FIVE_MODEL_COHORT_CONSTRUCTION_CONTRACT.md` section 2 for the full existing-seed table.
 
 **On train/test disjointness at small `L`:** at `L=3,4` the full input population is small enough
@@ -282,8 +283,8 @@ touch sealed data (`sealed_access: 0`).
 
 This document is a preregistration. **No optimizer step, model initialization, candidate
 construction, or sealed-data access was performed to produce it, nor by Task D-003's subsequent
-approval review.** `training_execution: AUTHORIZED` as of Task D-003
-([ADR-0170](../DECISIONS_PHASE_D.md#adr-0170-d-003-phase-d-charter-authorization-decision-scoped-approval)),
+approval review.** `training_execution: AUTHORIZED` as seed-amended by Task D-005
+([ADR-0172](../DECISIONS_PHASE_D.md#adr-0172-d-005-phase-d-cohort-seed-amendment--complete-static-registry-audit-and-replacement-authorization)),
 strictly scoped to the exact recipe, cohort, comparison conditions, and panels this document fixes
 — any deviation from those fixed values requires a new, separately recorded authorization.
 `bundle_promotion` remains `NOT_AUTHORIZED` and `sealed_access` remains `0` regardless of this

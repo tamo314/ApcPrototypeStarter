@@ -1,7 +1,7 @@
-# Phase D — Compositional Execution & Local Repair, Research Charter (APPROVED, scoped execution authorized)
+# Phase D — Compositional Execution & Local Repair, Research Charter (APPROVED, D-005 seed-amended scoped execution authorized)
 
-Date: 2026-09-13. Version: charter-v1. **Status: `APPROVED` (Task D-003, [ADR-0170](../DECISIONS_PHASE_D.md#adr-0170-d-003-phase-d-charter-authorization-decision-scoped-approval)); execution attempt STOP-GATE-FAILed (Task D-004, [ADR-0171](../DECISIONS_PHASE_D.md#adr-0171-d-004-sort-only-repair-confirmation-execution-stop-gate-fails-on-the-data-boundary-prerequisite-seeds-30-34-collide-with-the-sealed-v2-partition)) — the registered seed-`30-34` cohort collides with a pre-existing sealed model-seed partition (`relation_split_protocol.py: NEW_SEALED_V2_SEEDS`); no cohort was built, no training occurred, H-D1 remains untested, and a new seed authorization is required before any future execution.**
-`training_execution: AUTHORIZED`, scoped strictly to (a) the seed-`30,31,32,33,34` five-model
+Date: 2026-09-13. Version: charter-v2. **Status: `APPROVED` — D-004/ADR-0171 STOP-GATE-FAILed before execution because the original seed-`30-34` cohort collides with `NEW_SEALED_V2_SEEDS`; D-005/ADR-0172 then statically audited every registered split and NRQ-005〜008 provenance record and, before any result, fixed the replacement seed-`40-44` cohort. No cohort was built, no training/evaluation occurred, no model was initialized, and H-D1 remains untested.**
+`training_execution: AUTHORIZED`, scoped strictly to (a) the seed-`40,41,42,43,44` five-model
 cohort construction (`PHASE_D_FIVE_MODEL_COHORT_CONSTRUCTION_CONTRACT.md`), (b) the single
 preregistered `LOCAL_SORT_REPAIR` recipe (`PHASE_D_D001_SORT_ONLY_REPAIR_PILOT_PREREGISTRATION.md`
 section 4), and (c) its registered `FROZEN_PARENT`/`SYMBOLIC_REFERENCE` comparison-condition and
@@ -97,8 +97,9 @@ attribution, since that attribution ran only over the 35), rather than folding i
 
 ## Five-model cohort (construction/provenance contract produced by this task; cohort not built)
 
-`docs/design-docs/PHASE_D_FIVE_MODEL_COHORT_CONSTRUCTION_CONTRACT.md` fixes five pre-registered
-model seeds (`30,31,32,33,34`, chosen to avoid every previously used seed namespace), the exact
+`docs/design-docs/PHASE_D_FIVE_MODEL_COHORT_CONSTRUCTION_CONTRACT.md` and the D-005 static registry
+fix five pre-registered model seeds (`40,41,42,43,44`, mechanically checked against every registered
+split and NRQ-005〜008 provenance record), the exact
 construction procedure (the existing Model Bundle Recovery build-stage graph, run as a fresh build
 rather than a restore since these are new seeds), and reuses the existing `ModelBundleManifest` /
 `load_bundle` fail-closed hash contract for core/bank/token-schema/architecture-signature
@@ -191,7 +192,7 @@ already-fixed recipe.
 
 ```
 charter_status       = APPROVED
-training_execution   = AUTHORIZED   # scoped: seed 30-34 cohort construction +
+training_execution   = AUTHORIZED   # D-005 scoped: seed 40-44 cohort construction +
                                      # the single registered LOCAL_SORT_REPAIR recipe +
                                      # its registered comparison-condition/panel evaluations only
 candidate_selected   = null
@@ -229,3 +230,5 @@ recipe; that task may not deviate from any value D-001 fixed without a new autho
   `bundle_promotion: NOT_AUTHORIZED`, `sealed_access: 0` unchanged. No other primitive, seed,
   recipe deviation, or Phase B/C reversal is authorized. Cohort construction and pilot execution
   remain a separate, not-yet-performed execution task.
+- **D-005 (2026-09-13):** Replaced only ADR-0170's seed scope after a no-model/no-data static audit,
+  per [ADR-0172](../DECISIONS_PHASE_D.md#adr-0172-d-005-phase-d-cohort-seed-amendment--complete-static-registry-audit-and-replacement-authorization). Decision: **`APPROVED`**, `training_execution: AUTHORIZED` only for seed-`40-44`; the construction procedure, recipe, panels, criteria, and budgets are unchanged. Seed-`30-34` is permanently forbidden to this charter; no result-based replacement is permitted.

@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "purpose": "D-005 pre-result model-seed registry for the Phase D five-model cohort; this is a static provenance record, not an execution configuration.",
+  "candidate_cohort": {
+    "cohort_id": "phase_d_five_model_cohort_v2",
+    "model_seeds": [40, 41, 42, 43, 44],
+    "selection_status": "fixed_pre_result",
+    "replacement_policy": "No member may be excluded, added, or exchanged after any cohort-build, training, or evaluation result. A collision or unavailable artifact is a STOP condition requiring a new ADR; it does not permit a substitute seed."
+  },
+  "source_seed_registrations": [
+    {
+      "id": "phase_b_original_sealed",
+      "source": "src/apc/evaluation/retrieval_repair_benchmark.py",
+      "symbol": "SEALED_GATE_SEEDS",
+      "role": "sealed_model_seed",
+      "seeds": [0, 1, 2, 3, 4]
+    },
+    {
+      "id": "phase_b_recovery_development",
+      "source": "src/apc/evaluation/retrieval_repair_benchmark.py",
+      "symbol": "DEFAULT_DEV_SEEDS",
+      "role": "development_model_seed",
+      "seeds": [10, 11, 12, 13, 14]
+    },
+    {
+      "id": "phase_b_recovery_cohort_provenance",
+      "source": "src/apc/evaluation/model_bundle_recovery.py",
+      "symbol": "RECOVERY_DEV_SEEDS",
+      "role": "existing_cohort_model_seed",
+      "seeds": [10, 11, 12, 13, 14]
+    },
+    {
+      "id": "phase_b_validation_v2",
+      "source": "src/apc/evaluation/relation_split_protocol.py",
+      "symbol": "NEW_VALIDATION_SEEDS",
+      "role": "validation_model_seed",
+      "seeds": [15, 16, 17, 18, 19]
+    },
+    {
+      "id": "phase_b_regate_sealed",
+      "source": "src/apc/evaluation/hard_negative_repair_gate.py",
+      "symbol": "DEFAULT_REGATE_SEEDS",
+      "role": "sealed_model_seed",
+      "seeds": [20, 21, 22, 23, 24]
+    },
+    {
+      "id": "phase_b_sealed_v2_and_rejected_d001",
+      "source": "src/apc/evaluation/relation_split_protocol.py",
+      "symbol": "NEW_SEALED_V2_SEEDS",
+      "role": "sealed_model_seed; permanently forbidden to Phase D",
+      "seeds": [30, 31, 32, 33, 34]
+    }
+  ],
+  "historical_run_provenance": [
+    {
+      "id": "nrq005",
+      "source": "docs/research/NRQ005_REVIEW_RECORD.json",
+      "bundle_seeds_evaluated": [1, 2, 3, 4],
+      "data_seeds_evaluated": [101, 102, 103, 104, 105]
+    },
+    {
+      "id": "nrq006",
+      "source": "docs/research/NRQ006_REVIEW_RECORD.json",
+      "bundle_seeds_evaluated": [1, 2, 3, 4],
+      "data_seeds_evaluated": [101, 102, 103, 104, 105]
+    },
+    {
+      "id": "nrq007",
+      "source": "docs/research/NRQ007_REVIEW_RECORD.json",
+      "bundle_seeds_evaluated": [1, 2, 3, 4],
+      "data_seeds_evaluated": [101, 102, 103, 104, 105]
+    },
+    {
+      "id": "nrq008",
+      "source": "docs/research/NRQ008_REVIEW_RECORD.json",
+      "bundle_seeds_evaluated": [1, 2, 3, 4],
+      "data_seeds_evaluated": [201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220]
+    }
+  ],
+  "data_lineage": {
+    "cohort_build": "The exact D-001 Model Bundle Recovery stage graph, with fresh model initialization for each listed model seed. No data from any Phase B validation or sealed partition is an input to this cohort.",
+    "repair_and_registered_evaluations": "Unchanged from the D-001 preregistration: data RNG is deterministically derived by role as d001_train:<model_seed>:<step>:<op> and the separately fixed evaluation derivation. Model-seed identity is distinct from historical NRQ data-seed identity.",
+    "sealed_access": 0
+  }
+}
