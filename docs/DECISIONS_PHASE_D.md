@@ -1160,3 +1160,49 @@ reproducibility_summary   = DISORDER/INTERACTION: NOT_REPRODUCIBLE or REPRODUCIB
                              ARGUMENT: NOT_REPRODUCIBLE_ACROSS_MODEL_SEEDS (1/5 PRESENT) at both lengths, seed 44 in both cases
 ```
 
+## ADR-0185: D-017 — Phase D Saved-Evidence Integrity Audit and Next-Charter Transition Judgment (No Training, No Re-evaluation)
+
+**Date:** 2026-09-15
+**Task:** D-017 — read-only audit integrating D-013's confirmatory `FAIL`/`REFUTED` result with D-014-D-016's diagnostics against D-001's preregistration, the composition execution contract, and the panels/manifests, separating confirmed fact from record-supported interpretation from unconfirmed inference, and judging whether the evidence is sufficient to proceed to a next research charter. No additional training, optimizer construction, model forward for a new result, new bundle construction, D-013 re-execution, seed change, panel/threshold/budget change, sealed access, or candidate selection/promotion was performed or authorized.
+**Status:** **AUDIT_COMPLETED.** Full report: `docs/research/EVIDENCE_INTEGRITY_AUDIT_D017.md`. Machine-readable record: `docs/research/D017_REVIEW_RECORD.json`.
+
+**Provenance fixed before analysis:** repository HEAD `a9f7cebfcf6830edb2cdea791295bffc97d18afd` (the D-016 commit); task commits D-013 `8e2b86c`, D-014 `865fc5b`, D-015 `4617f4f`, D-016 `a9f7ceb`; model seeds 40-44 unchanged; D-013's target/regression/canary/causal panels use eval seeds 301-305 (all 5), D-014 uses eval seed 301 **only**, D-015/D-016 use 301-305. SHA-256 digests of every document, `report.json`, and evaluation module read are recorded in the JSON companion. All 5 seeds' `parent/manifest.json` and `candidate/candidate_manifest.json` were confirmed present; no artifact was missing, and no gap required inference, substitution, or re-execution to close.
+
+**D-001 six-criterion correspondence (per-model, no mean-rescue), from `runs/phase_d_d013_executor/report.json`:**
+
+| # | Criterion | 40 | 41 | 42 | 43 | 44 |
+|---|---|:-:|:-:|:-:|:-:|:-:|
+| 1 Target recovery | FAIL | FAIL | FAIL | FAIL | FAIL |
+| 2 Existing-capability preservation | PASS | FAIL | PASS | PASS | FAIL |
+| 3 Causal control | PASS | FAIL | PASS | PASS | FAIL |
+| 4 Invariance | PASS | PASS | PASS | PASS | PASS |
+| 5 Fresh-load parity | PASS | PASS | PASS | PASS | PASS |
+| 6 Full reporting | PASS | PASS | PASS | PASS | PASS |
+
+Criterion 4 re-verified directly (not merely re-quoted): in every seed, exactly one of 16 primitive-id hash keys changes before/after repair (SORT's own fixed slot); all 15 others are bit-identical — confirms no non-target parameter drift. Criteria 2/3 fail for seeds 41/44 for two **distinct**, non-averaged reasons: seed 41/44's own residual SORT defect (`causal_controls.target_L3_L5.correct_em` = 0.6952 / 0.6978 against the 0.95 floor), and, separately for seed 41, a **pre-existing** (delta=0.0000 after repair) capability deficit on BIND-terminal canary classes that contain no SORT step at all (`NEGATE->SELECT->BIND`=0.4976, etc.) — not a repair-induced degradation. Per-class target-panel data additionally shows `SELECT->SORT->REVERSE` and `SELECT->SORT->SELECT` fail the 0.95 floor in **all 5 seeds**, including seeds 40/42/43 whose SORT causal control passes — a universal, seed-independent failure distinct from the seed-41/44-specific failures.
+
+**Four interpretation findings (D-014/D-015/D-016), each CONFIRMED by direct code trace, cross-artifact triangulation, or deterministic input-only regeneration (zero model access):**
+
+- **F1 (BIND, seed 41, co-occurrence vs. causation):** ADR-0183's claim that seed-41 BIND's `EXPLAINED_BY_LENGTH` result "reflects that seed's own pre-existing upstream SORT defect" is **UNSUPPORTED_INTERPRETATION**. D-015's BIND standalone measurement generates content from an independent seeded RNG and never invokes SORT (code trace, `phase_d_d015...:_paired_examples`/`standalone_arms`); D-013's own no-SORT canary panel reproduces the identical seed-41 BIND pattern; seed 44 shares seed 41's SORT defect but shows no BIND effect. The BIND short-length weakness and the SORT defect are independent, co-occurring properties of one model, not a demonstrated causal chain. The underlying EM numbers themselves are confirmed correct.
+- **F2 (D-015 vs. D-016 comparability):** ADR-0184's claim that D-015's coarser pairing alone explains the gap between its seed-44 SHIFT `order_margin` (+0.0839, `ABSENT`) and D-016's `disorder_margin` (0.5000, `PRESENT`) at length 10 is only **partially supported**. D-015's own length-10-only `SORTED` arm (0.902-0.929 across eval seeds, re-read from its `report.json["order_cells"]`) does not reproduce D-016's severity, ruling out cross-length pooling as a sufficient explanation. D-015 samples duplicate-tolerant content; D-016 requires distinct-token-only content for its inversion-count scale — a genuine, unacknowledged population difference.
+- **F3 (D-016 input diversity, L=10):** deterministic, model-free regeneration of D-016's own registered generator function confirms that at length 10 (= `vocab_size`), the `ASCENDING` and `DESCENDING` disorder levels each collapse to exactly **one** unique input (`(0,...,9)` and `(9,...,0)` respectively), repeated across all nominal 5,000 pooled draws; only the three interior disorder levels (1,747-4,453 unique permutations) reflect genuine sampling. The reported seed-44/length-10 bimodal 0/1 amount split is therefore an accurate description of one deterministic model's response to one fixed input, not a population measurement — a scope limitation not stated in ADR-0184.
+- **F4 (reproducibility scope):** only `REVERSE`/`SELECT`'s `LENGTH_MAIN_EFFECT` is `REPRODUCIBLE_PRESENT` across all 5 independently-built models; the seed-44 SHIFT and seed-41 BIND findings are each present in exactly 1/5 models. D-015's `ORDER_MAIN_EFFECT` being `REPRODUCIBLE_ABSENT` for all 5 primitives means no tested margin cleared the pre-registered 0.10 bar, not that zero order-sensitivity exists at any magnitude.
+
+**Boundary items separated for a future, separately-authorized charter (none approved here):** (1) SORT's own residual defect (seed-dependent severity); (2) REVERSE/SELECT short-length `{3,4,5}` deficit, reproduced 5/5 seeds, independent of SORT/BIND seed health — the best-evidenced candidate; (3) NEGATE/SHIFT seed-dependent (3/5) downstream deficits; (4) the seed-44-only SHIFT boundary-length anomaly, now qualified by F2/F3's single-input and population-mismatch caveats; (5) the seed-41-only BIND short-length weakness (F1), independent of SORT. No new hypothesis, primitive target, comparison condition, data boundary, budget, or acceptance criterion is proposed or authorized by this audit; the D-013 cohort may not be reused as an unobserved confirmatory cohort for any future hypothesis derived from these items.
+
+**Transition judgment:** **PROCEED** to next-charter design review for item (2) (REVERSE/SELECT short-length deficit) — 5/5-model reproducible, free of the seed-specific confounds documented above. **HOLD** items (4)-(5) out of any next charter's confirmatory scope pending a re-scoped, population-matched diagnostic; they remain valid single-model observations, not general primitive properties. D-013's `FAIL`/`REFUTED` verdict (ADR-0181), D-014/D-015/D-016's `DIAGNOSTIC_COMPLETED` status, Phase B/C terminal states, and the G1 deficit are unchanged by this audit.
+
+```
+audit_execution        = COMPLETED
+model_forward_new      = 0
+optimizer_constructed  = false
+parameter_updates      = 0
+candidate_selected     = null
+bundle_promotion       = NOT_AUTHORIZED
+sealed_access          = 0
+new_model_data_seeds   = 0
+artifacts_modified     = NONE (D-013/D-014/D-015/D-016 reports, cell files, and ADRs unmodified)
+task_result            = AUDIT_COMPLETED
+findings               = F1 UNSUPPORTED_INTERPRETATION (BIND seed-41 causal claim), F2 PARTIALLY_SUPPORTED (D-015/D-016 comparability), F3 CONFIRMED (D-016 L=10 single-input scope gap), F4 CONFIRMED (reproducibility scope: REVERSE/SELECT 5/5, others <=3/5)
+transition_judgment    = PROCEED (REVERSE/SELECT short-length line); HOLD (seed-44 SHIFT, seed-41 BIND findings, pending re-scoped diagnostics)
+```

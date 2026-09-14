@@ -1,0 +1,199 @@
+{
+  "task": "D-017",
+  "title": "Phase D saved-evidence integrity audit and next-charter transition judgment",
+  "date": "2026-09-15",
+  "audit_type": "READ_ONLY_EVIDENCE_AUDIT",
+  "no_training": true,
+  "no_model_forward_of_new_computation": true,
+  "input_only_regeneration_used": true,
+  "provenance": {
+    "repo_head_commit": "a9f7cebfcf6830edb2cdea791295bffc97d18afd",
+    "repo_head_note": "D-016 commit (ADR-0184); config.json shows an unrelated uncommitted orchestrator-config diff not touched by this audit",
+    "task_commits": {
+      "D-013": "8e2b86cb379a5e33033c62c6f0924794ad5b4d12",
+      "D-014": "865fc5bd969feaae20c6b0d59bc6a46f8f151193",
+      "D-015": "4617f4ff1a62a33b46474633afbe3693dffb36f4",
+      "D-016": "a9f7cebfcf6830edb2cdea791295bffc97d18afd"
+    },
+    "model_seeds": [40, 41, 42, 43, 44],
+    "evaluation_seeds_D013_target_panel": [301, 302, 303, 304, 305],
+    "evaluation_seed_D014_only": 301,
+    "evaluation_seeds_D015_D016": [301, 302, 303, 304, 305],
+    "vocab_size": 10,
+    "file_sha256": {
+      "docs/DECISIONS_PHASE_D.md": "d049bf30230a7aedcdd6b759d6b3ae1e5e674c0a1fe3e3a0534df4a1b13935dd",
+      "docs/phase_d/PHASE_D_D001_SORT_ONLY_REPAIR_PILOT_PREREGISTRATION.md": "ab7d44189c6fdb362e22a2b63bff2d492111a1bc53a3d2c071caf48dcb18936e",
+      "docs/phase_d/PHASE_D_D001_TARGET_PANEL_MANIFEST.md": "5ae9d9bd90b4128fe0e97773b0d38b2b05fb6ddcda932b873c6afcbde781350e",
+      "docs/design-docs/PHASE_D_COMPOSITION_EXECUTION_CONTRACT.md": "5844a81cae5cb20d79d34aa453a8051f233dcb475282c4c7baa5e1dfcb706832",
+      "runs/phase_d_d013_executor/report.json": "e9c137d25a3a34771872b4b4de30ed504f92b2348416ed61c0022cb775065205",
+      "runs/phase_d_d014_stepwise_causal_localization/report.json": "fc47affb13fe76224d44c269e74f2c73f7dbebe3c2d683b3df4751aa778af4d2",
+      "runs/phase_d_d015_downstream_length_order_factorial/report.json": "21ed0fac4b038dc68b23e8dc8394525e0b15dd4c3b0dafa878d18ae2cad1427e",
+      "runs/phase_d_d016_shift_disorder_argument_factorial/report.json": "d8090df32e6f248f4deb86a29a712ef8915cd151a265a05c3b77a2405e3b6ade",
+      "src/apc/evaluation/phase_d_d014_stepwise_causal_localization.py": "53a2ba764ba661759217c03666e14425ea3804d137931e95ae856102f7c50bdc",
+      "src/apc/evaluation/phase_d_d015_downstream_length_order_factorial.py": "25d7483b507a66e82f5e2d7a76748ca1f3cebb2bd9620420d4dd66aca0c1c623",
+      "src/apc/evaluation/phase_d_d016_shift_disorder_argument_factorial.py": "670712a688ecc865e8e2006935b04e6724b3062917030b5f1a858eec2db6b72a"
+    },
+    "parent_and_candidate_manifests_verified_present": {
+      "runs/phase_d_d013_five_model_cohort/seed_{40..44}/parent/manifest.json": true,
+      "runs/phase_d_d013_sort_repair/seed_{40..44}/candidate/candidate_manifest.json": true
+    },
+    "not_independently_rerun": [
+      "full pytest suite (D-016 ADR self-reports 2729 passed, 0 failed; not reproduced by this audit -- out of scope for a read-only evidence audit and would require a GPU environment invocation not needed to answer the audit questions)",
+      "ruff/mypy (self-reported clean by D-013/D-016 ADRs; not reproduced)"
+    ]
+  },
+  "d001_acceptance_criteria": [
+    {
+      "id": 1,
+      "name": "target_recovery",
+      "definition": "EM >= 0.95 per model on standalone SORT L=3,4,5 and each of the 7 target composition classes (point estimate, no mean-rescue).",
+      "d013_field": "acceptance.target_recovery_pass",
+      "result_per_seed": {"40": false, "41": false, "42": false, "43": false, "44": false},
+      "verdict": "CONFIRMED_FAIL_0_OF_5"
+    },
+    {
+      "id": 2,
+      "name": "existing_capability_preservation",
+      "definition": "<=1.0pp degradation vs FROZEN_PARENT on every regression/canary panel, AND the panel's own pre-existing floor still met.",
+      "d013_field": "acceptance.existing_capability_preservation_pass",
+      "result_per_seed": {"40": true, "41": false, "42": true, "43": true, "44": false},
+      "note": "Seeds 41/44 fail because certain BIND-terminal canary classes (no SORT in recipe) are already below the expected ceiling in FROZEN_PARENT itself (e.g. seed 41 canary:NEGATE->SELECT->BIND=0.4976, canary:REVERSE->SELECT->BIND=0.4968, canary:SHIFT->SELECT->BIND=0.4828; delta vs FROZEN_PARENT = 0.0000 in every case, confirming SORT repair did not cause this). The failure is the panel's-own-floor clause of criterion 2, not the <=1pp-degradation clause.",
+      "verdict": "CONFIRMED_PASS_3_OF_5_FAIL_2_OF_5"
+    },
+    {
+      "id": 3,
+      "name": "causal_control",
+      "definition": "correct_exact_match >= 0.95, causal_gap >= 0.50, none_exact_match <= 0.06, at both length groups.",
+      "d013_field": "acceptance.causal_control_pass",
+      "result_per_seed": {"40": true, "41": false, "42": true, "43": true, "44": false},
+      "detail_target_L3_L5_correct_em": {"40": 1.0, "41": 0.6952, "42": 1.0, "43": 1.0, "44": 0.6978},
+      "verdict": "CONFIRMED_PASS_3_OF_5_FAIL_2_OF_5"
+    },
+    {
+      "id": 4,
+      "name": "invariance",
+      "definition": "Core + every non-SORT primitive canonical_state_hash unchanged before/after (exact match).",
+      "d013_field": "local_sort_repair.before_hashes / after_hashes",
+      "result_per_seed": {"40": true, "41": true, "42": true, "43": true, "44": true},
+      "note": "Direct re-inspection: exactly one of 16 primitive-id keys ('6', consistent with SORT's fixed op_to_id across all 5 independently-built models) differs before/after in every seed; all other 15 keys match exactly.",
+      "verdict": "CONFIRMED_PASS_5_OF_5"
+    },
+    {
+      "id": 5,
+      "name": "fresh_load_parity",
+      "definition": "Separate-process fresh load reproduces every metric to delta=0.",
+      "d013_field": "fresh_load.parity_pass",
+      "result_per_seed": {"40": true, "41": true, "42": true, "43": true, "44": true},
+      "verdict": "CONFIRMED_PASS_5_OF_5"
+    },
+    {
+      "id": 6,
+      "name": "full_reporting",
+      "definition": "Every model's full result set recorded, pass or fail, never omitted or averaged away.",
+      "result": "All 5 seeds' full panel results present in runs/phase_d_d013_executor/report.json and seed_{40..44}.json; no seed omitted.",
+      "verdict": "CONFIRMED_PASS_5_OF_5"
+    }
+  ],
+  "d013_target_panel_em_by_seed": {
+    "NEGATE->SELECT->SORT": {"40": 0.9998, "41": 0.6546, "42": 1.0, "43": 1.0, "44": 0.6242},
+    "SELECT->SORT->BIND": {"40": 1.0, "41": 0.3238, "42": 1.0, "43": 0.9998, "44": 0.9994},
+    "SELECT->SORT->NEGATE": {"40": 0.6906, "41": 0.127, "42": 1.0, "43": 0.9992, "44": 0.4608},
+    "SELECT->SORT->REVERSE": {"40": 0.0018, "41": 0.0348, "42": 0.0038, "43": 0.0034, "44": 0.015},
+    "SELECT->SORT->SELECT": {"40": 0.4326, "41": 0.4976, "42": 0.4178, "43": 0.7422, "44": 0.448},
+    "SELECT->SORT->SHIFT": {"40": 0.4934, "41": 0.0948, "42": 0.9578, "43": 0.9996, "44": 0.1538},
+    "SHIFT->SELECT->SORT": {"40": 0.9994, "41": 0.6164, "42": 1.0, "43": 0.9998, "44": 0.5738},
+    "note": "REVERSE and SELECT fail the 0.95 floor in ALL 5 seeds regardless of that seed's own SORT/BIND health (universal, seed-independent failure). NEGATE and SHIFT (as the terminal step) fail only for seeds whose SORT causal-control already fails (41, 44) or, for seed 40 specifically, also show sub-floor EM despite seed 40 otherwise passing causal_control -- consistent with D-014's independently-discovered DOWNSTREAM_SHORT_SEQUENCE_PRIMITIVE_DEFECT."
+  },
+  "d014_attribution_counts_recomputed_from_report_json": {
+    "PASSED": 14,
+    "RESIDUAL_SORT_DEFECT": 46,
+    "DOWNSTREAM_SHORT_SEQUENCE_PRIMITIVE_DEFECT": 8,
+    "UNCLASSIFIED_BOUNDARY": 2,
+    "total_cells": 70,
+    "eval_seed_used": 301,
+    "scope_caveat": "This attribution is derived from eval_seed 301 only (1000 examples/class), not the full 5-eval-seed panel D-013 itself used for target_recovery_pass. Not extrapolated here to eval seeds 302-305."
+  },
+  "findings": [
+    {
+      "id": "F1",
+      "topic": "3a_bind_seed41_causal_claim",
+      "verdict": "CONFIRMED",
+      "claim_examined": "ADR-0183 (D-015) states seed-41 BIND's EXPLAINED_BY_LENGTH result 'reflects that seed's own pre-existing upstream SORT defect rather than an independent BIND-specific short-length weakness.'",
+      "evidence": [
+        "Code trace (phase_d_d015_downstream_length_order_factorial.py _paired_examples + standalone_arms, and phase_d_d014...standalone_arms/_encode_fresh): BIND's standalone content in D-015 is generated by an independent seeded RNG (hashlib.sha256('phase-d-d015:BIND:{length}:{eval_seed}:{n}')) and fed directly to BIND via a fresh content-only encoding. SORT is never invoked, and no boundary content derived from any SORT forward pass is used. There is no code path by which SORT's own defect can influence this measurement.",
+        "D-013's own canary panel (classes with NO SORT step at all): seed 41 shows canary:NEGATE->SELECT->BIND=0.4976, canary:REVERSE->SELECT->BIND=0.4968, canary:SHIFT->SELECT->BIND=0.4828 in FROZEN_PARENT (delta=0.0000 after repair) -- the identical short-length BIND weakness reproduces in compositions that never contain SORT.",
+        "Cross-seed comparison: seed 44 also fails SORT's causal control (target_L3_L5 correct_em=0.6978) but shows NO BIND length effect in D-015 (NO_DEFECT_DETECTED) and near-ceiling BIND canary scores (0.9668-1.0). Seeds 40/42/43 have neither defect. Only seed 41 has both, and only seed 41 shows the BIND pattern -- if SORT's defect caused BIND's short-length weakness, seed 44 (which shares the SORT defect) would be expected to show it too."
+      ],
+      "conclusion": "The measurement pipeline that produced the BIND finding cannot be causally affected by SORT's state. The observed pattern is a within-seed co-occurrence of two independent, seed-41-specific primitive defects (SORT's own residual short-length defect, and BIND's own residual short-length defect), not a demonstrated causal or interface dependency. ADR-0183's phrasing is an unsupported causal interpretation layered on a correctly-computed number; the underlying EM values themselves (SHORT ~0.463-0.473, LONG ~0.9999-1.0) are CONFIRMED accurate."
+    },
+    {
+      "id": "F2",
+      "topic": "3b_d015_d016_comparability",
+      "verdict": "CONFIRMED",
+      "claim_examined": "ADR-0184 (D-016) states D-015's coarser design 'mixes ASCENDING's 0.0/1.0 bimodal split together with the near-ceiling non-ascending orders D-015's SORTED condition never isolated, diluting a real, large, amount-interacting order effect' -- implying the D-015 to D-016 gap (order_margin +0.0839 vs disorder_margin 0.5000, seed 44) is explained by resolution/pairing refinement alone.",
+      "evidence": [
+        "D-015 content generation (_paired_examples): tokens drawn i.i.d. WITH replacement (duplicates allowed), `content = tuple(rng.randrange(VOCAB_SIZE) for _ in range(length))`, then SORTED = ascending(content).",
+        "D-016 content generation (_paired_disorder_examples): tokens drawn WITHOUT replacement, `elements = sorted(rng.sample(range(VOCAB_SIZE), length))` -- distinct tokens only, required for a well-defined inversion-count ordinal scale.",
+        "At length=10=VOCAB_SIZE, sampling 10 distinct values from a 10-value vocabulary forces the unique multiset {0..9} deterministically; ASCENDING (0 inversions) and DESCENDING (max inversions) are then each the single unique permutation achieving that inversion count. Empirically regenerated (input-only, no model forward): D-016's ASCENDING and DESCENDING cells at length 10 are each backed by exactly 1 distinct input, repeated 5000 times (5 eval seeds x 1000 nominal examples).",
+        "D-015's own report.json order_cells, seed 44 SHIFT, length=10 only (not pooled across lengths): SORTED em in {0.902, 0.906, 0.908, 0.909, 0.929} across eval seeds 301-305 -- far above D-016's ASCENDING mean of 0.5000 at the same length, even without any cross-length pooling."
+      ],
+      "conclusion": "The D-015-to-D-016 gap is not adequately explained by cross-length pooling or random-vs-balanced argument sampling alone (D-015's own length-10-only SORTED arm does not reproduce D-016's severity). A substantial part of the gap traces to a genuine population change: D-015 samples a duplicate-tolerant, broad content distribution while D-016's ASCENDING/DESCENDING cells at length 10 sample from a single fixed, maximally-regular sequence (the full ascending/descending alphabet). ADR-0184's 'dilution by coarser pairing' narrative is only partially supported; the input-population difference is an additional, unacknowledged contributor. This does not overturn D-016's own seed-44 findings, but qualifies the claim that D-016 'exposes' the same effect D-015 'diluted' -- they are not drawn from population-equivalent input distributions."
+    },
+    {
+      "id": "F3",
+      "topic": "3c_d016_input_diversity_L10_ascending",
+      "verdict": "CONFIRMED",
+      "claim_examined": "Task instruction requires explicit disclosure of what range of distinct inputs the L=10/ASCENDING 0/1 amount split represents.",
+      "evidence": [
+        "Input-only deterministic regeneration (no model forward) using the registered `_paired_disorder_examples` generator, identical (length, eval_seed, n) arguments as the executed run: at length=10, ALL 5000 pooled draws (5 eval seeds x 1000) at disorder=ASCENDING yield the single tuple (0,1,2,3,4,5,6,7,8,9); ALL 5000 pooled draws at disorder=DESCENDING yield the single tuple (9,8,7,6,5,4,3,2,1,0). LOW/MEDIUM/HIGH_INVERSION at length 10 have genuine permutation diversity (1747, 4453, 1780 unique orderings respectively, pooled). At length=6, all 5 disorder levels (including ASCENDING/DESCENDING) show substantial-to-full diversity (210 unique inputs each for ASCENDING/DESCENDING, matching the exact C(10,6)=210 possible 6-token subsets; 3028-4188 for the three interior levels)."
+      ],
+      "conclusion": "The reported 'seed 44, length 10, ASCENDING is bimodal by amount, {0,2,3,5,7} fail vs {1,4,6,8,9} perfect' is a description of ONE model's deterministic response to ONE fixed input sequence under 10 different shift amounts, not a sampled population result. The EM values (exactly 0.0 or 1.0 per amount, no intermediate values) are the expected signature of a deterministic model evaluated on a repeated identical input, which is independently consistent with this diversity finding. The same applies to the length-10 DESCENDING cell (also 1 unique input). The disorder_margin=0.5000 and interaction_margin=0.4300 reported for seed 44 length 10 are therefore driven, in the ASCENDING/DESCENDING arms, by single-input case studies at the two disorder extremes; only the three interior disorder levels reflect a genuine sample. This does not necessarily make the finding false, but it substantially narrows the population the finding can be said to describe, and this scope was not stated in ADR-0184."
+    },
+    {
+      "id": "F4",
+      "topic": "3d_representation_scope",
+      "verdict": "CONFIRMED",
+      "claim_examined": "Distinguish threshold-ABSENT from no-effect, and single-seed findings from 5-model-reproduced findings.",
+      "evidence": [
+        "D-015 reproducibility fields (report.json / cell_*_[NEGATE|REVERSE|SELECT|SHIFT|BIND].json): LENGTH_MAIN_EFFECT is REPRODUCIBLE_PRESENT (5/5 seeds) only for REVERSE and SELECT; NOT_REPRODUCIBLE_ACROSS_MODEL_SEEDS for NEGATE (3/5), SHIFT (3/5), BIND (1/5). ORDER_MAIN_EFFECT and INTERACTION_EFFECT are REPRODUCIBLE_ABSENT for all 5 primitives (every one of 25 seed x primitive cells stays under the 0.10 EFFECT_MARGIN).",
+        "D-016 reproducibility fields: at both lengths (6, 10), DISORDER_MAIN_EFFECT and INTERACTION_EFFECT are PRESENT in at most 1/5 seeds (seed 44 only) at either length; ARGUMENT_MAIN_EFFECT is PRESENT in exactly 1/5 seeds (seed 44) at both lengths."
+      ],
+      "conclusion": "REVERSE/SELECT's short-length ({3,4,5}) capacity deficit is the only finding in this evidence chain that is reproducible across all 5 independently-constructed models -- this is the strongest-supported candidate for a next-charter hypothesis. The seed-44 SHIFT disorder/argument finding (D-016) and the seed-41 BIND finding (D-015) are each observed in exactly 1 of 5 models and must not be presented as a general SHIFT or BIND property; ORDER_MAIN_EFFECT being 'ABSENT' for all 5 primitives in D-015 means the tested margins did not clear the pre-registered 0.10 bar, not that no order-sensitivity of any magnitude exists (e.g. seed 44 SHIFT order_margin=+0.0839 is close to, but under, the bar)."
+    }
+  ],
+  "next_charter_boundary_items": [
+    {
+      "item": "SORT's own residual defect after single-primitive repair",
+      "status": "CONFIRMED, reproducible across seeds with varying severity (seed 41, 44 severe; seeds 40/42/43 largely repaired per causal_control_pass=True)",
+      "evidence_source": "D-013 causal_controls.target_L3_L5, D-014 RESIDUAL_SORT_DEFECT attribution"
+    },
+    {
+      "item": "REVERSE/SELECT short-length ({3,4,5}) capacity deficit, reproduced independent of SORT/BIND seed health",
+      "status": "CONFIRMED, 5/5 seeds, REPRODUCIBLE_PRESENT per D-015",
+      "evidence_source": "D-013 target panel (SELECT->SORT->REVERSE, SELECT->SORT->SELECT all-seed failure), D-015 LENGTH_MAIN_EFFECT"
+    },
+    {
+      "item": "NEGATE/SHIFT downstream short-length weakness, seed-dependent (3/5)",
+      "status": "CONFIRMED as present in a minority of seeds; NOT_REPRODUCIBLE_ACROSS_MODEL_SEEDS",
+      "evidence_source": "D-014 DOWNSTREAM_SHORT_SEQUENCE_PRIMITIVE_DEFECT, D-015 per-seed overall"
+    },
+    {
+      "item": "BIND seed-41-only short-length weakness",
+      "status": "CONFIRMED as an independent, seed-41-specific BIND defect (not SORT-caused, see F1); 1/5 seeds",
+      "evidence_source": "D-013 canary panel, D-015 cell_41_BIND.json"
+    },
+    {
+      "item": "Seed-44-only SHIFT disorder/argument finding at boundary lengths",
+      "status": "CONFIRMED for the specific tested inputs, but L=10 ASCENDING/DESCENDING arms are single-input case studies (see F3); 1/5 seeds; scope must be narrowed before use as a confirmatory target",
+      "evidence_source": "D-014 UNCLASSIFIED_BOUNDARY, D-015 cell_44_SHIFT.json, D-016 cell_44_10.json / cell_44_6.json"
+    }
+  ],
+  "prohibited_actions_confirmed_not_taken": [
+    "no training", "no optimizer construction", "no model forward for new results (only pre-existing saved metrics were read; input-only regeneration used the registered generator functions with zero model access)",
+    "no new bundle construction", "no D-013 re-execution", "no seed addition/exchange/exclusion",
+    "no panel/threshold/budget change", "no sealed access", "no candidate selection or promotion",
+    "no deletion or reuse of past artifacts", "no modification of D-013/D-014/D-015/D-016 ADRs or run artifacts"
+  ],
+  "recommendation": "HOLD_FOR_SCOPED_REPAIR_BEFORE_NEXT_CHARTER_ON_SHIFT_BIND_FINDINGS; PROCEED_ON_REVERSE_SELECT_LINE",
+  "recommendation_detail": "The REVERSE/SELECT short-length capacity deficit (5/5-seed reproducible, structurally clean of the SORT/BIND seed-specific confounds) has sufficient, well-triangulated saved evidence to support a next-charter design review under the stated research-hypothesis direction (whether saturating each primitive's own standalone capacity over the input region required at a composition boundary is necessary for continuous composition recovery). The seed-44 SHIFT and seed-41 BIND findings are real but (a) not reproduced beyond 1/5 models and (b) for SHIFT specifically, partially confounded by a single-input measurement artifact at the L=10 boundary (F3) and a content-population mismatch versus D-015 (F2); these should be carried forward as open, narrower-scoped items requiring their own re-designed diagnostic (duplicate-token-tolerant content at L=10, or a population-matched re-measurement) before being treated as confirmatory evidence for a next charter, not as blocking the REVERSE/SELECT line."
+}
