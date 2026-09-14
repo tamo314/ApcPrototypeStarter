@@ -1038,3 +1038,60 @@ attribution_summary  = FROZEN_PARENT: 34/35 RESIDUAL_SORT_DEFECT, 1/35 UNCLASSIF
                         0 UPSTREAM_ERROR_ACCUMULATION; 0 INTERFACE_FAILURE
 ```
 
+## ADR-0183: D-015 — Downstream Primitive Length x Input-Order Paired Factorial (No Training)
+
+**Date:** 2026-09-14
+**Task:** D-015 — D-014 (ADR-0182) newly identified `DOWNSTREAM_SHORT_SEQUENCE_PRIMITIVE_DEFECT` for 8/35 `LOCAL_SORT_REPAIR` cells: once SORT's own defect is repaired, the next primitive in `SELECT->SORT->{NEGATE,REVERSE,SELECT,SHIFT}` still fails on SORT's short (`{3,4,5}`-token) output. Two confounded explanations remained: (a) the downstream primitive is simply unreliable at short lengths regardless of content order, or (b) it is unreliable specifically on already-sorted (ascending) input — the one property every real SORT output has, independent of length. This task runs, exactly once, the preregistered five-model (seeds 40-44) x evaluation-seed (301-305) paired 2x2 length x order factorial to discriminate (a) from (b) (and their interaction), reusing only D-013's already-saved `LOCAL_SORT_REPAIR` candidate bundles.
+**Status:** **COMPLETED.** Read-only diagnostic; `task_result: DIAGNOSTIC_COMPLETED` (not a pass/fail research gate). Zero training, zero optimizer construction, zero parameter updates, zero new model/data seeds (evaluation seeds 301-305 are D-013's own already-registered `EVAL_SEEDS`, not newly drawn), zero sealed access, zero D-013/D-014 artifact modification, zero candidate selection, zero promotion.
+
+**Method (new code, no new namespace consuming a model/data seed):**
+- Added `src/apc/evaluation/phase_d_d015_downstream_length_order_factorial.py`, `scripts/phase_d_d015_downstream_length_order_factorial.py`, and `tests/test_phase_d_d015_downstream_length_order_factorial.py` (20 CPU-only unit tests of the pure gate/example-generation/pooling/decision-rule logic; no GPU or model bundle required), reusing `_bundle_paths`, `load_bundle_for_condition`, `standalone_arms`, and `VOCAB_SIZE` verbatim from D-014's module.
+- Target primitives: `NEGATE`, `REVERSE`, `SELECT`, `SHIFT` (the four D-014 flagged); `BIND` runs identically as a negative control (D-014 did not classify any `SELECT->SORT->BIND` cell as the downstream defect).
+- Length factor: SHORT (`{3,4,5}`) vs. LONG (`{6,...,10}`). Order factor: UNSORTED (ordinary randomly-drawn content) vs. SORTED (the same multiset, sorted ascending), paired example-by-example — the same multiset and sampled argument are used in both order arms; only token order differs. 1,000 paired examples per (seed, primitive, eval seed, length) cell, pooled across all 5 registered evaluation seeds (301-305) into four cells per (seed, primitive): `EM(SHORT,UNSORTED)`, `EM(SHORT,SORTED)`, `EM(LONG,UNSORTED)`, `EM(LONG,SORTED)`.
+- Paired-draw invariants enforced by rejection sampling before a pair is ever seen by a model (never by discarding results after the fact): the UNSORTED draw must genuinely be out of ascending order (regression test `test_paired_examples_unsorted_side_is_never_already_ascending`), and for `BIND` the sampled `query_key` must remain a valid lookup key in both order arms (regression test `test_paired_examples_bind_query_key_is_valid_in_both_order_arms`).
+- **Mandatory gate, enforced per seed before loading the candidate bundle for evaluation:** every non-SORT primitive's `weights_hash`/`state_abi_hash` and the Stable Core manifest must be bit-identical between the saved `FROZEN_PARENT` and `LOCAL_SORT_REPAIR` manifests (`check_non_sort_identity`/`verify_non_sort_hash_identity`). Since this proves every operand the diagnostic touches besides SORT is bit-identical across both conditions, only `LOCAL_SORT_REPAIR` is then loaded and evaluated — evaluating `FROZEN_PARENT` too would be a fully redundant repeat of the same computation. **All 5 seeds passed this gate (15/15 non-SORT ops identical per seed).**
+- Fixed, pre-registered decision rule (module docstring, fixed before any run; `ADEQUACY_FLOOR = 0.95` reused verbatim from D-014's `STANDALONE_DEFECT_FLOOR`, `EFFECT_MARGIN = 0.10` newly fixed for this diagnostic — twice the codebase's existing None-arm slack, well below the 0.50 "large causal gap" threshold used elsewhere): `LENGTH_MAIN_EFFECT`/`ORDER_MAIN_EFFECT`/`INTERACTION_EFFECT` are each `PRESENT` iff their margin clears `EFFECT_MARGIN` (and, for length/order, the relevant mean is below `ADEQUACY_FLOOR`), else `ABSENT`. Per (seed, primitive): `NO_DEFECT_DETECTED` if no effect is `PRESENT` and all four cells clear `ADEQUACY_FLOOR`; `UNDIFFERENTIATED_DEFICIT` if some cell is below floor but no named effect clears `EFFECT_MARGIN`; otherwise `EXPLAINED_BY_<LENGTH|ORDER|INTERACTION[+...]>`. Each effect is also classified for cross-seed reproducibility: `REPRODUCIBLE_PRESENT`/`REPRODUCIBLE_ABSENT` if all 5 model seeds agree, else `NOT_REPRODUCIBLE_ACROSS_MODEL_SEEDS` with the per-seed split reported.
+
+**Execution:** one-time run under the D-007 CUDA environment (RTX 5060 Ti), wall clock 222.31s, peak CUDA memory 145,181,184 bytes. 1,800,000 standalone-primitive examples evaluated across 1,800 order cells (5 seeds x 5 primitives x up to 8 valid lengths x 5 eval seeds x 2 order arms) and 900 paired differences. Output: `runs/phase_d_d015_downstream_length_order_factorial/` (25 per-(seed,primitive) cell JSON files + `report.json`), a new namespace, D-013/D-014 artifacts unmodified.
+
+**Results (25 seed x primitive cells; margins pooled across all 5 eval seeds and all valid lengths per length group):**
+
+| Primitive | `length_margin` range | `order_margin` range | `interaction_margin` range | Length effect (cross-seed) | Order effect | Interaction effect |
+|---|---|---|---|---|---|---|
+| `REVERSE` | +0.9209 to +0.9791 | -0.0215 to +0.0629 | -0.0922 to -0.0286 | `REPRODUCIBLE_PRESENT` (5/5) | `REPRODUCIBLE_ABSENT` | `REPRODUCIBLE_ABSENT` |
+| `SELECT` | +0.2895 to +0.6512 | +0.0026 to +0.0261 | +0.0052 to +0.0525 | `REPRODUCIBLE_PRESENT` (5/5) | `REPRODUCIBLE_ABSENT` | `REPRODUCIBLE_ABSENT` |
+| `NEGATE` | 0.0000 to +0.8642 | 0.0000 to +0.0242 | 0.0000 to +0.0484 | `NOT_REPRODUCIBLE` (3/5 PRESENT) | `REPRODUCIBLE_ABSENT` | `REPRODUCIBLE_ABSENT` |
+| `SHIFT` | 0.0000 to +0.8497 | -0.0118 to +0.0839 | -0.0594 to +0.0000 | `NOT_REPRODUCIBLE` (3/5 PRESENT) | `REPRODUCIBLE_ABSENT` | `REPRODUCIBLE_ABSENT` |
+| `BIND` (negative control) | -0.0001 to +0.5317 | -0.0049 to +0.0001 | -0.0099 to -0.0001 | `NOT_REPRODUCIBLE` (1/5 PRESENT) | `REPRODUCIBLE_ABSENT` | `REPRODUCIBLE_ABSENT` |
+
+Across all 25 (seed, primitive) cells, `order_margin` never exceeds `+0.0839` or falls below `-0.0215` in absolute value against the `0.10` threshold, and `interaction_margin` stays within `[-0.0922, +0.0525]` — neither clears `EFFECT_MARGIN` in a single cell. `ORDER_MAIN_EFFECT` and `INTERACTION_EFFECT` are therefore `REPRODUCIBLE_ABSENT` for all 5 target primitives.
+
+- **`REVERSE`/`SELECT`:** `LENGTH_MAIN_EFFECT` is `REPRODUCIBLE_PRESENT` (`EXPLAINED_BY_LENGTH` in all 5 independently-built models), with SHORT-length EM near 0 (e.g. seed 40 `REVERSE`: `SHORT:UNSORTED=0.0231`, `SHORT:SORTED=0.0000`) against LONG-length EM near ceiling (`LONG:UNSORTED=0.9749`, `LONG:SORTED=0.9804`) — sorted vs. unsorted input makes no material difference at either length.
+- **`NEGATE`/`SHIFT`:** the downstream defect itself is not universal — seeds 42/43 show `NO_DEFECT_DETECTED` (all four cells already at/near ceiling) while seeds 40/41/44 show `EXPLAINED_BY_LENGTH`; seed 42 `SHIFT` is `UNDIFFERENTIATED_DEFICIT` (a below-floor cell with no margin clearing threshold). Where the defect is present, it is explained by length, never by order.
+- **`BIND` (negative control):** `NO_DEFECT_DETECTED` for 4/5 seeds, consistent with D-014 never classifying a `SELECT->SORT->BIND` cell as the downstream defect. The one exception, seed 41, is the same seed D-013 itself recorded `causal_control_pass=False` for (SORT remained defective for seed 41); its `EXPLAINED_BY_LENGTH` result there reflects that seed's own pre-existing upstream SORT defect rather than an independent BIND-specific short-length weakness.
+
+**Scientific Interpretation & Status:**
+- This diagnostic directly discriminates the two explanations named in D-014's finding. Evidence supports explanation (a), short-length capacity deficiency, exclusively: `ORDER_MAIN_EFFECT` and `INTERACTION_EFFECT` are `REPRODUCIBLE_ABSENT` for every one of the 5 target primitives, with zero cells anywhere clearing the pre-registered `EFFECT_MARGIN`. Explanation (b), sorted-input-order sensitivity, is not supported anywhere in this 1.8M-example diagnostic. For `REVERSE`/`SELECT` the length effect itself is fully reproducible across all 5 independently-built models; for `NEGATE`/`SHIFT` the downstream defect (and hence the length effect that explains it) is present in only 3/5 models, so — independent of the length-vs-order question — the downstream defect is not universally reproducible for those two primitives.
+- This resolves item (2) of the outstanding research uncertainty ("short-length deficiency versus sorted-input sensitivity") for the `DOWNSTREAM_SHORT_SEQUENCE_PRIMITIVE_DEFECT` D-014 identified: order is not a contributing explanation in any of the 25 seed x primitive cells tested. It does not investigate, and does not resolve, the seed-44 `SHIFT` `UNCLASSIFIED_BOUNDARY` anomaly from ADR-0182 (a distinct, standalone pre-SELECT `SHIFT` quality artifact, out of this diagnostic's scope), and it does not alter H-D1's D-013 `REFUTED` verdict (ADR-0181).
+- No candidate selection, bundle promotion, additional training, new seed, or sealed-data access occurred. D-013's and D-014's artifacts, ADRs, and verdicts are unmodified.
+
+```
+diagnostic_execution      = COMPLETED
+non_sort_core_hash_gate   = 5/5 SEEDS PASS (15/15 non-SORT ops identical per seed)
+paired_unsorted_invariant = ENFORCED (rejection sampling; 0 already-ascending draws admitted)
+bind_query_key_invariant  = ENFORCED (rejection sampling; 0 invalid-key draws admitted)
+optimizer_constructed     = false
+parameter_updates         = 0
+candidate_selected        = null
+bundle_promotion          = NOT_AUTHORIZED
+sealed_access             = 0
+new_model_data_seeds      = 0
+wall_clock_seconds        = 222.31
+peak_cuda_memory_bytes    = 145181184
+task_result               = DIAGNOSTIC_COMPLETED
+order_effect_summary       = REPRODUCIBLE_ABSENT for all 5 primitives (order_margin in [-0.0215, +0.0839] vs 0.10 threshold)
+interaction_effect_summary = REPRODUCIBLE_ABSENT for all 5 primitives (interaction_margin in [-0.0922, +0.0525] vs 0.10 threshold)
+length_effect_summary      = REPRODUCIBLE_PRESENT: REVERSE, SELECT (5/5 seeds each);
+                              NOT_REPRODUCIBLE_ACROSS_MODEL_SEEDS: NEGATE (3/5), SHIFT (3/5), BIND (1/5, seed 41 only)
+```
+
