@@ -983,3 +983,58 @@ h_d1_status         = REFUTED
 research_gate       = PILOT_COMPLETED_NEGATIVE_RESULT (0/5 models satisfied target recovery threshold >=0.95)
 ```
 
+## ADR-0182: D-014 — Post-Repair Stepwise Causal Localization Over D-013 Artifacts (No Training)
+
+**Date:** 2026-09-14
+**Task:** D-014 — D-013の保存済みparent/candidateと同一の5 model seeds・評価seed・target例だけを用い、学習なしのpost-repair stepwise causal localization実験を一度実行する。各7 target compositionについて、FROZEN_PARENTとLOCAL_SORT_REPAIRを、(A)通常連続実行、(B)SELECT直後だけoracle中間tokenへ診断reset、(C)SORT直後だけoracle SORT出力へ診断reset、(D)各境界入力上での長さ一致standalone primitive実行で比較し、step別EM、reset rescue、Correct/Wrong-family/None（parameterized stepではWrong-argumentも含む）、最初の失敗stepを全5モデル×固定評価seedで報告する。
+**Status:** **COMPLETED.** Read-only diagnostic; `task_result: DIAGNOSTIC_COMPLETED` (not a pass/fail research gate). Zero training, zero optimizer construction, zero parameter updates, zero new seeds, zero sealed access, zero D-013 artifact modification, zero candidate selection, zero promotion.
+
+**Method (new code, no new namespace consuming a model/data seed):**
+- Added `src/apc/evaluation/phase_d_d014_stepwise_causal_localization.py`, `scripts/phase_d_d014_stepwise_causal_localization.py`, and `tests/test_phase_d_d014_stepwise_causal_localization.py` (12 CPU-only unit tests of the pure oracle-chain/attribution-rule logic; no GPU or model bundle required).
+- Loads only the already-saved D-013 bundles read-only: `runs/phase_d_d013_five_model_cohort/seed_{40..44}/parent/manifest.json` (`FROZEN_PARENT`) and `runs/phase_d_d013_sort_repair/seed_{40..44}/candidate/candidate_manifest.json` (`LOCAL_SORT_REPAIR`), via the same `mb.load_bundle`/`PrimitiveBank.load_manifest` pattern as `scripts/phase_d_fresh_load_check.py`.
+- Reuses D-013's own `_examples_for_recipe(eval_seed=301, recipe, n=1000, lengths=(6,10))` verbatim for the 7 `TARGET_CLASSES` (eval seed 301 is the first of D-013's own `EVAL_SEEDS`, not a new seed).
+- **Mandatory parity precondition, enforced per cell before trusting any further computation:** recomputes `_em(core, bank, op_to_id, examples)` (D-013's own aggregation function) and requires an exact match — successes, `n`, and `outputs_sha256` digest — against the corresponding `per_evaluation_seed` (`seed=301`) entry already recorded in `runs/phase_d_d013_executor/seed_{seed}.json`. A mismatch raises `D014DiagnosticError` and halts before any stepwise computation. **All 70 cells (5 seeds x 2 conditions x 7 classes) matched exactly (0 mismatches).**
+- Four comparison conditions per cell, all under `torch.no_grad()`:
+  - **(A)** continuous multi-step forward, retaining per-step predictions.
+  - **(B)** SELECT's own output is replaced by `SelectOp.apply` on whatever content SELECT actually received (continuous, uncorrected upstream); every subsequent step then runs continuously, uncorrected.
+  - **(C)** symmetric single-point correction at SORT's own output (`SortOp.apply` on SORT's actual received content); SELECT is not corrected under (C).
+  - **(D)** standalone primitive execution on the exact realized boundary content at every step, scored Correct / Wrong-family / None (+ Wrong-argument for SELECT), reusing `WRONG_FAMILY_MAP`/`DEFAULT_WRONG_FAMILY_ARGUMENTS`/`get_wrong_argument` verbatim from the existing NRQ-007/unified-benchmark modules.
+- Fixed, pre-registered attribution rule (module docstring, fixed before any run): earliest step under (A) below the reused NRQ-007 floors (0.85 non-final / 0.95 final) is classified `RESIDUAL_SORT_DEFECT` / `DOWNSTREAM_SHORT_SEQUENCE_PRIMITIVE_DEFECT` / `SELECT_OWN_DEFECT_OUT_OF_SCOPE` if that step's own standalone (D) Correct-arm EM is below 0.95, else `UPSTREAM_ERROR_ACCUMULATION` if upstream cleanliness is below 0.95, else `INTERFACE_FAILURE`; a step outside `{idx_select, idx_sort, last_idx}` (only possible for the pre-SELECT step of `NEGATE->SELECT->SORT`/`SHIFT->SELECT->SORT`) falls back to `UNCLASSIFIED_BOUNDARY` rather than being forced into one of the four named categories.
+
+**Execution:** one-time run under the D-007 CUDA environment (RTX 5060 Ti), wall clock 81.67s. Output: `runs/phase_d_d014_stepwise_causal_localization/` (70 per-cell JSON files + `report.json`), a new namespace, D-013 artifacts unmodified.
+
+**Results (attribution counts, 5 seeds x 7 classes = 35 cells per condition):**
+
+| Condition | RESIDUAL_SORT_DEFECT | PASSED | DOWNSTREAM_SHORT_SEQUENCE_PRIMITIVE_DEFECT | UNCLASSIFIED_BOUNDARY |
+|---|---:|---:|---:|---:|
+| `FROZEN_PARENT` | 34 | 0 | 0 | 1 |
+| `LOCAL_SORT_REPAIR` | 12 | 14 | 8 | 1 |
+
+Zero `UPSTREAM_ERROR_ACCUMULATION` and zero `INTERFACE_FAILURE` cells occurred in either condition.
+
+- **`FROZEN_PARENT`:** 34/35 cells attribute to `RESIDUAL_SORT_DEFECT` (SORT's own standalone EM on its actual received content is also below 0.95, matching D-001's original target-panel discovery). The one exception (`SHIFT->SELECT->SORT`, seed 44) is `UNCLASSIFIED_BOUNDARY`: `SHIFT` itself (step 0, not SELECT/SORT/final) has continuous EM 0.844, a hair below the 0.85 floor, for this one seed only — a pre-existing seed-44 `SHIFT` quality artifact unrelated to the SORT-repair investigation, correctly excluded from the four requested categories rather than misattributed.
+- **`LOCAL_SORT_REPAIR`:** per-seed attribution tracks D-013's own `causal_control_pass` split exactly: seed 41 is `RESIDUAL_SORT_DEFECT` on all 7 classes (D-013 recorded `causal_control_pass=False` for seed 41); seeds 40/42/43 (D-013 `causal_control_pass=True`) are mostly `PASSED`, with the *new* finding that once SORT's own defect clears, `SELECT->SORT->NEGATE/REVERSE/SELECT/SHIFT` expose a previously-masked `DOWNSTREAM_SHORT_SEQUENCE_PRIMITIVE_DEFECT` in the third-step primitive itself (its own standalone Correct-arm EM on SORT's short `{3,4,5}`-length output is below 0.95). `SELECT->SORT->REVERSE` is the most severe: mean final EM stays near zero in both conditions (0.0086 -> 0.0118) and reset-(C) rescue (correcting only SORT's output) stays near zero too (0.0061 -> 0.0016), so `REVERSE` on length `{3,4,5}` is itself broken independent of SORT, consistent with D-013's own report that this class "collapsed to near 0 across all seeds."
+- Reset-(C) rescue rate is highly class-dependent even within `LOCAL_SORT_REPAIR`: near-1.0 for the two SORT-terminal classes (`NEGATE->SELECT->SORT`, `SHIFT->SELECT->SORT`, where "rescue" reduces to a multiset-match tolerant of SELECT's own order errors), 0.28 for `SELECT->SORT->BIND` (repair already fixed most cases; BIND handles the remaining SORT errors it is given inconsistently), and nearly 0 for `SELECT->SORT->REVERSE`/`SELECT->SORT->SHIFT` (correcting SORT's output does not rescue the sequence -- the bottleneck has moved downstream).
+
+**Scientific Interpretation & Status:**
+- This is a diagnostic-only localization exercise, not a repair, a research gate, or a re-run of D-013's own acceptance criteria. `task_result: DIAGNOSTIC_COMPLETED`; H-D1's D-013 `REFUTED` status (ADR-0181) is unchanged.
+- Every (B)/(C) reset is evaluator-side only: never fed into any forward pass used for training (no optimizer exists in this module), never used as a success metric substituting for continuous (A) EM, matching the existing NRQ-007 diagnostic-reset convention.
+- Findings support three of the four hypotheses named in the task instruction: residual SORT defect (still dominant for 2/5 repaired seeds and for the entire `FROZEN_PARENT` baseline) and a newly-identified downstream short-sequence primitive defect (exposed only once SORT itself partially recovers, for 3/5 repaired seeds on 4 of the 7 classes). Upstream error accumulation and interface failure were not observed in any of the 70 cells. A fifth, out-of-scope outcome (a pre-existing seed-44 `SHIFT` accuracy artifact) was honestly reported rather than forced into one of the four categories.
+- No candidate selection, bundle promotion, additional training, new seed, or sealed-data access occurred. D-013's artifacts, ADR, and acceptance verdict are unmodified.
+
+```
+diagnostic_execution = COMPLETED
+parity_check         = 70/70 CELLS MATCH D-013 outputs_sha256 EXACTLY
+optimizer_constructed = false
+parameter_updates    = 0
+candidate_selected   = null
+bundle_promotion     = NOT_AUTHORIZED
+sealed_access        = 0
+new_model_data_seeds = 0
+task_result          = DIAGNOSTIC_COMPLETED
+attribution_summary  = FROZEN_PARENT: 34/35 RESIDUAL_SORT_DEFECT, 1/35 UNCLASSIFIED_BOUNDARY;
+                        LOCAL_SORT_REPAIR: 14/35 PASSED, 12/35 RESIDUAL_SORT_DEFECT,
+                        8/35 DOWNSTREAM_SHORT_SEQUENCE_PRIMITIVE_DEFECT, 1/35 UNCLASSIFIED_BOUNDARY;
+                        0 UPSTREAM_ERROR_ACCUMULATION; 0 INTERFACE_FAILURE
+```
+
