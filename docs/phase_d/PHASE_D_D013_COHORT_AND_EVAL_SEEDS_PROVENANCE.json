@@ -1,0 +1,7 @@
+{
+  "purpose": "Re-expresses already-recorded D-013/D-017 provenance in the exact field names apc.evaluation.phase_d_seed_registry.audit_phase_d_seed_registry expects (bundle_seeds_evaluated / data_seeds_evaluated), so the existing, unmodified audit function can mechanically check a new candidate cohort against the now-already-used Phase D five-model cohort and its registered evaluation seeds. This file adds no new fact: every value is copied verbatim from docs/phase_d/PHASE_D_D005_SEED_REGISTRY.json (candidate_cohort.model_seeds) and docs/research/D017_REVIEW_RECORD.json (provenance.model_seeds, provenance.evaluation_seeds_D013_target_panel).",
+  "source_of_bundle_seeds_evaluated": "docs/phase_d/PHASE_D_D005_SEED_REGISTRY.json: candidate_cohort.model_seeds",
+  "source_of_data_seeds_evaluated": "docs/research/D017_REVIEW_RECORD.json: provenance.evaluation_seeds_D013_target_panel (identical to evaluation_seeds_D015_D016)",
+  "bundle_seeds_evaluated": [40, 41, 42, 43, 44],
+  "data_seeds_evaluated": [301, 302, 303, 304, 305]
+}

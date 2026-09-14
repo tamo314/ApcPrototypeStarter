@@ -1206,3 +1206,119 @@ task_result            = AUDIT_COMPLETED
 findings               = F1 UNSUPPORTED_INTERPRETATION (BIND seed-41 causal claim), F2 PARTIALLY_SUPPORTED (D-015/D-016 comparability), F3 CONFIRMED (D-016 L=10 single-input scope gap), F4 CONFIRMED (reproducibility scope: REVERSE/SELECT 5/5, others <=3/5)
 transition_judgment    = PROCEED (REVERSE/SELECT short-length line); HOLD (seed-44 SHIFT, seed-41 BIND findings, pending re-scoped diagnostics)
 ```
+
+## ADR-0186: D-018 — H-D2 (REVERSE Short-Sequence Repair Causal-Transfer) Charter Preregistration and Approval Review
+
+**Date:** 2026-09-15
+**Task:** D-018 — (1) local commit of D-017's previously-uncommitted deliverables; (2) opening and
+preregistering exactly one new charter hypothesis, H-D2, for a REVERSE short-sequence capacity
+repair causal-transfer experiment, following D-017's `PROCEED` judgment on the REVERSE/SELECT
+short-length line; (3) performing this same task's own approval review of that preregistration. No
+training, optimizer construction, model forward, new bundle construction, or sealed access was
+performed or authorized by any part of this task.
+**Status:** **`APPROVED`** (design then review, both within this task). Full preregistration:
+`docs/phase_d/PHASE_D_D018_REVERSE_SHORT_SEQUENCE_REPAIR_PILOT_PREREGISTRATION.md`. Seed audit and
+cohort fixation: `docs/design-docs/PHASE_D_D018_SEED_REGISTRY_AUDIT_AND_COHORT_FIXATION.md`. Charter
+section: `docs/research/PHASE_D_RESEARCH_CHARTER.md` ("H-D2" section).
+
+**Scope boundary (independent of H-D1):** H-D1's `REFUTED` verdict (D-013, ADR-0181) and D-014-D-017's
+diagnostics (ADR-0182-0185) are unmodified. H-D2 does not resume, extend, reverse, or depend on any
+H-D1 result for its own validity; it is a new charter task opened because the Phase D charter's own
+text reserves any target beyond SORT to a separately authorized task. H-D2 targets **REVERSE only**;
+extending to SELECT (the other D-017-flagged primitive) is explicitly out of scope and requires its
+own future charter task.
+
+**Hypothesis (H-D2, causal/exposure-specific):** starting from a frozen parent bundle (Stable Core
+and every primitive except REVERSE frozen), standalone training of REVERSE alone restricted to
+`L ~ Uniform{3,4,5}` recovers REVERSE's standalone and diagnostic-reset-isolated execution at
+`{3,4,5}` without degrading existing capability, **and** an equal-compute control trained instead on
+`L ~ Uniform{6,...,10}` (REVERSE's pre-existing training distribution) does not produce the same
+recovery — ruling out a generic "more training helps regardless of content" confound. Grounded in
+already-recorded, not newly computed, NRQ-007 per-step evidence for `SELECT->SORT->REVERSE`
+(`mean_standalone_step_ems`/`mean_diagnostic_reset_step_ems` at REVERSE's own step = 0.050/0.043,
+independent of SORT's own step-2 defect), which shows REVERSE has its own short-length capacity
+deficit rather than merely inheriting SORT's.
+
+**A foreseeable confound was identified and addressed before any run, not discovered post hoc:**
+because this hypothesis freezes SORT (leaving SORT's own independent, unrepaired short-length
+defect in place, per D-013/NRQ-007), the ordinary continuous `SELECT->SORT->REVERSE` execution path
+will predictably remain poor regardless of REVERSE's own repair quality. The preregistration
+therefore registers the continuous full-chain metric as a **non-gating, reported** measurement with
+an explicit pre-stated expectation, and registers the primary, gating target-recovery criteria as
+(a) REVERSE's own standalone execution and (b) a diagnostic-reset-isolated boundary measurement
+(reusing the existing NRQ-007 condition-(B)/D-014 reset-immediately-after-SORT mechanism verbatim)
+that removes SORT's own defect from the measurement. This distinction is fixed in the
+preregistration's acceptance criteria (section 8, criteria 1-3) before any training or evaluation.
+
+**Cohort — new, unused, non-sealed, mechanically audited:** D-013's own seed-40-44 cohort is
+restricted by this task to exploratory-evidence use only (per task instruction) and cannot serve as
+H-D2's confirmatory cohort, since it was itself D-013's execution target and has since been
+repeatedly analyzed (D-014-D-017). A full registry audit fixed a new cohort, seeds `50, 51, 52, 53,
+54`, and verified it by **executing** the existing, unmodified `audit_phase_d_seed_registry`
+function (`src/apc/evaluation/phase_d_seed_registry.py`, no code change) against a new registry file
+that adds D-013's own cohort and evaluation seeds (301-305) as an additional forbidden/historical
+entry alongside D-005's original six source registrations and four NRQ historical-provenance
+records. Result: `status: PASS`, zero collision between `{50,51,52,53,54}` and every forbidden model
+seed (`0-4,10-14,15-19,20-24,30-34`), every historical bundle seed (`1-4,40-44`), or every
+historical data seed (`101-105,201-220,301-305`). New evaluation seeds `401-405` (also unused) are
+fixed for every sampled measurement, manually checked against the same ranges (outside the audit
+function's scope, which covers only model seeds). The cohort's own construction procedure and
+budget (Core pretrain 16,000 steps/model, 42,400 non-core steps/model, 5-model totals 80,000 +
+212,000) are reused unchanged from the existing `PHASE_D_FIVE_MODEL_COHORT_CONSTRUCTION_CONTRACT.md`,
+substituting only the seed values; this task does not build the cohort.
+
+**Comparison conditions (four, matching the task instruction exactly):** `FROZEN_PARENT` (zero
+update); `LOCAL_REVERSE_REPAIR_SHORT_ONLY` (the candidate, `L~Uniform{3,4,5}`, 6,000 steps/model);
+`LONG_SEQUENCE_REVERSE_TRAINING_CONTROL` (the causal-specificity control, `L~Uniform{6,...,10}`,
+identical 6,000 steps/model, hence identical compute by construction); `SYMBOLIC_REFERENCE`
+(`ReverseOp.apply` = `tuple(reversed(sequence))`, ground truth only, never a training/fallback
+signal). Both trained conditions reuse the existing, unmodified `_train_single_primitive` function
+verbatim, differing only in the length-sampling bound passed to the same RNG call.
+
+**Architecture verified, not assumed identical to SORT:** REVERSE is implemented as
+`ReverseRelativePrimitive` (17,290 parameters, "modular reverse relative bias",
+`src/apc/primitives/primitive.py:1385-1451`) — a materially different class from SORT's
+`CrossPositionPrimitive`, with no `arg_dim` config field. This was confirmed by direct source
+inspection during design, not carried over by analogy from the D-001/SORT precedent.
+
+**Acceptance criteria (9, numeric, per-model, no mean-rescue):** standalone target recovery
+(EM>=0.95 at L=3/4/5, exhaustive); diagnostic-reset-isolated boundary recovery (EM>=0.95); continuous
+full-chain (reported, non-gating, confound-aware); the causal-transfer contrast itself (SHORT_ONLY
+must pass while LONG_CONTROL must fail standalone recovery, per model, for H-D2 to be supported on
+that model); existing-capability preservation (<=1pp degradation and panel floor, both trained
+conditions, 7-class REVERSE-regression + 12-class non-REVERSE-canary panels derived by re-filtering
+D-001's own verbatim class lists); causal control (Correct/Wrong-family[=SORT via
+`WRONG_FAMILY_MAP["REVERSE"]`]/None, `natural_baseline=0.01`, thresholds identical in form to
+SORT's); invariance (Core + 7 non-REVERSE primitive hashes unchanged, both conditions); fresh-load
+parity; full reporting. Full text: preregistration document section 8.
+
+**Approval review (performed within this same task, independently re-checking the design step, not
+merely re-stating it):** re-verified the architecture-class distinction against source directly;
+re-verified the SORT-confound claim against `NRQ007_REVIEW_RECORD.json`'s raw per-step arrays;
+re-executed the seed-registry audit function rather than accepting its output as given. No
+unresolved dimension was found. **Decision: `APPROVED`.**
+
+```
+design_execution       = COMPLETED
+review_execution       = COMPLETED
+training_performed     = false
+optimizer_constructed  = false
+model_forward_new      = 0
+parameter_updates      = 0
+seed_audit_status      = PASS (mechanically executed, unmodified function)
+candidate_selected     = null
+bundle_promotion       = NOT_AUTHORIZED
+sealed_access          = 0
+new_model_data_seeds   = 0 (cohort seeds 50-54 fixed but not yet built)
+charter_status         = APPROVED
+training_execution     = AUTHORIZED   # scoped strictly to: seed-50-54 cohort construction (existing
+                                       # reused procedure) + LOCAL_REVERSE_REPAIR_SHORT_ONLY +
+                                       # LONG_SEQUENCE_REVERSE_TRAINING_CONTROL + their registered
+                                       # comparison-condition/panel evaluations. No sweep, no other
+                                       # primitive, no additional seed, no candidate/bundle promotion,
+                                       # no sealed access is authorized. A separate execution task is
+                                       # required to act on this authorization.
+h_d1_status            = REFUTED (unchanged, not reopened by this ADR)
+h_d2_status            = UNTESTED (design-and-review-approved; zero execution performed)
+```
+

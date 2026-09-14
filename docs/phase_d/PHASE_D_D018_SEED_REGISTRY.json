@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "purpose": "D-018 pre-result model-seed registry for a new, unused, non-sealed Phase D confirmatory cohort (REVERSE short-sequence-repair causal transfer pilot). This is a static provenance record, not an execution configuration. It reuses D-005's exact audit methodology and source/historical registrations unchanged, and adds exactly one new historical entry: the Phase D five-model cohort (seeds 40-44) and its registered evaluation seeds (301-305), which D-017's evidence-integrity audit restricts to exploratory-only use for any next charter. This document accordingly treats seeds 40-44 and eval seeds 301-305 as forbidden/used for the purpose of fixing a genuinely new confirmatory cohort, and fixes five new seeds never used by any prior registration.",
+  "candidate_cohort": {
+    "cohort_id": "phase_d_d018_reverse_repair_confirmatory_cohort_v1",
+    "model_seeds": [50, 51, 52, 53, 54],
+    "selection_status": "fixed_pre_result",
+    "replacement_policy": "No member may be excluded, added, or exchanged after any cohort-build, training, or evaluation result. A collision or unavailable artifact is a STOP condition requiring a new ADR; it does not permit a substitute seed."
+  },
+  "source_seed_registrations": [
+    {
+      "id": "phase_b_original_sealed",
+      "source": "src/apc/evaluation/retrieval_repair_benchmark.py",
+      "symbol": "SEALED_GATE_SEEDS",
+      "role": "sealed_model_seed",
+      "seeds": [0, 1, 2, 3, 4]
+    },
+    {
+      "id": "phase_b_recovery_development",
+      "source": "src/apc/evaluation/retrieval_repair_benchmark.py",
+      "symbol": "DEFAULT_DEV_SEEDS",
+      "role": "development_model_seed",
+      "seeds": [10, 11, 12, 13, 14]
+    },
+    {
+      "id": "phase_b_recovery_cohort_provenance",
+      "source": "src/apc/evaluation/model_bundle_recovery.py",
+      "symbol": "RECOVERY_DEV_SEEDS",
+      "role": "existing_cohort_model_seed",
+      "seeds": [10, 11, 12, 13, 14]
+    },
+    {
+      "id": "phase_b_validation_v2",
+      "source": "src/apc/evaluation/relation_split_protocol.py",
+      "symbol": "NEW_VALIDATION_SEEDS",
+      "role": "validation_model_seed",
+      "seeds": [15, 16, 17, 18, 19]
+    },
+    {
+      "id": "phase_b_regate_sealed",
+      "source": "src/apc/evaluation/hard_negative_repair_gate.py",
+      "symbol": "DEFAULT_REGATE_SEEDS",
+      "role": "sealed_model_seed",
+      "seeds": [20, 21, 22, 23, 24]
+    },
+    {
+      "id": "phase_b_sealed_v2_and_rejected_d001",
+      "source": "src/apc/evaluation/relation_split_protocol.py",
+      "symbol": "NEW_SEALED_V2_SEEDS",
+      "role": "sealed_model_seed; permanently forbidden to Phase D",
+      "seeds": [30, 31, 32, 33, 34]
+    }
+  ],
+  "historical_run_provenance": [
+    {
+      "id": "nrq005",
+      "source": "docs/research/NRQ005_REVIEW_RECORD.json",
+      "bundle_seeds_evaluated": [1, 2, 3, 4],
+      "data_seeds_evaluated": [101, 102, 103, 104, 105]
+    },
+    {
+      "id": "nrq006",
+      "source": "docs/research/NRQ006_REVIEW_RECORD.json",
+      "bundle_seeds_evaluated": [1, 2, 3, 4],
+      "data_seeds_evaluated": [101, 102, 103, 104, 105]
+    },
+    {
+      "id": "nrq007",
+      "source": "docs/research/NRQ007_REVIEW_RECORD.json",
+      "bundle_seeds_evaluated": [1, 2, 3, 4],
+      "data_seeds_evaluated": [101, 102, 103, 104, 105]
+    },
+    {
+      "id": "nrq008",
+      "source": "docs/research/NRQ008_REVIEW_RECORD.json",
+      "bundle_seeds_evaluated": [1, 2, 3, 4],
+      "data_seeds_evaluated": [201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220]
+    },
+    {
+      "id": "phase_d_d013_cohort_and_eval_seeds",
+      "source": "docs/phase_d/PHASE_D_D013_COHORT_AND_EVAL_SEEDS_PROVENANCE.json",
+      "bundle_seeds_evaluated": [40, 41, 42, 43, 44],
+      "data_seeds_evaluated": [301, 302, 303, 304, 305]
+    }
+  ],
+  "data_lineage": {
+    "cohort_build": "The exact D-001/D-005 Model Bundle Recovery stage graph (PHASE_D_FIVE_MODEL_COHORT_CONSTRUCTION_CONTRACT.md section 3), run as a fresh build for these new seeds. No data from any Phase B validation or sealed partition, and no data from the D-013 seed-40-44 cohort, is an input to this cohort.",
+    "repair_and_registered_evaluations": "d001_train:<model_seed>:<step>:<op>-style deterministic derivation (_derive_local_seed), unchanged mechanism, applied to REVERSE instead of SORT and to a new length-sampling bound per condition (PHASE_D_D018_REVERSE_SHORT_SEQUENCE_REPAIR_PILOT_PREREGISTRATION.md section 4). New evaluation seeds 401-405 are fixed separately in that document (not model seeds; not checked by this JSON's schema, verified manually against every range above plus 301-305).",
+    "sealed_access": 0
+  }
+}
