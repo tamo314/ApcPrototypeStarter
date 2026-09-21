@@ -31,6 +31,7 @@ from apc.cnp.data import (
     DataRole,
     canonical_json_hash,
     make_adaptation_record,
+    make_record,
     make_world,
 )
 from apc.cnp.development import (
@@ -39,10 +40,12 @@ from apc.cnp.development import (
     _code_hashes,
     _collate,
     _git_commit,
+    _source_records,
     _write_json,
 )
 from apc.cnp.primitive import ConditionalSelectPrimitive
 from apc.cnp.seed_registry import audit_cnp_seed_registry
+from apc.cnp.training import masked_bce_loss
 
 ADAPT_TRAIN_EXEMPLARS = 8
 TRANSFER_EXEMPLARS = 16
@@ -107,6 +110,38 @@ def paired_adaptation_training_records(block: str) -> tuple[list[CNPRecord], lis
     return full, small
 
 
+def source_replay_records() -> list[CNPRecord]:
+    """Select the fixed, source-training-derived CNP-004 replay buffer once."""
+
+    records: list[CNPRecord] = []
+    for step in range(48):
+        records.extend(_source_records(step, EVAL_BATCH_SETS))
+    if len(records) != 1536:
+        raise RuntimeError("CNP-004 source replay must contain exactly 1,536 initial records")
+    return sorted(records, key=CNPRecord.digest)
+
+
+def source_shadow_records() -> list[CNPRecord]:
+    """Generate a role-disjoint initial-domain shadow panel for retention checks."""
+
+    world = make_world()
+    records: list[CNPRecord] = []
+    for exemplar_index in range(ADAPT_TRAIN_EXEMPLARS):
+        for threshold in SOURCE_THRESHOLDS:
+            for example_index in range(SETS_PER_CONDITION):
+                records.append(
+                    make_record(
+                        role="shadow",
+                        condition_key=f"source_shadow_{exemplar_index:02d}",
+                        length=_length_for_example(example_index),
+                        threshold=threshold,
+                        example_index=example_index,
+                        world=world,
+                    )
+                )
+    return records
+
+
 def batched(
     records: list[CNPRecord], batch_size: int = EVAL_BATCH_SETS
 ) -> Iterator[list[CNPRecord]]:
@@ -144,6 +179,52 @@ def quality_floor(metrics: dict[str, float | int | None]) -> bool:
         and isinstance(f1, float)
         and f1 >= 0.90
     )
+
+
+def train_fixed_candidate(
+    model: nn.Module,
+    *,
+    new_records: list[CNPRecord],
+    replay_records: list[CNPRecord],
+    device: torch.device,
+    steps: int = 256,
+    replay_enabled: bool = True,
+) -> list[dict[str, float | int]]:
+    """Apply the registered fixed CNP-004 update schedule without checkpoint selection."""
+
+    if not new_records:
+        raise ValueError("CNP-004 candidate requires new training records")
+    if replay_enabled and not replay_records:
+        raise ValueError("CNP-004 replay candidate requires replay records")
+    optimizer = torch.optim.AdamW(
+        (parameter for parameter in model.parameters() if parameter.requires_grad),
+        lr=0.001,
+        weight_decay=0.0,
+    )
+    milestones: list[dict[str, float | int]] = []
+    model.train()
+    for step in range(steps):
+        if replay_enabled:
+            new_batch = [
+                new_records[(step * 16 + offset) % len(new_records)] for offset in range(16)
+            ]
+            replay_batch = [
+                replay_records[(step * 16 + offset) % len(replay_records)] for offset in range(16)
+            ]
+            records = [*new_batch, *replay_batch]
+        else:
+            records = [new_records[(step * 32 + offset) % len(new_records)] for offset in range(32)]
+        batch = _collate(records, device)
+        optimizer.zero_grad(set_to_none=True)
+        result = model(batch.state, batch.arguments)
+        loss = masked_bce_loss(result.logits, batch.target, batch.state.valid)
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        optimizer.step()
+        completed = step + 1
+        if completed in {16, 64, 256}:
+            milestones.append({"step": completed, "loss": float(loss.detach().cpu())})
+    return milestones
 
 
 def load_fixed_parent(
