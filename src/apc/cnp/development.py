@@ -171,13 +171,11 @@ class MetricsAccumulator:
 
 
 @dataclass
-class CausalAccumulator:
-    """Causal-control accuracy aggregated only over reference-effectful elements."""
+class _CausalControlAccumulator:
+    """One intervention measured on its own reference-defined effectful support."""
 
     correct_hits: int = 0
-    wrong_family_hits: int = 0
-    wrong_argument_hits: int = 0
-    none_hits: int = 0
+    intervention_hits: int = 0
     effectful_items: int = 0
     effectful_sets: int = 0
 
@@ -186,43 +184,93 @@ class CausalAccumulator:
         target: torch.Tensor,
         valid: torch.Tensor,
         correct: torch.Tensor,
-        wrong_family: torch.Tensor,
-        wrong_argument: torch.Tensor,
+        intervention: torch.Tensor,
+        reference_intervention: torch.Tensor,
     ) -> None:
-        none = valid
-        changed = valid & (
-            (target != wrong_family) | (target != wrong_argument) | (target != none)
-        )
+        changed = valid & (target != reference_intervention)
         count = int(changed.sum())
         self.effectful_items += count
         self.effectful_sets += int(changed.any(dim=1).sum())
         if count == 0:
             return
         self.correct_hits += int((correct[changed] == target[changed]).sum())
-        self.wrong_family_hits += int((wrong_family[changed] == target[changed]).sum())
-        self.wrong_argument_hits += int((wrong_argument[changed] == target[changed]).sum())
-        self.none_hits += int((none[changed] == target[changed]).sum())
+        self.intervention_hits += int((intervention[changed] == target[changed]).sum())
 
-    def report(self) -> dict[str, Any]:
+    def report(self, *, minimum_effectful_sets: int) -> dict[str, Any]:
         if self.effectful_items == 0:
-            return {"status": "INCONCLUSIVE", "effectful_items": 0, "effectful_sets": 0}
-        count = self.effectful_items
-        correct = self.correct_hits / count
-        wrong_family = self.wrong_family_hits / count
-        wrong_argument = self.wrong_argument_hits / count
-        none = self.none_hits / count
+            return {
+                "status": "INCONCLUSIVE",
+                "reason": "no_reference_effectful_items",
+                "effectful_items": 0,
+                "effectful_sets": 0,
+            }
+        correct = self.correct_hits / self.effectful_items
+        intervention = self.intervention_hits / self.effectful_items
         return {
-            "status": "PASS" if count >= 256 else "INCONCLUSIVE",
-            "effectful_items": count,
+            "status": (
+                "PASS" if self.effectful_sets >= minimum_effectful_sets else "INCONCLUSIVE"
+            ),
+            "effectful_items": self.effectful_items,
             "effectful_sets": self.effectful_sets,
             "correct": correct,
-            "wrong_family": wrong_family,
-            "wrong_argument": wrong_argument,
-            "none": none,
-            "correct_minus_wrong_family": correct - wrong_family,
-            "correct_minus_wrong_argument": correct - wrong_argument,
-            "correct_minus_none": correct - none,
+            "intervention": intervention,
+            "correct_minus_intervention": correct - intervention,
         }
+
+
+@dataclass
+class CausalAccumulator:
+    """Keep Correct-vs-control evidence separate for every causal intervention."""
+
+    controls: dict[str, _CausalControlAccumulator] = field(
+        default_factory=lambda: {
+            "wrong_family": _CausalControlAccumulator(),
+            "wrong_argument": _CausalControlAccumulator(),
+            "none": _CausalControlAccumulator(),
+        }
+    )
+
+    def add(
+        self,
+        target: torch.Tensor,
+        valid: torch.Tensor,
+        correct: torch.Tensor,
+        interventions: dict[str, torch.Tensor],
+        reference_interventions: dict[str, torch.Tensor],
+    ) -> None:
+        expected = set(self.controls)
+        if set(interventions) != expected or set(reference_interventions) != expected:
+            raise ValueError(
+                "causal interventions must provide wrong_family, wrong_argument, and none"
+            )
+        for name, accumulator in self.controls.items():
+            accumulator.add(
+                target,
+                valid,
+                correct,
+                interventions[name],
+                reference_interventions[name],
+            )
+
+    def merge(self, other: CausalAccumulator) -> None:
+        for name, accumulator in self.controls.items():
+            source = other.controls[name]
+            accumulator.correct_hits += source.correct_hits
+            accumulator.intervention_hits += source.intervention_hits
+            accumulator.effectful_items += source.effectful_items
+            accumulator.effectful_sets += source.effectful_sets
+
+    def report(self, *, minimum_effectful_sets: int = 256) -> dict[str, Any]:
+        controls = {
+            name: accumulator.report(minimum_effectful_sets=minimum_effectful_sets)
+            for name, accumulator in self.controls.items()
+        }
+        status = (
+            "PASS"
+            if all(item["status"] == "PASS" for item in controls.values())
+            else "INCONCLUSIVE"
+        )
+        return {"status": status, "controls": controls}
 
 
 def _source_condition(draw: int) -> tuple[str, float]:
@@ -409,8 +457,16 @@ def _evaluate(
                                 batch.target,
                                 batch.state.valid,
                                 result.selected,
-                                controls.wrong_family.selected,
-                                wrong_result.selected,
+                                {
+                                    "wrong_family": controls.wrong_family.selected,
+                                    "wrong_argument": wrong_result.selected,
+                                    "none": batch.state.valid,
+                                },
+                                {
+                                    "wrong_family": controls.wrong_family.selected,
+                                    "wrong_argument": controls.wrong_argument.selected,
+                                    "none": controls.none.valid,
+                                },
                             )
                 metrics = asdict(accumulator.result())
                 row: dict[str, Any] = {
@@ -422,12 +478,7 @@ def _evaluate(
                 if causal:
                     causal_row = causal_accumulator.report()
                     row["causal"] = causal_row
-                    whole_causal.correct_hits += causal_accumulator.correct_hits
-                    whole_causal.wrong_family_hits += causal_accumulator.wrong_family_hits
-                    whole_causal.wrong_argument_hits += causal_accumulator.wrong_argument_hits
-                    whole_causal.none_hits += causal_accumulator.none_hits
-                    whole_causal.effectful_items += causal_accumulator.effectful_items
-                    whole_causal.effectful_sets += causal_accumulator.effectful_sets
+                    whole_causal.merge(causal_accumulator)
                 rows.append(row)
     return rows, whole_causal.report() if causal else {"status": "NOT_APPLICABLE"}
 

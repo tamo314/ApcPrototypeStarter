@@ -17,7 +17,7 @@ from typing import Any
 import torch
 from torch import nn
 
-from apc.cnp.artifacts import build_manifest, save_bundle
+from apc.cnp.artifacts import build_manifest, load_bundle, save_bundle, source_hash
 from apc.cnp.baselines import LearnedMetricBaseline, RawDistanceBaseline, UnconditionedBaseline
 from apc.cnp.contracts import CNPPrimitiveCall, CNPRecipe
 from apc.cnp.data import (
@@ -27,6 +27,7 @@ from apc.cnp.data import (
     SOURCE_THRESHOLDS,
     CNPRecord,
     canonical_json_hash,
+    derive_seed,
     make_record,
     make_world,
 )
@@ -129,22 +130,58 @@ def _quantile_linear(values: list[float], quantile: float) -> float:
     return ordered[lower] + (index - lower) * (ordered[upper] - ordered[lower])
 
 
+def _bootstrap_exact_match_ci(
+    values: list[bool], *, device: torch.device, seed_key: str
+) -> dict[str, float | int]:
+    """Calculate a deterministic 1,000-resample set-level EM confidence interval."""
+
+    if not values:
+        raise ValueError("cannot bootstrap an empty set-level metric")
+    samples = torch.tensor(values, dtype=torch.float32, device=device)
+    generator = torch.Generator(device=device)
+    generator.manual_seed(derive_seed("confirm_bootstrap", seed_key))
+    indices = torch.randint(
+        len(values), (1000, len(values)), generator=generator, device=device
+    )
+    means = samples[indices].mean(dim=1)
+    return {
+        "resamples": 1000,
+        "lower_95": float(torch.quantile(means, 0.025).cpu()),
+        "upper_95": float(torch.quantile(means, 0.975).cpu()),
+    }
+
+
 def _causal_cell_gate(causal: dict[str, Any]) -> dict[str, Any]:
     """Apply G2 causal conditions to one length-threshold cell without mean rescue."""
 
-    if int(causal.get("effectful_items", 0)) < 32:
-        return {"status": "INCONCLUSIVE", "reason": "effectful_items_below_32"}
-    correct = float(causal["correct"])
-    gaps = [
-        float(causal["correct_minus_wrong_family"]),
-        float(causal["correct_minus_wrong_argument"]),
-        float(causal["correct_minus_none"]),
+    controls = causal.get("controls")
+    if not isinstance(controls, dict):
+        raise ValueError("causal report must contain per-intervention controls")
+    required = ("wrong_family", "wrong_argument", "none")
+    missing = [name for name in required if not isinstance(controls.get(name), dict)]
+    if missing:
+        raise ValueError(f"causal report is missing controls: {missing}")
+    inconclusive = [
+        name
+        for name in required
+        if int(controls[name].get("effectful_sets", 0)) < 32
     ]
-    passed = correct >= 0.95 and all(gap >= 0.50 for gap in gaps)
+    if inconclusive:
+        return {
+            "status": "INCONCLUSIVE",
+            "reason": "effectful_sets_below_32",
+            "controls": inconclusive,
+        }
+    correct = {name: float(controls[name]["correct"]) for name in required}
+    gaps = {name: float(controls[name]["correct_minus_intervention"]) for name in required}
+    passed = all(value >= 0.95 for value in correct.values()) and all(
+        value >= 0.50 for value in gaps.values()
+    )
     return {
         "status": "PASS" if passed else "FAIL",
         "correct_accuracy": correct,
-        "minimum_gap": min(gaps),
+        "gaps": gaps,
+        "minimum_gap": min(gaps.values()),
     }
 
 
@@ -208,6 +245,10 @@ def _evaluate_confirmation(
                 accumulator = MetricsAccumulator()
                 causal_accumulator = CausalAccumulator()
                 exemplar_f1: list[float] = []
+                exact_match_values: list[bool] = []
+                count_exact = 0
+                sum_absolute_error = 0.0
+                terminal_sets = 0
                 for query_index in range(DEVELOPMENT_QUERY_COUNT):
                     query_accumulator = MetricsAccumulator()
                     records = list(_confirmation_records(length, threshold, query_index))
@@ -221,6 +262,21 @@ def _evaluate_confirmation(
                         result = model(batch.state, batch.arguments)
                         accumulator.add(result.selected, batch.target, batch.state.valid)
                         query_accumulator.add(result.selected, batch.target, batch.state.valid)
+                        exact_match_values.extend(
+                            (result.selected == batch.target).all(dim=1).cpu().tolist()
+                        )
+                        predicted_count = result.state.valid.sum(dim=1, dtype=torch.int64)
+                        reference_count = batch.target.sum(dim=1, dtype=torch.int64)
+                        count_exact += int((predicted_count == reference_count).sum())
+                        predicted_sum = (
+                            batch.state.values[..., 0]
+                            * result.state.valid.to(batch.state.values.dtype)
+                        ).sum(dim=1)
+                        reference_sum = (
+                            batch.state.values[..., 0] * batch.target.to(batch.state.values.dtype)
+                        ).sum(dim=1)
+                        sum_absolute_error += float((predicted_sum - reference_sum).abs().sum())
+                        terminal_sets += batch.state.batch_size
                         wrong_batch = _collate(
                             wrong_records[start : start + EVAL_BATCH_SETS], device
                         )
@@ -235,8 +291,16 @@ def _evaluate_confirmation(
                             batch.target,
                             batch.state.valid,
                             result.selected,
-                            controls.wrong_family.selected,
-                            wrong_result.selected,
+                            {
+                                "wrong_family": controls.wrong_family.selected,
+                                "wrong_argument": wrong_result.selected,
+                                "none": batch.state.valid,
+                            },
+                            {
+                                "wrong_family": controls.wrong_family.selected,
+                                "wrong_argument": controls.wrong_argument.selected,
+                                "none": controls.none.valid,
+                            },
                         )
                     exemplar_f1.append(query_accumulator.result().mean_set_f1)
                 metrics = asdict(accumulator.result())
@@ -251,15 +315,19 @@ def _evaluate_confirmation(
                     "metrics": metrics,
                     "exemplar_f1": exemplar_f1,
                     "exemplar_f1_p10": _quantile_linear(exemplar_f1, 0.10),
+                    "exact_match_ci_95": _bootstrap_exact_match_ci(
+                        exact_match_values,
+                        device=device,
+                        seed_key=f"length={length}|threshold={threshold:.2f}",
+                    ),
+                    "single_select_terminals": {
+                        "count_exact_match": count_exact / terminal_sets,
+                        "sum_first_mean_absolute_error": sum_absolute_error / terminal_sets,
+                    },
                     "causal": causal,
                 }
                 rows.append(row)
-                whole_causal.correct_hits += causal_accumulator.correct_hits
-                whole_causal.wrong_family_hits += causal_accumulator.wrong_family_hits
-                whole_causal.wrong_argument_hits += causal_accumulator.wrong_argument_hits
-                whole_causal.none_hits += causal_accumulator.none_hits
-                whole_causal.effectful_items += causal_accumulator.effectful_items
-                whole_causal.effectful_sets += causal_accumulator.effectful_sets
+                whole_causal.merge(causal_accumulator)
     return rows, whole_causal.report()
 
 
@@ -319,6 +387,73 @@ def _fresh_load_check(
         "status": "PASS" if exact else "FAIL",
         "logits_exact": bool(torch.equal(expected.logits, logits)),
         "mask_exact": bool(torch.equal(expected.selected, selected)),
+    }
+
+
+def _fresh_load_check_cuda(
+    directory: Path, config: dict[str, Any], model_seed: int, output_directory: Path
+) -> dict[str, Any]:
+    """Require a separate CUDA process to restore an existing bundle exactly."""
+
+    device = torch.device("cuda:0")
+    record = make_record(
+        role="source_train",
+        condition_key="source_00",
+        length=8,
+        threshold=0.8,
+        example_index=0,
+        world=make_world(),
+    )
+    expected_model = ConditionalSelectPrimitive(0).eval()
+    load_bundle(directory, expected_model, expected_config=config)
+    expected_model.to(device)
+    expected_batch = _collate([record], device)
+    expected = expected_model(expected_batch.state, expected_batch.arguments)
+    child_output = output_directory / f"fresh_load_cuda_seed_{model_seed}.pt"
+    program = "\n".join(
+        (
+            "import json",
+            "from pathlib import Path",
+            "import torch",
+            "from apc.cnp.artifacts import load_bundle",
+            "from apc.cnp.data import make_record, make_world",
+            "from apc.cnp.development import _collate",
+            "from apc.cnp.primitive import ConditionalSelectPrimitive",
+            f"directory = Path({str(directory)!r})",
+            f"config = json.loads(Path({str(output_directory / 'config.json')!r}).read_text())",
+            "device = torch.device('cuda:0')",
+            "model = ConditionalSelectPrimitive(0).eval()",
+            "load_bundle(directory, model, expected_config=config)",
+            "model.to(device)",
+            "record = make_record("
+            "role='source_train', condition_key='source_00', length=8, "
+            "threshold=0.8, example_index=0, world=make_world())",
+            "batch = _collate([record], device)",
+            "result = model(batch.state, batch.arguments)",
+            "torch.save({'logits': result.logits.cpu(), 'selected': result.selected.cpu()}, "
+            f"{str(child_output)!r})",
+        )
+    )
+    completed = subprocess.run(
+        [sys.executable, "-c", program], check=False, capture_output=True, text=True
+    )
+    if completed.returncode != 0 or not child_output.is_file():
+        return {"status": "FAIL", "stderr": completed.stderr[-1000:]}
+    loaded = torch.load(child_output, map_location="cpu", weights_only=True)
+    if not isinstance(loaded, dict):
+        return {"status": "FAIL", "reason": "fresh CUDA process output is invalid"}
+    logits = loaded.get("logits")
+    selected = loaded.get("selected")
+    if not isinstance(logits, torch.Tensor) or not isinstance(selected, torch.Tensor):
+        return {"status": "FAIL", "reason": "fresh CUDA process tensors are missing"}
+    expected_logits = expected.logits.cpu()
+    expected_selected = expected.selected.cpu()
+    exact = torch.equal(expected_logits, logits) and torch.equal(expected_selected, selected)
+    return {
+        "status": "PASS" if exact else "FAIL",
+        "device": str(device),
+        "logits_exact": bool(torch.equal(expected_logits, logits)),
+        "mask_exact": bool(torch.equal(expected_selected, selected)),
     }
 
 
@@ -596,6 +731,271 @@ def run_confirmation(config_path: Path, output_root: Path, run_id: str | None = 
         }
         _write_json(run_directory / "report.json", report)
         (run_directory / "report.md").write_text(_report_markdown(report), encoding="utf-8")
+        with (run_directory / "metrics.jsonl").open("w", encoding="utf-8") as stream:
+            for event in events:
+                stream.write(json.dumps(event, sort_keys=True) + "\n")
+        run_manifest["status"] = "COMPLETE"
+        run_manifest["completed_at_utc"] = datetime.now(UTC).isoformat()
+        _write_json(run_directory / "run_manifest.json", run_manifest)
+        return run_directory
+    except Exception as error:
+        run_manifest["status"] = "FAILED"
+        run_manifest["failure"] = {"type": type(error).__name__, "message": str(error)}
+        _write_json(run_directory / "run_manifest.json", run_manifest)
+        raise
+
+
+def _model_for_method(method: str) -> nn.Module:
+    """Construct one fixed CNP-003 model shape before loading an audited checkpoint."""
+
+    if method == "CONDITIONAL_MLP":
+        return ConditionalSelectPrimitive(0)
+    if method == "LEARNED_METRIC":
+        return LearnedMetricBaseline()
+    if method == "UNCONDITIONED":
+        return UnconditionedBaseline(ConditionalSelectPrimitive(0))
+    if method == "RAW_DISTANCE_FIT":
+        return RawDistanceBaseline()
+    raise ValueError(f"Unsupported CNP-003 correction method: {method}")
+
+
+def _checkpoint_path(source_run: Path, method: str, model_seed: int) -> Path:
+    step = 1000 if method == "RAW_DISTANCE_FIT" else 4000
+    directory = source_run / "checkpoints" / f"{method.lower()}_seed_{model_seed}"
+    return directory / f"step_{step:04d}.pt"
+
+
+def _normal_metric_parity(
+    rows: list[dict[str, Any]], source_rows: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """Ensure the correction only changes causal accounting and added evidence fields."""
+
+    if len(rows) != len(source_rows):
+        return {"status": "FAIL", "reason": "row_count_mismatch"}
+    compared_fields = ("scope", "length", "threshold", "metrics", "exemplar_f1", "exemplar_f1_p10")
+    mismatches: list[dict[str, Any]] = []
+    for index, (row, source_row) in enumerate(zip(rows, source_rows, strict=True)):
+        fields = [field for field in compared_fields if row.get(field) != source_row.get(field)]
+        if fields:
+            mismatches.append({"row_index": index, "fields": fields})
+    return {"status": "PASS" if not mismatches else "FAIL", "mismatches": mismatches}
+
+
+def _source_hashes(source_run: Path, source_report: dict[str, Any]) -> dict[str, str]:
+    """Hash every source artifact consumed by a zero-training correction run."""
+
+    paths = [
+        source_run / name for name in ("run_manifest.json", "data_manifest.json", "report.json")
+    ]
+    methods = source_report.get("methods")
+    if not isinstance(methods, list):
+        raise ValueError("CNP-003 source report has no method list")
+    for method_report in methods:
+        if not isinstance(method_report, dict):
+            raise ValueError("CNP-003 source method report is invalid")
+        method = method_report.get("method")
+        seed = method_report.get("model_seed")
+        if not isinstance(method, str) or not isinstance(seed, int):
+            raise ValueError("CNP-003 source method identity is invalid")
+        paths.append(_checkpoint_path(source_run, method, seed))
+        if method == "CONDITIONAL_MLP":
+            paths.extend(
+                [
+                    source_run / "bundle" / f"conditional_mlp_seed_{seed}" / "manifest.json",
+                    source_run / "bundle" / f"conditional_mlp_seed_{seed}" / "primitive.pt",
+                ]
+            )
+    missing = [str(path) for path in paths if not path.is_file()]
+    if missing:
+        raise FileNotFoundError(f"CNP-003 correction source artifacts are missing: {missing}")
+    return {str(path): source_hash(path) for path in paths}
+
+
+def run_confirmation_correction(
+    config_path: Path,
+    source_run: Path,
+    output_root: Path,
+    run_id: str | None = None,
+) -> Path:
+    """Re-evaluate fixed CNP-003 checkpoints without training on the already opened panel."""
+
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    audit = audit_cnp_seed_registry(config_path)
+    if not torch.cuda.is_available():
+        raise RuntimeError("RESOURCE_STOP: CNP-003 correction requires one CUDA device")
+    repository_root = config_path.parents[2]
+    source_run = source_run.resolve()
+    source_report_path = source_run / "report.json"
+    source_manifest_path = source_run / "run_manifest.json"
+    source_data_manifest_path = source_run / "data_manifest.json"
+    source_files = (source_report_path, source_manifest_path, source_data_manifest_path)
+    if not all(path.is_file() for path in source_files):
+        raise FileNotFoundError("CNP-003 correction source run is incomplete")
+    source_report = json.loads(source_report_path.read_text(encoding="utf-8"))
+    source_manifest = json.loads(source_manifest_path.read_text(encoding="utf-8"))
+    source_data_manifest = json.loads(source_data_manifest_path.read_text(encoding="utf-8"))
+    config_hash = canonical_json_hash(config)
+    if source_report.get("task") != "CNP-003" or source_manifest.get("task") != "CNP-003":
+        raise ValueError("CNP-003 correction requires a completed CNP-003 source run")
+    if source_manifest.get("status") != "COMPLETE":
+        raise ValueError("CNP-003 correction source run is not complete")
+    if source_manifest.get("config_hash") != config_hash:
+        raise ValueError("CNP-003 correction configuration hash mismatch")
+    source_artifact_hashes = _source_hashes(source_run, source_report)
+    identifier = run_id or f"cnp003_correction_{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}"
+    run_directory = output_root / identifier
+    if run_directory.exists():
+        raise FileExistsError(
+            f"Refusing to overwrite existing CNP correction directory: {run_directory}"
+        )
+    run_directory.mkdir(parents=True)
+    fresh_load_directory = run_directory / "fresh_load"
+    fresh_load_directory.mkdir()
+    _write_json(fresh_load_directory / "config.json", config)
+    device = torch.device("cuda:0")
+    torch.cuda.reset_peak_memory_stats()
+    started = time.perf_counter()
+    run_manifest: dict[str, Any] = {
+        "program": "cnp_v1",
+        "task": "CNP-003-CORRECTION",
+        "status": "RUNNING",
+        "run_id": identifier,
+        "created_at_utc": datetime.now(UTC).isoformat(),
+        "config_hash": config_hash,
+        "code_hashes": _code_hashes(repository_root),
+        "git_commit": _git_commit(repository_root),
+        "seed_audit": audit,
+        "legacy_sealed_access": 0,
+        "device": str(device),
+        "torch_version": torch.__version__,
+        "cuda_version": torch.version.cuda,
+        "platform": platform.platform(),
+        "source_run": str(source_run),
+        "source_run_task_result": source_report.get("task_result"),
+        "source_artifact_hashes": source_artifact_hashes,
+        "new_training_steps": 0,
+        "new_optimizer_steps": 0,
+        "checkpoint_selection": "fixed_final_step_only",
+        "confirmation_panel": "already_opened_cnp003_confirm1_reanalysis",
+    }
+    _write_json(run_directory / "run_manifest.json", run_manifest)
+    regenerated_data_manifest = _preflight_confirmation(config)
+    if regenerated_data_manifest != source_data_manifest:
+        raise ValueError("CNP-003 correction regenerated panel does not match the source manifest")
+    _write_json(run_directory / "data_manifest.json", regenerated_data_manifest)
+    initial = config["initial_training"]
+    expected_steps = {
+        "RAW_DISTANCE_FIT": 1000,
+        "CONDITIONAL_MLP": int(initial["steps"]),
+        "LEARNED_METRIC": int(initial["steps"]),
+        "UNCONDITIONED": int(initial["steps"]),
+    }
+    source_methods = source_report.get("methods")
+    if not isinstance(source_methods, list):
+        raise ValueError("CNP-003 source report has no methods")
+    corrected_methods: list[dict[str, Any]] = []
+    events: list[dict[str, Any]] = []
+    try:
+        for source_method in source_methods:
+            if not isinstance(source_method, dict):
+                raise ValueError("CNP-003 source method report is invalid")
+            method = source_method.get("method")
+            model_seed = source_method.get("model_seed")
+            source_rows = source_method.get("evaluation")
+            if (
+                not isinstance(method, str)
+                or not isinstance(model_seed, int)
+                or not isinstance(source_rows, list)
+            ):
+                raise ValueError("CNP-003 source method fields are invalid")
+            checkpoint_path = _checkpoint_path(source_run, method, model_seed)
+            checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+            if not isinstance(checkpoint, dict):
+                raise ValueError(f"invalid CNP-003 checkpoint: {checkpoint_path}")
+            if checkpoint.get("step") != expected_steps[method]:
+                raise ValueError(f"CNP-003 checkpoint step mismatch: {checkpoint_path}")
+            state = checkpoint.get("model")
+            if not isinstance(state, dict) or not all(
+                isinstance(value, torch.Tensor) for value in state.values()
+            ):
+                raise ValueError(f"CNP-003 checkpoint model state is invalid: {checkpoint_path}")
+            model = _model_for_method(method).to(device)
+            model.load_state_dict(state, strict=True)
+            rows, causal = _evaluate_confirmation(model, device=device, include_interpolation=True)
+            parity = _normal_metric_parity(rows, source_rows)
+            fresh_load: dict[str, Any] = {"status": "NOT_APPLICABLE"}
+            g2: dict[str, Any] = {"status": "NOT_APPLICABLE"}
+            if method == "CONDITIONAL_MLP":
+                bundle_directory = source_run / "bundle" / f"conditional_mlp_seed_{model_seed}"
+                fresh_load = _fresh_load_check_cuda(
+                    bundle_directory, config, model_seed, fresh_load_directory
+                )
+                known_rows = [row for row in rows if row["scope"] == "known"]
+                g2 = _g2(known_rows, fresh_load)
+            corrected_methods.append(
+                {
+                    "method": method,
+                    "model_seed": model_seed,
+                    "source_checkpoint": str(checkpoint_path),
+                    "source_checkpoint_sha256": source_artifact_hashes[str(checkpoint_path)],
+                    "training_steps_this_run": 0,
+                    "parameter_count": sum(parameter.numel() for parameter in model.parameters()),
+                    "model_bytes": _model_bytes(model),
+                    "evaluation": rows,
+                    "causal": causal,
+                    "normal_metric_parity": parity,
+                    "g2_corrected_panel": g2,
+                    "fresh_load_cuda": fresh_load,
+                    "peak_cuda_bytes_so_far": int(torch.cuda.max_memory_allocated()),
+                }
+            )
+            events.extend(
+                [{"method": method, "model_seed": model_seed, **row} for row in rows]
+            )
+            del model
+            torch.cuda.empty_cache()
+        mlp = [item for item in corrected_methods if item["method"] == "CONDITIONAL_MLP"]
+        corrected_statuses = [item["g2_corrected_panel"]["status"] for item in mlp]
+        report = {
+            "task": "CNP-003-CORRECTION",
+            "run_id": identifier,
+            "historical_cnp003_task_result": source_report.get("task_result"),
+            "corrected_panel_result": (
+                "CORRECTED_PANEL_G2_PASS"
+                if corrected_statuses == ["PASS"] * 5
+                else "CORRECTED_PANEL_G2_FAIL_OR_INCONCLUSIVE"
+            ),
+            "h_cnp1_status": "SUPPORTED_ON_ALREADY_OPENED_PANEL_ONLY"
+            if corrected_statuses == ["PASS"] * 5
+            else "NOT_SUPPORTED_ON_CORRECTED_PANEL",
+            "adaptation_status": "NOT_EXECUTED",
+            "legacy_sealed_access": 0,
+            "corrected_g2": {"per_seed": corrected_statuses},
+            "methods": corrected_methods,
+            "total_wall_seconds": time.perf_counter() - started,
+            "peak_cuda_bytes": int(torch.cuda.max_memory_allocated()),
+            "peak_process_ram_bytes": (
+                int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss) * 1024
+            ),
+        }
+        _write_json(run_directory / "report.json", report)
+        report_markdown = "\n".join(
+            (
+                "# CNP-003 causal measurement correction",
+                "",
+                f"- Historical CNP-003 result: `{report['historical_cnp003_task_result']}`",
+                f"- Corrected already-opened-panel result: `{report['corrected_panel_result']}`",
+                f"- H-CNP1 status: `{report['h_cnp1_status']}`",
+                "- Training / optimizer steps in this run: `0 / 0`",
+                "- CNP-004 adaptation: `NOT_EXECUTED`",
+                "",
+                "Source hashes, per-control causal evidence, and set-level EM CIs,",
+                "single-SELECT terminals, normal-metric parity, CUDA fresh-load checks, and",
+                "accounting are in `report.json`.",
+                "",
+            )
+        )
+        (run_directory / "report.md").write_text(report_markdown, encoding="utf-8")
         with (run_directory / "metrics.jsonl").open("w", encoding="utf-8") as stream:
             for event in events:
                 stream.write(json.dumps(event, sort_keys=True) + "\n")

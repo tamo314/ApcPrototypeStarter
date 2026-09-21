@@ -10,8 +10,9 @@
 - CNP-000: 方針・設計・実装順・評価条件を記録する今回の計画タスク。
 - CNP-001: `IMPLEMENTATION_COMPLETE`。CNP-002: `G1_PASS`。CNP-003: `G2_FAIL_STOP`。CNP-004〜005は`NOT_STARTED`。
 - CNP-003の後続レビュー（ADR-0191）で因果評価の分母不具合を確認。
-  保存G2 FAILは保持するが因果証拠は`INVALID_EVIDENCE`、H-CNP1確認は未成立。
-  [結果レビューと改善順序](../../results/CNP003_RESULT_REVIEW.md)を参照。CNP-004の停止は継続。
+  ADR-0192の学習なし訂正解析は既開封panelで`CORRECTED_PANEL_G2_PASS`、H-CNP1を
+  `SUPPORTED_ON_ALREADY_OPENED_PANEL_ONLY`とする。保存G2 FAILは履歴として保持し、
+  新規確認・CNP-004は未実行。 [結果レビューと改善順序](../../results/CNP003_RESULT_REVIEW.md)を参照。
 - CNP-001ではG0に必要な単体検証だけを実行した。研究用の訓練・開発・確認評価は行っていない。
 - 実行指示が与えられた範囲を進める。前提を通過したことだけから未指定の段階を実行しない。
   逆に、指定範囲内の通常の実装・検証・ローカルcommitには再確認を挟まない。

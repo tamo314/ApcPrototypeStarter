@@ -144,10 +144,53 @@ F1が高いことだけで合成の完全性を主張せず、MLP対257重みMET
 「保存済み確認結果を見た後の変更はv2という別計画」に従い、CNP-004は停止を保持する。
 評価器訂正による過去パネルの再分析と、新モデルの独立確認は別の成果として扱う。
 
-## 6. 検証
+## 6. 訂正解析の実行結果
+
+2026-09-21、ユーザーの明示指示により、上記1〜3を実施した。
+評価器は介入 `c` ごとに `E_c = valid & (reference_correct != reference_c)` を使い、
+Wrong-argumentの分母もreferenceのwrong q出力だけで固定する。手書き不均衡例の回帰テストは、
+完全Correctで各介入gap=1、モデル予測を変えても分母が変わらないことを検証する。
+
+新しい訂正runは
+`runs/cnp_v1/correction/cnp003_correction2/`。元の
+`runs/cnp_v1/confirm/cnp003_confirm1/` は一切上書きしていない。
+元runの20 checkpoint、MLP bundle 5個、元report/data/run manifestの計33ファイルをSHA256で
+入力固定し、final checkpointだけを読み込んだ。学習step/optimizer stepはともに0、
+追加seed・checkpoint選択・閾値変更・旧sealedアクセスは0である。CNP確認パネルは
+既開封の同一panelを決定論的に再生成してdata manifestの完全一致を確認した。
+
+| 判定 | 結果 |
+|---|---|
+| 20 checkpointの通常指標parity | PASS（全20） |
+| MLP 5 seedの訂正G2 | PASS（5/5） |
+| MLP CUDA別プロセスfresh-load | PASS（5/5、logit/mask完全一致） |
+| 各対照の最小effectful集合数 | Wrong-family 4,096、Wrong-argument 968、None 766 |
+| MLP最小Correct accuracy | Wrong-family 0.969727、Wrong-argument 0.966832、None 0.955787 |
+| MLP最小causal gap | Wrong-family 0.969727、Wrong-argument 0.930970、None 0.955787 |
+
+通常品質の最小値は既存値と同じで、balanced accuracy=0.967740、集合F1=0.955169、
+見本別F1 p10=0.927604。集合EMの最小値は0.645020であり、集合単位1,000回bootstrapの
+セル別95% CIを保存した。単段SELECT後のCOUNT一致最小値は0.659180、SUM_FIRST MAE最大値は
+0.193415である。これらは選択maskの因果G2とは別の副次結果であり、完全な記号実行の主張には
+使わない。訂正runは4,309.30秒、peak CUDA 84,058,624 bytes、process RAM 1,562,157,056 bytes。
+
+訂正した測定上、H-CNP1は `SUPPORTED_ON_ALREADY_OPENED_PANEL_ONLY` である。これは
+元の`G2_FAIL_STOP`を遡及的に書き換えず、新しい未使用panelでの確認PASSとも扱わない。
+CNP-004、candidate selection、promotionは`NOT_EXECUTED`のまま維持する。
+Wrong-argumentのCorrect floorとgapは十分なので、モデル拡張や学習距離への置換を進める
+根拠は得られなかった。長い集合のEM/terminalの限界は保存し、別のv2研究課題が明示されるまで
+最適化対象にしない。
+
+## 7. 検証
 
 Python 3.12.13の標準ライブラリだけで保存JSONを再集計し、入力hash、14ソースhash、
 全125セルの通常品質、因果gap失敗件数、None gap上限、整数混同行列の復元を確認した。
 モデル・generator・optimizerはimportしていない。文書リンク・JSON整合性・diffを検査。
 コード変更がないためpytest/ruff/mypyと研究実験は未実行。過去の全体pytestに関する
 artifact欠損を今回のPASSとは扱わない。
+
+この第6節の実装変更では、WSL Python 3.12.14でCNP対象21 tests、`ruff check`、
+`mypy src/apc`をPASSした。`pytest -q --maxfail=1`は961件PASS後、CNP外の
+`tests/test_mirror_attention_clamp_causal_replay.py::test_initial_parity_gate_and_fused_qkv_freeze`
+で、既存`runs/phase_b_b2_model_bundle_recovery/staging/seed_10/rec004/core/shared_encoder.pt`
+の欠損により停止した。全pytestはclean PASSではない。

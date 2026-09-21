@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import torch
 
-from apc.cnp.contracts import SelectionResult, SetState
+from apc.cnp.contracts import SelectionResult
 
 
 @dataclass(frozen=True)
@@ -59,9 +59,7 @@ def selection_metrics(
 @dataclass(frozen=True)
 class CausalAccuracy:
     correct: float
-    wrong_family: float
-    wrong_argument: float
-    none: float
+    intervention: float
     effectful_items: int
 
 
@@ -69,18 +67,14 @@ def effectful_causal_accuracy(
     target: torch.Tensor,
     valid: torch.Tensor,
     correct: SelectionResult,
-    wrong_family: SelectionResult,
-    wrong_argument: SelectionResult,
-    none_state: SetState,
+    intervention: SelectionResult,
+    reference_intervention: SelectionResult,
 ) -> CausalAccuracy:
-    """Compute causal accuracy only where a reference intervention changes selection."""
+    """Measure one intervention on its own reference-defined effectful support."""
 
     if target.shape != valid.shape:
         raise ValueError("target and valid shapes must match")
-    none = none_state.valid
-    changed = valid & (
-        (target != wrong_family.selected) | (target != wrong_argument.selected) | (target != none)
-    )
+    changed = valid & (target != reference_intervention.selected)
     count = int(changed.sum())
     if count == 0:
         raise ValueError("no effectful elements available for a causal comparison")
@@ -90,8 +84,6 @@ def effectful_causal_accuracy(
 
     return CausalAccuracy(
         correct=accuracy(correct.selected),
-        wrong_family=accuracy(wrong_family.selected),
-        wrong_argument=accuracy(wrong_argument.selected),
-        none=accuracy(none),
+        intervention=accuracy(intervention.selected),
         effectful_items=count,
     )

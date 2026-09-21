@@ -29,11 +29,12 @@ def main() -> int:
         description="CNP v1 static audit and future runner entry point"
     )
     parser.add_argument(
-        "mode", choices=("audit", "dry-run", "develop", "confirm", "adapt", "report")
+        "mode", choices=("audit", "dry-run", "develop", "confirm", "correct", "adapt", "report")
     )
     parser.add_argument("--config", type=Path, default=DEFAULT_REGISTRY_PATH)
     parser.add_argument("--output-root", type=Path)
     parser.add_argument("--run-id", type=str)
+    parser.add_argument("--source-run", type=Path)
     arguments = parser.parse_args()
     loaded_config = config(arguments.config)
     if arguments.mode == "audit":
@@ -71,6 +72,19 @@ def main() -> int:
         output = run_confirmation(
             arguments.config,
             arguments.output_root or REPOSITORY_ROOT / "runs/cnp_v1/confirm",
+            arguments.run_id,
+        )
+        print(json.dumps({"status": "COMPLETE", "run_directory": str(output)}, sort_keys=True))
+        return 0
+    if arguments.mode == "correct":
+        if arguments.source_run is None:
+            parser.error("correct requires --source-run")
+        from apc.cnp.confirmation import run_confirmation_correction
+
+        output = run_confirmation_correction(
+            arguments.config,
+            arguments.source_run,
+            arguments.output_root or REPOSITORY_ROOT / "runs/cnp_v1/correction",
             arguments.run_id,
         )
         print(json.dumps({"status": "COMPLETE", "run_directory": str(output)}, sort_keys=True))

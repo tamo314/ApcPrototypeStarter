@@ -1510,3 +1510,35 @@ CNP-004 execution, candidate selection, or promotion is authorized by this revie
 All 14 run-source hashes match. This task used saved JSON and source inspection only, with zero
 model forwards, new data, training, or legacy sealed access. Documentation/JSON/link/diff checks
 apply; the Python implementation suites are not rerun for this documentation-only review.
+
+## ADR-0192: CNP-003 correction restores intervention-specific causal evidence on the opened panel
+
+Date: 2026-09-21. Status: **CNP-003 historical G2 FAIL preserved; correction panel G2 PASS; CNP-004 not executed.**
+
+ADR-0191's measurement repair replaces the shared intervention union with one reference-defined
+effectful support per Wrong-family, Wrong-argument, and None control. It also corrects the
+Wrong-argument support to use the reference wrong-q output, adds set-count qualification,
+set-level 1,000-resample EM CIs, single-SELECT COUNT/SUM_FIRST outputs, and CUDA fresh-process
+bundle parity. Regression tests include a perfect correct predictor with unit gap per control and
+an argument-prediction variation that cannot alter the reference-defined denominator.
+
+`runs/cnp_v1/correction/cnp003_correction2/` is a fresh, zero-training correction analysis of all
+20 final checkpoints from `cnp003_confirm1`, with 33 source artifact hashes, a regenerated data
+manifest equal to the original, no checkpoint selection, zero optimizer steps, and legacy sealed
+access zero. Normal metrics match the historical report for all 20 checkpoints. All five MLP
+seeds pass every corrected known-cell G2 condition, including per-control set minima of
+4,096/968/766 for Wrong-family/Wrong-argument/None, Correct minima
+0.969727/0.966832/0.955787, gaps 0.969727/0.930970/0.955787, and CUDA fresh-load exact parity.
+
+The original G2_FAIL_STOP is not rewritten: the panel was already opened, and the source run's
+artifact/code hashes remain historical evidence. The corrected result supports H-CNP1 only on
+that already opened panel; it is not a fresh confirmation result. Accordingly CNP-004, candidate
+selection, and promotion remain NOT_EXECUTED. The corrected Wrong-argument quality does not
+justify model enlargement or further training. Long-set EM and single-SELECT terminal limits are
+recorded as secondary observations, not a new optimization authorization.
+
+The first correction attempt `cnp003_correction1` stopped before model forward because the runner
+incorrectly requested a nonexistent `RAW_DISTANCE_FIT` step-4000 checkpoint. The empty directory
+is preserved. The runner now selects its registered step-1000 final checkpoint and has a regression
+test. CNP tests, ruff, and mypy pass in WSL Python 3.12.14; the correction itself took 4,309.30
+seconds with peak CUDA 84,058,624 bytes and process RAM 1,562,157,056 bytes.
