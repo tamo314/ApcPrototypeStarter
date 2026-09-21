@@ -16,6 +16,9 @@
 - CNP-V2-001は未使用query panelで`CNP_V2_G2_PASS`（MLP 5/5 PASS）。H-CNP1は
   同一world内の二つのquery-disjoint panelで支持される。CNP-004 block 1のLOCAL shadowは
   5/5不合格で停止し、後続block・転移・合成・G4は実行しない。
+- CNP-004結果レビュー（ADR-0197）はadapter位置・損失重み・shadow評価単位・replay選定の
+  仕様不一致を確認。保存STOPは維持し、登録設計の局所適応を反証したとは扱わない。
+  [結果と改善順序](../../results/CNP004_RESULT_REVIEW.md)を参照。修正版の学習・確認は未実行。
 - CNP-001ではG0に必要な単体検証だけを実行した。研究用の訓練・開発・確認評価は行っていない。
 - 実行指示が与えられた範囲を進める。前提を通過したことだけから未指定の段階を実行しない。
   逆に、指定範囲内の通常の実装・検証・ローカルcommitには再確認を挟まない。

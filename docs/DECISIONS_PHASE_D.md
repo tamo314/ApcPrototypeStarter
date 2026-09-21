@@ -1624,3 +1624,45 @@ the CNP adaptation and training target tests pass (10 tests), `ruff check .` pas
 before the pre-existing unrelated missing artifact
 `runs/phase_b_b2_model_bundle_recovery/staging/seed_10/rec004/core/shared_encoder.pt` stops
 `test_initial_parity_gate_and_fused_qkv_freeze`; the full suite is therefore not a clean PASS.
+
+## ADR-0197: CNP-004 review identifies protocol deviations and prioritizes contract alignment
+
+Date: 2026-09-22. Status: **Review complete; historical G3 FAIL STOP preserved;
+protocol-aligned H-CNP2 confirmation not established. No new research execution.**
+
+The user requested result review and improvement analysis. The
+[review](results/CNP004_RESULT_REVIEW.md) and [artifact audit](results/CNP004_RESULT_REVIEW_AUDIT.json)
+inspect saved JSON, source, hashes, git history, and integer training-index exposure only.
+All five LOCAL candidates miss even the aggregate new-domain F1 floor; four also miss aggregate
+retention. The recorded base hashes stay unchanged. The STOP remains justified and no downstream
+transfer, composition, later-block adaptation, or G4 is performed.
+
+However, the implementation places the adapter after the second hidden layer rather than the
+registered first, averages BCE over all valid elements rather than equally over sets, pools
+shadow metrics instead of applying domain/length/threshold gates, and sorts only the first
+1,536 source records rather than selecting by hash from the source-training domain. The shared
+loss discrepancy also affects source pretraining; existing H-CNP1 measurements remain preserved
+as evidence about the actual checkpoints, not proof of exact recipe adherence. These findings
+qualify ADR-0196's interpretation of an implementation-error-free registered experiment; its
+measurements and historical FAIL are not rewritten. No single deviation is identified as the
+cause of failure, and the registered local-adaptation mechanism is not cleanly falsified.
+
+The unshuffled query-major stream supplies each query for 12 consecutive LOCAL updates and exposes
+queries 0–4 576 times versus 384 for queries 6–7. This is a confirmed schedule property, but its
+harm is only a hypothesis, not a proven cause or an explicit shuffle-contract violation.
+FULL_REPLAY also fails its saved quality/retention checks, while the 257-parameter learned metric
+parent exceeds aggregate block-1 quality floors without adaptation. Neither finding establishes
+G4 or cell-level qualification. Capacity expansion is not the first recommended intervention.
+
+Prioritize contract-aligned cell metrics, adapter placement, loss and replay selection, then a
+separately scoped, fixed-budget order-control diagnostic. Preserve new/replay information parity,
+all thresholds, all seeds, and the simple metric baseline. Any changed adaptation experiment needs
+a separate post-result contract and independent confirmation boundary; this review authorizes
+neither repair training nor a new confirmation panel. H-CNP3/H-CNP4 remain untested.
+
+Three saved block-1 runs record 15,360 updates in total; their wall times plus preflight sum to
+322.093788 seconds, excluding source training and other unrecorded costs. The final run's
+94.046791 seconds are not total research cost. Preserve all runs and disclose logging/seed-fix
+re-executions rather than treating them as one candidate or selecting their best results.
+New training, model forwards, generated data, candidate selection, promotion, and sealed access
+are all zero. Documentation/hash/JSON checks apply; no Python implementation suite is required.
