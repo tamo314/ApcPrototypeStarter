@@ -97,7 +97,11 @@ class CNPRecord:
             raise ValueError("target may not select invalid padding")
 
     def digest(self) -> str:
-        """Hash every observable record field used for split-overlap auditing."""
+        """Hash model-visible inputs and labels for split-overlap auditing.
+
+        The role and condition identifier intentionally do not participate: an
+        identical record relabelled as another split must still be rejected.
+        """
 
         payload = hashlib.sha256()
         for tensor in (
@@ -109,8 +113,6 @@ class CNPRecord:
             self.target,
         ):
             payload.update(tensor.detach().cpu().contiguous().numpy().tobytes())
-        payload.update(self.role.encode("utf-8"))
-        payload.update(self.condition_key.encode("utf-8"))
         return payload.hexdigest()
 
 
@@ -129,14 +131,7 @@ def make_record(
     if length < 0:
         raise ValueError("length must be non-negative")
     if query is None:
-        query = (
-            torch.rand(
-                (1, FEATURE_DIM),
-                generator=_generator(DATA_ROOT_SEED, role, condition_key, "query"),
-                dtype=torch.float32,
-            )
-            - 0.5
-        )
+        query = fixed_query(role, condition_key)
     if query.dtype != torch.float32 or query.shape != (1, FEATURE_DIM):
         raise ValueError("query must be float32[1,8]")
     values = (
@@ -161,6 +156,19 @@ def make_record(
 
     target = reference_select(state, arguments, world or make_world()).selected
     return CNPRecord(state, arguments, target, role, condition_key)
+
+
+def fixed_query(role: DataRole, condition_key: str) -> torch.Tensor:
+    """Return one deterministic, role-separated query in the initial condition domain."""
+
+    return (
+        torch.rand(
+            (1, FEATURE_DIM),
+            generator=_generator(DATA_ROOT_SEED, role, condition_key, "query"),
+            dtype=torch.float32,
+        )
+        - 0.5
+    )
 
 
 def audit_split_disjoint(records_by_role: dict[str, Iterable[CNPRecord]]) -> dict[str, object]:

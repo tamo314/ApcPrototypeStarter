@@ -8,7 +8,7 @@
 ## 1. 現在地と実行範囲
 
 - CNP-000: 方針・設計・実装順・評価条件を記録する今回の計画タスク。
-- CNP-001: `IMPLEMENTATION_COMPLETE`。CNP-002〜005は`NOT_STARTED`。
+- CNP-001: `IMPLEMENTATION_COMPLETE`。CNP-002: `G1_PASS`。CNP-003〜005は`NOT_STARTED`。
 - CNP-001ではG0に必要な単体検証だけを実行した。研究用の訓練・開発・確認評価は行っていない。
 - 実行指示が与えられた範囲を進める。前提を通過したことだけから未指定の段階を実行しない。
   逆に、指定範囲内の通常の実装・検証・ローカルcommitには再確認を挟まない。
@@ -20,7 +20,7 @@
 | ID | 作業・納品物 | 前提 | 完了条件 |
 |---|---|---|---|
 | CNP-001 | 詳細設計の型・生成器・独立参照・モデル・baseline・executor・評価器・保存・CLI・configを実装。seed/split監査 | 実装指示 | `IMPLEMENTATION_COMPLETE`。G0のCNP対象検証、ruff/mypy、dry-runはPASS。全体pytestは既存artifact欠損で未完走（§9） |
-| CNP-002 | 開発2seedで固定構成の学習、baseline、時間/メモリーを測定。開発報告・失敗例分類 | G0＋開発実行指示 | G1成立、全費用記録。未成立なら依存段階STOP |
+| CNP-002 | 開発2seedで固定構成の学習、baseline、時間/メモリーを測定。開発報告・失敗例分類 | G0＋開発実行指示 | `G1_PASS`。全費用を保存し、CNP-003は別途の確認実行指示待ち |
 | CNP-003 | hash固定後に5seedのH-CNP1確認。一回の全パネル測定、保存・別プロセス復元 | G1＋確認実行指示 | G2の判定を記録。FAILもタスク完了の成果 |
 | CNP-004 | 凍結親から4block順次適応、同情報baseline、転移・保持・合成・総費用比較 | G2＋適応実行指示 | G3/G4を別々に判定。各blockの採否・棄却証拠 |
 | CNP-005 | 保存証拠から最終採否、限界、次課題の必要性を記録 | CNP-004完了または先行STOP | 仮説別支持/不支持/未検証、比較表、ADR。自動的な拡張なし |
@@ -258,3 +258,42 @@ WSL `.venv-wsl`のPython 3.12.14/PyTorch 2.13.0+cu130/CUDAで、CNP対象13 test
 `MissingArtifactError`となるためである。過去artifactを作成・置換・復旧しない。従って全体pytestは
 `NOT_CLEAN_EXISTING_MISSING_ARTIFACT`、CNP対象テストはPASSと記録する。研究用データ生成、
 モデル初期化、訓練、開発/確認評価、sealed access、bundle promotionはいずれも未実行。
+
+## 10. CNP-002開発実行・G1判定記録
+
+2026-09-21: 明示的な開発実行指示に従い、CNP-002を新規run
+`runs/cnp_v1/develop/cnp002_dev1/`へ一回実行した。静的seed監査はPASS、
+`legacy_sealed_access=0`、既存bundle promotionなし。Python 3.12.14 / PyTorch
+2.13.0+cu130 / CUDA 13.0で、固定model seed `{610100, 610101}`、各seedの
+`CONDITIONAL_MLP`、`LEARNED_METRIC`、`UNCONDITIONED`を各4,000 step、
+`RAW_DISTANCE_FIT`を各1,000 stepで実行した。step数を増やす探索、閾値調整、
+best checkpoint選択は行っていない。
+
+事前data manifestはsource 128,000件（unique 128,000、正例率0.59362、空集合率
+0.14474）、dev 102,400件（unique 102,400、正例率0.59246、空集合率0.13906）、
+cross-role overlap 0を記録した。devの全25長さ×閾値セルの正例率は
+`[0.36761, 0.77789]`で、G0の`[0.05,0.95]`範囲をPASSした。
+
+G1主判定の`CONDITIONAL_MLP`はseed 610100で最小balanced accuracy 0.97433、
+最小集合F1 0.96407、seed 610101で0.97409 / 0.96038となり、両seedの各セルで
+floor（0.95 / 0.90）を満たした。よって`G1_PASS`。参考として、平均集合F1は
+MLPが0.97699 / 0.97608、LEARNED_METRICが両seed 0.95534、UNCONDITIONEDが
+0.68187 / 0.68205、RAW_DISTANCE_FITが両seed 0.68926である。
+
+MLPの因果対照は各セル4,096、全体634,880 effectful要素で件数要件を満たした。
+Correct正解率は0.97958 / 0.97894、Correct−Wrong-family gapは同値、
+Correct−None gapは0.38712 / 0.38647、Correct−Wrong-argument gapは
+0.35483 / 0.35421だった。後二者はCNP-003のG2 gap 0.50には未達だが、G1には
+その数値基準を適用しない。開発値を確認データの代用にせず、CNP-003で固定hash後に
+事前規則どおり判定する。
+
+全run時間は1,198.520秒、PyTorch peak CUDA allocationは68,103,680 bytes、
+process peak RAMは1,963,933,696 bytesで、8時間／12GiB／32GiBの上限をPASSした。
+`run_manifest.json`、`data_manifest.json`、`metrics.jsonl`、`report.json`、
+`report.md`、seedごとのcheckpointとMLP bundleを保存した。初回の
+`cnp002_attempt5`はCUDA評価器のCPU参照行列混在で停止した実装失敗として保持し、
+参照行列を評価deviceへ明示転送する修正とCPU/CUDA回帰テスト後、別runで有効測定を
+完了した。これは科学的FAILでも再試行による選択でもない。
+
+CNP-003以降の確認データ生成・5seed学習・適応・candidate selection・promotionは
+未実行であり、本記録から自動実行しない。

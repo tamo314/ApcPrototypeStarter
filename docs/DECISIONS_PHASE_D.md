@@ -1423,3 +1423,44 @@ This is recorded as `NOT_CLEAN_EXISTING_MISSING_ARTIFACT`; CNP does not create, 
 evidence. No training loop, CNP development/confirmation panel, research data-generation run, sealed
 access, candidate selection, or bundle promotion has been performed. CNP-001's unit-level optimizer
 step is gradient-wiring validation only, not a research result.
+
+## ADR-0189: CNP-002 fixed two-seed development passes G1; confirmation remains separate
+
+Date: 2026-09-21. Status: **CNP-002 complete; G1 PASS; CNP-003 not authorized or executed.**
+
+### Decision and evidence
+
+Run the CNP-002 configuration once after G0, using only development model seeds `610100` and
+`610101`, the fixed source/dev splits, and the fixed budgets: 4,000 steps per seed for each of
+CONDITIONAL_MLP, LEARNED_METRIC, and UNCONDITIONED, plus 1,000 RAW_DISTANCE_FIT steps. The evidence
+is stored under `runs/cnp_v1/develop/cnp002_dev1/`; its manifest records config/code hashes, CUDA,
+seed audit, data audit, checkpoints, metrics, report, and CNP bundles. `legacy_sealed_access=0` and
+bundle promotion remains unauthorized.
+
+The content-addressed split audit reports 128,000 unique source records and 102,400 unique dev
+records, zero cross-role overlaps, and all 25 dev length-by-threshold positive rates within the
+predefined `[0.05, 0.95]` range. Both conditional MLP seeds pass every G1 cell: minima are
+balanced accuracy `0.97433` / `0.97409` and mean set F1 `0.96407` / `0.96038`, respectively.
+G1 is therefore `PASS`. The same fixed panel reports mean set F1 of `0.97699` / `0.97608` for MLP,
+`0.95534` / `0.95534` for the learned PSD metric, `0.68187` / `0.68205` for UNCONDITIONED, and
+`0.68926` / `0.68926` for fitted raw distance. This is a development comparison, not a confirmed
+efficiency or generalization claim.
+
+The MLP causal controls include 4,096 effectful elements per cell and 634,880 overall. Correct
+accuracy is `0.97958` / `0.97894`. Its development Correct-minus-Wrong-argument gaps are
+`0.35483` / `0.35421`; these fall below G2's prospective `0.50` confirmation floor. They do not
+invalidate G1, which does not apply that G2 numerical criterion, but they are recorded without
+selection or threshold adjustment. Confirmation must use the separate sealed CNP confirmation panel.
+
+Total elapsed wall time is 1,198.520 seconds; peak CUDA allocation is 68,103,680 bytes and peak
+process RAM is 1,963,933,696 bytes, below CNP-002's 8-hour, 12GiB, and 32GiB limits. An earlier
+attempt (`cnp002_attempt5`) failed before a valid evaluation because a CPU reference matrix was mixed
+with CUDA evaluation tensors. Preserve it as implementation-failure evidence. The reference executor
+now transfers the private evaluation matrix to the state device and has CPU/CUDA parity coverage;
+the separately named valid run is the only G1 result.
+
+### Consequence
+
+H-CNP1 is not confirmed: G1 is a two-seed development gate only. CNP-003 may be considered only
+after a separate user instruction authorizes its five-seed confirmation execution. CNP-004/CNP-005,
+adaptation, candidate selection, promotion, and legacy Phase B/C execution remain unstarted.

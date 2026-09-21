@@ -1,7 +1,7 @@
 """CNP command-line entry point.
 
-Only static audit and dry-run planning are enabled by CNP-001.  Research modes
-are deliberately rejected until the separately scoped CNP-002+ instructions.
+Static audit, dry-run planning, and the separately authorized CNP-002 development
+run are available.  Confirmation and adaptation remain independently gated.
 """
 
 from __future__ import annotations
@@ -32,6 +32,8 @@ def main() -> int:
         "mode", choices=("audit", "dry-run", "develop", "confirm", "adapt", "report")
     )
     parser.add_argument("--config", type=Path, default=DEFAULT_REGISTRY_PATH)
+    parser.add_argument("--output-root", type=Path, default=REPOSITORY_ROOT / "runs/cnp_v1/develop")
+    parser.add_argument("--run-id", type=str)
     arguments = parser.parse_args()
     loaded_config = config(arguments.config)
     if arguments.mode == "audit":
@@ -45,17 +47,23 @@ def main() -> int:
                     "status": "PLAN_READY_NO_MODEL_OR_DATA_ACCESS",
                     "config_hash": canonical_json_hash(loaded_config),
                     "seed_audit": audit,
-                    "enabled_modes": ["audit", "dry-run"],
-                    "blocked_modes": ["develop", "confirm", "adapt", "report"],
+                    "enabled_modes": ["audit", "dry-run", "develop"],
+                    "blocked_modes": ["confirm", "adapt", "report"],
                 },
                 sort_keys=True,
                 indent=2,
             )
         )
         return 0
+    if arguments.mode == "develop":
+        from apc.cnp.development import run_development
+
+        output = run_development(arguments.config, arguments.output_root, arguments.run_id)
+        print(json.dumps({"status": "COMPLETE", "run_directory": str(output)}, sort_keys=True))
+        return 0
     raise SystemExit(
-        f"CNP mode {arguments.mode!r} is not enabled by CNP-001; "
-        "run the separately authorized CNP-002+ task first."
+        f"CNP mode {arguments.mode!r} is not enabled by CNP-002; "
+        "run its separately authorized stage first."
     )
 
 

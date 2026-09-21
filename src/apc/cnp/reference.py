@@ -17,7 +17,8 @@ def reference_select(
 
     arguments.validate_batch_size(state.batch_size)
     delta = phi(state.values) - phi(arguments.query).unsqueeze(1)
-    distance = torch.einsum("bni,ij,bnj->bn", delta, world.matrix, delta) / 16.0
+    matrix = world.matrix.to(device=state.values.device)
+    distance = torch.einsum("bni,ij,bnj->bn", delta, matrix, delta) / 16.0
     logits = (arguments.threshold.unsqueeze(1) - distance).to(torch.float32)
     selected = state.valid & (logits >= 0.0)
     return SelectionResult(logits=logits, selected=selected, state=state.with_valid(selected))
