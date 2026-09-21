@@ -112,6 +112,19 @@ def main() -> int:
         )
         print(json.dumps({"status": "COMPLETE", "run_directory": str(output)}, sort_keys=True))
         return 0
+    if arguments.mode == "adapt":
+        if arguments.source_run is None:
+            parser.error("adapt requires --source-run")
+        from apc.cnp.adaptation import run_adaptation_preflight
+
+        output = run_adaptation_preflight(
+            arguments.config,
+            arguments.source_run,
+            arguments.output_root or REPOSITORY_ROOT / "runs/cnp_v1/adapt",
+            arguments.run_id,
+        )
+        print(json.dumps({"status": "COMPLETE", "run_directory": str(output)}, sort_keys=True))
+        return 0
     raise SystemExit(
         f"CNP mode {arguments.mode!r} is not enabled by CNP-003; "
         "run its separately authorized stage first."
