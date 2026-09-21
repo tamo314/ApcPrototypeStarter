@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "program": "cnp_v1",
+  "seeds": {
+    "world": 610000,
+    "data": 610010,
+    "development_model": [610100, 610101],
+    "confirmation_model": [610200, 610201, 610202, 610203, 610204]
+  },
+  "architecture": {
+    "family": "CONDITIONAL_SELECT",
+    "feature_dim": 8,
+    "public_feature_dim": 16,
+    "input_dim": 65,
+    "hidden_dim": 64,
+    "adapter_rank": 8,
+    "base_parameters": 8449,
+    "adapter_parameters": 1024
+  },
+  "initial_training": {
+    "optimizer": "AdamW",
+    "learning_rate": 0.001,
+    "weight_decay": 0.0,
+    "gradient_clip_norm": 1.0,
+    "steps": 4000,
+    "batch_sets": 32,
+    "lengths": [1, 2, 4, 8, 16],
+    "thresholds": [0.5, 0.8, 1.1],
+    "source_query_count": 64
+  },
+  "execution_boundary": {
+    "legacy_sealed_access": 0,
+    "bundle_promotion": "NOT_AUTHORIZED",
+    "enabled_modes": ["audit", "dry-run"]
+  }
+}

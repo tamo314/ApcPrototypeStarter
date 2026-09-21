@@ -1387,3 +1387,39 @@ Numeric targets are prospective design choices, not measured performance forecas
 Documentation-only verification covers relative links/anchors, numeric consistency, and diffs.
 No optimizer, model forward, training, data generation, seed registry execution, or new research
 evaluation is performed by CNP-000; the full Python suite is not required for this document change.
+
+## ADR-0188: CNP-001 isolated conditional neural primitive implementation and G0 verification
+
+Date: 2026-09-21. Status: **Implementation complete; research execution not started.**
+
+### Decision
+
+Implement CNP v1 under `src/apc/cnp/` without mutating the legacy integer-token operation registry,
+operation IDs, Core vocabulary, Phase D executor, or token-bundle schema. The implementation has a
+typed continuous `SetState`, explicit `CNPPrimitiveCall` and `SelectArguments`, deterministic
+generation with role-separated SHA-256 seeds, a separate reference world, `ConditionalSelectPrimitive`,
+local residual adapter, learned/raw metric comparators, prediction-mask recipe executor, future-run
+metrics, fail-closed CNP bundle manifest/loader, CNP seed registry, configuration, and a CLI.
+
+The only CNP CLI modes enabled now are static `audit` and `dry-run`; research modes refuse to run
+before CNP-002+ scope is expressly authorized. CNP models cannot receive target labels, generator
+matrix, split, condition ID, world seed, or downstream answer through their forward interface.
+The normal continuous recipe path passes predicted masks; it has no reference fallback or diagnostic
+ground-truth reset.
+
+### Verification and boundary
+
+In the documented WSL `.venv-wsl` environment (Python 3.12.14, PyTorch 2.13.0+cu130, CUDA available),
+13 CNP tests pass. They cover typed argument/state rejection, independent reference behavior,
+empty sets, deterministic split overlap detection, padding invariance, only-selected-primitive
+execution, adapter-only gradients, hash-checked no-overwrite bundles, fresh-process bundle loading,
+legacy seed collision rejection, and CPU/CUDA logits/mask parity. Full `ruff check .` and
+`mypy src/apc` also pass.
+
+The full repository `pytest -q` does not pass independently of CNP: after 953 passed tests, it stops
+at `test_initial_parity_gate_and_fused_qkv_freeze` because its historical Phase B path
+`runs/phase_b_b2_model_bundle_recovery/staging/seed_10/rec004/core/shared_encoder.pt` is absent.
+This is recorded as `NOT_CLEAN_EXISTING_MISSING_ARTIFACT`; CNP does not create, replace, or infer that
+evidence. No training loop, CNP development/confirmation panel, research data-generation run, sealed
+access, candidate selection, or bundle promotion has been performed. CNP-001's unit-level optimizer
+step is gradient-wiring validation only, not a research result.

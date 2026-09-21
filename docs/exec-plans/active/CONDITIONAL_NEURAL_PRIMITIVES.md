@@ -8,8 +8,8 @@
 ## 1. 現在地と実行範囲
 
 - CNP-000: 方針・設計・実装順・評価条件を記録する今回の計画タスク。
-- CNP-001〜005: `NOT_STARTED`。ここに記載した実験は一つも実行していない。
-- この依頼ではモデル初期化・訓練・新規評価を行わない。
+- CNP-001: `IMPLEMENTATION_COMPLETE`。CNP-002〜005は`NOT_STARTED`。
+- CNP-001ではG0に必要な単体検証だけを実行した。研究用の訓練・開発・確認評価は行っていない。
 - 実行指示が与えられた範囲を進める。前提を通過したことだけから未指定の段階を実行しない。
   逆に、指定範囲内の通常の実装・検証・ローカルcommitには再確認を挟まない。
 - `legacy_sealed_access=0`、既存bundle promotionなし、Phase B/C再開なし。
@@ -19,7 +19,7 @@
 
 | ID | 作業・納品物 | 前提 | 完了条件 |
 |---|---|---|---|
-| CNP-001 | 詳細設計の型・生成器・独立参照・モデル・baseline・executor・評価器・保存・CLI・configを実装。seed/split監査 | 実装指示 | 以下のG0、標準検証3件、未実行dry-run計画書 |
+| CNP-001 | 詳細設計の型・生成器・独立参照・モデル・baseline・executor・評価器・保存・CLI・configを実装。seed/split監査 | 実装指示 | `IMPLEMENTATION_COMPLETE`。G0のCNP対象検証、ruff/mypy、dry-runはPASS。全体pytestは既存artifact欠損で未完走（§9） |
 | CNP-002 | 開発2seedで固定構成の学習、baseline、時間/メモリーを測定。開発報告・失敗例分類 | G0＋開発実行指示 | G1成立、全費用記録。未成立なら依存段階STOP |
 | CNP-003 | hash固定後に5seedのH-CNP1確認。一回の全パネル測定、保存・別プロセス復元 | G1＋確認実行指示 | G2の判定を記録。FAILもタスク完了の成果 |
 | CNP-004 | 凍結親から4block順次適応、同情報baseline、転移・保持・合成・総費用比較 | G2＋適応実行指示 | G3/G4を別々に判定。各blockの採否・棄却証拠 |
@@ -235,3 +235,26 @@ G0/G1/G2の失敗後は依存段階へ進まない。G3のblock失敗後はそ�
 研究用seed監査、データ生成、モデル初期化、学習、確認評価は未実行。
 文書のみのためpytest/ruff/mypyの全suiteは実行対象外。これは実装の検証PASSを意味しない。
 既存の未commit変更 `config.json` は本タスクの変更・commit対象外。
+
+## 9. CNP-001実装・検証記録
+
+2026-09-21: CNP専用の連続値型・CNP world/データ生成・独立参照・条件付き選択NN、
+距離baseline、通常の予測maskによるrecipe実行、局所adapter候補、評価指標、
+fail-closed bundle、静的seed監査、設定、CLIを実装した。既存整数Operation registry、
+Core vocabulary、Phase D executor、既存bundle schemaは変更していない。
+
+WSL `.venv-wsl`のPython 3.12.14/PyTorch 2.13.0+cu130/CUDAで、CNP対象13 tests、
+全体ruff、全体mypy（195 source files）をPASS。対象テストは型境界、独立参照の手計算例、
+空集合、split重複、padding不変性、厳密疎実行、adapter以外の重み不変、CNP bundleの
+改竄拒否・別プロセス復元、静的seed collision拒否、CPU/CUDAのlogit/mask一致を含む。
+`scripts/run_cnp.py audit`はseed監査PASS、`dry-run`は
+`PLAN_READY_NO_MODEL_OR_DATA_ACCESS`を返す。develop/confirm/adapt/reportはCNP-002以降まで
+明示的に拒否する。
+
+全体pytestは最初の953 testsがPASSした後、既存
+`tests/test_mirror_attention_clamp_causal_replay.py::test_initial_parity_gate_and_fused_qkv_freeze`
+で停止した。CNP外の歴史run
+`runs/phase_b_b2_model_bundle_recovery/staging/seed_10/rec004/core/shared_encoder.pt`が存在せず、
+`MissingArtifactError`となるためである。過去artifactを作成・置換・復旧しない。従って全体pytestは
+`NOT_CLEAN_EXISTING_MISSING_ARTIFACT`、CNP対象テストはPASSと記録する。研究用データ生成、
+モデル初期化、訓練、開発/確認評価、sealed access、bundle promotionはいずれも未実行。

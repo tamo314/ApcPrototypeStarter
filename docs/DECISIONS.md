@@ -2,7 +2,7 @@
 
 This file indexes every ADR across the project's history. The log itself is split by research phase to keep each file a manageable size; ADR numbers are a single global, permanent, chronological sequence (`ADR-0001`, `ADR-0002`, ...) and are never renumbered or reused when a file is split -- code, tests, and other docs cite bare `ADR-NNNN` identifiers throughout the repository without a file path, and that remains valid regardless of which file physically holds the entry.
 
-**Adding a new ADR:** the latest record file is `docs/DECISIONS_PHASE_D.md`. Append new decisions there using the next unused `ADR-NNNN` number (next: `ADR-0188`), then add one row to this index. Do not rewrite or renumber existing entries (`docs/DECISIONS_PHASE_A.md`'s own header: "Do not rewrite history; append entries").
+**Adding a new ADR:** the latest record file is `docs/DECISIONS_PHASE_D.md`. Append new decisions there using the next unused `ADR-NNNN` number (next: `ADR-0189`), then add one row to this index. Do not rewrite or renumber existing entries (`docs/DECISIONS_PHASE_A.md`'s own header: "Do not rewrite history; append entries").
 
 When a new research phase begins, start a new `docs/DECISIONS_<PHASE>.md` file (matching the existing `docs/exec-plans/`/`docs/EXPERIMENT_PLAN_*.md` naming for that phase) and add a new section below.
 
@@ -316,3 +316,4 @@ Start with the [research charter](research/CONDITIONAL_NEURAL_PRIMITIVES_CHARTER
 [execution plan](exec-plans/active/CONDITIONAL_NEURAL_PRIMITIVES.md).
 
 - [ADR-0187](DECISIONS_PHASE_D.md#adr-0187-cnp-000-conditional-neural-primitive-design-and-staged-research-plan) -- CNP-000 records the user-selected direction as an isolated conditional-selection NN design, with explicit arguments, typed continuous states, a compact residual adapter, strong metric/ordinary-NN baselines, and separate reuse/adaptation/composition/cost hypotheses. Fixes staged implementation, bounded development, five-seed confirmation, and sequential adaptation plans; no implementation, training, model/data/sealed access, seed-audit execution, or bundle promotion is performed or implicitly authorized by planning completion.
+- [ADR-0188](DECISIONS_PHASE_D.md#adr-0188-cnp-001-isolated-conditional-neural-primitive-implementation-and-g0-verification) -- CNP-001 implements the isolated continuous-state CNP v1 stack and its static audit, artifact, CLI, and invariant-test surfaces. CNP tests, full ruff, and full mypy pass in the Python 3.12 WSL environment; the pre-existing full pytest suite is not clean because an old Phase B run artifact is missing. No CNP research training, development/confirmation evaluation, sealed access, or promotion occurs.
