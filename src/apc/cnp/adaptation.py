@@ -8,6 +8,10 @@ paired inputs across LOCAL and baselines without consulting evaluation panels.
 from __future__ import annotations
 
 from collections.abc import Iterator
+from dataclasses import asdict
+
+import torch
+from torch import nn
 
 from apc.cnp.data import (
     ADAPTATION_BLOCKS,
@@ -18,7 +22,7 @@ from apc.cnp.data import (
     make_adaptation_record,
     make_world,
 )
-from apc.cnp.development import EVAL_BATCH_SETS
+from apc.cnp.development import EVAL_BATCH_SETS, MetricsAccumulator, _collate
 
 ADAPT_TRAIN_EXEMPLARS = 8
 TRANSFER_EXEMPLARS = 16
@@ -92,3 +96,31 @@ def batched(
         raise ValueError("batch size must be positive")
     for start in range(0, len(records), batch_size):
         yield records[start : start + batch_size]
+
+
+def evaluate_panel(
+    model: nn.Module, records: list[CNPRecord], *, device: torch.device
+) -> dict[str, float | int | None]:
+    """Evaluate a fixed CNP-004 panel without exposing labels to the model."""
+
+    accumulator = MetricsAccumulator()
+    model.eval()
+    with torch.inference_mode():
+        for record_batch in batched(records):
+            batch = _collate(record_batch, device)
+            result = model(batch.state, batch.arguments)
+            accumulator.add(result.selected, batch.target, batch.state.valid)
+    return asdict(accumulator.result())
+
+
+def quality_floor(metrics: dict[str, float | int | None]) -> bool:
+    """Apply the registered CNP-004 balanced-accuracy and F1 floor."""
+
+    balanced = metrics.get("balanced_accuracy")
+    f1 = metrics.get("mean_set_f1")
+    return (
+        isinstance(balanced, float)
+        and balanced >= 0.95
+        and isinstance(f1, float)
+        and f1 >= 0.90
+    )
