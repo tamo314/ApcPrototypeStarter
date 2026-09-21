@@ -13,11 +13,13 @@ from apc.cnp.contracts import (
     SetState,
 )
 from apc.cnp.primitive import ConditionalSelectPrimitive, ResidualAdapter
+from apc.cnp.repair import CorrectedConditionalSelectPrimitive
 
 __all__ = [
     "CNPPrimitiveCall",
     "CNPRecipe",
     "ConditionalSelectPrimitive",
+    "CorrectedConditionalSelectPrimitive",
     "ResidualAdapter",
     "SelectArguments",
     "SelectionResult",

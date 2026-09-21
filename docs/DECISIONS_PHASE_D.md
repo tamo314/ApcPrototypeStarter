@@ -1666,3 +1666,28 @@ Three saved block-1 runs record 15,360 updates in total; their wall times plus p
 re-executions rather than treating them as one candidate or selecting their best results.
 New training, model forwards, generated data, candidate selection, promotion, and sealed access
 are all zero. Documentation/hash/JSON checks apply; no Python implementation suite is required.
+
+## ADR-0198: CNP adaptation repair implementation is isolated from v1 evidence
+
+Date: 2026-09-22. Status: **Implementation complete; v1 G3 FAIL STOP preserved; repair execution
+not authorized.**
+
+Following the user's instruction to proceed with repairs, implement the four confirmed contract
+alignments in a new [repair component](../src/apc/cnp/repair.py) and record their execution boundary in
+the [repair v2 contract](exec-plans/active/CNP_ADAPTATION_REPAIR_V2.md). The corrected primitive
+places its one rank-eight adapter after the first hidden layer; set BCE is averaged within each
+nonempty set and then across sets; replay is selected equally per observable source
+query/threshold cell by digest; and the shadow gate rejects any domain/length/threshold quality or
+retention failure. Its distinct architecture signature prevents a v1 adapter checkpoint from being
+misinterpreted under the repaired forward path.
+
+The CNP v1 runner and artifacts are intentionally unchanged. The corrected loss also changes source
+training, so a v1 parent can only support a limited diagnostic and cannot confirm the fully repaired
+H-CNP2 claim. A clean result needs a separately registered source/development/confirmation/adaptation
+protocol with a new data boundary. A fixed-parent diagnostic and a clean repaired-parent confirmation
+are separated in the contract to prevent a mixed intervention from being assigned one cause.
+
+New tests cover loss weighting, adapter placement, replay stratification, and cell gate behavior.
+This implementation authorizes no data generation, model forward, research training, optimizer
+construction, candidate selection, promotion, transfer, composition, or sealed access. ADR-0196's
+historical result, ADR-0197's review, and all v1 run artifacts are unchanged.
