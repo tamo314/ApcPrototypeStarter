@@ -1322,3 +1322,68 @@ h_d1_status            = REFUTED (unchanged, not reopened by this ADR)
 h_d2_status            = UNTESTED (design-and-review-approved; zero execution performed)
 ```
 
+## ADR-0187: CNP-000 conditional neural primitive design and staged research plan
+
+Date: 2026-09-21. Status: **Design baseline recorded; no implementation or research execution.**
+This independent research-design decision is appended to the current ADR file for continuity;
+it is not an amendment to H-D1/H-D2 or an extension of Phase D execution authority.
+
+### Context
+
+The user selected the direction of reusable, condition-dependent neural primitives and requested
+a concrete design and implementation plan to guide subsequent research. Current APC primitives
+are already neural networks; the proposed extension concerns their functional scope, arguments,
+input/output domain, and reuse across related conditions. Phase D's saved short-sequence defects
+motivate explicit input-domain and composition checks, not a claim that neural modularity is
+impossible. Existing Phase B/C terminations and H-D1's negative result remain unchanged.
+
+### Decision
+
+Record a separate Conditional Neural Primitives (CNP) program, initially limited to one learned
+`CONDITIONAL_SELECT` family. Its explicit query vector and threshold condition an 8,449-parameter
+MLP over a fixed task-blind feature representation. Selection cardinality is predicted, including
+the empty set. A later 1,024-parameter residual adapter is the initial local-adaptation mechanism.
+The planned tasks separate conditional execution, adaptation/retention, transfer to untrained
+continuous compositions, and total-cost/storage benefits into H-CNP1 through H-CNP4.
+
+Use an isolated continuous-valued `apc.cnp` interface and bundle schema. The new typed
+`apc.cnp.contracts.PrimitiveCall.arguments` preserves the existing family/argument separation;
+it does not mutate the legacy integer-operation registry, operation IDs, vocabulary, or executor.
+Reuse PrimitiveBase/PrimitiveBank bookkeeping and pure hash utilities where compatible.
+Maintain explicit prediction masks, independent reference execution, sparse invocation, separate
+candidate and parent states, and no training fallback during loading or evaluation.
+
+The first synthetic domain has a shared supervised nonlinear metric, explicit conditions, and
+deterministic labels given observed values. It is not a claim about real-world denoising or
+unknown-intent inference. Include a learned PSD metric and ordinary conditional MLP as strong
+comparators; the ordinary MLP and a single CNP primitive are the same computation at this stage.
+Initial deterministic COUNT/SUM_FIRST and repeated SELECT recipes test execution transfer only,
+not multiple learned skill cooperation or program discovery. Keep expansion/distillation,
+hypernetworks, learned routing, and unsupervised role discovery out of the initial scope.
+
+### Deliverables and execution boundary
+
+- [Research charter](research/CONDITIONAL_NEURAL_PRIMITIVES_CHARTER.md).
+- [Implementation design](design-docs/CONDITIONAL_NEURAL_PRIMITIVES.md).
+- [Task sequence, budgets, and numeric criteria](exec-plans/active/CONDITIONAL_NEURAL_PRIMITIVES.md).
+
+CNP-001 implements and verifies the isolated path; CNP-002 is bounded two-seed development;
+CNP-003 is five-seed confirmation after hash fixation; CNP-004 evaluates four sequential condition
+blocks with paired baselines; CNP-005 interprets saved evidence. Seeds are fixed as proposed roots
+before results but their collision audit is a CNP-001 prerequisite, not a claimed completed check.
+Resource caps and scientific STOP rules are explicit. New confirmation data is separated from
+development and from every legacy sealed partition. No historical dataset or bundle is opened.
+
+This turn authorizes and completes planning only. Subsequent implementation/execution follows
+the user's specified task scope; plan completion is not automatic permission to train, evaluate,
+promote bundles, or reopen earlier research. D-018's separate authorization is preserved as-is.
+
+### Consequences
+
+The first result can establish conditional reuse without demonstrating an APC efficiency benefit.
+A learned metric may dominate the proposed NN; such a result is reported rather than suppressed
+by removing the comparator or increasing benchmark complexity after observing outcomes.
+Numeric targets are prospective design choices, not measured performance forecasts.
+Documentation-only verification covers relative links/anchors, numeric consistency, and diffs.
+No optimizer, model forward, training, data generation, seed registry execution, or new research
+evaluation is performed by CNP-000; the full Python suite is not required for this document change.
