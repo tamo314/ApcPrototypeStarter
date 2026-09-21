@@ -1480,3 +1480,33 @@ selection.
 The run took 5,945.69 seconds, used at most 68,528,640 CUDA bytes and 1,974,112,256 process RAM
 bytes, and recorded no legacy sealed access. This is a scientific STOP GATE, not an implementation
 error. Under the CNP contract, CNP-004 adaptation, candidate selection, and promotion do not run.
+
+## ADR-0191: CNP-003 review identifies invalid causal denominators and requires measurement repair
+
+Date: 2026-09-21. Status: **Review complete; historical G2 FAIL preserved; causal evidence INVALID_EVIDENCE; CNP-004 stopped.**
+
+The [result review](results/CNP003_RESULT_REVIEW.md) and
+[artifact-only audit](results/CNP003_RESULT_REVIEW_AUDIT.json) establish a measurement defect:
+the evaluator unions the effectful masks across interventions, and the complementary wrong-family
+reference makes that denominator every valid item in the saved panel. Wrong-argument predictions,
+rather than reference outputs, also enter mask construction. None accuracy therefore equals the
+positive rate p, so even a perfect model has gap at most 1-p. Twenty of the 25 known-length cells
+cannot meet 0.50 under this implementation, regardless of learning quality.
+
+This retrospectively corrects ADR-0190's interpretation that the failure is purely scientific and
+not an implementation error; its historical measurements and G2_FAIL_STOP remain unchanged.
+The ordinary accuracy/F1 observations remain valid within their recorded scope, but H-CNP1 is
+not confirmed or scientifically refuted by this defective causal gate. Per-intervention effectful
+set-count qualification is unverified, EM bootstrap intervals and single-SELECT terminal panels
+are missing, and the recorded fresh-load PASS covers a CPU-only probe rather than CUDA parity.
+
+Prioritize reference-defined intervention-specific masks, meaningful evaluator regression tests,
+and a separately scoped zero-training correction over model enlargement or more training.
+Corrected Wrong-argument metrics cannot be recovered from the stored marginal aggregates alone.
+Any replay must preserve the original run and identify the panel as already opened; a changed
+model requires a separate v2 plan and unused confirmation data. No threshold relaxation, G2 PASS,
+CNP-004 execution, candidate selection, or promotion is authorized by this review.
+
+All 14 run-source hashes match. This task used saved JSON and source inspection only, with zero
+model forwards, new data, training, or legacy sealed access. Documentation/JSON/link/diff checks
+apply; the Python implementation suites are not rerun for this documentation-only review.
