@@ -7,6 +7,7 @@ paired inputs across LOCAL and baselines without consulting evaluation panels.
 
 from __future__ import annotations
 
+import copy
 import json
 import platform
 import resource
@@ -45,7 +46,8 @@ from apc.cnp.development import (
 )
 from apc.cnp.primitive import ConditionalSelectPrimitive
 from apc.cnp.seed_registry import audit_cnp_seed_registry
-from apc.cnp.training import masked_bce_loss
+from apc.cnp.training import clone_local_candidate, masked_bce_loss
+from apc.utils.model_bundle import canonical_state_hash
 
 ADAPT_TRAIN_EXEMPLARS = 8
 TRANSFER_EXEMPLARS = 16
@@ -178,6 +180,18 @@ def quality_floor(metrics: dict[str, float | int | None]) -> bool:
         and balanced >= 0.95
         and isinstance(f1, float)
         and f1 >= 0.90
+    )
+
+
+def _base_weights_hash(model: ConditionalSelectPrimitive) -> str:
+    """Return the stable (non-adapter) model hash for a LOCAL candidate."""
+
+    return canonical_state_hash(
+        {
+            name: tensor.detach().cpu()
+            for name, tensor in model.state_dict().items()
+            if not name.startswith("adapter.")
+        }
     )
 
 
@@ -354,6 +368,182 @@ def run_adaptation_preflight(
         (run_directory / "report.md").write_text(
             "# CNP-004 parent shadow preflight\n\n"
             "Fixed CNP-003 parents were measured on CNP-004 shadow panels before any update.\n",
+            encoding="utf-8",
+        )
+        run_manifest["status"] = "COMPLETE"
+        run_manifest["completed_at_utc"] = datetime.now(UTC).isoformat()
+        _write_json(run_directory / "run_manifest.json", run_manifest)
+        return run_directory
+    except Exception as error:
+        run_manifest["status"] = "FAILED"
+        run_manifest["failure"] = {"type": type(error).__name__, "message": str(error)}
+        _write_json(run_directory / "run_manifest.json", run_manifest)
+        raise
+
+
+def run_adaptation_block1(
+    config_path: Path, source_run: Path, output_root: Path, run_id: str | None = None
+) -> Path:
+    """Run the fixed CNP-004 first-block MLP candidates through their shadow gate."""
+
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    if not torch.cuda.is_available():
+        raise RuntimeError("RESOURCE_STOP: CNP-004 requires one CUDA device")
+    source_run = source_run.resolve()
+    source_manifest_path = source_run / "run_manifest.json"
+    source_report_path = source_run / "report.json"
+    if not source_manifest_path.is_file() or not source_report_path.is_file():
+        raise FileNotFoundError("CNP-004 source run is incomplete")
+    source_manifest = json.loads(source_manifest_path.read_text(encoding="utf-8"))
+    if source_manifest.get("task") != "CNP-003" or source_manifest.get("status") != "COMPLETE":
+        raise ValueError("CNP-004 requires a completed CNP-003 source run")
+    config_hash = canonical_json_hash(config)
+    if source_manifest.get("config_hash") != config_hash:
+        raise ValueError("CNP-004 source configuration hash mismatch")
+    seeds = config["seeds"]["confirmation_model"]
+    if (
+        not isinstance(seeds, list)
+        or len(seeds) != 5
+        or not all(isinstance(seed, int) for seed in seeds)
+    ):
+        raise ValueError("CNP-004 requires the fixed five confirmation seeds")
+    identifier = run_id or f"cnp004_block1_{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}"
+    run_directory = output_root / identifier
+    if run_directory.exists():
+        raise FileExistsError(f"Refusing to overwrite CNP-004 block directory: {run_directory}")
+    run_directory.mkdir(parents=True)
+    (run_directory / "candidates").mkdir()
+    device = torch.device("cuda:0")
+    torch.cuda.reset_peak_memory_stats()
+    started = time.perf_counter()
+    block = ADAPTATION_BLOCKS[0]
+    full_records, _ = paired_adaptation_training_records(block)
+    replay = source_replay_records()
+    new_shadow = list(
+        adaptation_records(
+            role="shadow",
+            block=block,
+            exemplar_count=ADAPT_TRAIN_EXEMPLARS,
+            sets_per_condition=SETS_PER_CONDITION,
+        )
+    )
+    old_shadow = source_shadow_records()
+    run_manifest: dict[str, Any] = {
+        "program": "cnp_v1",
+        "task": "CNP-004-BLOCK-1",
+        "status": "RUNNING",
+        "run_id": identifier,
+        "created_at_utc": datetime.now(UTC).isoformat(),
+        "config_hash": config_hash,
+        "code_hashes": _code_hashes(config_path.parents[2]),
+        "git_commit": _git_commit(config_path.parents[2]),
+        "seed_audit": audit_cnp_seed_registry(config_path),
+        "source_run": str(source_run),
+        "source_hashes": {
+            str(source_manifest_path): source_hash(source_manifest_path),
+            str(source_report_path): source_hash(source_report_path),
+        },
+        "block": block,
+        "new_training_records": len(full_records),
+        "source_replay_records": len(replay),
+        "new_training_steps_per_candidate": 256,
+        "legacy_sealed_access": 0,
+    }
+    _write_json(run_directory / "run_manifest.json", run_manifest)
+    try:
+        rows: list[dict[str, Any]] = []
+        for model_seed in seeds:
+            parent = load_fixed_parent(source_run, "CONDITIONAL_MLP", model_seed, device=device)
+            if not isinstance(parent, ConditionalSelectPrimitive):
+                raise RuntimeError("CNP-004 LOCAL parent must be a conditional primitive")
+            parent_old = evaluate_panel(parent, old_shadow, device=device)
+            parent_new = evaluate_panel(parent, new_shadow, device=device)
+            factories: tuple[tuple[str, nn.Module, bool], ...] = (
+                ("LOCAL", clone_local_candidate(parent), True),
+                ("FULL_REPLAY", copy.deepcopy(parent), True),
+                ("FULL_NO_REPLAY", copy.deepcopy(parent), False),
+                ("SCRATCH", ConditionalSelectPrimitive(0), True),
+            )
+            for method, candidate, replay_enabled in factories:
+                base_hash_before: str | None = None
+                if method == "SCRATCH":
+                    torch.manual_seed(model_seed)
+                    candidate = ConditionalSelectPrimitive(0)
+                elif method == "LOCAL":
+                    if not isinstance(candidate, ConditionalSelectPrimitive):
+                        raise RuntimeError("CNP-004 LOCAL candidate type mismatch")
+                    base_hash_before = _base_weights_hash(candidate)
+                candidate.to(device)
+                milestones = train_fixed_candidate(
+                    candidate,
+                    new_records=full_records,
+                    replay_records=replay,
+                    device=device,
+                    replay_enabled=replay_enabled,
+                )
+                candidate_new = evaluate_panel(candidate, new_shadow, device=device)
+                candidate_old = evaluate_panel(candidate, old_shadow, device=device)
+                old_f1 = parent_old["mean_set_f1"]
+                candidate_old_f1 = candidate_old["mean_set_f1"]
+                retention = (
+                    isinstance(old_f1, float)
+                    and isinstance(candidate_old_f1, float)
+                    and candidate_old_f1 >= old_f1 - 0.01
+                )
+                accepted = (
+                    quality_floor(candidate_new) and quality_floor(candidate_old) and retention
+                )
+                base_hash_after: str | None = None
+                if method == "LOCAL":
+                    if not isinstance(candidate, ConditionalSelectPrimitive):
+                        raise RuntimeError("CNP-004 LOCAL candidate type mismatch")
+                    base_hash_after = _base_weights_hash(candidate)
+                    if base_hash_after != base_hash_before:
+                        raise RuntimeError("CNP-004 LOCAL modified frozen base weights")
+                candidate_path = (
+                    run_directory / "candidates" / f"{method.lower()}_seed_{model_seed}.pt"
+                )
+                torch.save({"model": candidate.state_dict(), "accepted": accepted}, candidate_path)
+                rows.append(
+                    {
+                        "model_seed": model_seed,
+                        "method": method,
+                        "parent_new_shadow": parent_new,
+                        "parent_old_shadow": parent_old,
+                        "candidate_new_shadow": candidate_new,
+                        "candidate_old_shadow": candidate_old,
+                        "retention_pass": retention,
+                        "base_weights_hash_before": base_hash_before,
+                        "base_weights_hash_after": base_hash_after,
+                        "shadow_status": "PASS" if accepted else "FAIL",
+                        "training": milestones,
+                        "candidate_path": str(candidate_path),
+                    }
+                )
+                del candidate
+                torch.cuda.empty_cache()
+            del parent
+            torch.cuda.empty_cache()
+        local = [row for row in rows if row["method"] == "LOCAL"]
+        local_pass = all(row["shadow_status"] == "PASS" for row in local)
+        report = {
+            "task": "CNP-004-BLOCK-1",
+            "run_id": identifier,
+            "block": block,
+            "local_shadow_gate": "PASS" if local_pass else "FAIL_STOP",
+            "dependent_blocks": "AUTHORIZED_TO_CONTINUE" if local_pass else "NOT_EXECUTED",
+            "rows": rows,
+            "total_wall_seconds": time.perf_counter() - started,
+            "peak_cuda_bytes": int(torch.cuda.max_memory_allocated()),
+            "peak_process_ram_bytes": int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+            * 1024,
+            "legacy_sealed_access": 0,
+        }
+        _write_json(run_directory / "report.json", report)
+        (run_directory / "report.md").write_text(
+            "# CNP-004 block 1 shadow gate\n\n"
+            f"- LOCAL shadow gate: `{report['local_shadow_gate']}`\n"
+            f"- Dependent blocks: `{report['dependent_blocks']}`\n",
             encoding="utf-8",
         )
         run_manifest["status"] = "COMPLETE"

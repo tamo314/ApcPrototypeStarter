@@ -1,7 +1,6 @@
 """CNP command-line entry point.
 
-Static audit, planning, CNP-002 development, and the separately authorized
-CNP-003 confirmation run are available. Adaptation remains independently gated.
+Static audit, planning, confirmation, and authorized CNP-004 stages are available.
 """
 
 from __future__ import annotations
@@ -38,6 +37,7 @@ def main() -> int:
             "correct",
             "confirm-v2",
             "adapt",
+            "adapt-block1",
             "report",
         ),
     )
@@ -118,6 +118,19 @@ def main() -> int:
         from apc.cnp.adaptation import run_adaptation_preflight
 
         output = run_adaptation_preflight(
+            arguments.config,
+            arguments.source_run,
+            arguments.output_root or REPOSITORY_ROOT / "runs/cnp_v1/adapt",
+            arguments.run_id,
+        )
+        print(json.dumps({"status": "COMPLETE", "run_directory": str(output)}, sort_keys=True))
+        return 0
+    if arguments.mode == "adapt-block1":
+        if arguments.source_run is None:
+            parser.error("adapt-block1 requires --source-run")
+        from apc.cnp.adaptation import run_adaptation_block1
+
+        output = run_adaptation_block1(
             arguments.config,
             arguments.source_run,
             arguments.output_root or REPOSITORY_ROOT / "runs/cnp_v1/adapt",
