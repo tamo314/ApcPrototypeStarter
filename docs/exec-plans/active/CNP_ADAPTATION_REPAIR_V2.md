@@ -77,6 +77,11 @@ ADR-0201の[改善案レビュー](../../results/R_CNP001_IMPROVEMENT_REVIEW.md)
 実験は追加実行していない。R-CNP-002の前に、上記の開発対照を検討する案であり、
 本追記だけでその対照やR-CNP-002を認可しない。
 
+ADR-0202で[順序・保持改善の詳細設計](../../design-docs/CNP_ADAPTATION_SCHEDULE_AND_RETENTION.md)と
+[実装・診断計画](CNP_ADAPTATION_SCHEDULE_AND_RETENTION.md)を固定した。
+評価セル128集合、A/B/Cのquotaと分散規則、lambda0/1の独立保持対照、予算・停止条件を定義。
+状態は`DESIGN_COMPLETE_IMPLEMENTATION_PENDING`。本書のR-CNP-001実行記録は変更しない。
+
 ### R-CNP-002: 修正版親からの独立確認
 
 set-weighted lossを初期学習にも適用するなら、source training、開発、5 seed確認、適応shadowを

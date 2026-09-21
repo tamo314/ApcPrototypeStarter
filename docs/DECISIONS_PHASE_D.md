@@ -1763,3 +1763,34 @@ post-result threshold relaxation or aggregation to rescue this run.
 See [the improvement review](results/R_CNP001_IMPROVEMENT_REVIEW.md) and its linked audit.
 No model forward, data generation, training, candidate selection, or sealed access was performed.
 The review authorizes no follow-up experiment or R-CNP-002 execution.
+
+## ADR-0202: CNP follow-up design fixes schedule controls and separate functional retention diagnostics
+
+Date: 2026-09-22. Status: **Design complete; implementation and research execution pending.**
+
+The user's design request is implemented as the
+[schedule and retention design](design-docs/CNP_ADAPTATION_SCHEDULE_AND_RETENTION.md) and its
+[implementation/diagnostic plan](exec-plans/active/CNP_ADAPTATION_SCHEDULE_AND_RETENTION.md).
+Keep per-query, length, threshold quality gates and raise prospective shadow support to 128 sets
+per cell on fresh panels. Separate parent eligibility, new quality, old quality, and old retention;
+new relative retention is descriptive only. Historical gates and measurements are unchanged.
+Ineligible fixed parents are permitted only as explicitly labelled diagnostic inputs, not as
+qualified parents for repaired-source confirmation.
+
+R-CNP-001S specifies three paired arms: ordered A; dispersed B with exactly A's record exposures;
+dispersed C with stratum exposure counts differing by at most one. B/C share a deterministic,
+label-independent rational-position scheduler. All arms retain the repaired first-layer adapter,
+set-mean loss, same replay buffer, 256 updates, and new16/replay16. C is the prospective diagnostic
+candidate; results cannot switch the candidate to A/B. Five parents imply at most 3,840 updates.
+
+R-CNP-001R separately compares fixed C with lambda zero versus one for set-mean squared logit
+deviation from the frozen parent on replay only, retaining supervised BCE. Its fresh panel,
+2,560-update cap, parent-error risks, cache lineage, and additional compute are explicit.
+It does not automatically run after S fails. Each diagnostic has a two-hour, 12GiB GPU,
+32GiB RAM limit; selection and promotion remain zero even on diagnostic PASS.
+
+Formal R-CNP-002 receives a locked recipe, fresh source/development/confirmation/adaptation data,
+and qualified repaired parents; it inherits causal, transfer, composition, and cost requirements.
+Its executable registry is a later result-dependent handoff, not an implicit experiment here.
+No research data, model forward, optimizer update, candidate selection, or sealed access is
+performed during this design task. Preserve all existing STOP decisions.

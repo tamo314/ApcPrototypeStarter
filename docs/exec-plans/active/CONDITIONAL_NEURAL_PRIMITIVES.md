@@ -18,11 +18,14 @@
   5/5不合格で停止し、後続block・転移・合成・G4は実行しない。
 - CNP-004結果レビュー（ADR-0197）はadapter位置・損失重み・shadow評価単位・replay選定の
   仕様不一致を確認。保存STOPは維持し、登録設計の局所適応を反証したとは扱わない。
-  [結果と改善順序](../../results/CNP004_RESULT_REVIEW.md)を参照。修正版の学習・確認は未実行。
+  [結果と改善順序](../../results/CNP004_RESULT_REVIEW.md)を参照。初期学習からの修正版独立確認は未実行。
 - CNP Adaptation Repair v2（ADR-0198）は、v1を変更せずに仕様整合したadapter・loss・replay・
   cell gateを実装した。[改訂実装契約](CNP_ADAPTATION_REPAIR_V2.md)はR-CNP-001の
   限定診断を実行し、両方式のcell gateが5/5 FAIL。R-CNP-002の独立確認境界を定めるが、
   R-CNP-002は未認可。
+- ADR-0202の[順序・保持改善計画](CNP_ADAPTATION_SCHEDULE_AND_RETENTION.md)は
+  `DESIGN_COMPLETE_IMPLEMENTATION_PENDING`。三方式の順序/提示回数対照と二方式の
+  機能保持対照を設計した。研究実装・追加実験は未実行。
 - CNP-001ではG0に必要な単体検証だけを実行した。研究用の訓練・開発・確認評価は行っていない。
 - 実行指示が与えられた範囲を進める。前提を通過したことだけから未指定の段階を実行しない。
   逆に、指定範囲内の通常の実装・検証・ローカルcommitには再確認を挟まない。
