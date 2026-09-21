@@ -1587,3 +1587,40 @@ five fixed confirmation seeds, four fixed new-condition blocks, LOCAL/FULL_REPLA
 SCRATCH/METRIC_REPLAY, the paired 64- and 16-teacher-budget arms, and the existing shadow-stop and
 G3/G4 criteria. It does not authorize changing CNP-003 history, choosing a different checkpoint,
 additional training beyond the registered CNP-004 budget, candidate promotion, or CNP-005.
+
+## ADR-0196: CNP-004 block 1 LOCAL shadow gate fails and stops the stream
+
+Date: 2026-09-21. Status: **CNP-004 `G3_FAIL_STOP` at block 1; later blocks, transfer,
+composition, G4, candidate selection, and promotion are not executed.**
+
+`runs/cnp_v1/adapt/cnp004_block1_evidence2/` runs the registered first block `q1+q2+` from each
+of the five fixed CNP-003 MLP parents. Each of LOCAL, FULL_REPLAY, FULL_NO_REPLAY, and
+SCRATCH receives the same 1,536 new records and the registered 1,536-record source replay buffer where applicable;
+each update uses the fixed 256 steps. The independent 1,536-record new-domain and source retention
+shadow panels are used only after that one fixed candidate update. The full 64-teacher arm is the
+primary gate; the 16-teacher secondary arm and METRIC_REPLAY transfer comparison are not opened
+after this main-arm STOP.
+
+LOCAL fails the new-domain shadow quality floor (balanced accuracy >= 0.95 and mean set F1 >= 0.90)
+in all five seeds. Its minima are balanced accuracy 0.875141 and F1 0.861750; no LOCAL seed passes
+both metrics. Only seed 610204 retains the source F1 tolerance; the retention condition fails for
+the other four seeds. Every LOCAL base hash is bitwise unchanged before and after
+update, confirming the failure is not caused by a stable-base modification.
+
+The strongest non-LOCAL new-domain result, FULL_REPLAY, also misses the registered floor and fails
+its source-retention comparison in every seed. This is descriptive evidence only: the LOCAL failure
+is sufficient for the STOP. Total measured wall time is 94.047 seconds, peak CUDA allocation is
+68,253,184 bytes, peak process RAM is 1,874,268,160 bytes, and `legacy_sealed_access=0`. The
+run records source hashes, configuration hash, code hashes, seed audit, candidates, and the final
+`FAIL_STOP` report without overwriting prior evidence.
+
+Per the CNP-004 contract, no transfer or composition panel may be used to rescue this shadow-gate
+failure, and no block 2--4 stream is executed. This is a scientific result under the fixed budget,
+not an implementation failure. CNP-005 remains outside the authorized scope.
+
+The final runner commits are `3e302b6`, `6b36656`, and `be10eed`. In WSL Python 3.12.14,
+the CNP adaptation and training target tests pass (10 tests), `ruff check .` passes, and
+`mypy src/apc` passes for all 198 source files. `pytest -q --maxfail=1` reaches 970 passing tests
+before the pre-existing unrelated missing artifact
+`runs/phase_b_b2_model_bundle_recovery/staging/seed_10/rec004/core/shared_encoder.pt` stops
+`test_initial_parity_gate_and_fused_qkv_freeze`; the full suite is therefore not a clean PASS.
