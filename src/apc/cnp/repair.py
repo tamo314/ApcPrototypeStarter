@@ -197,6 +197,36 @@ def cell_key(record: CNPRecord) -> str:
     )
 
 
+def _collate_records(
+    records: list[CNPRecord], device: torch.device
+) -> tuple[SetState, SelectArguments, torch.Tensor]:
+    """Pad a small evaluation batch without exposing record metadata to the model."""
+
+    if not records:
+        raise ValueError("cannot collate an empty repair evaluation batch")
+    width = max(record.state.width for record in records)
+    batch_size = len(records)
+    values = torch.zeros((batch_size, width, 8), dtype=torch.float32, device=device)
+    valid = torch.zeros((batch_size, width), dtype=torch.bool, device=device)
+    item_ids = torch.zeros((batch_size, width), dtype=torch.int64, device=device)
+    target = torch.zeros((batch_size, width), dtype=torch.bool, device=device)
+    query = torch.empty((batch_size, 8), dtype=torch.float32, device=device)
+    threshold = torch.empty((batch_size,), dtype=torch.float32, device=device)
+    for index, record in enumerate(records):
+        record_width = record.state.width
+        values[index, :record_width] = record.state.values[0].to(device)
+        valid[index, :record_width] = record.state.valid[0].to(device)
+        item_ids[index, :record_width] = record.state.item_ids[0].to(device)
+        target[index, :record_width] = record.target[0].to(device)
+        query[index] = record.arguments.query[0].to(device)
+        threshold[index] = record.arguments.threshold[0].to(device)
+    return (
+        SetState(values=values, valid=valid, item_ids=item_ids),
+        SelectArguments(query=query, threshold=threshold),
+        target,
+    )
+
+
 def evaluate_panel_by_cell(
     model: nn.Module, records: list[CNPRecord], *, device: torch.device
 ) -> dict[str, Any]:
@@ -208,22 +238,18 @@ def evaluate_panel_by_cell(
     cells: dict[str, _MetricsAccumulator] = {}
     model.eval()
     with torch.inference_mode():
-        for record in records:
-            state = SetState(
-                values=record.state.values.to(device),
-                valid=record.state.valid.to(device),
-                item_ids=record.state.item_ids.to(device),
-            )
-            arguments = SelectArguments(
-                query=record.arguments.query.to(device),
-                threshold=record.arguments.threshold.to(device),
-            )
+        for start in range(0, len(records), 32):
+            record_batch = records[start : start + 32]
+            state, arguments, target = _collate_records(record_batch, device)
             result = model(state, arguments)
-            target = record.target.to(device)
             aggregate.add(result.selected, target, state.valid)
-            cells.setdefault(cell_key(record), _MetricsAccumulator()).add(
-                result.selected, target, state.valid
-            )
+            for index, record in enumerate(record_batch):
+                width = record.state.width
+                cells.setdefault(cell_key(record), _MetricsAccumulator()).add(
+                    result.selected[index : index + 1, :width],
+                    target[index : index + 1, :width],
+                    state.valid[index : index + 1, :width],
+                )
     return {
         "aggregate": aggregate.result(),
         "cells": {key: accumulator.result() for key, accumulator in sorted(cells.items())},
