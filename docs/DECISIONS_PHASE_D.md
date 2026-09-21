@@ -1691,3 +1691,23 @@ New tests cover loss weighting, adapter placement, replay stratification, and ce
 This implementation authorizes no data generation, model forward, research training, optimizer
 construction, candidate selection, promotion, transfer, composition, or sealed access. ADR-0196's
 historical result, ADR-0197's review, and all v1 run artifacts are unchanged.
+
+## ADR-0199: R-CNP-001 fixed-parent adaptation-repair diagnostic is authorized
+
+Date: 2026-09-22. Status: **Implementation and one bounded diagnostic authorized; no repaired
+H-CNP2 confirmation, promotion, transfer, or R-CNP-002 authorization.**
+
+The user instructed the next repair stage. R-CNP-001 is fixed in
+[the repair contract](exec-plans/active/CNP_ADAPTATION_REPAIR_V2.md): the five immutable CNP-003
+MLP parents are evaluated on new development-only adaptation/new-shadow/old-shadow role namespaces
+for `q1+q2+`. Each seed runs one 256-update `LEGACY_LOCAL` candidate and one 256-update
+`REPAIRED_LOCAL` candidate. The latter jointly applies the first-hidden adapter, set-weighted loss,
+and stratified source replay. Candidate adapter initialization, rank, optimizer, update count, and
+new/replay batch counts are paired. New/replay inputs are not otherwise changed.
+
+The diagnostic deliberately compares a correction bundle, not a factorial attribution of its parts.
+It saves per-domain/length/threshold quality and retention gates and frozen-base hashes, but makes
+no candidate selection. It does not train a repaired source parent, so it cannot pass or fail the
+fully repaired H-CNP2 hypothesis. Its two methods × five parents are limited to 2,560 updates,
+two hours, 12GiB VRAM, and 32GiB RAM. Transfer/composition, later blocks, metric/full/scratch
+comparators, promotion, sealed access, and R-CNP-002 remain out of scope.

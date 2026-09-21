@@ -33,6 +33,9 @@ DataRole = Literal[
     "shadow",
     "transfer_eval",
     "stress_eval",
+    "repair_adapt_train",
+    "repair_new_shadow",
+    "repair_old_shadow",
 ]
 
 

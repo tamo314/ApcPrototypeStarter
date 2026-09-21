@@ -38,6 +38,7 @@ def main() -> int:
             "confirm-v2",
             "adapt",
             "adapt-block1",
+            "repair-r001",
             "report",
         ),
     )
@@ -134,6 +135,19 @@ def main() -> int:
             arguments.config,
             arguments.source_run,
             arguments.output_root or REPOSITORY_ROOT / "runs/cnp_v1/adapt",
+            arguments.run_id,
+        )
+        print(json.dumps({"status": "COMPLETE", "run_directory": str(output)}, sort_keys=True))
+        return 0
+    if arguments.mode == "repair-r001":
+        if arguments.source_run is None:
+            parser.error("repair-r001 requires --source-run")
+        from apc.cnp.repair_diagnostic import run_r001
+
+        output = run_r001(
+            arguments.config,
+            arguments.source_run,
+            arguments.output_root or REPOSITORY_ROOT / "runs/cnp_repair/r001",
             arguments.run_id,
         )
         print(json.dumps({"status": "COMPLETE", "run_directory": str(output)}, sort_keys=True))

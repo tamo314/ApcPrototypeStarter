@@ -2,7 +2,7 @@
 
 日付: 2026-09-22 / ADR-0198
 
-状態: **`IMPLEMENTATION_COMPLETE_EXECUTION_NOT_AUTHORIZED`**。
+状態: **`R_CNP_001_AUTHORIZED_PENDING`**。R-CNP-002は未認可。
 
 ## 目的と境界
 
@@ -40,6 +40,29 @@ v1親自体は要素一括lossで学習済みなので、この段階はH-CNP2�
 順序効果は、この段階でも変更しない。順序比較をする場合は、query×threshold別の提示回数、
 各batchの構成、seed、最大更新数を事前固定した独立対照とし、他の修正と同時に原因へ帰属しない。
 
+#### R-CNP-001 固定実行契約
+
+- **親:** `runs/cnp_v1/confirm/cnp003_confirm1/` のCNP-003最終MLP checkpoint、seed
+  `610200`–`610204`だけをimmutable inputとして使う。新しいmodel seedは使わない。
+- **blockと分割:** `q1+q2+`のみ。`repair_adapt_train`、`repair_new_shadow`、
+  `repair_old_shadow`の3 roleを使い、各1,536集合（8 query×3 threshold×64集合）。
+  v1 CNP-004のadapt/shadow/transfer、CNP-003/確認panelとはrole namespaceで分離する。
+- **方式:** `LEGACY_LOCAL`（v1の後段adapter、要素平均loss、先頭1,536 source replay）と
+  `REPAIRED_LOCAL`（第1隠れ層adapter、set-weighted loss、全128,000 source recordから
+  query×threshold cellごと8件をdigest順に選ぶreplay）。各seedでadapter初期化は同じ乱数状態に
+  戻す。方式間の入力、rank=8、AdamW lr=0.001、weight_decay=0、clip=1.0、256 updates、
+  new16＋replay16は同じである。replay規則が方式固有なので、これは複合修正群の比較である。
+- **測定:** 親と候補についてnew/old shadowのdomain×length×threshold全cellを記録する。
+  各cellでBA≥0.95、F1≥0.90、old F1低下≤0.01を機械判定する。候補の基盤hash不変を要求する。
+  shadowは256 step候補だけを一回測定し、checkpoint選択に使わない。
+- **境界:** 5 seed×2方式×256 = **2,560 updates**、2時間、VRAM 12GiB、RAM 32GiB。
+  転移・合成・block 2–4・METRIC・FULL・SCRATCH・candidate selection・bundle promotionは0。
+  どの結果でもR-CNP-002を自動開始しない。失敗は候補を保存し、`FIXED_PARENT_DIAGNOSTIC`
+  として記録する。H-CNP2/3/4のPASS/FAILには使用しない。
+
+ユーザーの「次を進めてください」により、R-CNP-001の実装とこの一回の実行を認可する。
+その実行結果は下記の実行記録へ追記し、R-CNP-002には別途の指示を必要とする。
+
 ### R-CNP-002: 修正版親からの独立確認
 
 set-weighted lossを初期学習にも適用するなら、source training、開発、5 seed確認、適応shadowを
@@ -61,9 +84,9 @@ R-CNP-002で初めて、修正版H-CNP1の確認後に修正版H-CNP2/3を判定
 - replayがcondition×thresholdで均等かつdigest順に選ばれること。
 - shadowの一つのcellの失敗が全gateをFAILにすること。
 
-この文書と実装は研究実験を実行しない。新規データ生成、研究用model forward、optimizer update、
-candidate selection、promotion、legacy sealed accessは0。R-CNP-001またはR-CNP-002の実行には、
-それぞれの固定契約を承認した後の明示的な実行指示が必要である。
+R-CNP-001実行前の現時点では、新規データ生成、研究用model forward、optimizer update、
+candidate selection、promotion、legacy sealed accessは0。R-CNP-001は上記の実行契約で認可済み。
+R-CNP-002の実行には、固定契約を承認した後の明示的な実行指示が必要である。
 
 検証: WSL Python 3.12.14で`tests/test_cnp*.py`は34 PASS、`ruff check .`はPASS、
 `mypy src/apc`は199 source filesでPASS。全repository pytestは今回再実行していない。
