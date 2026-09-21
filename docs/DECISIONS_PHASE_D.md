@@ -1542,3 +1542,23 @@ incorrectly requested a nonexistent `RAW_DISTANCE_FIT` step-4000 checkpoint. The
 is preserved. The runner now selects its registered step-1000 final checkpoint and has a regression
 test. CNP tests, ruff, and mypy pass in WSL Python 3.12.14; the correction itself took 4,309.30
 seconds with peak CUDA 84,058,624 bytes and process RAM 1,562,157,056 bytes.
+
+## ADR-0193: CNP v2 unused-query-panel confirmation is authorized with fixed v1 checkpoints
+
+Date: 2026-09-21. Status: **CNP-V2-001 authorized; execution pending.**
+
+The user authorized a fresh CNP v2 confirmation panel after the corrected CNP-003 result was
+limited to an already opened panel. The registered contract
+[CNP v2 unused-panel confirmation](exec-plans/active/CNP_V2_FRESH_CONFIRMATION.md) fixes
+`confirm_v2_eval` with `confirm_v2_00`--`confirm_v2_31`, separate from the 64 source queries and
+the opened 32-query CNP-003 panel. It uses the same known/interpolation lengths, thresholds, and
+128 sets per query as CNP-003, with all three role namespaces audited together before model
+evaluation.
+
+The 20 CNP-003 final checkpoints and MLP bundles are immutable inputs, checked by SHA256 and
+source configuration hash. CNP-V2-001 evaluates them once with the corrected, intervention-specific
+G2 implementation and CUDA fresh-process loading. It records the three baseline methods and the
+MLP composition panel but makes no new training or optimizer update, no model/checkpoint/threshold
+selection, and no legacy sealed access. The resource ceiling is four hours, 12 GiB VRAM, and 32 GiB
+process RAM. A v2 G2 pass supports H-CNP1 on two query-disjoint panels within the same world; it
+does not authorize CNP-004, candidate selection, or promotion.

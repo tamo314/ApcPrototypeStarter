@@ -75,3 +75,23 @@ def test_records_are_deterministic_and_split_audit_rejects_overlap() -> None:
     assert copied_to_another_role.digest() == first.digest()
     with pytest.raises(ValueError, match="split overlap"):
         audit_split_disjoint({"source_train": [first], "dev_eval": [copied_to_another_role]})
+
+
+def test_v2_confirmation_role_is_disjoint_from_the_opened_v1_query_namespace() -> None:
+    v1 = make_record(
+        role="confirm_eval",
+        condition_key="confirm_00",
+        length=8,
+        threshold=0.8,
+        example_index=0,
+    )
+    v2 = make_record(
+        role="confirm_v2_eval",
+        condition_key="confirm_v2_00",
+        length=8,
+        threshold=0.8,
+        example_index=0,
+    )
+    assert v1.digest() != v2.digest()
+    audit = audit_split_disjoint({"confirm_eval": [v1], "confirm_v2_eval": [v2]})
+    assert audit["status"] == "PASS"

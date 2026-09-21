@@ -1,8 +1,15 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
-from apc.cnp.confirmation import _checkpoint_path, _g2, _quantile_linear
+from apc.cnp.confirmation import (
+    _checkpoint_path,
+    _confirmation_boundary_v2,
+    _g2,
+    _load_v2_confirmation_spec,
+    _quantile_linear,
+)
 
 
 def _passing_row() -> dict[str, object]:
@@ -49,3 +56,21 @@ def test_raw_distance_correction_uses_the_fixed_1000_step_checkpoint() -> None:
     root = Path("source")
     assert _checkpoint_path(root, "RAW_DISTANCE_FIT", 610200).name == "step_1000.pt"
     assert _checkpoint_path(root, "CONDITIONAL_MLP", 610200).name == "step_4000.pt"
+
+
+def test_v2_confirmation_spec_locks_the_v1_source_and_unused_panel() -> None:
+    spec_path = Path("configs/cnp/v2_confirmation.json")
+    spec, _, source_config, source_config_path = _load_v2_confirmation_spec(spec_path)
+    assert source_config_path == Path("configs/cnp/v1.json")
+    assert spec["new_training_steps"] == 0
+    assert source_config["program"] == "cnp_v1"
+    boundary = _confirmation_boundary_v2(
+        source_config,
+        {
+            "source_query_count": 64,
+            "opened_v1_confirmation_query_count": 32,
+            "v2_confirmation_query_count": 32,
+        },
+    )
+    assert boundary["status"] == "PASS"
+    assert json.loads(spec_path.read_text(encoding="utf-8"))["panel"]["role"] == "confirm_v2_eval"

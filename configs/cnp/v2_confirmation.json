@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "program": "cnp_v2_confirmation",
+  "source_config_path": "configs/cnp/v1.json",
+  "source_config_hash": "19b73713d29aa90160db221535f120786b134cfd783c3565601685fffbe218be",
+  "new_training_steps": 0,
+  "new_optimizer_steps": 0,
+  "wall_clock_seconds": 14400,
+  "panel": {
+    "role": "confirm_v2_eval",
+    "condition_prefix": "confirm_v2_",
+    "query_count": 32,
+    "sets_per_query": 128,
+    "known_lengths": [1, 2, 4, 8, 16],
+    "interpolation_lengths": [3, 12, 32],
+    "thresholds": [0.5, 0.8, 1.1, 0.65, 0.95]
+  }
+}

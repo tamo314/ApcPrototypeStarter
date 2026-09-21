@@ -26,6 +26,7 @@ DataRole = Literal[
     "source_train",
     "dev_eval",
     "confirm_eval",
+    "confirm_v2_eval",
     "adapt_train",
     "replay",
     "shadow",

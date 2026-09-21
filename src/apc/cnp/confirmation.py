@@ -8,7 +8,7 @@ import resource
 import subprocess
 import sys
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
@@ -72,6 +72,27 @@ def _confirmation_records(
         yield record
 
 
+def _v2_confirmation_records(
+    length: int, threshold: float, query_index: int, audit: DataAudit | None = None
+) -> Iterator[CNPRecord]:
+    """Yield the independently namespaced, once-only CNP v2 confirmation panel."""
+
+    world = make_world()
+    condition_key = f"confirm_v2_{query_index:02d}"
+    for example_index in range(DEVELOPMENT_SETS_PER_QUERY):
+        record = make_record(
+            role="confirm_v2_eval",
+            condition_key=condition_key,
+            length=length,
+            threshold=threshold,
+            example_index=example_index,
+            world=world,
+        )
+        if audit is not None:
+            audit.add(record)
+        yield record
+
+
 def _preflight_confirmation(config: dict[str, Any]) -> dict[str, Any]:
     """Audit source/confirmation disjointness before constructing a confirmation model."""
 
@@ -113,6 +134,59 @@ def _confirmation_boundary(config: dict[str, Any], manifest: dict[str, Any]) -> 
     }
     if not passed:
         raise ValueError(f"CNP confirmation query-boundary violation: {result}")
+    return result
+
+
+def _preflight_confirmation_v2(config: dict[str, Any]) -> dict[str, Any]:
+    """Audit source, opened v1, and fresh v2 panels together before v2 model evaluation."""
+
+    initial = config["initial_training"]
+    audit = DataAudit()
+    cell_items: dict[str, int] = {}
+    cell_positive: dict[str, int] = {}
+    for step in range(int(initial["steps"])):
+        _source_records(step, int(initial["batch_sets"]), audit)
+    for length in (*KNOWN_LENGTHS, *INTERPOLATION_LENGTHS):
+        for threshold in (*SOURCE_THRESHOLDS, *INTERPOLATION_THRESHOLDS):
+            cell = f"length={length}|threshold={threshold:.2f}"
+            for query_index in range(DEVELOPMENT_QUERY_COUNT):
+                list(_confirmation_records(length, threshold, query_index, audit))
+                for record in _v2_confirmation_records(length, threshold, query_index, audit):
+                    cell_items[cell] = cell_items.get(cell, 0) + int(record.state.valid.sum())
+                    cell_positive[cell] = cell_positive.get(cell, 0) + int(record.target.sum())
+    manifest = audit.manifest()
+    manifest["v2_confirmation_cell_positive_rates"] = {
+        cell: cell_positive[cell] / cell_items[cell] for cell in sorted(cell_items)
+    }
+    manifest["source_query_count"] = int(initial["source_query_count"])
+    manifest["opened_v1_confirmation_query_count"] = DEVELOPMENT_QUERY_COUNT
+    manifest["v2_confirmation_query_count"] = DEVELOPMENT_QUERY_COUNT
+    return manifest
+
+
+def _confirmation_boundary_v2(config: dict[str, Any], manifest: dict[str, Any]) -> dict[str, Any]:
+    """Require the fixed source/v1/v2 query namespaces and counts for fresh confirmation."""
+
+    expected_source = int(config["initial_training"]["source_query_count"])
+    observed = {
+        "source_query_count": manifest.get("source_query_count"),
+        "opened_v1_confirmation_query_count": manifest.get("opened_v1_confirmation_query_count"),
+        "v2_confirmation_query_count": manifest.get("v2_confirmation_query_count"),
+    }
+    passed = observed == {
+        "source_query_count": 64,
+        "opened_v1_confirmation_query_count": 32,
+        "v2_confirmation_query_count": 32,
+    } and expected_source == 64
+    result = {
+        "status": "PASS" if passed else "FAIL",
+        **observed,
+        "expected_source_query_count": expected_source,
+        "v2_role": "confirm_v2_eval",
+        "v2_condition_prefix": "confirm_v2_",
+    }
+    if not passed:
+        raise ValueError(f"CNP v2 confirmation query-boundary violation: {result}")
     return result
 
 
@@ -231,7 +305,12 @@ def _g2(rows: list[dict[str, Any]], fresh_load: dict[str, Any]) -> dict[str, Any
 
 
 def _evaluate_confirmation(
-    model: nn.Module, *, device: torch.device, include_interpolation: bool
+    model: nn.Module,
+    *,
+    device: torch.device,
+    include_interpolation: bool,
+    records_for: Callable[[int, float, int], Iterator[CNPRecord]] = _confirmation_records,
+    panel_key: str = "confirm_v1",
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Measure an unused confirmation panel and causal controls once, with no tuning path."""
 
@@ -251,9 +330,9 @@ def _evaluate_confirmation(
                 terminal_sets = 0
                 for query_index in range(DEVELOPMENT_QUERY_COUNT):
                     query_accumulator = MetricsAccumulator()
-                    records = list(_confirmation_records(length, threshold, query_index))
+                    records = list(records_for(length, threshold, query_index))
                     wrong_records = list(
-                        _confirmation_records(
+                        records_for(
                             length, threshold, (query_index + 1) % DEVELOPMENT_QUERY_COUNT
                         )
                     )
@@ -318,7 +397,7 @@ def _evaluate_confirmation(
                     "exact_match_ci_95": _bootstrap_exact_match_ci(
                         exact_match_values,
                         device=device,
-                        seed_key=f"length={length}|threshold={threshold:.2f}",
+                        seed_key=f"{panel_key}|length={length}|threshold={threshold:.2f}",
                     ),
                     "single_select_terminals": {
                         "count_exact_match": count_exact / terminal_sets,
@@ -478,7 +557,12 @@ def _report_markdown(report: dict[str, Any]) -> str:
     )
 
 
-def _composition_panel(model: ConditionalSelectPrimitive, device: torch.device) -> dict[str, Any]:
+def _composition_panel(
+    model: ConditionalSelectPrimitive,
+    device: torch.device,
+    *,
+    records_for: Callable[[int, float, int], Iterator[CNPRecord]] = _confirmation_records,
+) -> dict[str, Any]:
     """Measure fixed cyclic two-SELECT recipes plus deterministic terminals as a non-G2 panel."""
 
     bank = PrimitiveBank([model])
@@ -494,9 +578,9 @@ def _composition_panel(model: ConditionalSelectPrimitive, device: torch.device) 
                     sum_absolute_error = 0.0
                     total_sets = 0
                     for query_index in range(DEVELOPMENT_QUERY_COUNT):
-                        records = list(_confirmation_records(length, first_threshold, query_index))
+                        records = list(records_for(length, first_threshold, query_index))
                         second_records = list(
-                            _confirmation_records(
+                            records_for(
                                 length,
                                 second_threshold,
                                 (query_index + 1) % DEVELOPMENT_QUERY_COUNT,
@@ -996,6 +1080,255 @@ def run_confirmation_correction(
             )
         )
         (run_directory / "report.md").write_text(report_markdown, encoding="utf-8")
+        with (run_directory / "metrics.jsonl").open("w", encoding="utf-8") as stream:
+            for event in events:
+                stream.write(json.dumps(event, sort_keys=True) + "\n")
+        run_manifest["status"] = "COMPLETE"
+        run_manifest["completed_at_utc"] = datetime.now(UTC).isoformat()
+        _write_json(run_directory / "run_manifest.json", run_manifest)
+        return run_directory
+    except Exception as error:
+        run_manifest["status"] = "FAILED"
+        run_manifest["failure"] = {"type": type(error).__name__, "message": str(error)}
+        _write_json(run_directory / "run_manifest.json", run_manifest)
+        raise
+
+
+def _load_v2_confirmation_spec(
+    spec_path: Path,
+) -> tuple[dict[str, Any], Path, dict[str, Any], Path]:
+    """Load the fixed v2 evaluation specification and its immutable v1 source config."""
+
+    spec = json.loads(spec_path.read_text(encoding="utf-8"))
+    repository_root = spec_path.parents[2]
+    if spec.get("schema_version") != 1 or spec.get("program") != "cnp_v2_confirmation":
+        raise ValueError("unsupported CNP v2 confirmation specification")
+    source_config_ref = spec.get("source_config_path")
+    if source_config_ref != "configs/cnp/v1.json":
+        raise ValueError("CNP v2 must use the fixed CNP v1 source config path")
+    source_config_path = repository_root / source_config_ref
+    source_config = json.loads(source_config_path.read_text(encoding="utf-8"))
+    source_config_hash = canonical_json_hash(source_config)
+    if spec.get("source_config_hash") != source_config_hash:
+        raise ValueError("CNP v2 source configuration hash mismatch")
+    panel = spec.get("panel")
+    expected_panel = {
+        "role": "confirm_v2_eval",
+        "condition_prefix": "confirm_v2_",
+        "query_count": 32,
+        "sets_per_query": DEVELOPMENT_SETS_PER_QUERY,
+        "known_lengths": list(KNOWN_LENGTHS),
+        "interpolation_lengths": list(INTERPOLATION_LENGTHS),
+        "thresholds": [*SOURCE_THRESHOLDS, *INTERPOLATION_THRESHOLDS],
+    }
+    if panel != expected_panel:
+        raise ValueError("CNP v2 panel specification does not match its registered boundary")
+    if spec.get("new_training_steps") != 0 or spec.get("new_optimizer_steps") != 0:
+        raise ValueError("CNP v2 confirmation may not train or optimize source checkpoints")
+    return spec, repository_root, source_config, source_config_path
+
+
+def run_confirmation_v2(
+    spec_path: Path,
+    source_run: Path,
+    output_root: Path,
+    run_id: str | None = None,
+) -> Path:
+    """Evaluate fixed CNP-003 checkpoints once on the unused CNP v2 query panel."""
+
+    spec, repository_root, source_config, source_config_path = _load_v2_confirmation_spec(spec_path)
+    source_audit = audit_cnp_seed_registry(source_config_path)
+    if not torch.cuda.is_available():
+        raise RuntimeError("RESOURCE_STOP: CNP v2 confirmation requires one CUDA device")
+    source_run = source_run.resolve()
+    source_report_path = source_run / "report.json"
+    source_manifest_path = source_run / "run_manifest.json"
+    source_data_manifest_path = source_run / "data_manifest.json"
+    source_files = (source_report_path, source_manifest_path, source_data_manifest_path)
+    if not all(path.is_file() for path in source_files):
+        raise FileNotFoundError("CNP v2 source run is incomplete")
+    source_report = json.loads(source_report_path.read_text(encoding="utf-8"))
+    source_manifest = json.loads(source_manifest_path.read_text(encoding="utf-8"))
+    source_data_manifest = json.loads(source_data_manifest_path.read_text(encoding="utf-8"))
+    source_config_hash = canonical_json_hash(source_config)
+    if source_report.get("task") != "CNP-003" or source_manifest.get("task") != "CNP-003":
+        raise ValueError("CNP v2 requires a CNP-003 source run")
+    if source_manifest.get("status") != "COMPLETE":
+        raise ValueError("CNP v2 source run is not complete")
+    if source_manifest.get("config_hash") != source_config_hash:
+        raise ValueError("CNP v2 source run configuration hash mismatch")
+    regenerated_v1_manifest = _preflight_confirmation(source_config)
+    if regenerated_v1_manifest != source_data_manifest:
+        raise ValueError("CNP v2 source confirmation manifest does not reproduce exactly")
+    source_artifact_hashes = _source_hashes(source_run, source_report)
+    source_artifact_hashes[str(source_config_path)] = source_hash(source_config_path)
+    source_artifact_hashes[str(spec_path.resolve())] = source_hash(spec_path)
+    spec_hash = canonical_json_hash(spec)
+    identifier = run_id or f"cnpv2_{spec_hash[:12]}_{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}"
+    run_directory = output_root / identifier
+    if run_directory.exists():
+        raise FileExistsError(
+            f"Refusing to overwrite existing CNP v2 run directory: {run_directory}"
+        )
+    run_directory.mkdir(parents=True)
+    fresh_load_directory = run_directory / "fresh_load"
+    fresh_load_directory.mkdir()
+    _write_json(fresh_load_directory / "config.json", source_config)
+    device = torch.device("cuda:0")
+    torch.cuda.reset_peak_memory_stats()
+    started = time.perf_counter()
+    run_manifest: dict[str, Any] = {
+        "program": "cnp_v2_confirmation",
+        "task": "CNP-V2-001",
+        "status": "RUNNING",
+        "run_id": identifier,
+        "created_at_utc": datetime.now(UTC).isoformat(),
+        "v2_spec_hash": spec_hash,
+        "source_config_hash": source_config_hash,
+        "code_hashes": _code_hashes(repository_root),
+        "git_commit": _git_commit(repository_root),
+        "source_seed_audit": source_audit,
+        "legacy_sealed_access": 0,
+        "device": str(device),
+        "torch_version": torch.__version__,
+        "cuda_version": torch.version.cuda,
+        "platform": platform.platform(),
+        "source_run": str(source_run),
+        "source_run_task_result": source_report.get("task_result"),
+        "source_artifact_hashes": source_artifact_hashes,
+        "new_training_steps": 0,
+        "new_optimizer_steps": 0,
+        "checkpoint_selection": "fixed_final_step_only",
+        "confirmation_panel": "unused_confirm_v2_query_namespace",
+        "budget": {"wall_clock_seconds": int(spec["wall_clock_seconds"])},
+    }
+    _write_json(run_directory / "run_manifest.json", run_manifest)
+    data_manifest = _preflight_confirmation_v2(source_config)
+    _write_json(run_directory / "data_manifest.json", data_manifest)
+    query_boundary = _confirmation_boundary_v2(source_config, data_manifest)
+    initial = source_config["initial_training"]
+    expected_steps = {
+        "RAW_DISTANCE_FIT": 1000,
+        "CONDITIONAL_MLP": int(initial["steps"]),
+        "LEARNED_METRIC": int(initial["steps"]),
+        "UNCONDITIONED": int(initial["steps"]),
+    }
+    source_methods = source_report.get("methods")
+    if not isinstance(source_methods, list) or len(source_methods) != 20:
+        raise ValueError("CNP v2 source report must contain the fixed 20 CNP-003 methods")
+    methods: list[dict[str, Any]] = []
+    events: list[dict[str, Any]] = []
+    try:
+        for source_method in source_methods:
+            if time.perf_counter() - started > int(spec["wall_clock_seconds"]):
+                raise RuntimeError("RESOURCE_STOP: CNP v2 wall-clock budget exceeded")
+            if not isinstance(source_method, dict):
+                raise ValueError("CNP v2 source method report is invalid")
+            method = source_method.get("method")
+            model_seed = source_method.get("model_seed")
+            if not isinstance(method, str) or not isinstance(model_seed, int):
+                raise ValueError("CNP v2 source method identity is invalid")
+            checkpoint_path = _checkpoint_path(source_run, method, model_seed)
+            checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+            if (
+                not isinstance(checkpoint, dict)
+                or checkpoint.get("step") != expected_steps.get(method)
+            ):
+                raise ValueError(f"CNP v2 checkpoint is invalid: {checkpoint_path}")
+            state = checkpoint.get("model")
+            if not isinstance(state, dict) or not all(
+                isinstance(value, torch.Tensor) for value in state.values()
+            ):
+                raise ValueError(f"CNP v2 model state is invalid: {checkpoint_path}")
+            model = _model_for_method(method).to(device)
+            model.load_state_dict(state, strict=True)
+            rows, causal = _evaluate_confirmation(
+                model,
+                device=device,
+                include_interpolation=True,
+                records_for=_v2_confirmation_records,
+                panel_key="confirm_v2",
+            )
+            fresh_load: dict[str, Any] = {"status": "NOT_APPLICABLE"}
+            g2: dict[str, Any] = {"status": "NOT_APPLICABLE"}
+            composition: dict[str, Any] = {"status": "NOT_APPLICABLE"}
+            if method == "CONDITIONAL_MLP":
+                bundle_directory = source_run / "bundle" / f"conditional_mlp_seed_{model_seed}"
+                fresh_load = _fresh_load_check_cuda(
+                    bundle_directory, source_config, model_seed, fresh_load_directory
+                )
+                known_rows = [row for row in rows if row["scope"] == "known"]
+                g2 = _g2(known_rows, fresh_load)
+                assert isinstance(model, ConditionalSelectPrimitive)
+                composition = _composition_panel(
+                    model, device, records_for=_v2_confirmation_records
+                )
+            methods.append(
+                {
+                    "method": method,
+                    "model_seed": model_seed,
+                    "source_checkpoint": str(checkpoint_path),
+                    "source_checkpoint_sha256": source_artifact_hashes[str(checkpoint_path)],
+                    "training_steps_this_run": 0,
+                    "parameter_count": sum(parameter.numel() for parameter in model.parameters()),
+                    "model_bytes": _model_bytes(model),
+                    "evaluation": rows,
+                    "causal": causal,
+                    "g2_v2_panel": g2,
+                    "fresh_load_cuda": fresh_load,
+                    "composition": composition,
+                    "peak_cuda_bytes_so_far": int(torch.cuda.max_memory_allocated()),
+                }
+            )
+            events.extend(
+                [{"method": method, "model_seed": model_seed, **row} for row in rows]
+            )
+            del model
+            torch.cuda.empty_cache()
+        mlp = [item for item in methods if item["method"] == "CONDITIONAL_MLP"]
+        g2_by_seed = [item["g2_v2_panel"]["status"] for item in mlp]
+        g2_pass = g2_by_seed == ["PASS"] * 5 and query_boundary["status"] == "PASS"
+        report = {
+            "task": "CNP-V2-001",
+            "task_result": "CNP_V2_G2_PASS" if g2_pass else "CNP_V2_G2_FAIL_OR_INCONCLUSIVE",
+            "run_id": identifier,
+            "h_cnp1_status": (
+                "SUPPORTED_ON_TWO_QUERY_DISJOINT_CONFIRMATION_PANELS"
+                if g2_pass
+                else "NOT_CONFIRMED_ON_V2_PANEL"
+            ),
+            "adaptation_status": "NOT_EXECUTED",
+            "legacy_sealed_access": 0,
+            "g2": {
+                "status": "PASS" if g2_pass else "FAIL",
+                "per_seed": g2_by_seed,
+                "query_boundary": query_boundary,
+            },
+            "methods": methods,
+            "total_wall_seconds": time.perf_counter() - started,
+            "peak_cuda_bytes": int(torch.cuda.max_memory_allocated()),
+            "peak_process_ram_bytes": int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+            * 1024,
+        }
+        _write_json(run_directory / "report.json", report)
+        (run_directory / "report.md").write_text(
+            "\n".join(
+                (
+                    "# CNP v2 unused-panel confirmation",
+                    "",
+                    f"- Task result: `{report['task_result']}`",
+                    f"- G2: `{report['g2']['status']}`",
+                    f"- H-CNP1: `{report['h_cnp1_status']}`",
+                    "- Training / optimizer steps in this run: `0 / 0`",
+                    "- CNP-004 adaptation: `NOT_EXECUTED`",
+                    "",
+                    "The report records source hashes, v1/v2 split audit, per-cell metrics,",
+                    "causal controls, fresh CUDA loads, composition, and resource accounting.",
+                    "",
+                )
+            ),
+            encoding="utf-8",
+        )
         with (run_directory / "metrics.jsonl").open("w", encoding="utf-8") as stream:
             for event in events:
                 stream.write(json.dumps(event, sort_keys=True) + "\n")
