@@ -8,7 +8,7 @@
 ## 1. 現在地と実行範囲
 
 - CNP-000: 方針・設計・実装順・評価条件を記録する今回の計画タスク。
-- CNP-001: `IMPLEMENTATION_COMPLETE`。CNP-002: `G1_PASS`。CNP-003〜005は`NOT_STARTED`。
+- CNP-001: `IMPLEMENTATION_COMPLETE`。CNP-002: `G1_PASS`。CNP-003: `G2_FAIL_STOP`。CNP-004〜005は`NOT_STARTED`。
 - CNP-001ではG0に必要な単体検証だけを実行した。研究用の訓練・開発・確認評価は行っていない。
 - 実行指示が与えられた範囲を進める。前提を通過したことだけから未指定の段階を実行しない。
   逆に、指定範囲内の通常の実装・検証・ローカルcommitには再確認を挟まない。
@@ -21,7 +21,7 @@
 |---|---|---|---|
 | CNP-001 | 詳細設計の型・生成器・独立参照・モデル・baseline・executor・評価器・保存・CLI・configを実装。seed/split監査 | 実装指示 | `IMPLEMENTATION_COMPLETE`。G0のCNP対象検証、ruff/mypy、dry-runはPASS。全体pytestは既存artifact欠損で未完走（§9） |
 | CNP-002 | 開発2seedで固定構成の学習、baseline、時間/メモリーを測定。開発報告・失敗例分類 | G0＋開発実行指示 | `G1_PASS`。全費用を保存し、CNP-003は別途の確認実行指示待ち |
-| CNP-003 | hash固定後に5seedのH-CNP1確認。一回の全パネル測定、保存・別プロセス復元 | G1＋確認実行指示 | G2の判定を記録。FAILもタスク完了の成果 |
+| CNP-003 | hash固定後に5seedのH-CNP1確認。一回の全パネル測定、保存・別プロセス復元 | G1＋確認実行指示 | `G2_FAIL_STOP`。全seedで因果最小gapが0.50未満。CNP-004は実行しない |
 | CNP-004 | 凍結親から4block順次適応、同情報baseline、転移・保持・合成・総費用比較 | G2＋適応実行指示 | G3/G4を別々に判定。各blockの採否・棄却証拠 |
 | CNP-005 | 保存証拠から最終採否、限界、次課題の必要性を記録 | CNP-004完了または先行STOP | 仮説別支持/不支持/未検証、比較表、ADR。自動的な拡張なし |
 

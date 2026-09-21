@@ -31,6 +31,6 @@
   "execution_boundary": {
     "legacy_sealed_access": 0,
     "bundle_promotion": "NOT_AUTHORIZED",
-    "enabled_modes": ["audit", "dry-run", "develop"]
+    "enabled_modes": ["audit", "dry-run", "develop", "confirm"]
   }
 }

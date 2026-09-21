@@ -1464,3 +1464,19 @@ the separately named valid run is the only G1 result.
 H-CNP1 is not confirmed: G1 is a two-seed development gate only. CNP-003 may be considered only
 after a separate user instruction authorizes its five-seed confirmation execution. CNP-004/CNP-005,
 adaptation, candidate selection, promotion, and legacy Phase B/C execution remain unstarted.
+
+## ADR-0190: CNP-003 five-seed confirmation fails G2 causal-gap stop
+
+Date: 2026-09-21. Status: **CNP-003 complete; G2 FAIL; CNP-004 not executed.**
+
+The fixed confirmation run `cnp003_confirm1` evaluated seeds 610200--610204 using the sealed
+32-query confirmation split after the source 64-query boundary audit passed. Every conditional-MLP
+seed met the known-length accuracy, set-F1, exemplar-F1, Correct-accuracy, effectful-count, and
+fresh-process reload checks. The pre-registered causal criterion nevertheless fails in every seed:
+each has at least one Correct-versus-intervention minimum gap below 0.50 (observed cell minima span
+approximately 0.158--0.369). The report records all failed cells without tuning or checkpoint
+selection.
+
+The run took 5,945.69 seconds, used at most 68,528,640 CUDA bytes and 1,974,112,256 process RAM
+bytes, and recorded no legacy sealed access. This is a scientific STOP GATE, not an implementation
+error. Under the CNP contract, CNP-004 adaptation, candidate selection, and promotion do not run.
