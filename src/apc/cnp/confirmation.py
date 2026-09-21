@@ -1286,8 +1286,15 @@ def run_confirmation_v2(
             del model
             torch.cuda.empty_cache()
         mlp = [item for item in methods if item["method"] == "CONDITIONAL_MLP"]
-        g2_by_seed = [item["g2_v2_panel"]["status"] for item in mlp]
+        g2_by_seed: list[str] = []
+        for item in mlp:
+            gate = item["g2_v2_panel"]
+            status = gate.get("status") if isinstance(gate, dict) else None
+            if not isinstance(status, str):
+                raise ValueError("CNP v2 MLP G2 report is invalid")
+            g2_by_seed.append(status)
         g2_pass = g2_by_seed == ["PASS"] * 5 and query_boundary["status"] == "PASS"
+        g2_status = "PASS" if g2_pass else "FAIL"
         report = {
             "task": "CNP-V2-001",
             "task_result": "CNP_V2_G2_PASS" if g2_pass else "CNP_V2_G2_FAIL_OR_INCONCLUSIVE",
@@ -1300,7 +1307,7 @@ def run_confirmation_v2(
             "adaptation_status": "NOT_EXECUTED",
             "legacy_sealed_access": 0,
             "g2": {
-                "status": "PASS" if g2_pass else "FAIL",
+                "status": g2_status,
                 "per_seed": g2_by_seed,
                 "query_boundary": query_boundary,
             },
@@ -1317,7 +1324,7 @@ def run_confirmation_v2(
                     "# CNP v2 unused-panel confirmation",
                     "",
                     f"- Task result: `{report['task_result']}`",
-                    f"- G2: `{report['g2']['status']}`",
+                    f"- G2: `{g2_status}`",
                     f"- H-CNP1: `{report['h_cnp1_status']}`",
                     "- Training / optimizer steps in this run: `0 / 0`",
                     "- CNP-004 adaptation: `NOT_EXECUTED`",

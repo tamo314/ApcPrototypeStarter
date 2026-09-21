@@ -1562,3 +1562,18 @@ MLP composition panel but makes no new training or optimizer update, no model/ch
 selection, and no legacy sealed access. The resource ceiling is four hours, 12 GiB VRAM, and 32 GiB
 process RAM. A v2 G2 pass supports H-CNP1 on two query-disjoint panels within the same world; it
 does not authorize CNP-004, candidate selection, or promotion.
+
+## ADR-0194: CNP v2 unused-query panel passes corrected G2
+
+Date: 2026-09-21. Status: **CNP-V2-001 complete; CNP_V2_G2_PASS; CNP-004 not executed.**
+
+`runs/cnp_v2/confirm/cnpv2_confirm1/` evaluated all 20 fixed CNP-003 final checkpoints with zero
+new training or optimizer steps. Source/v1/v2 roles contain 128,000/163,840/163,840 records with
+no cross-role overlap. Every MLP seed passed corrected G2 and CUDA fresh-load parity. Across known
+cells/seeds the minimum balanced accuracy/F1/p10 was 0.964837/0.952350/0.912362, minimum Correct
+0.963700, minimum causal gap 0.930560, and minimum effectful-set support 854. Runtime was
+3,565.29 seconds; peak CUDA/RAM was 84,058,624/1,561,972,736 bytes; legacy sealed access was 0.
+
+H-CNP1 is supported on two query-disjoint panels within the fixed world. ADR-0190's historical
+v1 `G2_FAIL_STOP` remains unchanged. CNP-004 adaptation, candidate selection, and promotion do
+not execute from this result.
