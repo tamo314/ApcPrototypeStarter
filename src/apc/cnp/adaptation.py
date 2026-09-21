@@ -499,6 +499,8 @@ def run_adaptation_block1(
         rows: list[dict[str, Any]] = []
         events: list[dict[str, Any]] = []
         for model_seed in seeds:
+            torch.manual_seed(model_seed)
+            torch.cuda.manual_seed_all(model_seed)
             parent = load_fixed_parent(source_run, "CONDITIONAL_MLP", model_seed, device=device)
             if not isinstance(parent, ConditionalSelectPrimitive):
                 raise RuntimeError("CNP-004 LOCAL parent must be a conditional primitive")
@@ -513,7 +515,6 @@ def run_adaptation_block1(
             for method, candidate, replay_enabled in factories:
                 base_hash_before: str | None = None
                 if method == "SCRATCH":
-                    torch.manual_seed(model_seed)
                     candidate = ConditionalSelectPrimitive(0)
                 elif method == "LOCAL":
                     if not isinstance(candidate, ConditionalSelectPrimitive):
