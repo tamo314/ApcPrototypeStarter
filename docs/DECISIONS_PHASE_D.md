@@ -1711,3 +1711,28 @@ no candidate selection. It does not train a repaired source parent, so it cannot
 fully repaired H-CNP2 hypothesis. Its two methods × five parents are limited to 2,560 updates,
 two hours, 12GiB VRAM, and 32GiB RAM. Transfer/composition, later blocks, metric/full/scratch
 comparators, promotion, sealed access, and R-CNP-002 remain out of scope.
+
+## ADR-0200: R-CNP-001 repaired local adaptation improves aggregate new-domain quality but fails every cell gate
+
+Date: 2026-09-22. Status: **R-CNP-001 complete; fixed-parent diagnostic gates FAIL; no candidate
+selection; R-CNP-002 remains unauthorized.**
+
+The registered run `runs/cnp_repair/r001/rcnp001_fixed_parent1/` completes all five fixed CNP-003
+parents under both paired 256-update methods. Its data manifest has no training/shadow overlap in
+the shared or method-specific panels, each LOCAL base hash remains unchanged, input/code hashes
+match, candidate selection is zero, promotion is not authorized, and legacy sealed access is zero.
+Runtime is 126.439 seconds with 68,042,240 peak CUDA bytes and 2,159,915,008 peak process RAM.
+
+The repair bundle improves aggregate new-domain F1 from 0.905254 for LEGACY_LOCAL to 0.925877 and
+improves the mean new-domain F1 gain from +0.026504 to +0.047127. This is not enough: every seed
+fails both new and old cell gates. REPAIRED_LOCAL has a minimum aggregate new F1 of 0.918274,
+74.6 new quality failures, 14.0 new retention failures, 58.0 old quality failures, and 60.6 old
+retention failures per seed on average. No positive aggregate result can replace the per-cell
+quality and retention requirements.
+
+This compares the joint repair bundle with the legacy implementation on a new development-only
+split. Because adapter placement, loss weighting, and replay data all change together, it does not
+identify their individual causal contributions. The fixed v1 parents also retain the old source-loss
+recipe. Therefore it neither confirms nor refutes repaired H-CNP2; it only rejects this fixed-parent
+diagnostic candidate under its gates. Preserve all candidates and artifacts, stop dependent work,
+and do not begin R-CNP-002 without a separately authorized repaired-source protocol.

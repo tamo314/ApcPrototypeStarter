@@ -2,7 +2,7 @@
 
 日付: 2026-09-22 / ADR-0198
 
-状態: **`R_CNP_001_AUTHORIZED_PENDING`**。R-CNP-002は未認可。
+状態: **`R_CNP_001_COMPLETE_DIAGNOSTIC_GATES_FAIL`**。R-CNP-002は未認可。
 
 ## 目的と境界
 
@@ -62,6 +62,15 @@ v1親自体は要素一括lossで学習済みなので、この段階はH-CNP2�
 
 ユーザーの「次を進めてください」により、R-CNP-001の実装とこの一回の実行を認可する。
 その実行結果は下記の実行記録へ追記し、R-CNP-002には別途の指示を必要とする。
+
+#### R-CNP-001 実行記録
+
+`runs/cnp_repair/r001/rcnp001_fixed_parent1/`をcommit `bdea060`で一回実行した。
+新/旧cell gateはLEGACY_LOCAL、REPAIRED_LOCALとも5/5 FAIL。修正群は集約new F1を
+0.905254から0.925877へ改善したが、old保持と多数のquality cellを満たさない。
+この限定診断は`FIXED_PARENT_DIAGNOSTIC_COMPLETE_GATES_FAIL`で終了し、候補採択=0、
+promotion=0、legacy sealed access=0を維持する。詳細は
+[結果報告](../../results/R_CNP001_RESULT.md)。
 
 ### R-CNP-002: 修正版親からの独立確認
 
