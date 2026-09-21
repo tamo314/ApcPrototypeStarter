@@ -1818,3 +1818,23 @@ Two preserved empty namespaces preceded the run: a CUDA API compatibility error 
 fix is committed in `2af73a5`; it changes no historical CNP path or evidence. R-CNP-001R remains
 an independent, explicitly authorized retention diagnostic on its own root and requires this
 completed S report as provenance; it does not alter the S STOP or authorize R-CNP-002.
+
+## ADR-0204: R-CNP-001R functional retention diagnostic improves old retention but fails new quality
+
+Date: 2026-09-22. Status: **R diagnostic complete; fixed lambda-one candidate gate fails 4/5 seeds;
+no selection or promotion.**
+
+The explicitly authorized independent R-CNP-001R run completes at
+`runs/cnp_repair/r001r/rcnp001r_retention1/`, consuming the completed R-CNP-001S report only as
+provenance and using its own registered data/schedule/bootstrap roots. All ten pre-registered
+lambda0/lambda1 candidates, parent cache lineage, frozen-base hashes, schedules, cell/set evidence,
+and resource accounting are saved. Candidate selection remains zero, promotion is not authorized,
+and sealed access is zero.
+
+Lambda one reduces average old quality failures from 52.6 to 2.6 and old retention failures from
+73.0 to 0.4 per seed, but increases new-quality failures from 72.2 to 107.8. It passes the
+all-cell candidate gate for only one fixed parent; the registered all-five criterion yields
+`R_DIAGNOSTIC_FAIL_STOP`. The result describes a fixed-parent trade-off and does not establish
+an optimal lambda, permit a post-result coefficient change, select a candidate, or confirm repaired
+H-CNP2. Runtime is 1,970.313 seconds, 67,965,440 peak CUDA bytes, and 2,803,081,216 peak process
+RAM, within the registered limits. R-CNP-002 remains unauthorized.

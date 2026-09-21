@@ -1,13 +1,14 @@
 # CNP 適応改善 — 実装・診断計画
 
-日付: 2026-09-22 / ADR-0202 / `IMPLEMENTATION_COMPLETE_EXECUTION_PENDING`
+日付: 2026-09-22 / ADR-0204 / `R_CNP001S_R_COMPLETE_GATES_FAIL`
 
 入口: [改善レビュー](../../results/R_CNP001_IMPROVEMENT_REVIEW.md)
 → [詳細設計](../../design-docs/CNP_ADAPTATION_SCHEDULE_AND_RETENTION.md)。
 設計後の実装としてI-1〜I-3を完了した。`repair_protocol.py`、
 `repair_schedule.py`、`repair_evaluation.py`、`repair_retention.py`、
 `repair_followup.py`、2つの固定config、`repair-schedule`/`repair-retention` CLIを追加した。
-新規研究データ生成・モデル評価・学習は未実行。v1 G3 FAIL、R-CNP-001 FAILを維持する。
+R-CNP-001S/Rを完了し、いずれもall-five candidate gate FAILを記録した。v1 G3 FAIL、
+R-CNP-001 FAILを維持する。R-CNP-002は未認可である。
 
 ## 1. 工程と完了条件
 
@@ -17,8 +18,8 @@
 | I-1 | protocol/evaluation実装 | 完了。root明示生成、input/record/query分離監査、120cell/集合証跡、独立gateを追加 |
 | I-2 | schedule実装 | 完了。A/B/C quota、整数比較の分散器、JSONL固定、input/target独立性を追加 |
 | I-3 | runner・容量記録・親cache・保持loss実装 | 完了。親hash/cache検証、凍結hash、resource STOP、RのS結果参照を追加 |
-| R-CNP-001S | 既存5親、A/B/Cの単一block診断 | 全結果とpaired差、CのPASSまたはFAIL_STOPを保存 |
-| R-CNP-001R | 別split、固定Cでlambda0/1の比較 | 全結果と保持trade-off、lambda1のPASSまたはFAIL_STOPを保存 |
+| R-CNP-001S | 既存5親、A/B/Cの単一block診断 | 完了。Cを含む全15候補がFAIL、`S_DIAGNOSTIC_FAIL_STOP` |
+| R-CNP-001R | 別split、固定Cでlambda0/1の比較 | 完了。lambda1はold保持を改善するが1/5 PASS、`R_DIAGNOSTIC_FAIL_STOP` |
 | R-CNP-002実行登録 | 固定レシピ・修正版親・新splitで正式確認する契約 | 新seed/データ/予算・G1/G2/G3・causal/controlのmanifest固定 |
 
 設計完了から研究実行へ自動遷移しない。後日実装が指示された場合、I-1〜3と必要なテストは
