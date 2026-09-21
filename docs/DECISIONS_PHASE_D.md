@@ -1794,3 +1794,27 @@ and qualified repaired parents; it inherits causal, transfer, composition, and c
 Its executable registry is a later result-dependent handoff, not an implicit experiment here.
 No research data, model forward, optimizer update, candidate selection, or sealed access is
 performed during this design task. Preserve all existing STOP decisions.
+
+## ADR-0203: R-CNP-001S schedule diagnostic completes and fails the prospective C arm gate
+
+Date: 2026-09-22. Status: **S diagnostic complete; all candidate gates FAIL; no selection or
+promotion.**
+
+The user authorized remaining registered execution after verification. The fixed-parent
+R-CNP-001S diagnostic completes at `runs/cnp_repair/r001s/rcnp001s_schedule3/` with the five
+CNP-003 parents and all 15 pre-registered candidates. The fresh new/old panels and schedule
+evidence pass their data/schedule preparation checks; all base hashes remain unchanged. Candidate
+selection is zero, promotion is not authorized, and sealed access is zero.
+
+Every `ORDERED`, `DISPERSED_MATCHED`, and prospective `DISPERSED_BALANCED` candidate fails the
+all-cell new-quality, old-quality, or old-retention gate. C has lower descriptive mean failure
+counts than A, but passes 0/5 seeds, so the registered decision is `S_DIAGNOSTIC_FAIL_STOP`.
+The result does not identify a causal schedule effect and cannot rescue the fixed-parent diagnostic
+or establish repaired H-CNP2. Resource use is 372.672 seconds, 67,964,416 peak CUDA bytes, and
+2,535,723,008 peak process RAM, within the registered limits.
+
+Two preserved empty namespaces preceded the run: a CUDA API compatibility error in
+`reset_peak_memory_stats` occurred before data/model/update work. The isolated runner compatibility
+fix is committed in `2af73a5`; it changes no historical CNP path or evidence. R-CNP-001R remains
+an independent, explicitly authorized retention diagnostic on its own root and requires this
+completed S report as provenance; it does not alter the S STOP or authorize R-CNP-002.
