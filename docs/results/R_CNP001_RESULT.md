@@ -37,7 +37,8 @@ F1≥0.90、保持条件は旧cellのF1低下≤0.01。
 | LEGACY_LOCAL | 0.916345 | 0.905254 | +0.026504 | 0.947101 | −0.024897 | 0/5 | 0/5 |
 | REPAIRED_LOCAL | 0.933231 | 0.925877 | +0.047127 | 0.943965 | −0.028033 | 0/5 | 0/5 |
 
-修正群のnew F1は対照より平均+0.020623高いが、最小値は0.918274でfloor未達である。
+修正群のnew F1は対照より平均+0.020623高く、最小集約F1の0.918274もF1基準0.90を上回る。
+一方、最小集約BAは0.927348で0.95未満であり、個別cellの品質・保持条件は満たさない。
 new quality失敗cellは方式別に平均84.6→74.6、new保持失敗cellは22.8→14.0へ減った。
 一方、old quality失敗cellは63.2→58.0、old保持失敗cellは65.4→60.6で、保持は依然大きく
 崩れている。最良の集約値や失敗cell数の減少でcell gateを救済しない。
@@ -65,3 +66,7 @@ run manifestはこの診断に必要な入力hash、config、code hash、seed au
 実行前のWSL Python 3.12.14検証では`tests/test_cnp*.py`が35 PASS、`ruff check .`がPASS、
 `mypy src/apc`が200 source filesでPASS。全repository pytestは既知の歴史artifact欠損のため
 今回も実行していない。
+
+2026-09-22追記（ADR-0201）: 上記の最小F1に関するfloor未達の説明を訂正した。
+保存測定値・FAILは変更しない。[改善案レビュー](R_CNP001_IMPROVEMENT_REVIEW.md)で
+親からの継承失敗、適応による追加劣化、提示順序・回数を分けて検討した。

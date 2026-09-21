@@ -1736,3 +1736,30 @@ identify their individual causal contributions. The fixed v1 parents also retain
 recipe. Therefore it neither confirms nor refutes repaired H-CNP2; it only rejects this fixed-parent
 diagnostic candidate under its gates. Preserve all candidates and artifacts, stop dependent work,
 and do not begin R-CNP-002 without a separately authorized repaired-source protocol.
+
+## ADR-0201: R-CNP-001 review separates parent deficits from adaptation damage and prioritizes schedule controls
+
+Date: 2026-09-22. Status: **Artifact-only review complete; STOP preserved; follow-up proposals unexecuted.**
+
+The saved metrics reproduce all 20 panel gate lists. On each 120-cell old panel, the fixed parent
+already fails 19 quality cells on average; repaired adaptation recovers 6 but newly fails 45,
+ending at 58 failures and 60.6 retention failures. New-domain BA fails in 69.6 cells and F1 in 36,
+with overlap. Parent inadequacy and adaptation damage therefore require separate treatment.
+Neither parent retraining alone nor insufficient adapter capacity is established as the explanation.
+
+Integer-index analysis shows that both new training and repaired replay remain condition ordered
+and unevenly exposed over 256 updates, despite a stratified replay buffer. Prioritize explicit
+evaluation/parent eligibility rules, then an order-only matched-exposure control and a separately
+balanced-exposure control. Functional retention regularization is a subsequent hypothesis with
+the risk of preserving parent errors; repaired-source confirmation remains a separate stage.
+
+Correct the report's claim that minimum aggregate new F1 0.918274 misses the 0.90 floor. It does
+not; BA and per-cell failures preserve STOP. Record that the evaluator also imposes retention
+on new cells, beyond the contract's old-retention requirement; every seed still fails new quality
+without that extra condition. Preserve historical metrics and gate records. Future contracts must
+clarify domain versus query cells, small cell support, and quality versus retention without
+post-result threshold relaxation or aggregation to rescue this run.
+
+See [the improvement review](results/R_CNP001_IMPROVEMENT_REVIEW.md) and its linked audit.
+No model forward, data generation, training, candidate selection, or sealed access was performed.
+The review authorizes no follow-up experiment or R-CNP-002 execution.

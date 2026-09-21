@@ -72,6 +72,11 @@ v1親自体は要素一括lossで学習済みなので、この段階はH-CNP2�
 promotion=0、legacy sealed access=0を維持する。詳細は
 [結果報告](../../results/R_CNP001_RESULT.md)。
 
+ADR-0201の[改善案レビュー](../../results/R_CNP001_IMPROVEMENT_REVIEW.md)は保存値を
+再集計し、評価契約・親適格性の明確化、提示順序/回数の対照、旧出力保持制約の順を提案する。
+実験は追加実行していない。R-CNP-002の前に、上記の開発対照を検討する案であり、
+本追記だけでその対照やR-CNP-002を認可しない。
+
 ### R-CNP-002: 修正版親からの独立確認
 
 set-weighted lossを初期学習にも適用するなら、source training、開発、5 seed確認、適応shadowを
