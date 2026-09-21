@@ -299,7 +299,7 @@ def _run(
     directory = _make_run_directory(output_root, label=program, run_id=run_id)
     started = time.perf_counter()
     device = torch.device("cuda:0")
-    torch.cuda.reset_peak_memory_stats(device.index or 0)
+    torch.cuda.reset_peak_memory_stats()
     manifest: dict[str, Any] = {
         "program": program,
         "status": "RUNNING",
