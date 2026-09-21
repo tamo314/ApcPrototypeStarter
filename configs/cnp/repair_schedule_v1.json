@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "program": "cnp_repair_schedule_v1",
+  "source_config_path": "configs/cnp/v1.json",
+  "roots": {"data": 620010, "schedule": 620020, "bootstrap": 620030},
+  "parent_model_seeds": [610200, 610201, 610202, 610203, 610204],
+  "block": "q1+q2+",
+  "arms": ["ORDERED", "DISPERSED_MATCHED", "DISPERSED_BALANCED"],
+  "candidate_arm": "DISPERSED_BALANCED",
+  "updates": 256,
+  "new_batch_sets": 16,
+  "replay_batch_sets": 16,
+  "shadow_sets_per_cell": 128,
+  "optimizer": {"name": "AdamW", "learning_rate": 0.001, "weight_decay": 0.0, "betas": [0.9, 0.999], "eps": 1e-08, "gradient_clip_norm": 1.0},
+  "limits": {"wall_seconds": 7200, "gpu_bytes": 12884901888, "process_ram_bytes": 34359738368},
+  "candidate_selection": 0,
+  "bundle_promotion": "NOT_AUTHORIZED",
+  "legacy_sealed_access": 0
+}

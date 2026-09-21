@@ -36,6 +36,12 @@ DataRole = Literal[
     "repair_adapt_train",
     "repair_new_shadow",
     "repair_old_shadow",
+    "cnp_repair_schedule_v1_new_train",
+    "cnp_repair_schedule_v1_new_shadow",
+    "cnp_repair_schedule_v1_old_shadow",
+    "cnp_repair_retention_v1_new_train",
+    "cnp_repair_retention_v1_new_shadow",
+    "cnp_repair_retention_v1_old_shadow",
 ]
 
 
@@ -91,6 +97,7 @@ class CNPRecord:
     target: torch.Tensor
     role: DataRole
     condition_key: str
+    schedule_index: int | None = None
 
     def __post_init__(self) -> None:
         if self.target.dtype != torch.bool or self.target.shape != self.state.valid.shape:
@@ -100,6 +107,8 @@ class CNPRecord:
         self.arguments.validate_batch_size(self.state.batch_size)
         if torch.any(self.target & ~self.state.valid):
             raise ValueError("target may not select invalid padding")
+        if self.schedule_index is not None and self.schedule_index < 0:
+            raise ValueError("schedule_index must be non-negative when supplied")
 
     def digest(self) -> str:
         """Hash model-visible inputs and labels for split-overlap auditing.
@@ -118,6 +127,27 @@ class CNPRecord:
             self.target,
         ):
             payload.update(tensor.detach().cpu().contiguous().numpy().tobytes())
+        return payload.hexdigest()
+
+    def input_digest(self) -> str:
+        """Hash only model-visible inputs, never the reference target.
+
+        Schedule construction may use this stable identifier.  Keeping the target
+        outside the digest makes label changes incapable of changing exposure.
+        """
+
+        payload = hashlib.sha256()
+        for tensor in (
+            self.state.values,
+            self.state.valid,
+            self.state.item_ids,
+            self.arguments.query,
+            self.arguments.threshold,
+        ):
+            contiguous = tensor.detach().cpu().contiguous()
+            payload.update(str(contiguous.dtype).encode("ascii"))
+            payload.update(str(tuple(contiguous.shape)).encode("ascii"))
+            payload.update(contiguous.numpy().tobytes())
         return payload.hexdigest()
 
 

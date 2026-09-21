@@ -17,6 +17,7 @@ SOURCE_ROOT = REPOSITORY_ROOT / "src"
 if str(SOURCE_ROOT) not in sys.path:
     sys.path.insert(0, str(SOURCE_ROOT))
 
+
 def main() -> int:
     from apc.cnp.data import canonical_json_hash
     from apc.cnp.seed_registry import DEFAULT_REGISTRY_PATH, audit_cnp_seed_registry
@@ -39,14 +40,23 @@ def main() -> int:
             "adapt",
             "adapt-block1",
             "repair-r001",
+            "repair-schedule",
+            "repair-retention",
             "report",
         ),
     )
-    parser.add_argument("--config", type=Path, default=DEFAULT_REGISTRY_PATH)
+    parser.add_argument("--config", type=Path)
     parser.add_argument("--output-root", type=Path)
     parser.add_argument("--run-id", type=str)
     parser.add_argument("--source-run", type=Path)
+    parser.add_argument("--schedule-report", type=Path)
     arguments = parser.parse_args()
+    if arguments.config is None:
+        defaults = {
+            "repair-schedule": REPOSITORY_ROOT / "configs/cnp/repair_schedule_v1.json",
+            "repair-retention": REPOSITORY_ROOT / "configs/cnp/repair_retention_v1.json",
+        }
+        arguments.config = defaults.get(arguments.mode, DEFAULT_REGISTRY_PATH)
     loaded_config = config(arguments.config)
     if arguments.mode == "audit":
         print(json.dumps(audit_cnp_seed_registry(arguments.config), sort_keys=True, indent=2))
@@ -149,6 +159,35 @@ def main() -> int:
             arguments.source_run,
             arguments.output_root or REPOSITORY_ROOT / "runs/cnp_repair/r001",
             arguments.run_id,
+        )
+        print(json.dumps({"status": "COMPLETE", "run_directory": str(output)}, sort_keys=True))
+        return 0
+    if arguments.mode == "repair-schedule":
+        if arguments.source_run is None:
+            parser.error("repair-schedule requires --source-run")
+        from apc.cnp.repair_followup import run_repair_schedule
+
+        output = run_repair_schedule(
+            arguments.config,
+            arguments.source_run,
+            arguments.output_root or REPOSITORY_ROOT / "runs/cnp_repair/r001s",
+            arguments.run_id,
+        )
+        print(json.dumps({"status": "COMPLETE", "run_directory": str(output)}, sort_keys=True))
+        return 0
+    if arguments.mode == "repair-retention":
+        if arguments.source_run is None:
+            parser.error("repair-retention requires --source-run")
+        if arguments.schedule_report is None:
+            parser.error("repair-retention requires --schedule-report from R-CNP-001S")
+        from apc.cnp.repair_followup import run_repair_retention
+
+        output = run_repair_retention(
+            arguments.config,
+            arguments.source_run,
+            arguments.output_root or REPOSITORY_ROOT / "runs/cnp_repair/r001r",
+            arguments.run_id,
+            arguments.schedule_report,
         )
         print(json.dumps({"status": "COMPLETE", "run_directory": str(output)}, sort_keys=True))
         return 0
