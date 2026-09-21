@@ -195,6 +195,42 @@ def _base_weights_hash(model: ConditionalSelectPrimitive) -> str:
     )
 
 
+def _data_manifest(panels: dict[str, list[CNPRecord]]) -> dict[str, Any]:
+    """Audit CNP-004's fixed panels before model construction or updating."""
+
+    digests = {name: {record.digest() for record in records} for name, records in panels.items()}
+    duplicates = {
+        name: len(records) - len(digests[name])
+        for name, records in panels.items()
+        if len(records) != len(digests[name])
+    }
+    if duplicates:
+        raise ValueError(f"CNP-004 panel contains duplicate records: {duplicates}")
+    overlap: list[dict[str, Any]] = []
+    names = sorted(panels)
+    for index, first in enumerate(names):
+        for second in names[index + 1 :]:
+            shared = digests[first] & digests[second]
+            if shared:
+                overlap.append(
+                    {"first_panel": first, "second_panel": second, "records": len(shared)}
+                )
+    if overlap:
+        raise ValueError(f"CNP-004 panel overlap detected: {overlap}")
+    return {
+        "status": "PASS",
+        "panels": {
+            name: {
+                "records": len(records),
+                "unique_records": len(digests[name]),
+                "digest_hash": canonical_json_hash(sorted(digests[name])),
+            }
+            for name, records in sorted(panels.items())
+        },
+        "cross_panel_overlap": overlap,
+    }
+
+
 def train_fixed_candidate(
     model: nn.Module,
     *,
@@ -428,6 +464,15 @@ def run_adaptation_block1(
         )
     )
     old_shadow = source_shadow_records()
+    data_manifest = _data_manifest(
+        {
+            "adapt_train": full_records,
+            "new_shadow": new_shadow,
+            "source_replay": replay,
+            "source_shadow": old_shadow,
+        }
+    )
+    _write_json(run_directory / "data_manifest.json", data_manifest)
     run_manifest: dict[str, Any] = {
         "program": "cnp_v1",
         "task": "CNP-004-BLOCK-1",
@@ -452,6 +497,7 @@ def run_adaptation_block1(
     _write_json(run_directory / "run_manifest.json", run_manifest)
     try:
         rows: list[dict[str, Any]] = []
+        events: list[dict[str, Any]] = []
         for model_seed in seeds:
             parent = load_fixed_parent(source_run, "CONDITIONAL_MLP", model_seed, device=device)
             if not isinstance(parent, ConditionalSelectPrimitive):
@@ -520,6 +566,7 @@ def run_adaptation_block1(
                         "candidate_path": str(candidate_path),
                     }
                 )
+                events.append({"stage": "block_1_shadow", **rows[-1]})
                 del candidate
                 torch.cuda.empty_cache()
             del parent
@@ -546,6 +593,9 @@ def run_adaptation_block1(
             f"- Dependent blocks: `{report['dependent_blocks']}`\n",
             encoding="utf-8",
         )
+        with (run_directory / "metrics.jsonl").open("w", encoding="utf-8") as stream:
+            for event in events:
+                stream.write(json.dumps(event, sort_keys=True) + "\n")
         run_manifest["status"] = "COMPLETE"
         run_manifest["completed_at_utc"] = datetime.now(UTC).isoformat()
         _write_json(run_directory / "run_manifest.json", run_manifest)

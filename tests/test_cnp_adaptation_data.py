@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 import torch
 
 from apc.cnp.adaptation import (
@@ -7,6 +8,7 @@ from apc.cnp.adaptation import (
     SETS_PER_CONDITION,
     SMALL_ARM_SETS_PER_CONDITION,
     _base_weights_hash,
+    _data_manifest,
     paired_adaptation_training_records,
     quality_floor,
 )
@@ -47,3 +49,9 @@ def test_local_base_hash_excludes_trainable_adapter() -> None:
     )
     one_training_step(candidate, state, arguments, torch.tensor([[True, False]]), optimizer)
     assert _base_weights_hash(candidate) == before
+
+
+def test_adaptation_data_manifest_rejects_cross_panel_records() -> None:
+    records, _ = paired_adaptation_training_records("q1+q2+")
+    with pytest.raises(ValueError, match="overlap"):
+        _data_manifest({"train": records, "shadow": records})
