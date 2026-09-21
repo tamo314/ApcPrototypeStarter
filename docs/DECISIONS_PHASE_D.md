@@ -1577,3 +1577,13 @@ cells/seeds the minimum balanced accuracy/F1/p10 was 0.964837/0.952350/0.912362,
 H-CNP1 is supported on two query-disjoint panels within the fixed world. ADR-0190's historical
 v1 `G2_FAIL_STOP` remains unchanged. CNP-004 adaptation, candidate selection, and promotion do
 not execute from this result.
+
+## ADR-0195: CNP-004 fixed four-block adaptation is authorized
+
+Date: 2026-09-21. Status: **CNP-004 authorized; implementation and execution pending.**
+
+Following CNP-V2-001 G2 PASS, the user instructed the next stage. This authorizes CNP-004 only:
+five fixed confirmation seeds, four fixed new-condition blocks, LOCAL/FULL_REPLAY/FULL_NO_REPLAY/
+SCRATCH/METRIC_REPLAY, the paired 64- and 16-teacher-budget arms, and the existing shadow-stop and
+G3/G4 criteria. It does not authorize changing CNP-003 history, choosing a different checkpoint,
+additional training beyond the registered CNP-004 budget, candidate promotion, or CNP-005.

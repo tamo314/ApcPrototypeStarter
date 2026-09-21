@@ -49,6 +49,14 @@ def test_local_candidate_freezes_base_and_updates_only_adapter() -> None:
     )
 
 
+def test_next_local_candidate_copies_one_existing_adapter_without_stacking() -> None:
+    parent = clone_local_candidate(ConditionalSelectPrimitive(4))
+    candidate = clone_local_candidate(parent)
+    assert candidate.adapter_parameter_count == 1024
+    assert candidate.adapter is not parent.adapter
+    assert all(parameter.requires_grad for parameter in adapter_parameters(candidate))
+
+
 def test_cnp_bundle_is_hash_checked_and_never_overwritten(tmp_path) -> None:
     config = {"program": "cnp_v1", "value": 1}
     primitive = ConditionalSelectPrimitive(5)

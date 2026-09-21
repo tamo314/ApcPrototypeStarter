@@ -6,7 +6,15 @@ import pytest
 import torch
 
 from apc.cnp.contracts import SelectArguments, SetState
-from apc.cnp.data import audit_split_disjoint, make_record, make_world, records_manifest
+from apc.cnp.data import (
+    ADAPTATION_BLOCKS,
+    audit_split_disjoint,
+    fixed_adaptation_query,
+    make_adaptation_record,
+    make_record,
+    make_world,
+    records_manifest,
+)
 from apc.cnp.reference import count_selected, reference_select, sum_first_selected
 
 
@@ -95,3 +103,27 @@ def test_v2_confirmation_role_is_disjoint_from_the_opened_v1_query_namespace() -
     assert v1.digest() != v2.digest()
     audit = audit_split_disjoint({"confirm_eval": [v1], "confirm_v2_eval": [v2]})
     assert audit["status"] == "PASS"
+
+
+def test_adaptation_queries_have_fixed_block_signs_and_public_ranges() -> None:
+    for block in ADAPTATION_BLOCKS:
+        query = fixed_adaptation_query("adapt_train", block, 0)
+        assert torch.equal(query, fixed_adaptation_query("adapt_train", block, 0))
+        assert 0.5 <= abs(float(query[0, 0])) <= 1.0
+        assert 0.5 <= abs(float(query[0, 1])) <= 1.0
+        assert float(query[0, 0]) > 0.0 if block[2] == "+" else float(query[0, 0]) < 0.0
+        assert float(query[0, 1]) > 0.0 if block[5] == "+" else float(query[0, 1]) < 0.0
+        assert bool(torch.all(query[0, 2:] >= -0.5))
+        assert bool(torch.all(query[0, 2:] < 0.5))
+
+
+def test_adaptation_record_is_role_disjoint_from_its_shadow_counterpart() -> None:
+    train = make_adaptation_record(
+        role="adapt_train", block="q1+q2+", exemplar_index=0, length=4,
+        threshold=0.8, example_index=0,
+    )
+    shadow = make_adaptation_record(
+        role="shadow", block="q1+q2+", exemplar_index=0, length=4,
+        threshold=0.8, example_index=0,
+    )
+    assert train.digest() != shadow.digest()

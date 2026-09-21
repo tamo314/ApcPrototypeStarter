@@ -22,6 +22,7 @@ KNOWN_LENGTHS = (1, 2, 4, 8, 16)
 INTERPOLATION_LENGTHS = (3, 12, 32)
 SOURCE_THRESHOLDS = (0.5, 0.8, 1.1)
 INTERPOLATION_THRESHOLDS = (0.65, 0.95)
+ADAPTATION_BLOCKS = ("q1+q2+", "q1+q2-", "q1-q2+", "q1-q2-")
 DataRole = Literal[
     "source_train",
     "dev_eval",
@@ -169,6 +170,47 @@ def fixed_query(role: DataRole, condition_key: str) -> torch.Tensor:
             dtype=torch.float32,
         )
         - 0.5
+    )
+
+
+def fixed_adaptation_query(role: DataRole, block: str, exemplar_index: int) -> torch.Tensor:
+    """Return one deterministic query in the registered CNP-004 condition block."""
+
+    if block not in ADAPTATION_BLOCKS:
+        raise ValueError(f"unsupported CNP adaptation block: {block}")
+    if exemplar_index < 0:
+        raise ValueError("adaptation exemplar index must be non-negative")
+    generator = _generator(DATA_ROOT_SEED, role, block, exemplar_index, "query")
+    query = torch.rand((1, FEATURE_DIM), generator=generator, dtype=torch.float32) - 0.5
+    magnitudes = 0.5 + 0.5 * torch.rand((2,), generator=generator, dtype=torch.float32)
+    signs = torch.tensor(
+        (1.0 if block[2] == "+" else -1.0, 1.0 if block[5] == "+" else -1.0),
+        dtype=torch.float32,
+    )
+    query[0, :2] = magnitudes * signs
+    return query
+
+
+def make_adaptation_record(
+    *,
+    role: DataRole,
+    block: str,
+    exemplar_index: int,
+    length: int,
+    threshold: float,
+    example_index: int,
+    world: CNPWorld | None = None,
+) -> CNPRecord:
+    """Generate one CNP-004 record with a public block query and role-separated content."""
+
+    return make_record(
+        role=role,
+        condition_key=f"{block}_{exemplar_index:02d}",
+        length=length,
+        threshold=threshold,
+        example_index=example_index,
+        query=fixed_adaptation_query(role, block, exemplar_index),
+        world=world,
     )
 
 

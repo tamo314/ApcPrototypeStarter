@@ -27,12 +27,11 @@ def masked_bce_loss(
 
 
 def clone_local_candidate(parent: ConditionalSelectPrimitive) -> ConditionalSelectPrimitive:
-    """Copy a stable parent, attach one zero-output adapter, and freeze base weights."""
+    """Copy a stable parent and expose exactly one adapter for the next local candidate."""
 
-    if parent.adapter is not None:
-        raise ValueError("CNP v1 does not stack adapters on an existing candidate")
     candidate = copy.deepcopy(parent)
-    candidate.attach_adapter(ResidualAdapter())
+    if candidate.adapter is None:
+        candidate.attach_adapter(ResidualAdapter())
     candidate.freeze_base()
     return candidate
 
