@@ -276,6 +276,33 @@ manifestがfailed、episode数0、error.txtが保存されることを確認し�
 - テスト: 新規の細切れテストは追加せず、既存腕機能テスト1本を運搬/保持/負の速度/連続resetまで拡張。実物理FK、IKと送信行動、段階をまたぐqpos連続性、目標距離・停止・終了を確認し、成功率は条件にしない。機能変更の節目で `wsl-arm-clearance-tests-20260922-a`（1 passed/12.95秒）、`wsl-arm-path-static-tests-20260922-a`（1 passed/17.20秒）、`wsl-arm-hold-tests-20260922-a`（1 passed/19.83秒）。最後のreset補正後は `wsl-arm-hold-tests-20260922-b` で **1 passed/18.21秒**。最後の最初のコマンドはvenvパスの `wsL` 大文字誤記でPython起動前に失敗したため、訂正して実行。テスト失敗や物理run失敗ではない。既知の非推奨/import警告のみ。
 - 解釈/次の一点: 机接触、停止判定、reset観測の障害を修正して把持・運搬・保持まで続けた。手設計制御の動作確認であり、学習済み操作やスキル銀行の実証ではない。次の一点は、この方策の状態/行動軌跡を教師データとして小規模な操作模倣学習を試すこと。移動方策と操作を同一sceneで連鎖する実験は未実施。明確な修正案がある障害は以後も停止理由だけにせず修正を続ける。
 
+## 2026-09-23 — 操作BCとlearner状態への2回の教師再ラベル
+
+- 問い/変更: 手設計のFetch把持・運搬軌跡から、推論時にIKやstageへ戻らない小型操作方策を学習できるか試した。state54→64→64→11（8,395パラメータ）のBC、`fetch_pick_bc` rollout、成功教師だけの明示選択、learnerが実際に訪れた状態へ教師行動を別保存する `collect-operation-dagger` を実装。base 2出力は教師どおりゼロ固定。実行行動はNPZ、教師ラベルはstep診断に分離した。
+- 条件/予算: 基点 `ef511ad` + 各runのdirty snapshot。WSL/Python 3.12/CPU、Fetch、`APC-FetchPickCube-v1`、13次元 `pd_joint_delta_pos`、制御20 Hz。手設計seed 20〜29、閉ループ比較と再ラベルはseed 20〜22、未見の最初の比較だけseed 1100〜1102。全て結果を見た探索seed。学習seed 0、幅64、主比較3,000更新。
+- 既存runner再確認: `runs/op-bc-demo-20260923-a/` はseed 20〜22の3/3が配置後20 step保持、462 step、wall 9.995秒、例外なし。全軌跡が有限、state54のT+1と13次元行動Tが整合、base行動は厳密にゼロ。段階sampleは接近150/下降97/閉じ45/持上げ48/運搬62/保持60。
+- 実装: `operation_bc.py`、`operation_dagger.py`、`configs/fetch_pick_bc.json` とCLIを追加。教師runのtask/controller/action shape、NPZ hash、数値、送信行動を検査し、checkpointのtask/control/schemaを再読込時に照合する。学習runはsourceごとの選択seed/hash、MSE、更新数、パラメータ数を保存する。
+
+| run（全て `runs/` 下） | episode / step | 観測 |
+|---|---:|---|
+| `op-bc-demo-20260923-a` | 3 / 462 | 手設計3/3成功・保持。最初の教師データ |
+| `op-bc-policy-20260923-a` | 3 / 1,050 | 1,000更新、未見seed 1100〜1102。成功/把持0/3、最短TCP距離0.154〜0.243 m |
+| `op-bc-policy-trainseeds-20260923-a` | 3 / 1,050 | 同じ教師seedでも成功0/3。seed22のみ一時把持 |
+| `op-bc-train3000-trainseeds-20260923-a` | 3 / 1,050 | 更新数だけ3,000へ増加。成功/把持0/3で改善せず |
+| `op-bc-demo10-20260923-a` | 10 / 2,020 | 手設計8/10成功。seed27/28は350 step時間制限 |
+| `op-bc-demo10-policy-trainseeds-20260923-a` | 3 / 1,050 | 全10軌跡で学習、成功0/3 |
+| `op-bc-demo10-success-policy-trainseeds-20260923-a` | 3 / 1,050 | 成功8軌跡で学習、把持0/3、最短TCP距離0.041〜0.101 m |
+| `op-bc-dagger1-20260923-a` | 3 / 1,050 | 上記learner状態を再ラベル。実行成功0/3 |
+| `op-bc-dagger1-policy-trainseeds-20260923-a` | 3 / 1,050 | 成功教師+再ラベル、成功0/3だが把持・持上げ3/3。最短目標距離0.047〜0.063 m |
+| `op-bc-dagger2-20260923-a` | 3 / 1,050 | 1回目learner状態を再ラベル。実行成功0/3 |
+| `op-bc-dagger2-policy-trainseeds-20260923-a` | 3 / 1,050 | 2回分を単純集約。成功0/3、把持1/3へ退行 |
+
+- 学習: 3軌跡1,000更新の教師MSEは0.123668→0.001232、3,000更新は0.000542だが閉ループ改善なし。成功8軌跡は1,320 sample、1回目集約は計2,370、2回目は3,420 sample。各3,000更新。1回目の最終MSE 0.001048、2回目0.001831。低い教師MSEを閉ループ成功とみなさない。今回のrunner実験は計40 episode / 11,932環境step、学習16,000更新（テストを除く）。
+- データ/エラー: 各runはcompletedで `error.txt` なし。既知のVulkan/glvnd/Pinocchio/NumPy警告のみ。`op-bc-policy-20260923-a/analysis.json` と各比較runの `analysis.json` に有限値、距離、持上げ、把持、base行動を保存。失敗軌跡・2回目の退行も削除していない。
+- 解釈: 1回のon-policy状態再ラベルは接近失敗を把持・持上げまで改善したが、配置条件には未到達。2回目の単純追加は改善せず、成功教師と各roundの教師stage/行動がstate54上で競合する可能性、均等混合比率の問題、memoryless入力不足をまだ分離できない。手動stageを推論入力に追加して成功させた結果ではない。操作スキル完成、自動銀行、汎化の証拠とはしない。
+- 統合テスト: 操作機能全体の `tests/test_operation_bc_feature.py` 1本を追加・拡張し、実環境の手設計軌跡→初期BC→learner状態/教師ラベル分離保存→結合再学習→checkpoint単独rolloutを確認。最終実行は `runs/op-bc-dagger-feature-tests-20260923-b/`、**1 passed in 38.55s**。成功率や損失低下は合格条件にしていない。
+- 次の一点/停止理由: 集約したsource間で、近傍のstate54に異なるstage・教師行動が割り当てられている量をまず測る。その結果なしに、再ラベル比率調整、履歴入力、明示stage selectorのどれを直すべきかが一意でないため、新しい学習runはここで止める。GPU、動画、未見seedでの再ラベル後評価、移動→操作の同一scene連鎖は未実行。
+
 ## 追記テンプレート
 
 ### YYYY-MM-DD — 変更点の短い名前

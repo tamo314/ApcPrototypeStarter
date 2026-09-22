@@ -118,15 +118,20 @@ class RunConfig:
                 raise ValueError(f"{name} must be a positive integer")
         if type(self.seed) is not int or not 0 <= self.seed < 2**32 - self.episodes:
             raise ValueError("seed must permit all episode seeds in the uint32 range")
-        if self.policy not in ("random", "zero", "fetch_goal", "fetch_random", "fetch_zero", "fetch_bc", "external"):
+        if self.policy not in ("random", "zero", "fetch_goal", "fetch_random", "fetch_zero",
+                               "fetch_bc", "fetch_pick_bc", "external"):
             raise ValueError("Unknown instrumentation/Fetch diagnostic policy")
-        if self.policy == "fetch_bc":
+        if self.policy in ("fetch_bc", "fetch_pick_bc"):
             if not isinstance(self.checkpoint, str) or not self.checkpoint:
-                raise ValueError("fetch_bc requires a checkpoint path")
+                raise ValueError(f"{self.policy} requires a checkpoint path")
         elif self.checkpoint is not None:
-            raise ValueError("checkpoint is only used with fetch_bc")
-        if self.policy.startswith("fetch_") and self.env_id != "APC-FetchReachGoal-v1":
+            raise ValueError("checkpoint is only used with a learned Fetch policy")
+        if self.policy in ("fetch_goal", "fetch_random", "fetch_zero", "fetch_bc") \
+                and self.env_id != "APC-FetchReachGoal-v1":
             raise ValueError("Fetch diagnostics require APC-FetchReachGoal-v1")
+        if self.policy == "fetch_pick_bc" and (self.env_id != "APC-FetchPickCube-v1"
+                or self.robot_uids != "fetch" or self.control_mode != "pd_joint_delta_pos"):
+            raise ValueError("fetch_pick_bc requires Fetch/PickCube with pd_joint_delta_pos")
         if self.sim_backend not in ("physx_cpu", "physx_cuda"):
             raise ValueError("sim_backend must be physx_cpu or physx_cuda")
         if type(self.video) is not bool:
@@ -244,11 +249,16 @@ def collect(config: RunConfig, output: Path, *, env_factory: Callable = make_env
         external_policy = policy_factory(env, output) if policy_factory is not None else None
         if external_policy is not None:
             manifest["policy_details"] = external_policy.metadata
-        elif config.policy == "fetch_bc":
-            from .bc import BCPolicy
+        elif config.policy in ("fetch_bc", "fetch_pick_bc"):
             checkpoint_copy = output / "policy.pt"
             shutil.copy2(config.checkpoint, checkpoint_copy)
-            learned_policy = BCPolicy(checkpoint_copy, manifest["task"], manifest["control_freq"])
+            if config.policy == "fetch_bc":
+                from .bc import BCPolicy
+                learned_policy = BCPolicy(checkpoint_copy, manifest["task"], manifest["control_freq"])
+            else:
+                from .operation_bc import OperationBCPolicy
+                learned_policy = OperationBCPolicy(
+                    checkpoint_copy, manifest["task"], manifest["control_freq"])
             manifest["policy_details"] = learned_policy.metadata
             manifest["policy_details"]["original_checkpoint"] = str(Path(config.checkpoint).resolve())
         else:
@@ -275,10 +285,14 @@ def collect(config: RunConfig, output: Path, *, env_factory: Callable = make_env
                     if external_policy is not None:
                         action = external_policy.action()
                     elif learned_policy is not None:
-                        # Only posture is shared; no scripted base fallback or stopping rule.
-                        action = env.unwrapped.diagnostic_action("fetch_zero", space)
-                        start_idx, end_idx = env.unwrapped.agent.controller.action_mapping["base"]
-                        action[start_idx:end_idx] = learned_policy.predict(array(obs))[0]
+                        if config.policy == "fetch_bc":
+                            # Only posture is shared; no scripted base fallback or stopping rule.
+                            action = env.unwrapped.diagnostic_action("fetch_zero", space)
+                            start_idx, end_idx = env.unwrapped.agent.controller.action_mapping["base"]
+                            action[start_idx:end_idx] = learned_policy.predict(array(obs))[0]
+                        else:
+                            action = np.zeros(space.shape, dtype=space.dtype)
+                            action[0:11] = learned_policy.predict(array(obs))[0]
                     elif config.policy.startswith("fetch_"):
                         action = env.unwrapped.diagnostic_action(config.policy, space)
                     if not np.isfinite(action).all():
@@ -376,7 +390,7 @@ def summarize(output: Path) -> dict[str, Any]:
         "steps": sum(e["steps"] for e in episodes),
         "runner_truncated_episodes": sum(e["runner_truncated"] for e in episodes),
         "wall_seconds": manifest.get("wall_seconds"),
-        "note": ("Supervised base-policy rollout; not evidence of APC skill-bank learning or reuse."
-                 if manifest["config"]["policy"] == "fetch_bc" else
-                 "Instrumentation result; not evidence of APC learning or skill reuse."),
+        "note": ("Supervised policy rollout; not evidence of APC skill-bank learning or reuse."
+                  if manifest["config"]["policy"] in ("fetch_bc", "fetch_pick_bc") else
+                  "Instrumentation result; not evidence of APC learning or skill reuse."),
     }

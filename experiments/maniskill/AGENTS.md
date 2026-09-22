@@ -41,7 +41,7 @@
 現在の機能テストは `tests/test_rollout_feature.py`、
 `tests/test_fetch_reach_feature.py`、`tests/test_bc_feature.py`、
 `tests/test_sequence_feature.py`、`tests/test_distillation_feature.py`、
-`tests/test_arm_ik_feature.py` の各機能1本。
+`tests/test_arm_ik_feature.py`、`tests/test_operation_bc_feature.py` の各機能1本。
 実環境での実行方法:
 
 ```bash

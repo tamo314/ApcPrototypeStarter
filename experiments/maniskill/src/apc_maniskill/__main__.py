@@ -19,7 +19,8 @@ def main() -> None:
     rollout.add_argument("--episodes", type=int)
     rollout.add_argument("--max-steps", type=int)
     rollout.add_argument("--seed", type=int)
-    rollout.add_argument("--policy", choices=["random", "zero", "fetch_goal", "fetch_random", "fetch_zero", "fetch_bc"])
+    rollout.add_argument("--policy", choices=["random", "zero", "fetch_goal", "fetch_random", "fetch_zero",
+                                              "fetch_bc", "fetch_pick_bc"])
     rollout.add_argument("--checkpoint", type=str)
     rollout.add_argument("--post-success-steps", type=int,
                          help="Fetch-only diagnostic: continue N steps after first success")
@@ -36,6 +37,22 @@ def main() -> None:
     bc.add_argument("--seed", type=int, default=0)
     bc.add_argument("--stop-weight", type=float, default=1.0,
                     help="Sampling weight for zero base-command demonstrations (>=1)")
+    operation_bc = commands.add_parser(
+        "train-operation-bc", help="Clone scripted Fetch pick-place actions with a small CPU MLP")
+    operation_bc.add_argument("--demo-run", type=Path, required=True)
+    operation_bc.add_argument("--extra-demo-run", type=Path, action="append", default=[])
+    operation_bc.add_argument("--out", type=Path, required=True)
+    operation_bc.add_argument("--updates", type=int, default=1000)
+    operation_bc.add_argument("--seed", type=int, default=0)
+    operation_bc.add_argument("--successful-only", action="store_true",
+                              help="Train only on teacher episodes that reached success")
+    dagger = commands.add_parser(
+        "collect-operation-dagger", help="Run an operation policy and save separate scripted labels")
+    dagger.add_argument("--checkpoint", type=Path, required=True)
+    dagger.add_argument("--out", type=Path, required=True)
+    dagger.add_argument("--episodes", type=int, default=3)
+    dagger.add_argument("--max-steps", type=int, default=350)
+    dagger.add_argument("--seed", type=int, default=0)
     distill = commands.add_parser("distill", help="Fit a separate compact policy to a frozen neural teacher")
     distill.add_argument("--teacher-checkpoint", type=Path, required=True)
     distill.add_argument("--state-run", type=Path, action="append", required=True)
@@ -81,6 +98,22 @@ def main() -> None:
         output = train(args.demo_run, args.out, updates=args.updates, seed=args.seed,
                        stop_weight=args.stop_weight)
         print((output / "training.json").read_text(encoding="utf-8"))
+    elif args.command == "train-operation-bc":
+        from .operation_bc import train
+        output = train(args.demo_run, args.out, updates=args.updates, seed=args.seed,
+                       successful_only=args.successful_only, extra_runs=args.extra_demo_run)
+        print((output / "training.json").read_text(encoding="utf-8"))
+    elif args.command == "collect-operation-dagger":
+        from .operation_dagger import OperationDaggerPolicy
+        from .runner import json_write
+        config = RunConfig(env_id="APC-FetchPickCube-v1", robot_uids="fetch", policy="external",
+                           episodes=args.episodes, max_steps=args.max_steps, seed=args.seed,
+                           env_max_steps=args.max_steps, task_label="operation_dagger_relabel")
+        collect(config, args.out, policy_factory=lambda env, output: OperationDaggerPolicy(
+            env, output, args.checkpoint))
+        result = summarize(args.out)
+        json_write(args.out / "summary.json", result)
+        print(json.dumps(result, indent=2))
     else:
         print(json.dumps(summarize(args.run_dir), indent=2))
 

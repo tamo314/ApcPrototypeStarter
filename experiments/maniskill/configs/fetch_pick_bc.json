@@ -1,0 +1,16 @@
+{
+  "env_id": "APC-FetchPickCube-v1",
+  "robot_uids": "fetch",
+  "control_mode": "pd_joint_delta_pos",
+  "sim_backend": "physx_cpu",
+  "reward_mode": "normalized_dense",
+  "episodes": 3,
+  "max_steps": 350,
+  "seed": 1100,
+  "policy": "fetch_pick_bc",
+  "video": false,
+  "split": "explore",
+  "task_label": "supervised_pick_place_baseline",
+  "post_success_steps": 20,
+  "env_max_steps": 350
+}

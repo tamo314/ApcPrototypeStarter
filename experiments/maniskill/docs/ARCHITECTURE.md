@@ -8,6 +8,8 @@
 台車の小規模な模倣学習baselineを `bc.py` に実装した。
 `TwoGoalSequence` でresetなしの手動2目標連鎖を実装した。
 別の幅を持つ小型方策への蒸留を実装した。
+Fetch/PickCubeの操作BCとlearner状態への教師再ラベルを `operation_bc.py` / `operation_dagger.py`
+に実装した。学習済み配置成功、自動selector、スキル銀行への登録は未実装。
 GPU並列auto-reset、APCのスキル銀行、自動selector/増設は未実装。
 本体コードは `src/apc_maniskill/`。旧 `src/apc/` をimportしない独立Pythonパッケージ。
 
@@ -51,6 +53,31 @@ manifestの `policy_details` が実際の方策とcheckpointを識別する。
 task内の `policy_source` は元の診断方策の説明で、学習方策の出自はpolicy_detailsを参照する。
 チェックポイントのコピーとsha256、実行ソースsnapshotをrunに保存する。
 この単一方策baselineは、銀行・temporaryの自動管理を実装していない。
+
+## 操作の学習baseline
+
+`train-operation-bc` はcompletedな手設計 `pick_place` runを読み、state54の
+`observations[:-1]` とarm/gripper/bodyの `actions[:, 0:11]` を対応づける。
+入力に手設計stageやIK目標は含めない。54→64→64→11のTanh MLP、CPU、Adam 0.001、
+batch 64、均等抽出のMSEを使う。base 11:13は教師データでゼロであることを検査し、
+推論でもゼロ固定する。これは移動と操作を一方策で学んだ結果ではない。
+
+`--successful-only` は元runを変更せず、成功を一度でも観測した手設計episodeだけを選ぶ。
+入力runの全seed、選択/除外seed、NPZ hashをtraining.jsonへ保存する。
+`--extra-demo-run` は互換な手設計またはDAgger再ラベルrunを複数連結する。
+
+`collect-operation-dagger` は固定checkpointの出力を実際の13次元行動として物理環境へ送り、
+同じ制御stepの行動前状態で手設計IK教師も呼ぶ。送信行動は通常どおりNPZへ保存し、
+教師ラベルと送信行動の複製をstep診断へ分離して保存する。教師ラベルで環境を動かさず、
+推論時のfallbackにも使わない。再学習時にNPZの行動とstep診断の送信行動が完全一致すること、
+教師ラベルの形状・有限値・baseゼロを検査してから利用する。教師ラベル本体を含む
+`steps.jsonl` のhashも保存する。
+
+checkpointはstate_dict、state54の標準化統計、task/control、教師seed、学習action slice、
+全入力runの種別とmanifest/trajectory/step hashを持つ。
+rolloutはコピーのhashと、固定baseを含む実際の全13次元行動を保存する。
+現在のmemoryless方策では1回の再ラベルで把持・持上げへ改善した一方、2回目の単純集約で
+退行した。stage別ラベルの競合は未測定で、履歴/段階入力の必要性は未確定。
 
 `distill` は固定checkpointを教師にし、保存された行動直前の観測で再推論した
 台車出力から別の小型candidateを学習する。手設計ラベルのBCとalgorithmで区別する。

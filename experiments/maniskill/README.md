@@ -4,6 +4,8 @@
 WindowsとWSLの専用venvでCPU実行を確認した。台車の小規模な模倣学習baselineも実装済み。
 同一sceneで単一方策を2つの目標に順次使う手動連鎖も実装済み。
 別の小型ネットワークへの蒸留も実装済み。APCの自動スキル銀行・増設は未実装。
+手設計の把持・運搬軌跡から操作BCを学習し、learner状態への教師再ラベルも実装した。
+1回の再ラベルで把持・持上げまで改善したが、学習方策単独の配置成功は未達。
 ランダム方策の成功率を研究仮説の成否とみなさない。
 方針は [AGENTS.md](AGENTS.md)、研究の順序は [計画](docs/RESEARCH_PLAN.md)、
 データ形式と将来の接続は [設計](docs/ARCHITECTURE.md) を参照する。
@@ -189,6 +191,37 @@ runnerの `external` はPython APIの `policy_factory` 併用専用であり、�
 無衝突保証ではない。今回の改良は失敗条件を含め24 episode / 3,471 step、学習0。
 詳細は `runs/wsl-arm-place-hold-20260922-b/audit.json` と実験メモを参照する。
 
+### 操作の小規模な模倣学習baseline
+
+WSLの同じ環境で、毎回新しい出力先を指定する:
+
+```bash
+# 手設計教師。成功例だけを選ぶかどうかは学習runに記録する。
+python scripts/run_fetch_arm.py --protocol pick_place --pitch-deg 15 --grasp-height .012 --torso-ik --table-clearance --absolute-static --post-success-steps 20 --max-steps 350 --episodes 10 --seed 20 --out runs/my-operation-demo
+python -m apc_maniskill train-operation-bc --demo-run runs/my-operation-demo --successful-only --updates 3000 --out runs/my-operation-bc
+python -m apc_maniskill rollout --config configs/fetch_pick_bc.json --checkpoint runs/my-operation-bc/policy.pt --out runs/my-operation-rollout
+
+# learnerが実際に訪れた状態で既存IK教師の行動を別ラベルとして保存する。
+python -m apc_maniskill collect-operation-dagger --checkpoint runs/my-operation-bc/policy.pt --episodes 3 --seed 20 --out runs/my-operation-relabel
+python -m apc_maniskill train-operation-bc --demo-run runs/my-operation-demo --successful-only --extra-demo-run runs/my-operation-relabel --updates 3000 --out runs/my-operation-dagger
+```
+
+入力は上流Fetch/PickCubeのstate54全体、ネットワークは54→64→64→11のTanh MLP
+（8,395パラメータ）。arm/gripper/bodyの正規化行動0:11を学び、教師で常にゼロだった
+base 11:13はゼロ固定する。推論中にIKや手動stageへ切り替えない。
+`--successful-only` は手設計runの成功episodeだけを選び、失敗run自体は削除しない。
+
+`collect-operation-dagger` のNPZ `actions` はlearnerが物理環境へ送った行動のまま。
+`steps.jsonl` の `info.diagnostic.teacher_action` に同じ状態での手設計教師ラベル、
+`behavior_action` に送信行動を保存する。教師のstage更新はlearner実行後の物理状態に基づく。
+再ラベルrunを独立評価とは呼ばず、学習データとして扱う。
+
+最初の実測では手設計10 episodeの8/10が成功。成功8軌跡だけの通常BCは、同じ
+seed 20〜22でも0/3成功・把持0/3だった。1回目の再ラベル1,050 stateを加えると
+0/3成功のままだが3/3で把持・持上げまで進み、最短物体-目標距離は約4.7〜6.3 cm。
+2回目を単純に追加すると把持1/3へ退行したため、再ラベル回数を増やし続けていない。
+全て探索済みseedであり、学習済み配置・汎化・自動selectorの実証ではない。
+
 ## 2. まず環境を動かす
 
 リポジトリ直下から:
@@ -324,11 +357,14 @@ rolloutはチェックポイントのコピー/ハッシュを保存し、タス
 「resetなしの目標連鎖」「固定teacher→小型candidate→単独実行」に各1本。
 腕IKには `tests/test_arm_ik_feature.py` の1本を追加。上流FKと物理link姿勢、
 IK解から送信行動への対応、追従/接触診断と保存データを確認し、把持成功率は条件にしない。
+操作BCと再ラベル収集には `tests/test_operation_bc_feature.py` の1本だけを追加した。
 
 ```bash
 APC_RUN_MANISKILL_TEST=1 python -m pytest -q tests/test_rollout_feature.py tests/test_fetch_reach_feature.py tests/test_bc_feature.py
 # 連鎖/蒸留を変更した場合は対象の機能を指定
 APC_RUN_MANISKILL_TEST=1 python -m pytest -q tests/test_sequence_feature.py tests/test_distillation_feature.py
+# 操作BC/再ラベル機能を変更した場合
+APC_RUN_MANISKILL_TEST=1 python -m pytest -q tests/test_operation_bc_feature.py
 ```
 
 通常実行では明示的にskipされる。skipは成功ではない。成功率の最低値は検査しない。
@@ -349,13 +385,12 @@ resetなしの手動2目標連鎖は前方・横・戻りの各3例で完了し�
 未使用だったseed 1008〜1012では元モデル・小型モデルとも5/5連鎖を完了し、
 最後の1秒間も条件を維持した（合計1,106/1,088 step）。
 
-**障害解消:** WSLのPinocchio導入と描画なし経路の修正により、Fetchの環境内FK/IKと
-CPU rolloutが動いた。詳細・再現手順は第1節。Windowsの既存環境も保持している。
-IKから既存13次元関節制御への接続と2 cm追従は動いた。
-机との接触を避ける接近姿勢・IK候補の途中姿勢確認を追加し、手設計の把持・運搬・保持が動いた。
-速度絶対値の停止判定とreset時の接触フラグも実験用タスクで補正した。
-次の一点はこの手設計方策の状態/行動軌跡を教師データとして、操作の小規模な模倣学習を試すこと。
-現在の操作は手設計で、学習済み操作・自動銀行・移動から把持への連鎖の実績ではない。
+**操作BC:** 手設計軌跡→小型MLP→checkpoint単独rolloutと、learner状態へ教師行動を
+別記録する再ラベル経路を実装した。通常BCは把持できず、1回の再ラベルで3/3把持・
+持上げへ改善したが配置成功0/3。2回目の単純集約は把持1/3へ退行した。
+次の一点は、集約データの近傍状態でstage別教師行動が競合しているかを測り、
+state54だけで足りるか、履歴または明示的な段階入力が必要かを切り分けること。
+現在の学習済み操作を完成スキル・自動銀行・移動から把持への連鎖の実績とはしない。
 GPU物理・動画・APCの自動銀行は未検証。
 
 ## 上流資料（2026-09-22確認）
