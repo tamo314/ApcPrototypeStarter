@@ -206,6 +206,15 @@ manifestがfailed、episode数0、error.txtが保存されることを確認し�
 - 原因の確認: `importlib.util.find_spec('pinocchio')` はNone。インストール済みSAPIEN 3.0.3の `wrapper/pinocchio_model.py` は、非LinuxでPinocchio importに失敗すると `PinocchioModel=None` を設定し、生成関数はそれを呼んで失敗する。ManiSkillのCPU Kinematicsもこのクラスを使う。これまでの関節制御では警告のみだったが、今回の上流CPU IK経路には実際の障害となった。
 - 停止理由/次の一点: ユーザーの「明らかな障害が発生するまで自律的に進める」という停止条件に当たるため、新規実験はここで止める。移動・連鎖・蒸留の成果や既存runは保持し、環境依存は変更していない。次は専用venvで使えるPinocchio導入経路を確認してこの生成probeを再実行する。導入できない場合の別IK経路は未調査。接触操作の成功・学習は未実行であり、この失敗を研究全体の科学的ゲートにしない。
 
+## 2026-09-22 — Pinocchio導入経路の非変更調査
+
+- 依頼/範囲: venvへの導入方法を検討。基点 `9e3657b`。パッケージ導入・更新、長いソースビルド、Conda環境作成、シミュレータ実験は行わず、配布メタデータとpip dry-runを確認した。環境step/学習更新は0。
+- PyPI確認: 正しいpip配布名は `pin`、import名は `pinocchio`。PyPI `pinocchio` はnoseテスト用の別パッケージ。PyPI JSONを取得し、全リリースのWindows wheelは0件、最新4.1.0もLinux/macOSのみと確認。現在のPython 3.12専用venvで `pip install --dry-run --only-binary=:all: --index-url https://pypi.org/simple pin` を実行するとNo matching distribution。初回sandbox内の通信失敗と一時フォルダ削除警告を区別し、通信可能な権限付き実行でも同じ配布不一致を確認した。導入はしていない。
+- Windows代替: conda-forge APIにwin-64/py312のPinocchio 3.8.0と4.1.0が存在。3.8.0の直接依存はNumPy >=2.1かつ<3、EigenPy 3.12、Boost 1.88等で、現在のNumPy 2.5.3は直接のバージョン範囲内。ただし推移依存の解決/ABI/ManiSkillとの動作は未検証。4.1.0はlibpinocchio/pinocchio-python分割パッケージに依存。Conda/micromamba/CMake/clは今回のPATHでは見つからず、WSLの実行ファイルのみ検出（ディストリビューション利用可否は未確認）。
+- 判断: Windowsを維持するなら既存venvを保存して別Conda環境を作るのが第一候補。venv方式を必須にするならLinux側に新設し公式pip経路を使う。Windows venvへのソースビルドはネイティブ依存整備を要するため後順位。Condaパッケージを現在のvenvへ直接コピーする構成は採用しない。READMEに実行前の解決確認案と、導入後のFK/IK検証手順を記載した。
+- 成果物/状態: `runs/pin-install-review-20260922-a/` にpip-dry-run-network.txt、pypi-metadata.json、conda-metadata.json、local-checks.json等を保存。既存venvの `pip check` はNo broken requirements found、Pinocchio importは依然不在。調査のみのためpytest追加/再実行なし。次の一点は別検証環境で依存を解決し、Pinocchio 3.8.0を候補として上流Fetch CPU IK probeを再実行すること。版の候補選定は互換性実証とは区別する。
+- 一次資料: [公式導入方法](https://stack-of-tasks.github.io/pinocchio/download.html)、[PyPI pin](https://pypi.org/project/pin/4.1.0/#files)、[conda-forge配布メタデータ](https://api.anaconda.org/package/conda-forge/pinocchio)、[上流Windows導入回答](https://github.com/stack-of-tasks/pinocchio/discussions/2470)。上流のWindows回答は2024年のため、今回の配布メタデータでも照合した。
+
 ## 追記テンプレート
 
 ### YYYY-MM-DD — 変更点の短い名前

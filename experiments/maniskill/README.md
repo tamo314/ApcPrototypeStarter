@@ -50,6 +50,36 @@ python -m mani_skill.utils.download_asset --help
 不足アセットの対話プロンプトを残している。無人実行する際は、先に必要な取得を済ませる。
 非商用研究を前提に利用するが、出所・クレジットとアセット利用条件は記録する。
 
+### WindowsのCPU逆運動学とPinocchio（2026-09-22調査）
+
+ロボティクス用Pinocchioのpip配布名は **`pin`**、import名は `pinocchio`。
+PyPIの同名 `pinocchio` は別のテスト用パッケージなので使用しない。[S8, S9]
+現在のWindows/Python 3.12のvenvでは、PyPIの全リリースにWindows用wheelがなく、
+`pip install --dry-run --only-binary=:all: pin` も該当配布なしで失敗した。
+最新版4.1.0にもCPython 3.12のLinux/macOS wheelのみ。Python版の変更だけでは解消しない。
+
+- **Windowsを維持:** 既存 `.venv` を残し、別のConda環境を作る方法を推奨。
+  conda-forgeにはwin-64/py312の3.8.0と4.1.0の配布を確認した。[S10]
+  まず3.8.0を互換性確認の候補にする。SAPIENとの動作確認は未実施。
+  Condaは通常のvenvとは別方式で、DLL依存を含む別環境として扱う。
+- **venvを維持:** Linux側にPython 3.12の新しいvenvを作り、`python -m pip install pin`
+  で依存を解決するのが公式の配布経路。[S8] Windowsのvenvは流用しない。
+- **現在のWindows venvへ直接導入:** ソースビルドの検討が必要。
+  Boost.Python/EigenPy等のネイティブ依存・Python ABI・DLL探索を揃える作業になり、
+  最初の実験再開手段としては優先しない。ビルド可能性は未検証。
+
+Conda導入後、このフォルダでの解決確認案（未実行、環境を作成しないdry-run）:
+
+```powershell
+conda create --dry-run --prefix ./runs/pinocchio-conda-check -c conda-forge --strict-channel-priority python=3.12 pinocchio=3.8.0 pip
+```
+
+実導入時はCondaで依存を解決した後、このワークスペースのManiSkill/PyTorchを導入し、
+`pip check` → `import pinocchio` → FetchのFK/IK probe → 短いrolloutの順に確認する。
+既存NumPy 2.5.3を含む全依存の完全一致・Pinocchio/SAPIENの互換性は未検証。
+Condaの解決結果とpipのdry-runを確認してからその環境用のfreezeを保存する。
+今回パッケージの導入・更新は行っていない。調査成果物は `runs/pin-install-review-20260922-a/`。
+
 ## 2. まず環境を動かす
 
 リポジトリ直下から:
@@ -212,8 +242,8 @@ resetなしの手動2目標連鎖は前方・横・戻りの各3例で完了し�
 Pinocchio未導入によりモデル生成が `TypeError: 'NoneType' object is not callable` で失敗した。
 これは既存の移動・蒸留の実行障害ではなく、次の腕IK経路の依存不足。
 `runs/fetch-pickcube-ik-probe-20260922-a/` に失敗記録を保存した。
-「明らかな障害まで」の指示に従い新規試行は停止。次の一点は専用venvで利用可能な
-Pinocchio導入経路を確認し、同じ13次元関節制御を保ったIK生成probeを再実行すること。
+導入調査ではWindows用pip wheelがなく、別Conda環境またはLinux venvが候補となった（第1節）。
+次の一点は別の検証環境でPinocchio依存を解決し、13次元関節制御を保ったIK生成probeを再実行すること。
 GPU物理・動画・APCの自動銀行は未検証。
 
 ## 上流資料（2026-09-22確認）
@@ -225,5 +255,9 @@ GPU物理・動画・APCの自動銀行は未検証。
 - [S5: v3.0.1 Fetchコントローラ](https://github.com/mani-skill/ManiSkill/blob/v3.0.1/mani_skill/agents/robots/fetch/fetch.py)
 - [S6: v3.0.1 BaseEnv・描画無効化](https://github.com/mani-skill/ManiSkill/blob/v3.0.1/mani_skill/envs/sapien_env.py)
 - [S7: 上流RL導入](https://maniskill.readthedocs.io/en/latest/user_guide/reinforcement_learning/setup.html)
+- [S8: Pinocchio公式導入方法](https://stack-of-tasks.github.io/pinocchio/download.html)
+- [S9: PyPIの別パッケージpinocchio](https://pypi.org/project/pinocchio/)
+- [S10: conda-forgeのPinocchio配布](https://anaconda.org/conda-forge/pinocchio/files)
+- [S11: PyPI pin 4.1.0の配布ファイル](https://pypi.org/project/pin/4.1.0/#files)
 
 `latest`文書は変化する。実行条件はそのrunのインストール版と成果物を優先する。
