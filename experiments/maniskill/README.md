@@ -138,6 +138,41 @@ FetchReachはseed 1000〜1002の3/3到達・129 step、Fetch/PickCubeのラン�
 `wsl-headless-pickcube-20260922-a/`。物理の落下・接触・再生成も既存統合テストで確認した。
 Windowsでの修正前後の同seed比較では、3 episode / 150 stepの全保存配列が完全一致した。
 
+### Fetchの腕IKと接触診断（WSL）
+
+同じWSL venvを有効化し、このフォルダで実行する:
+
+```bash
+# 世界座標で手先を上へ2 cm動かす。3 episode・各50 step。
+python scripts/run_fetch_arm.py --out runs/my-arm-track
+# 既存PickCubeで水平接近と胴体IKを試す。既知の机接触を含む診断。
+python scripts/run_fetch_arm.py --protocol pick --pitch-deg 0 --torso-ik --max-steps 200 --out runs/my-arm-pick
+```
+
+`arm_ik.py` はSAPIENのCPU Pinocchio IKを毎step呼び、実測関節角との差を
+既存13次元 `pd_joint_delta_pos` へ変換する手設計方策。世界座標の目標はロボットroot座標へ変換する。
+台車にはゼロ速度指令、頭には初期姿勢保持を送る。台車の物理固定ではなく、接触で移動し得る。
+`--torso-ik` なしでは胴体高さも保持する。指定時は昇降関節もIKで動かし、
+不収束/可動域外の場合には高さ0.1/0.2/0.3/0.386 mで腕IKを解き直す。
+可動域内の解から現在の関節値との差のノルムが最小のものを選ぶ（m/radの単純な混合指標）。
+全候補が失敗したstepでは腕・昇降へゼロ差分を送る。衝突回避は含まない。
+
+`track` は `--offset X Y Z`（既定0/0/0.02 m）の目標を保持する。
+`pick` は物体の初期位置の12 cm上→初期位置→閉じる15 step→15 cm上→保持、という
+手動の段階列。姿勢pitchは既定90度、比較では0度を使った。位置5 mm・姿勢0.05 rad以内で
+次へ進む。これは学習済み把持器ではなく、閉じる/持上げ段階は今回まだ到達していない。
+スクリプトは指定したmax-stepsを環境の時間制限にも設定するので、既定PickCubeの50 stepとは区別する。
+
+manifestに方策条件、steps.jsonlの `info.diagnostic` にIK解/誤差/可動域、物理手先姿勢、
+段階番号、物体高さ、指と物体・各リンクと机の接触力を保存する。
+summaryのsuccessは元のPickCube判定で、手先到達と混同しない。
+runnerの `external` はPython APIの `policy_factory` 併用専用であり、通常のrollout CLIからは選ばない。
+
+実績は18 episode / 2,910 step、学習0。2 cm追従は3例とも4 step目に許容範囲へ入り、
+最終誤差約0.002 mm（同じ腕初期姿勢）。把持診断では上腕と手首の机への接触を確認し、
+最終追従誤差約1〜5 cmで停滞、把持は未達。WSL起動やデータ保存の障害は出ていない。
+詳細は `runs/wsl-arm-pick-contact-20260922-a/audit.json` と実験メモを参照する。
+
 ## 2. まず環境を動かす
 
 リポジトリ直下から:
@@ -271,6 +306,8 @@ rolloutはチェックポイントのコピー/ハッシュを保存し、タス
 「試行→保存→集計」「Fetch到達課題→閉ループ制御→成果物」
 「教師軌跡→学習→重み再読込→学習方策の実行」
 「resetなしの目標連鎖」「固定teacher→小型candidate→単独実行」に各1本。
+腕IKには `tests/test_arm_ik_feature.py` の1本を追加。上流FKと物理link姿勢、
+IK解から送信行動への対応、追従/接触診断と保存データを確認し、把持成功率は条件にしない。
 
 ```bash
 APC_RUN_MANISKILL_TEST=1 python -m pytest -q tests/test_rollout_feature.py tests/test_fetch_reach_feature.py tests/test_bc_feature.py
@@ -298,8 +335,10 @@ resetなしの手動2目標連鎖は前方・横・戻りの各3例で完了し�
 
 **障害解消:** WSLのPinocchio導入と描画なし経路の修正により、Fetchの環境内FK/IKと
 CPU rolloutが動いた。詳細・再現手順は第1節。Windowsの既存環境も保持している。
-次の一点はIKで得た関節目標を既存13次元関節制御へ渡し、短い閉ループ実行で手先の追従を測ること。
-現在のIK診断は解の運動学確認とゼロ行動rolloutまでで、IK解を追従させる制御や把持は未実装。
+IKから既存13次元関節制御への接続と2 cm追従は動いた。
+**現在の障害:** PickCubeへの接近時に上腕/手首が机に接触し、可動域内のIK解でも物理追従が止まる。
+次の一点は机との接触を避ける腕姿勢・中間目標を導入し、同seedで接触力と追従を比較すること。
+手設計の把持段階列は追加したが、把持/持上げ段階までの実行と操作の学習は未達。
 GPU物理・動画・APCの自動銀行は未検証。
 
 ## 上流資料（2026-09-22確認）

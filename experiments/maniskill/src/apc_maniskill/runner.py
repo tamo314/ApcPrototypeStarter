@@ -96,8 +96,11 @@ class RunConfig:
     checkpoint: str | None = None
     post_success_steps: int = 0
     next_goal_offset: list[float] | None = None
+    env_max_steps: int | None = None
 
     def validate(self) -> None:
+        if self.env_max_steps is not None and (type(self.env_max_steps) is not int or self.env_max_steps < 1):
+            raise ValueError("env_max_steps must be a positive integer or None")
         if self.next_goal_offset is not None:
             offset = np.asarray(self.next_goal_offset)
             if (offset.shape != (2,) or offset.dtype.kind not in "fi"
@@ -115,7 +118,7 @@ class RunConfig:
                 raise ValueError(f"{name} must be a positive integer")
         if type(self.seed) is not int or not 0 <= self.seed < 2**32 - self.episodes:
             raise ValueError("seed must permit all episode seeds in the uint32 range")
-        if self.policy not in ("random", "zero", "fetch_goal", "fetch_random", "fetch_zero", "fetch_bc"):
+        if self.policy not in ("random", "zero", "fetch_goal", "fetch_random", "fetch_zero", "fetch_bc", "external"):
             raise ValueError("Unknown instrumentation/Fetch diagnostic policy")
         if self.policy == "fetch_bc":
             if not isinstance(self.checkpoint, str) or not self.checkpoint:
@@ -153,7 +156,8 @@ def make_env(config: RunConfig, output: Path) -> Any:
         sim_backend=config.sim_backend,
         render_backend="gpu" if config.video else "none",
         render_mode="rgb_array" if config.video else None,
-        **({"max_episode_steps": 400} if config.next_goal_offset is not None else {}),
+        **({"max_episode_steps": config.env_max_steps} if config.env_max_steps is not None
+           else {"max_episode_steps": 400} if config.next_goal_offset is not None else {}),
     )
     if config.next_goal_offset is not None:
         from .protocols import TwoGoalSequence
@@ -190,9 +194,17 @@ def provenance() -> dict[str, Any]:
     }
 
 
-def collect(config: RunConfig, output: Path, *, env_factory: Callable = make_env) -> Path:
-    """Run a bounded experiment; never overwrite a previous run directory."""
+def collect(config: RunConfig, output: Path, *, env_factory: Callable = make_env,
+            policy_factory: Callable | None = None) -> Path:
+    """Run a bounded experiment; never overwrite a previous run directory.
+
+    An external policy factory receives (env, output) and returns an object with
+    metadata, reset(), action(), and after_step(). Reset/step diagnostics are
+    numeric dictionaries saved alongside the unchanged task success signal.
+    """
     config.validate()
+    if (config.policy == "external") != (policy_factory is not None):
+        raise ValueError("external policy requires exactly one policy_factory")
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     manifest: dict[str, Any] = {
@@ -227,7 +239,10 @@ def collect(config: RunConfig, output: Path, *, env_factory: Callable = make_env
         if hasattr(env.unwrapped, "experiment_metadata"):
             manifest["task"] = env.unwrapped.experiment_metadata()
         learned_policy = None
-        if config.policy == "fetch_bc":
+        external_policy = policy_factory(env, output) if policy_factory is not None else None
+        if external_policy is not None:
+            manifest["policy_details"] = external_policy.metadata
+        elif config.policy == "fetch_bc":
             from .bc import BCPolicy
             checkpoint_copy = output / "policy.pt"
             shutil.copy2(config.checkpoint, checkpoint_copy)
@@ -244,6 +259,8 @@ def collect(config: RunConfig, output: Path, *, env_factory: Callable = make_env
                 seed = config.seed + episode
                 space.seed(seed)
                 obs, reset_info = env.reset(seed=seed)
+                if external_policy is not None:
+                    reset_info = dict(reset_info, diagnostic=external_policy.reset())
                 saved_reset_info = json_info(reset_info)
                 observations = [array(obs)]
                 if not np.isfinite(observations[0]).all():
@@ -253,7 +270,9 @@ def collect(config: RunConfig, output: Path, *, env_factory: Callable = make_env
                     action = space.sample() if config.policy == "random" else np.clip(
                         np.zeros(space.shape, dtype=space.dtype), space.low, space.high
                     )
-                    if learned_policy is not None:
+                    if external_policy is not None:
+                        action = external_policy.action()
+                    elif learned_policy is not None:
                         # Only posture is shared; no scripted base fallback or stopping rule.
                         action = env.unwrapped.diagnostic_action("fetch_zero", space)
                         start_idx, end_idx = env.unwrapped.agent.controller.action_mapping["base"]
@@ -264,6 +283,8 @@ def collect(config: RunConfig, output: Path, *, env_factory: Callable = make_env
                         raise ValueError("Nonfinite action")
                     saved_action = array(action)
                     obs, reward, terminated, truncated, info = env.step(action)
+                    if external_policy is not None:
+                        info = dict(info, diagnostic=external_policy.after_step())
                     observation, r = array(obs), float(scalar(reward))
                     if not np.isfinite(observation).all() or not math.isfinite(r):
                         raise ValueError("Nonfinite observation/reward; preserve run and inspect physics")
