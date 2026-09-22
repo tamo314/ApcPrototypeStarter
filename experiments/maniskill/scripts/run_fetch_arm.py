@@ -14,19 +14,26 @@ def main():
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--max-steps", type=int, default=50)
     parser.add_argument("--offset", type=float, nargs=3, default=[0, 0, 0.02])
-    parser.add_argument("--protocol", choices=["track", "pick"], default="track")
+    parser.add_argument("--protocol", choices=["track", "pick", "pick_place"], default="track")
     parser.add_argument("--pitch-deg", type=float, default=90)
     parser.add_argument("--torso-ik", action="store_true")
+    parser.add_argument("--grasp-height", type=float, default=0.0)
+    parser.add_argument("--table-clearance", action="store_true")
+    parser.add_argument("--absolute-static", action="store_true")
+    parser.add_argument("--post-success-steps", type=int, default=0)
     args = parser.parse_args()
-    config = RunConfig(env_id="PickCube-v1", robot_uids="fetch", episodes=args.episodes,
+    config = RunConfig(env_id="APC-FetchPickCube-v1" if args.absolute_static else "PickCube-v1",
+                       robot_uids="fetch", episodes=args.episodes,
                        max_steps=args.max_steps, seed=args.seed, policy="external",
                        env_max_steps=args.max_steps,
+                       post_success_steps=args.post_success_steps,
                        task_label="scripted_fetch_arm_" + args.protocol)
 
     def factory(env, output):
         shutil.copy2(__file__, output / "run_fetch_arm.py")
         return ArmIKPolicy(env, output, offset=args.offset, protocol=args.protocol,
-                           pitch_deg=args.pitch_deg, torso_ik=args.torso_ik)
+                           pitch_deg=args.pitch_deg, torso_ik=args.torso_ik, grasp_height=args.grasp_height,
+                           table_clearance=args.table_clearance)
 
     collect(config, args.out, policy_factory=factory)
     json_write(args.out / "summary.json", summarize(args.out))
