@@ -25,7 +25,9 @@ R-CNP-001Rで観測した「lambda=1はoldを保持するがnew品質を悪化�
 | virtual probe | initial AdamWの1更新をメモリ内だけで再現し、必ずadapterを復元。optimizer stateとcheckpointを作らない |
 | resource上限 | wall 1,800秒、CUDA 12GiB、process RAM 32GiB |
 
-new/replayは生成前にinput/queryの非重複、件数、各cellの正負supportを監査する。
+new/replayは生成前にinput/queryの非重複、件数、panel全体の正負supportを監査する。
+shadow panelを使う将来の診断では各cellの正負supportも要求する。学習用replay bufferの
+偶発的な細分stratumへshadow用のclass-support条件を適用しない。
 new root、config、source hash、parent hash、panel digestを保存する。旧R panelを再評価しない。
 
 ## 3. 測定

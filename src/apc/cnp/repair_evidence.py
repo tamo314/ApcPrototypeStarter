@@ -64,16 +64,18 @@ def preflight_panel_evidence(
             cells[key]["sets"] += 1
             cells[key]["positive_items"] += int(target.sum())
             cells[key]["negative_items"] += int((~target & valid).sum())
-        invalid = [
-            key
-            for key, value in cells.items()
-            if not value["positive_items"]
-            or not value["negative_items"]
-            or (
-                name.endswith("shadow")
-                and value["sets"] != expected_shadow_sets
-            )
-        ]
+        if name.endswith("shadow"):
+            invalid = [
+                key
+                for key, value in cells.items()
+                if not value["positive_items"]
+                or not value["negative_items"]
+                or value["sets"] != expected_shadow_sets
+            ]
+        else:
+            positive_items = sum(value["positive_items"] for value in cells.values())
+            negative_items = sum(value["negative_items"] for value in cells.values())
+            invalid = [] if positive_items and negative_items else ["panel_class_support"]
         if invalid:
             raise ValueError(f"preflight panel support failed for {name}: {sorted(invalid)[:3]}")
         panel_evidence[name] = {

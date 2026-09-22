@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 import torch
 
 from apc.cnp.contracts import SelectArguments, SetState
@@ -93,6 +95,21 @@ def test_preflight_support_audits_legacy_replay_conditions_without_reinterpretin
     )
     assert evidence["status"] == "PASS"
     assert "condition=source_00|length=1|threshold=0.50" in evidence["panels"]["replay"]["cells"]
+
+
+def test_preflight_requires_train_replay_class_support_at_panel_not_cell_granularity() -> None:
+    positive = _record(0, target=True)
+    negative = _record(1, target=False)
+    evidence = preflight_panel_evidence(
+        {
+            "replay": [
+                replace(positive, condition_key="source_00"),
+                replace(negative, condition_key="source_01"),
+            ]
+        },
+        expected_shadow_sets=128,
+    )
+    assert evidence["status"] == "PASS"
 
 
 def test_fresh_checkpoint_parity_is_independent_of_the_live_candidate(tmp_path) -> None:

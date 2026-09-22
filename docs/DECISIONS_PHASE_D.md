@@ -1916,3 +1916,9 @@ The sole registered mechanism result requires all five virtual `task/keep` cosin
 −0.10. Any other result is `ALIGNMENT_CONFLICT_NOT_ESTABLISHED_STOP`. The diagnostic cannot choose
 a coefficient or objective, validate a margin constraint, change R-CNP-001S/R, or authorize
 R-CNP-002. Resource, split, parity, and rollback failures are invalid/resource stops.
+
+Two preserved preflight namespaces (`rcnp001d_alignment1` and `rcnp001d_alignment2`) stopped before
+any model forward or optimizer update. The first rejected the legacy replay condition-key syntax;
+the second incorrectly applied shadow-cell class support to the training replay buffer. Correct the
+generic preflight to preserve legacy keys and require panel-level class support for train/replay,
+while retaining full per-cell support for shadow panels. Rerun only in a new namespace after tests.
