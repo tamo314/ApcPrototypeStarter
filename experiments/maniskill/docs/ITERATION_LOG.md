@@ -340,6 +340,17 @@ manifestがfailed、episode数0、error.txtが保存されることを確認し�
   文書化の依頼のため、コード実装・シミュレーション・テスト・推論速度測定は未実施。
 - 次の一点: 同計画第7節の順序1、10候補の実行器と短い手動操作rolloutを実装する。
 
+## 2026-09-23 — 小操作実行器から16候補MLPの閉ループ比較まで
+
+- 変更/条件: 基点 `5f70709`。WSL専用Python 3.12/CPU、ManiSkill 3.0.1、Fetch、`APC-FetchPickCube-v1`、状態観測、制御20 Hz、物理100 Hz。既存IKの関節範囲・机経路検査とrunnerを利用。10候補のID 0〜9を固定し、姿勢到達の障害後に回転6候補をID 10〜15へ追加した。目標は実測手先からroot軸方向の世界座標へ設定し、`continue`は更新しない。指幅は腕操作・`hold`をまたいで維持する。全runは新規ディレクトリで、seed 1300〜1302は結果を見て比較に繰り返し使った**探索seed**。
+- 手動実行器: `runs/primitive-manual-20260923-a/` は3 episode/300 step。+Z、+X、+Y、閉指、開指、`hold`とその間の`continue`を実行し、runnerのNPZとstep診断を保存。成功0/3は物体を狙わない列の結果。固定姿勢の手設計selector `primitive-teacher-20260923-a/` は1,050 step/成功0/3、うち655 stepでIK解が範囲・机条件により拒否され、seed 1301/1302は前進候補を反復した。IK解の数値発散ではない。
+- 姿勢と接触: 回転候補を足した `primitive-teacher-rotation-20260923-a/` は同seed/1,050 step、拒否0、一時把持3/3、保持なし。閉指前の手先距離許容を18→8 mm、水平許容を25→8 mmへ狭めた `-b/` は1,050 step、一時把持1/3、seed 1300で物体を約7 cmまで持上げた。設定を維持して上限500 stepへ延ばした `-c/` は1,500 step、把持3/3、目標到達0/3、最短目標距離3.0〜5.8 cm。上限600 stepと成功後20 step観測の `-d/` は1,683 step、**成功・20 step保持2/3**、seed 1302は最短約3.0 cmで未達。いずれも台車候補はなく、回転も手設計の初期姿勢調整であって任意姿勢の自動発見ではない。
+- 学習: `primitive-mlp-20260923-a/` は教師 `-d/` のepisode 0/1を学習、episode 2をepisode単位の検証とし、幅64×2・8,336パラメータ・交差エントロピー3,000更新。教師IDの `continue` は1,255/1,683件。検証accuracy 65.3%、loss 138.06。`primitive-mlp-rollout-20260923-a/` は教師なし同seed/1,800 step、成功0/3、把持2/3。検証値は独立seedでの成功推定ではない。
+- 1-round DAgger: `primitive-mlp-dagger-20260923-a/` は1,800 stepのlearner状態で行動前の手設計IDを別保存。問い合わせなしrolloutと送信行動の全NPZが同一であり、教師が実行fallbackを兼ねた結果ではない。教師IDとlearner IDは1,014/1,800件で相違。教師ラベルはID範囲を確認したが、その候補のIK実行可能性は全件検査していない。元教師と集約した `primitive-mlp-dagger1-train-20260923-a/` は学習2,883 sample、検証600 sample、追加3,000更新。`primitive-mlp-dagger1-rollout-20260923-a/` は1,800 step、成功/把持0/3へ退行。
+- 抽出比率比較: `primitive-mlp-balanced-20260923-a/` は元教師だけでID件数の平方根逆数に比例して抽出し、同じ3,000更新。`primitive-mlp-balanced-rollout-20260923-a/` は1,800 step、成功/把持0/3。DAggerのデータ追加と抽出比率変更は別条件であり、両方を同時変更した成績ではない。
+- 費用/速度: 上記runnerは計**30 episode/13,833環境step、9,000学習更新**。教師問い合わせはDAgger収集の1,800件。初期MLP checkpoint実体は38,177 byte。初期MLPのselector p50/p95/最大は0.587/0.990/1.727 ms、IKと指令生成は3.264/13.279/24.431 ms。教師 `-d/` はselector 0.552/0.950/2.211 ms、IKと指令生成3.294/40.507/49.340 msで、selector+更新+IKが50 msを超えたのは1/1,683 step。env.step、ログ保存、初期ロードをこの部分計時に含めない。同期runnerなので実時間20 Hzの達成ではない。CPU条件と各依存はrun manifestに保存。
+- 確認/障害: 全10 runはcompleted、runnerの有限値確認を通過し、例外なし。実シミュレータ統合テスト `tests/test_primitive_feature.py` は手動操作、2 episode教師、短い学習、checkpoint再読込、learner単独行動と教師ID分離まで1本で通過。最終は `runs/primitive-feature-tests-20260923-a/` の **1 passed in 20.14s**（270テストstep、実験計数から除外）。既知のVulkan/glvnd・Pinocchio/NumPy警告のみ。主な明確な障害は、教師が2/3成功した同じ探索seedでも学習selectorが閉ループ成功0/3に留まり、単純なDAggerやID頻度調整で回復しないこと。モデル入力の識別性、`continue`偏り、局面別ラベル誤りと局所制御の寄与は未分離。未使用seedの独立評価、台車4候補、APCの能力追加・圧縮・解放は未実行。次は失敗局面をID別に切り分け、保持目標の経過時間・姿勢を含む特徴の有効性を調べる。
+
 ## 追記テンプレート
 
 ### YYYY-MM-DD — 変更点の短い名前

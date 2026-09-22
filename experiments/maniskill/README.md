@@ -11,9 +11,12 @@ WindowsとWSLの専用venvでCPU実行を確認した。台車の小規模な模
 方針は [AGENTS.md](AGENTS.md)、研究の順序は [計画](docs/RESEARCH_PLAN.md)、
 データ形式と将来の接続は [設計](docs/ARCHITECTURE.md) を参照する。
 
-**2026-09-23の最新設計:** [小さな身体操作と毎step判断：設計・実装計画](docs/PRIMITIVE_DECISION_PLAN.md)。
-手先の小移動・指開閉等の10候補から始め、数値状態を読む小型判断器で毎step選択する。
-移動・把持・運搬を大きな初期プリミティブとする案を更新した。設計のみで、実装・速度測定は未実施。
+**2026-09-23の小操作実験:** [小さな身体操作と毎step判断：設計・実装計画](docs/PRIMITIVE_DECISION_PLAN.md)。
+手先並進6・指2・管理2の10候補を実装し、固定姿勢の到達制約を受け回転6候補を追加した。
+同一実行器上の手設計selectorは探索seed 1300〜1302で把持3/3、目標到達後20 step保持2/3。
+8,336パラメータの小型MLPは同seedの単独rolloutで成功0/3。1-round DAggerとID抽出比率変更でも
+成功0/3のため、現在は学習selectorの閉ループ判断が明確な障害。詳細なrun・費用・留保は
+[実験メモ](docs/ITERATION_LOG.md) に記録した。未使用seedの独立評価と20候補の台車操作は未実施。
 
 **同日の先行計画改訂:** [APC実現性の学習計画](docs/RESEARCH_PLAN.md) に、
 操作BCの原因分析、最小スキル銀行、temporaryでの能力追加、小型candidateへの蒸留、
@@ -382,6 +385,8 @@ rolloutはチェックポイントのコピー/ハッシュを保存し、タス
 腕IKには `tests/test_arm_ik_feature.py` の1本を追加。上流FKと物理link姿勢、
 IK解から送信行動への対応、追従/接触診断と保存データを確認し、把持成功率は条件にしない。
 操作BCと再ラベル収集には `tests/test_operation_bc_feature.py` の1本だけを追加した。
+小操作の目標更新→実行→教師データ→MLP再読込→単独実行は
+`tests/test_primitive_feature.py` の1本で確認する。
 
 ```bash
 APC_RUN_MANISKILL_TEST=1 python -m pytest -q tests/test_rollout_feature.py tests/test_fetch_reach_feature.py tests/test_bc_feature.py
@@ -389,6 +394,8 @@ APC_RUN_MANISKILL_TEST=1 python -m pytest -q tests/test_rollout_feature.py tests
 APC_RUN_MANISKILL_TEST=1 python -m pytest -q tests/test_sequence_feature.py tests/test_distillation_feature.py
 # 操作BC/再ラベル機能を変更した場合
 APC_RUN_MANISKILL_TEST=1 python -m pytest -q tests/test_operation_bc_feature.py
+# 小操作と判断器を変更した場合
+APC_RUN_MANISKILL_TEST=1 python -m pytest -q tests/test_primitive_feature.py
 ```
 
 通常実行では明示的にskipされる。skipは成功ではない。成功率の最低値は検査しない。
@@ -414,9 +421,9 @@ resetなしの手動2目標連鎖は前方・横・戻りの各3例で完了し�
 初めて2/3目標到達したが、1秒維持0/2、未使用seedでは0/5だった。単純なラベル破損は
 修正できた一方、次はstage抽出比率、履歴、局所目標化、新条件での再ラベルのどれを
 変えるべきか一意でないため、操作学習を無制限に続けない。
-独立した次作業は、既存移動方策の銀行登録と選択履歴の記録である。
-操作の完全習得を待たず、能力追加→圧縮→解放→再利用の一巡を目指す。
-条件・予算・比較方式は [改訂計画](docs/RESEARCH_PLAN.md) を参照する。
+上記の大きなスキルの銀行化順序は後続の [小操作計画](docs/PRIMITIVE_DECISION_PLAN.md)
+で更新した。現在の次の一点は、教師が成功する探索条件で学習selectorが失敗する局面の
+ID誤りと、保持目標を含む入力の識別性の診断である。
 現在の学習済み操作を完成スキル・自動銀行・移動から把持への連鎖の実績とはしない。
 GPU物理・動画・APCの自動銀行は未検証。
 
