@@ -37,12 +37,13 @@
 - 実シミュレータを起動できない場合は未実行と書く。skipや代替fixtureでの確認を
   実環境テスト成功と呼ばない。そこで架空のデータを研究結果として作らない。
 
-現在の機能テストは `tests/test_rollout_feature.py` の1本のみ。
+現在の機能テストは `tests/test_rollout_feature.py` と
+`tests/test_fetch_reach_feature.py` の各機能1本。
 実環境での実行方法:
 
 ```bash
 # このディレクトリで、専用venvを有効化して実行
-APC_RUN_MANISKILL_TEST=1 python -m pytest -q tests/test_rollout_feature.py
+APC_RUN_MANISKILL_TEST=1 python -m pytest -q tests/test_rollout_feature.py tests/test_fetch_reach_feature.py
 ```
 
 ## 実装上の約束

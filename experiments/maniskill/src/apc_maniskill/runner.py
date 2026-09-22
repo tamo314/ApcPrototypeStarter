@@ -93,8 +93,10 @@ class RunConfig:
                 raise ValueError(f"{name} must be a positive integer")
         if type(self.seed) is not int or not 0 <= self.seed < 2**32 - self.episodes:
             raise ValueError("seed must permit all episode seeds in the uint32 range")
-        if self.policy not in ("random", "zero"):
-            raise ValueError("Only random/zero instrumentation policies are implemented")
+        if self.policy not in ("random", "zero", "fetch_goal", "fetch_random", "fetch_zero"):
+            raise ValueError("Unknown instrumentation/Fetch diagnostic policy")
+        if self.policy.startswith("fetch_") and self.env_id != "APC-FetchReachGoal-v1":
+            raise ValueError("Fetch diagnostics require APC-FetchReachGoal-v1")
         if self.sim_backend not in ("physx_cpu", "physx_cuda"):
             raise ValueError("sim_backend must be physx_cpu or physx_cuda")
         if type(self.video) is not bool:
@@ -107,6 +109,8 @@ class RunConfig:
 def make_env(config: RunConfig, output: Path) -> Any:
     import gymnasium as gym
     import mani_skill.envs  # noqa: F401 -- registers tasks
+    if config.env_id == "APC-FetchReachGoal-v1":
+        from . import fetch_reach  # noqa: F401 -- registers local task
 
     env = gym.make(
         config.env_id,
@@ -177,6 +181,8 @@ def collect(config: RunConfig, output: Path, *, env_factory: Callable = make_env
             raise ValueError("Action bounds must be finite")
         manifest["control_freq"] = float(env.unwrapped.sim_config.control_freq)
         manifest["sim_freq"] = float(env.unwrapped.sim_config.sim_freq)
+        if hasattr(env.unwrapped, "experiment_metadata"):
+            manifest["task"] = env.unwrapped.experiment_metadata()
         json_write(output / "manifest.json", manifest)
         with (output / "episodes.jsonl").open("x", encoding="utf-8") as episodes_file, \
              (output / "steps.jsonl").open("x", encoding="utf-8") as steps_file:
@@ -184,7 +190,8 @@ def collect(config: RunConfig, output: Path, *, env_factory: Callable = make_env
                 episode_start = time.monotonic()
                 seed = config.seed + episode
                 space.seed(seed)
-                obs, _ = env.reset(seed=seed)
+                obs, reset_info = env.reset(seed=seed)
+                saved_reset_info = json_info(reset_info)
                 observations = [array(obs)]
                 if not np.isfinite(observations[0]).all():
                     raise ValueError("Nonfinite reset observation")
@@ -193,6 +200,8 @@ def collect(config: RunConfig, output: Path, *, env_factory: Callable = make_env
                     action = space.sample() if config.policy == "random" else np.clip(
                         np.zeros(space.shape, dtype=space.dtype), space.low, space.high
                     )
+                    if config.policy.startswith("fetch_"):
+                        action = env.unwrapped.diagnostic_action(config.policy, space)
                     saved_action = array(action)
                     obs, reward, terminated, truncated, info = env.step(action)
                     observation, r = array(obs), float(scalar(reward))
@@ -232,6 +241,7 @@ def collect(config: RunConfig, output: Path, *, env_factory: Callable = make_env
                     "runner_truncated": not (terminations[-1] or truncations[-1]),
                     "wall_seconds": time.monotonic() - episode_start,
                     "trajectory": trajectory,
+                    "reset_info": saved_reset_info, "final_info": json_info(info),
                 }
                 episodes_file.write(json.dumps(row, allow_nan=False) + "\n")
                 episodes_file.flush()

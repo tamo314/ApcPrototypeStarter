@@ -13,12 +13,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("doctor", help="Print host/package diagnostics; does not validate simulation")
-    rollout = commands.add_parser("rollout", help="Run one real environment with random/zero actions")
+    rollout = commands.add_parser("rollout", help="Run one real environment with a diagnostic policy")
     rollout.add_argument("--config", type=Path, required=True)
     rollout.add_argument("--out", type=Path, help="New directory only; defaults to workspace/runs/<uuid>")
     rollout.add_argument("--episodes", type=int)
     rollout.add_argument("--max-steps", type=int)
     rollout.add_argument("--seed", type=int)
+    rollout.add_argument("--policy", choices=["random", "zero", "fetch_goal", "fetch_random", "fetch_zero"])
     rollout.add_argument("--sim-backend", choices=["physx_cpu", "physx_cuda"])
     rollout.add_argument("--video", action="store_true", default=None)
     summary = commands.add_parser("summarize", help="Print a summary, including failed/partial status")
@@ -40,7 +41,7 @@ def main() -> None:
         print(json.dumps(report, indent=2))
     elif args.command == "rollout":
         values = json.loads(args.config.read_text(encoding="utf-8"))
-        for key in ("episodes", "max_steps", "seed", "sim_backend", "video"):
+        for key in ("episodes", "max_steps", "seed", "policy", "sim_backend", "video"):
             value = getattr(args, key)
             if value is not None:
                 values[key] = value

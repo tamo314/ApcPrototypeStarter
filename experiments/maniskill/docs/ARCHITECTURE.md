@@ -3,9 +3,22 @@
 ## 実装済みと未実装を分ける
 
 現在実装されているのは `RunConfig → ManiSkill → rollout → NPZ/JSONL → summary`。
-単一環境、state観測、Box行動、random/zero方策、CPU/GPUの明示選択、任意動画に限定する。
-GPU並列auto-reset、学習器、custom到達タスク、スキル銀行、selector、蒸留は未実装。
+単一環境、state観測、Box行動、random/zero方策、CPU/GPUの明示選択、任意動画に加え、
+`APC-FetchReachGoal-v1` と手設計の診断方策 `fetch_goal/fetch_zero/fetch_random` を実装。
+GPU並列auto-reset、学習器、スキル銀行、selector、蒸留は未実装。
 本体コードは `src/apc_maniskill/`。旧 `src/apc/` をimportしない独立Pythonパッケージ。
+
+到達課題は `fetch_reach.py` にあり、ManiSkill 3.0.1のFetchとbuild_groundを使用する。
+Fetch/PickCubeの `pd_joint_delta_pos` と同じ13次元を維持し、arm 0:7、gripper 7:8、
+body 8:11、base 11:13をmanifestにも保存する（実際の分割は上流controllerから取得）。
+台車は前進m/sと旋回rad/s（正規化行動の3.14倍）。腕/胴体はrest姿勢への誤差を
+0.1で割ったdelta指令、グリッパは0.015 mを指令する。学習・教師スキル列はない。
+stateは既存qpos/qvel各15要素と、goal_xy 2、relative_goal 2、base_pose 3、
+base_velocity 3の計40要素。相対目標だけ身体座標、他は世界座標でyawはrad。
+報酬は制御step直前から直後への距離改善。評価関数の呼出し自体は履歴を更新しない。
+到達と停止の閾値、開始/目標分布、行動対応はmanifestのtaskに保存する。
+reset/final infoはepisode行、毎stepの距離・速度・姿勢誤差はsteps.jsonlに残す。
+姿勢誤差は台車以外の一般化座標の最大絶対誤差であり、m/radの混在した診断値。
 
 ## 次に実装する経路
 
