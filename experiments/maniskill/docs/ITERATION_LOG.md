@@ -181,6 +181,16 @@ manifestがfailed、episode数0、error.txtが保存されることを確認し�
 - 確認/テスト: 全runの有限値・T/T+1・学習出力と全送信行動・旧目標での各step報酬を照合。切替前後の全qpos/qvelと姿勢/速度が完全一致し、elapsed_stepsは連続。戻り学習run内に全6条件のanalysis.json/analyze.py保存。新規機能全体に統合テスト1本を追加し、変更した継続診断と合わせ **2 passed in 10.19s**、`runs/sequence-feature-tests-20260922-a/`。例外なし、Pinocchio警告のみ。最初の前方学習runのsnapshot後、hold wrapperが元task_terminatedを上書きしないよう記録を修正した（物理/方策は同一、hold_input_terminatedを別保存）。
 - 解釈/次の一点: この範囲では単一goal-conditioned方策の反復使用で連鎖できたため、能力を無理に別スキルへ分割しない。次は固定1,314パラメータモデルの出力から別の小型candidateを蒸留し、実際の閉ループ維持/連鎖と容量を比較する。自動銀行増設・temporary解放の成果とはまだ呼ばない。
 
+## 2026-09-22 — 固定方策から別の小型candidateへ蒸留
+
+- 変更: `distill` を追加。保存状態に対する固定ニューラルteacherの出力をラベルとして、別MLPを学習。複数state-runの連結、各出典ハッシュ、teacherコピー、candidate幅/容量を記録。推論はcandidateだけをロードする。既存BCの既定幅32と旧checkpoint読込は保持。
+- 条件: 基点 `4ee9cf0` + dirty source、CPU、teacher=`bc-hold-train-20260922-a/policy.pt`、幅8、seed 0、Adam 0.001、batch 64、均等抽出、1,000更新。小型candidateは138パラメータ/552 byte（重みtensorのみ）、元モデル1,314/5,256 byteから89.5%減。candidate checkpointは5,311 byte。プロセス全体のメモリや自動temporary解放の成果とはしない。
+- 初回学習: `runs/distill8-20260922-a/`、元教師runの606状態、MSE 0.0827351→0.000265207、wall 1.531秒。`distill8-hold-20260922-a` はseed 1003〜1007、5/5到達・その後20 step全て成功維持、350 step、wall 3.844秒。`distill8-return-20260922-a` はseed 1003〜1005、戻りoffset [-0.7,0]、3/3連鎖・20 step維持、611 step、wall 4.500秒。元モデルの335/473 stepより遅い。
+- 状態分布追加: candidate自身の戻り連鎖をseed 20〜22で3 episode収集した `distill8-return-states-20260922-a` は548 step、3/3完了、wall 4.234秒。この548状態と元606状態を連結し、同じ固定teacherを再推論して新規candidate `distill8-expanded-20260922-a` を同じ1,000更新で学習。1,154状態、MSE 0.0761131→0.000527423、wall 1.484秒。異なるデータ上の損失を直接の改善指標にはしない。
+- 再試行: `distill8-expanded-return-20260922-a` は同じ比較seedで3/3連鎖・20 step維持、737 step、wall 4.328秒。`distill8-expanded-hold-20260922-a` は5/5到達・20 step維持、341 step、wall 3.735秒。戻り方向はデータ追加だけでは改善せず611→737 stepと遅くなった。今回計19 episode / 2,587環境step、2,000更新（テストを除く）。
+- 確認/テスト: 全5実runの有限値・T/T+1・モデル出力と行動・切替を考慮した距離報酬・終了を照合。teacherの元ファイルと両学習runコピーのSHA256が一致。expanded-return runに全条件のcomparison.json/analyze.pyを保存。蒸留機能に統合テスト1本を追加し、既存BCと合わせ **2 passed in 28.98s**、`runs/distill-feature-tests-20260922-a/`。テストでは教師ファイルを一時退避後、別プロセスでcandidateを実行し、teacher出力から計算し直したMSEとの一致も検査した。例外なし、Pinocchio警告のみ。
+- 次の一点: 状態1,154件と幅8を固定して更新数だけを3,000へ増やし、戻り方向の遅さが学習不足で変わるかを見る。低性能を障害とみなして停止せず、単一条件ずつ比較する。
+
 ## 追記テンプレート
 
 ### YYYY-MM-DD — 変更点の短い名前

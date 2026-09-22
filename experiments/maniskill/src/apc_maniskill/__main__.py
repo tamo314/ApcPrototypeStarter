@@ -36,6 +36,13 @@ def main() -> None:
     bc.add_argument("--seed", type=int, default=0)
     bc.add_argument("--stop-weight", type=float, default=1.0,
                     help="Sampling weight for zero base-command demonstrations (>=1)")
+    distill = commands.add_parser("distill", help="Fit a separate compact policy to a frozen neural teacher")
+    distill.add_argument("--teacher-checkpoint", type=Path, required=True)
+    distill.add_argument("--state-run", type=Path, action="append", required=True)
+    distill.add_argument("--out", type=Path, required=True)
+    distill.add_argument("--hidden-width", type=int, default=8)
+    distill.add_argument("--updates", type=int, default=1000)
+    distill.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
     if args.command == "doctor":
         report = provenance()
@@ -63,6 +70,12 @@ def main() -> None:
         print(f"Run directory: {output.resolve()}", flush=True)
         collect(config, output)
         print(json.dumps(summarize(output), indent=2))
+    elif args.command == "distill":
+        from .bc import train
+        output = train(args.state_run[0], args.out, extra_runs=args.state_run[1:],
+                       teacher_checkpoint=args.teacher_checkpoint, hidden_width=args.hidden_width,
+                       updates=args.updates, seed=args.seed)
+        print((output / "training.json").read_text(encoding="utf-8"))
     elif args.command == "train-bc":
         from .bc import train
         output = train(args.demo_run, args.out, updates=args.updates, seed=args.seed,

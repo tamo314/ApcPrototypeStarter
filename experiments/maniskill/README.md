@@ -3,7 +3,7 @@
 **現在:** 環境の起動・試行・記録と、Fetchの最小目標到達課題を実装。
 Windowsの専用venvでCPU実行を確認した。台車の小規模な模倣学習baselineも実装済み。
 同一sceneで単一方策を2つの目標に順次使う手動連鎖も実装済み。
-APCの自動スキル銀行・追加学習/圧縮は未実装。
+別の小型ネットワークへの蒸留も実装済み。APCの自動スキル銀行・増設は未実装。
 ランダム方策の成功率を研究仮説の成否とみなさない。
 方針は [AGENTS.md](AGENTS.md)、研究の順序は [計画](docs/RESEARCH_PLAN.md)、
 データ形式と将来の接続は [設計](docs/ARCHITECTURE.md) を参照する。
@@ -140,6 +140,20 @@ summaryの成功率は一度でも成功した割合。維持を見る際は `su
 checkpointは `--checkpoint` で指定し、教師比較は `--policy fetch_goal` を使う。
 これは単一方策の反復使用で、自動スキル選択や銀行の増設ではない。
 
+### 別の小型方策への蒸留
+
+```bash
+python -m apc_maniskill distill --teacher-checkpoint runs/my-bc/policy.pt --state-run runs/my-demo --hidden-width 8 --updates 1000 --out runs/my-compact
+```
+
+保存観測に対する固定ニューラルteacherの台車出力を教師にし、別の小型MLPを学習する。
+`--state-run` は複数指定でき、`fetch_goal` / `fetch_bc` の完了runを利用できる。
+元の送信行動は蒸留ラベルに使わず、同じ観測でteacherを再推論する。状態は均等抽出。
+幅8の2隠れ層は138パラメータで、幅32の1,314パラメータとは別checkpointになる。
+学習記録には全状態runのハッシュ、teacherのコピーとハッシュ、パラメータ数/byte数を保存する。
+小型モデルのrolloutにはteacherファイルを必要としない。これはプロセス全体のメモリ削減や
+temporaryを伴う自動銀行管理の測定ではない。
+
 学習runには `training.json`、`losses.jsonl`、`policy.pt` を保存する。
 データのseed/ハッシュ、更新数、パラメータ数、学習データ上のMSE、実行時間を残す。
 rolloutはチェックポイントのコピー/ハッシュを保存し、タスクと制御の互換性を検査する。
@@ -167,10 +181,13 @@ rolloutはチェックポイントのコピー/ハッシュを保存し、タス
 
 機能のまとまりを変更したときだけ、対象の機能全体のテストを行う。
 「試行→保存→集計」「Fetch到達課題→閉ループ制御→成果物」
-「教師軌跡→学習→重み再読込→学習方策の実行」に各1本。
+「教師軌跡→学習→重み再読込→学習方策の実行」
+「resetなしの目標連鎖」「固定teacher→小型candidate→単独実行」に各1本。
 
 ```bash
 APC_RUN_MANISKILL_TEST=1 python -m pytest -q tests/test_rollout_feature.py tests/test_fetch_reach_feature.py tests/test_bc_feature.py
+# 連鎖/蒸留を変更した場合は対象の機能を指定
+APC_RUN_MANISKILL_TEST=1 python -m pytest -q tests/test_sequence_feature.py tests/test_distillation_feature.py
 ```
 
 通常実行では明示的にskipされる。skipは成功ではない。成功率の最低値は検査しない。
@@ -186,8 +203,10 @@ GPU・Fetch・動画は研究用マシンで短い実runを行い、結果を実
 到達後20 step（1秒）の診断では5/5が最終的に目標範囲から外れた。
 教師10 episodeに停止中の200 stepを追加し再学習すると、同じ5例で1秒間の成功条件を維持した。
 resetなしの手動2目標連鎖は前方・横・戻りの各3例で完了し、最終1秒間も条件を維持した。
-次は1,314パラメータの方策を別の小型candidateへ蒸留し、容量と閉ループ挙動を比較する。
-GPU物理・動画・APCの自動銀行/圧縮は未検証。
+138パラメータへの蒸留でも停止維持/戻り連鎖を完了したが、連鎖のstep数は増えた。
+小型方策が訪れた状態を追加した1,000更新の蒸留ではさらに遅くなったため、
+次はデータと容量を固定して3,000更新との比較を行う。
+GPU物理・動画・APCの自動銀行は未検証。
 
 ## 上流資料（2026-09-22確認）
 

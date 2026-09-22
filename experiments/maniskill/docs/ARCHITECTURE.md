@@ -7,7 +7,8 @@
 `APC-FetchReachGoal-v1` と手設計の診断方策 `fetch_goal/fetch_zero/fetch_random` を実装。
 台車の小規模な模倣学習baselineを `bc.py` に実装した。
 `TwoGoalSequence` でresetなしの手動2目標連鎖を実装した。
-GPU並列auto-reset、APCのスキル銀行、自動selector、追加学習/蒸留は未実装。
+別の幅を持つ小型方策への蒸留を実装した。
+GPU並列auto-reset、APCのスキル銀行、自動selector/増設は未実装。
 本体コードは `src/apc_maniskill/`。旧 `src/apc/` をimportしない独立Pythonパッケージ。
 
 到達課題は `fetch_reach.py` にあり、ManiSkill 3.0.1のFetchとbuild_groundを使用する。
@@ -49,7 +50,16 @@ checkpointはstate_dictと標準化統計、feature/task/control情報、教師s
 manifestの `policy_details` が実際の方策とcheckpointを識別する。
 task内の `policy_source` は元の診断方策の説明で、学習方策の出自はpolicy_detailsを参照する。
 チェックポイントのコピーとsha256、実行ソースsnapshotをrunに保存する。
-この単一方策baselineは、銀行・temporary・圧縮を実装していない。
+この単一方策baselineは、銀行・temporaryの自動管理を実装していない。
+
+`distill` は固定checkpointを教師にし、保存された行動直前の観測で再推論した
+台車出力から別の小型candidateを学習する。手設計ラベルのBCとalgorithmで区別する。
+複数の互換な完了runを連結でき、それぞれのconfig/seed/manifest/trajectoryハッシュを残す。
+candidateは自身の入力正規化統計・hidden_width・state_dictを持ち、teacherの重みを共有しない。
+旧checkpointはhidden_width省略時32として読める。teacherは学習runにコピー保存し、
+candidateの推論では一切ロードしない。独立した新プロセスで、teacherファイルがなくても
+rolloutできることを統合テストで確認する。保存ファイルと実行時参照は区別する。
+parameter_count/parameter_bytes/checkpoint_bytesを記録するが、プロセスRSSの測定ではない。
 
 ## 手動の2目標連鎖
 

@@ -31,21 +31,24 @@ def features(observations: np.ndarray) -> np.ndarray:
                      -s * vx + c * vy, obs[..., 39]), axis=-1)
 
 
-def make_model() -> nn.Module:
-    return nn.Sequential(nn.Linear(5, 32), nn.Tanh(), nn.Linear(32, 32),
-                         nn.Tanh(), nn.Linear(32, 2), nn.Tanh())
+def make_model(hidden_width=32) -> nn.Module:
+    if type(hidden_width) is not int or hidden_width < 1:
+        raise ValueError("hidden_width must be a positive integer")
+    return nn.Sequential(nn.Linear(5, hidden_width), nn.Tanh(), nn.Linear(hidden_width, hidden_width),
+                         nn.Tanh(), nn.Linear(hidden_width, 2), nn.Tanh())
 
 
-def load_demonstrations(path: Path):
+def load_demonstrations(path: Path, *, require_teacher=True):
     manifest = json.loads((path / "manifest.json").read_text(encoding="utf-8"))
     config = manifest["config"]
     if (manifest["status"] != "completed" or config["env_id"] != ENV_ID
-            or config["policy"] != "fetch_goal" or config["robot_uids"] != "fetch"
+            or config["policy"] not in (("fetch_goal",) if require_teacher else ("fetch_goal", "fetch_bc"))
+            or config["robot_uids"] != "fetch"
             or config["control_mode"] != "pd_joint_delta_pos"
             or manifest["task"]["task_version"] != 1
             or manifest["action_shape"] != [13]
             or manifest["task"]["action_mapping"]["base"] != [11, 13]):
-        raise ValueError("Expected a completed v1 FetchReach scripted teacher run")
+        raise ValueError("Expected a completed compatible FetchReach rollout with an allowed policy")
     rows = [json.loads(line) for line in (path / "episodes.jsonl").read_text().splitlines()]
     if not rows or len(rows) != manifest["completed_episodes"] or len(rows) != config["episodes"]:
         raise ValueError("Incomplete teacher episode accounting")
@@ -73,34 +76,58 @@ def load_demonstrations(path: Path):
     return np.concatenate(xs), np.concatenate(ys), source
 
 
-def train(demo_run: Path, output: Path, *, updates=1000, seed=0, stop_weight=1.0) -> Path:
+def train(demo_run: Path, output: Path, *, updates=1000, seed=0, stop_weight=1.0,
+          teacher_checkpoint: Path | None = None, hidden_width=32, extra_runs=()) -> Path:
     from .runner import json_write, provenance, snapshot_source, utc_now
 
     if type(updates) is not int or updates < 1 or not 0 <= seed < 2**32:
         raise ValueError("Positive updates and a uint32 seed are required")
     if not np.isfinite(stop_weight) or stop_weight < 1:
         raise ValueError("stop_weight must be finite and >= 1")
+    if type(hidden_width) is not int or hidden_width < 1:
+        raise ValueError("hidden_width must be a positive integer")
+    if teacher_checkpoint is not None and stop_weight != 1:
+        raise ValueError("Distillation uses uniform state sampling")
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     started = time.monotonic()
     report = dict(status="running", started_at=utc_now(), provenance=provenance(),
-                  algorithm="behavior_cloning", teacher="hand-designed fetch_goal",
+                  algorithm="distillation" if teacher_checkpoint else "behavior_cloning",
+                  teacher="frozen neural checkpoint" if teacher_checkpoint else "hand-designed fetch_goal",
                   feature_schema=FEATURE_SCHEMA, device="cpu", torch_threads=1,
                   seed=seed, requested_updates=updates, completed_updates=0,
                   batch_size=64, learning_rate=0.001, loss="minibatch action MSE",
                   stop_weight=float(stop_weight), stop_action_tolerance=1e-7,
                   sampling="uniform" if stop_weight == 1 else "stop-weighted replacement",
                   sampled_stop_count=0, sampled_total_count=0,
-                  architecture=[5, 32, 32, 2], environment_steps_during_training=0)
+                  architecture=[5, hidden_width, hidden_width, 2], environment_steps_during_training=0)
     json_write(output / "training.json", report)
     try:
         snapshot_source(output)
-        x, y, source = load_demonstrations(demo_run)
-        report.update(source=source, samples=len(x), source_environment_steps=len(x))
+        datasets = [load_demonstrations(path, require_teacher=teacher_checkpoint is None)
+                    for path in (demo_run, *extra_runs)]
+        source = datasets[0][2]
+        if any(s["task"] != source["task"] or s["control_freq"] != source["control_freq"]
+               for _, _, s in datasets):
+            raise ValueError("All state sources must share task and control metadata")
+        x = np.concatenate([d[0] for d in datasets])
+        y = np.concatenate([d[1] for d in datasets])
+        report.update(source=source, sources=[d[2] for d in datasets], samples=len(x),
+                      source_environment_steps=len(x))
+        teacher = None
+        if teacher_checkpoint is not None:
+            import shutil
+            copied = output / "teacher_policy.pt"
+            shutil.copy2(teacher_checkpoint, copied)
+            teacher = BCPolicy(copied, source["task"], source["control_freq"])
+            with torch.inference_mode():
+                y = teacher.model((torch.from_numpy(x) - teacher.mean) / teacher.scale).numpy()
+            report["teacher_details"] = teacher.metadata
         torch.set_num_threads(1)
         torch.manual_seed(seed)
-        model = make_model()
+        model = make_model(hidden_width)
         report["parameter_count"] = sum(p.numel() for p in model.parameters())
+        report["parameter_bytes"] = sum(p.numel() * p.element_size() for p in model.parameters())
         x, y = torch.from_numpy(x), torch.from_numpy(y)
         stopped = y.abs().amax(dim=1) <= report["stop_action_tolerance"]
         weights = torch.where(stopped, float(stop_weight), 1.0)
@@ -142,11 +169,16 @@ def train(demo_run: Path, output: Path, *, updates=1000, seed=0, stop_weight=1.0
                           model_state=model.state_dict(), mean=mean, scale=scale,
                           env_id=ENV_ID, control_mode="pd_joint_delta_pos",
                           control_freq=source["control_freq"], task=source["task"],
-                          training_seeds=source["seeds"], training_source=source["run"],
-                          training_seed=seed, updates=updates, stop_weight=float(stop_weight))
+                          training_seeds=sorted({s for _, _, d in datasets for s in d["seeds"]}),
+                          training_source=source["run"], training_seed=seed, updates=updates,
+                          stop_weight=float(stop_weight), hidden_width=hidden_width,
+                          algorithm=report["algorithm"])
+        if teacher is not None:
+            checkpoint["teacher_checkpoint_sha256"] = teacher.metadata["checkpoint_sha256"]
         torch.save(checkpoint, output / "policy.pt")
         report.update(status="completed", checkpoint="policy.pt",
-                      checkpoint_sha256=sha256(output / "policy.pt"))
+                      checkpoint_sha256=sha256(output / "policy.pt"),
+                      checkpoint_bytes=(output / "policy.pt").stat().st_size)
     except BaseException as exc:
         report.update(status="interrupted" if isinstance(exc, KeyboardInterrupt) else "failed",
                       error=f"{type(exc).__name__}: {exc}")
@@ -168,7 +200,7 @@ class BCPolicy:
                 or checkpoint["task"] != json.loads(json.dumps(task))):
             raise ValueError("Checkpoint does not match the current FetchReach task")
         torch.set_num_threads(1)
-        self.model = make_model()
+        self.model = make_model(checkpoint.get("hidden_width", 32))
         self.model.load_state_dict(checkpoint["model_state"])
         self.model.eval()
         self.mean, self.scale = checkpoint["mean"], checkpoint["scale"]
@@ -177,13 +209,17 @@ class BCPolicy:
                 or not (self.scale > 0).all()
                 or not all(torch.isfinite(p).all() for p in self.model.parameters())):
             raise ValueError("Invalid checkpoint normalization or parameters")
-        self.metadata = dict(source="learned behavior cloning; shared hand-designed posture servo",
+        algorithm = checkpoint.get("algorithm", "behavior_cloning")
+        self.metadata = dict(source=f"learned {algorithm}; shared hand-designed posture servo",
                              checkpoint_path=str(path.resolve()), checkpoint_sha256=sha256(path),
                              feature_schema=FEATURE_SCHEMA,
                              training_source=checkpoint["training_source"],
                              training_seeds=checkpoint["training_seeds"],
                              updates=checkpoint["updates"],
                              stop_weight=checkpoint.get("stop_weight", 1.0),
+                             algorithm=algorithm,
+                             hidden_width=checkpoint.get("hidden_width", 32),
+                             parameter_bytes=sum(p.numel() * p.element_size() for p in self.model.parameters()),
                              parameter_count=sum(p.numel() for p in self.model.parameters()))
 
     def predict(self, observations: np.ndarray) -> np.ndarray:
