@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import platform
-import resource
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -52,6 +51,7 @@ from apc.cnp.repair import (
     select_stratified_replay_records,
     set_mean_masked_bce_loss,
 )
+from apc.cnp.resource_accounting import peak_process_ram_bytes
 from apc.cnp.seed_registry import audit_cnp_seed_registry
 from apc.cnp.training import clone_local_candidate, masked_bce_loss
 
@@ -344,8 +344,7 @@ def run_r001(
             "rows": rows,
             "total_wall_seconds": time.perf_counter() - started,
             "peak_cuda_bytes": int(torch.cuda.max_memory_allocated()),
-            "peak_process_ram_bytes": int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
-            * 1024,
+            "peak_process_ram_bytes": peak_process_ram_bytes(),
             "legacy_sealed_access": 0,
         }
         _write_json(run_directory / "report.json", report)

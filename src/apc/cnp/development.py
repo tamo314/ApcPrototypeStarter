@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import platform
-import resource
 import subprocess
 import time
 from collections.abc import Iterator
@@ -32,6 +31,7 @@ from apc.cnp.data import (
 from apc.cnp.evaluation import SelectionMetrics
 from apc.cnp.primitive import ConditionalSelectPrimitive
 from apc.cnp.reference import reference_controls
+from apc.cnp.resource_accounting import peak_process_ram_bytes
 from apc.cnp.seed_registry import audit_cnp_seed_registry
 from apc.cnp.training import masked_bce_loss
 
@@ -713,7 +713,7 @@ def run_development(config_path: Path, output_root: Path, run_id: str | None = N
             "total_wall_seconds": elapsed,
             "peak_cuda_bytes": int(torch.cuda.max_memory_allocated()),
             "peak_process_ram_bytes": (
-                int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss) * 1024
+                peak_process_ram_bytes()
             ),
             "wall_clock_budget_status": "PASS" if elapsed <= 8 * 60 * 60 else "RESOURCE_STOP",
         }

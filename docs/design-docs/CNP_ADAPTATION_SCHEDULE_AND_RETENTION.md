@@ -6,6 +6,10 @@
 要求と実装・保存証跡の差は[結果レビュー](../results/R_CNP001SR_IMPROVEMENT_REVIEW.md)§3に記録する。
 要求は緩和せず、全検証完了とは認定しない。
 
+ADR-0206で必要な証跡生成を実装した。固定panelの損失はcheckpoint選択に使わず、
+fresh-process parityの失敗は`INVALID_RUN_STOP`となる。これは将来の名指し診断用の
+実装であり、保存済みS/R runを再分類しない。
+
 ## 1. 目的と範囲
 
 [改善案レビュー](../results/R_CNP001_IMPROVEMENT_REVIEW.md)を具体化する。

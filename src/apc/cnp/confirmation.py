@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import platform
-import resource
 import subprocess
 import sys
 import time
@@ -49,6 +48,7 @@ from apc.cnp.development import (
 from apc.cnp.execution import execute_recipe
 from apc.cnp.primitive import ConditionalSelectPrimitive
 from apc.cnp.reference import reference_controls, reference_select
+from apc.cnp.resource_accounting import peak_process_ram_bytes
 from apc.cnp.seed_registry import audit_cnp_seed_registry
 from apc.primitives.bank import PrimitiveBank
 
@@ -810,7 +810,7 @@ def run_confirmation(config_path: Path, output_root: Path, run_id: str | None = 
             "total_wall_seconds": time.perf_counter() - started,
             "peak_cuda_bytes": int(torch.cuda.max_memory_allocated()),
             "peak_process_ram_bytes": (
-                int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss) * 1024
+                peak_process_ram_bytes()
             ),
         }
         _write_json(run_directory / "report.json", report)
@@ -1059,7 +1059,7 @@ def run_confirmation_correction(
             "total_wall_seconds": time.perf_counter() - started,
             "peak_cuda_bytes": int(torch.cuda.max_memory_allocated()),
             "peak_process_ram_bytes": (
-                int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss) * 1024
+                peak_process_ram_bytes()
             ),
         }
         _write_json(run_directory / "report.json", report)
@@ -1314,8 +1314,7 @@ def run_confirmation_v2(
             "methods": methods,
             "total_wall_seconds": time.perf_counter() - started,
             "peak_cuda_bytes": int(torch.cuda.max_memory_allocated()),
-            "peak_process_ram_bytes": int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
-            * 1024,
+            "peak_process_ram_bytes": peak_process_ram_bytes(),
         }
         _write_json(run_directory / "report.json", report)
         (run_directory / "report.md").write_text(

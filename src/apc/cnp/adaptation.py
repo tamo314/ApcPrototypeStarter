@@ -10,7 +10,6 @@ from __future__ import annotations
 import copy
 import json
 import platform
-import resource
 import time
 from collections.abc import Iterator
 from dataclasses import asdict
@@ -45,6 +44,7 @@ from apc.cnp.development import (
     _write_json,
 )
 from apc.cnp.primitive import ConditionalSelectPrimitive
+from apc.cnp.resource_accounting import peak_process_ram_bytes
 from apc.cnp.seed_registry import audit_cnp_seed_registry
 from apc.cnp.training import clone_local_candidate, masked_bce_loss
 from apc.utils.model_bundle import canonical_state_hash
@@ -397,8 +397,7 @@ def run_adaptation_preflight(
             "rows": rows,
             "total_wall_seconds": time.perf_counter() - started,
             "peak_cuda_bytes": int(torch.cuda.max_memory_allocated()),
-            "peak_process_ram_bytes": int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
-            * 1024,
+            "peak_process_ram_bytes": peak_process_ram_bytes(),
         }
         _write_json(run_directory / "report.json", report)
         (run_directory / "report.md").write_text(
@@ -583,8 +582,7 @@ def run_adaptation_block1(
             "rows": rows,
             "total_wall_seconds": time.perf_counter() - started,
             "peak_cuda_bytes": int(torch.cuda.max_memory_allocated()),
-            "peak_process_ram_bytes": int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
-            * 1024,
+            "peak_process_ram_bytes": peak_process_ram_bytes(),
             "legacy_sealed_access": 0,
         }
         _write_json(run_directory / "report.json", report)

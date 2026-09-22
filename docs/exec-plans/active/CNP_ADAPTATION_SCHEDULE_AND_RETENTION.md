@@ -23,6 +23,7 @@ Rの「1/5 PASS」は誤記で、正しくは0/5。研究実行は終了した�
 | I-1 | protocol/evaluation実装 | 完了。root明示生成、input/record/query分離監査、120cell/集合証跡、独立gateを追加 |
 | I-2 | schedule実装 | 完了。A/B/C quota、整数比較の分散器、JSONL固定、input/target独立性を追加 |
 | I-3 | runner・容量記録・親cache・保持loss実装 | 完了。親hash/cache検証、凍結hash、resource STOP、RのS結果参照を追加 |
+| I-4 | 実行・計測の契約適合 | 完了。学習前support/split manifest、親new評価、step0/16/64/256固定panel trace、初期・fresh-process parity、bootstrap、parameter会計を追加。既存S/R evidenceは変更しない |
 | R-CNP-001S | 既存5親、A/B/Cの単一block診断 | 完了。Cを含む全15候補がFAIL、`S_DIAGNOSTIC_FAIL_STOP` |
 | R-CNP-001R | 別split、固定Cでlambda0/1の比較 | 実行終了。lambda1はold保持を改善するが0/5 PASS、`R_DIAGNOSTIC_FAIL_STOP`。検証不足はADR-0205 |
 | R-CNP-002実行登録 | 固定レシピ・修正版親・新splitで正式確認する契約 | 新seed/データ/予算・G1/G2/G3・causal/controlのmanifest固定 |
@@ -99,7 +100,11 @@ R-CNP-002は固定親診断と別の確認プログラム。今回の設計は�
 扱う例外を、正式確認へ持ち込まない。採用するレシピを先に固定し、新規親について
 G1/G2とold品質が成立してから適応を検証する。転移・合成・G4の要件は元計画を維持する。
 
-以下はS/R実行前の実装・設計時点の記録であり、現在の実行状態は冒頭とADR-0205を参照。
+ADR-0206でI-4を実装し、既存S/Rの不足を次の名指し診断の前に解消するコードを追加した。
+この実装だけでは新規parent/data/model forward/optimizer updateを実行しておらず、S/Rの
+受入状態・科学的STOPを遡及的に変更しない。
+
+以下はS/R実行前の実装・設計時点の記録であり、現在の実行状態は冒頭とADR-0205/0206を参照。
 
 実装時検証: 合成fixtureによるCNP修正関連9 test、`ruff check .`、`mypy src/apc`は
 Python 3.12でPASS。full pytestの結果は実行記録へ追記する。

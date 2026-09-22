@@ -1878,3 +1878,25 @@ separate conditional option. Neither is selected or implemented here. Two lambda
 not prove a feasible intermediate value, capacity failure, or impossibility of joint learning.
 Only a locked recipe and qualified repaired parents can enter independent confirmation under
 the original causal/transfer/composition requirements. R-CNP-002 remains unauthorized.
+
+## ADR-0206: CNP repair evidence instrumentation implements the missing execution safeguards
+
+Date: 2026-09-22. Status: **Implementation complete; no research run.**
+
+The user authorized the first improvement step: align repair execution and measurement with the
+existing contract before investigating a new retention mechanism. The runner now validates label
+support before model construction, stores split and content-addressed manifests, evaluates parent
+new/old panels, records fixed train/replay loss at steps 0/16/64/256, checks initial zero-adapter
+parity, records parameter accounting, computes diagnostic paired bootstrap intervals, synchronizes
+CUDA accounting, and verifies each saved candidate in a fresh process on fixed non-shadow probes.
+Fresh parity is part of the invariant result and therefore can invalidate a candidate.
+
+The implementation passed 11 targeted CPU tests under Python 3.12.13 and 11 repair-related WSL
+tests under Python 3.12.14; ruff and mypy for all 208 source modules pass. No CNP model forward, dataset
+generation, optimizer update, candidate selection, promotion, or sealed access is performed for
+this implementation. The code does not rerun or rewrite R-CNP-001S/R evidence, so ADR-0203--0205
+and their STOP decisions remain intact.
+
+The next authorized sequence item is a separately registered diagnostic of retention scale and
+new/replay update alignment. It must use the new evidence path, preserve all existing gate floors,
+and report a STOP rather than choosing an objective or coefficient post hoc.

@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import json
 import platform
+import subprocess
+import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -18,9 +20,9 @@ import torch
 
 from apc.cnp.adaptation import _base_weights_hash, load_fixed_parent
 from apc.cnp.data import CNPRecord, canonical_json_hash
-from apc.cnp.development import _collate
 from apc.cnp.repair import (
     CorrectedConditionalSelectPrimitive,
+    _collate_records,
     clone_corrected_local_candidate,
     set_mean_masked_bce_loss,
 )
@@ -31,13 +33,22 @@ from apc.cnp.repair_evaluation import (
     build_cell_metrics,
     evidence_from_masks,
     gate_report,
+    paired_bootstrap_delta,
     serialize_cells,
 )
+from apc.cnp.repair_evidence import (
+    fixed_panel_trace,
+    initial_output_parity,
+    parameter_accounting,
+    preflight_panel_evidence,
+)
+from apc.cnp.repair_parity import write_probe
 from apc.cnp.repair_protocol import (
     ROOTS,
     ProtocolKind,
     audit_protocol_disjoint,
     make_protocol_panel,
+    protocol_manifest,
 )
 from apc.cnp.repair_retention import ParentLogitCache, combined_repair_loss
 from apc.cnp.repair_schedule import ScheduleArm, SideSchedule, build_side_schedule, schedule_audit
@@ -99,8 +110,8 @@ def _evaluate(
     with torch.inference_mode():
         for start in range(0, len(records), 32):
             batch_records = records[start : start + 32]
-            batch = _collate(batch_records, device)
-            selected = model(batch.state, batch.arguments).selected
+            state, arguments, target = _collate_records(batch_records, device)
+            selected = model(state, arguments).selected
             for index, record in enumerate(batch_records):
                 width = record.state.width
                 rows.append(
@@ -109,8 +120,8 @@ def _evaluate(
                         evidence_from_masks(
                             input_id=record.input_digest(),
                             predicted=selected[index, :width],
-                            target=batch.target[index, :width],
-                            valid=batch.state.valid[index, :width],
+                            target=target[index, :width],
+                            valid=state.valid[index, :width],
                         ),
                     )
                 )
@@ -137,8 +148,8 @@ def _build_parent_caches(
     parent.eval()
     with torch.inference_mode():
         for records in replay_batches:
-            batch = _collate(records, device)
-            logits = parent(batch.state, batch.arguments).logits.detach().cpu().to(torch.float32)
+            state, arguments, _ = _collate_records(records, device)
+            logits = parent(state, arguments).logits.detach().cpu().to(torch.float32)
             caches.append(
                 ParentLogitCache(
                     parent_hash=parent_hash,
@@ -151,15 +162,17 @@ def _build_parent_caches(
 
 
 def _resource_status(started: float, limits: dict[str, Any]) -> dict[str, int | float]:
+    torch.cuda.synchronize()
     try:
         import resource
 
-        process_bytes = int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss) * 1024
+        process_bytes = int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss) * 1024  # type: ignore[attr-defined]
     except ImportError:  # pragma: no cover - the diagnostic runner executes under Linux/WSL
         process_bytes = 0
     return {
         "wall_seconds": time.perf_counter() - started,
         "gpu_bytes": int(torch.cuda.max_memory_allocated()),
+        "gpu_reserved_bytes": int(torch.cuda.max_memory_reserved()),
         "process_ram_bytes": process_bytes,
         "wall_limit": int(limits["wall_seconds"]),
         "gpu_limit": int(limits["gpu_bytes"]),
@@ -180,8 +193,11 @@ def _enforce_resource_limits(started: float, limits: dict[str, Any]) -> None:
 def _train(
     candidate: CorrectedConditionalSelectPrimitive,
     *,
+    parent: CorrectedConditionalSelectPrimitive,
     new_batches: list[list[CNPRecord]],
     replay_batches: list[list[CNPRecord]],
+    fixed_new: list[CNPRecord],
+    fixed_replay: list[CNPRecord],
     caches: list[ParentLogitCache] | None,
     parent_hash: str,
     retention_weight: float,
@@ -200,23 +216,33 @@ def _train(
         betas=(0.9, 0.999),
         eps=1e-8,
     )
-    milestones: list[dict[str, float | int]] = []
+    milestones = [
+        fixed_panel_trace(
+            candidate,
+            parent,
+            new_records=fixed_new,
+            replay_records=fixed_replay,
+            device=device,
+            retention_weight=retention_weight,
+            step=0,
+        )
+    ]
     candidate.train()
     for step, (new_records, replay_records) in enumerate(
         zip(new_batches, replay_batches, strict=True)
     ):
         records = [*new_records, *replay_records]
-        batch = _collate(records, device)
+        state, arguments, target = _collate_records(records, device)
         new_width = max(record.state.width for record in new_records)
         replay_width = max(record.state.width for record in replay_records)
         optimizer.zero_grad(set_to_none=True)
-        result = candidate(batch.state, batch.arguments)
+        result = candidate(state, arguments)
         new_logits = result.logits[:NEW_BATCH, :new_width]
         replay_logits = result.logits[NEW_BATCH:, :replay_width]
-        new_target = batch.target[:NEW_BATCH, :new_width]
-        replay_target = batch.target[NEW_BATCH:, :replay_width]
-        new_valid = batch.state.valid[:NEW_BATCH, :new_width]
-        replay_valid = batch.state.valid[NEW_BATCH:, :replay_width]
+        new_target = target[:NEW_BATCH, :new_width]
+        replay_target = target[NEW_BATCH:, :replay_width]
+        new_valid = state.valid[:NEW_BATCH, :new_width]
+        replay_valid = state.valid[NEW_BATCH:, :replay_width]
         if caches is None:
             loss = 0.5 * set_mean_masked_bce_loss(new_logits, new_target, new_valid)
             loss = loss + 0.5 * set_mean_masked_bce_loss(replay_logits, replay_target, replay_valid)
@@ -245,20 +271,31 @@ def _train(
         optimizer.step()
         _enforce_resource_limits(started, limits)
         if step + 1 in {16, 64, UPDATES}:
-            milestones.append({"step": step + 1, "loss": float(loss.detach().cpu()), **values})
+            trace = fixed_panel_trace(
+                candidate,
+                parent,
+                new_records=fixed_new,
+                replay_records=fixed_replay,
+                device=device,
+                retention_weight=retention_weight,
+                step=step + 1,
+            )
+            milestones.append({"batch_loss": float(loss.detach().cpu()), **values, **trace})
     return milestones
 
 
 def _common_panels(
     protocol: ProtocolKind,
-) -> tuple[list[CNPRecord], list[CNPRecord], list[CNPRecord], list[CNPRecord]]:
+) -> tuple[
+    list[CNPRecord], list[CNPRecord], list[CNPRecord], list[CNPRecord], dict[str, object]
+]:
     new_train = make_protocol_panel(protocol=protocol, panel="new_train")
     new_shadow = make_protocol_panel(protocol=protocol, panel="new_shadow")
     old_shadow = make_protocol_panel(protocol=protocol, panel="old_shadow")
     replay = r001_corrected_replay_records()
     if len(new_train) != 1536 or len(replay) != 1536:
         raise RuntimeError("registered diagnostic training panels must contain 1,536 records")
-    audit_protocol_disjoint(
+    audit = audit_protocol_disjoint(
         {
             "new_train": new_train,
             "new_shadow": new_shadow,
@@ -266,7 +303,58 @@ def _common_panels(
             "replay": replay,
         }
     )
-    return new_train, new_shadow, old_shadow, replay
+    return new_train, new_shadow, old_shadow, replay, audit
+
+
+def _fresh_process_parity(
+    *,
+    candidate: CorrectedConditionalSelectPrimitive,
+    checkpoint_path: Path,
+    new_records: list[CNPRecord],
+    replay_records: list[CNPRecord],
+    directory: Path,
+    device: torch.device,
+) -> dict[str, object]:
+    """Verify a final candidate from a new process on fixed train/replay probes."""
+
+    probe_path = directory / f"{checkpoint_path.stem}_parity_probe.pt"
+    output_path = directory / f"{checkpoint_path.stem}_fresh_parity.json"
+    write_probe(
+        candidate,
+        batches={
+            "new_train": _collate_records(new_records[:32], device)[:2],
+            "replay": _collate_records(replay_records[:32], device)[:2],
+        },
+        path=probe_path,
+        device=device,
+    )
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "apc.cnp.repair_parity",
+            "--checkpoint",
+            str(checkpoint_path),
+            "--probe",
+            str(probe_path),
+            "--output",
+            str(output_path),
+        ],
+        cwd=directory.parents[3],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if not output_path.is_file():
+        return {
+            "status": "FAIL",
+            "returncode": completed.returncode,
+            "stdout": completed.stdout,
+            "stderr": completed.stderr,
+        }
+    result = json.loads(output_path.read_text(encoding="utf-8"))
+    result["returncode"] = completed.returncode
+    return result
 
 
 def _run(
@@ -321,7 +409,16 @@ def _run(
     }
     _write_json(directory / "run_manifest.json", manifest)
     try:
-        new_train, new_shadow, old_shadow, replay = _common_panels(protocol)
+        new_train, new_shadow, old_shadow, replay, split_audit = _common_panels(protocol)
+        preflight = preflight_panel_evidence(
+            {
+                "new_train": new_train,
+                "new_shadow": new_shadow,
+                "old_shadow": old_shadow,
+                "replay": replay,
+            },
+            expected_shadow_sets=int(config["shadow_sets_per_cell"]),
+        )
         schedules = {
             arm_name: {
                 "new": build_side_schedule(
@@ -337,10 +434,17 @@ def _run(
             directory / "data_manifest.json",
             {
                 "status": "PASS",
-                "new_train": len(new_train),
-                "new_shadow": len(new_shadow),
-                "old_shadow": len(old_shadow),
-                "replay": len(replay),
+                "split_audit": split_audit,
+                "preflight": preflight,
+                "protocol_manifests": {
+                    "new_train": protocol_manifest(new_train),
+                    "new_shadow": protocol_manifest(new_shadow),
+                    "old_shadow": protocol_manifest(old_shadow),
+                    "replay": protocol_manifest(replay),
+                },
+                "source_lineage": (
+                    "CNP-003 source replay, immutable digest-selected R-CNP-001 buffer"
+                ),
             },
         )
         for arm_name, sides in schedules.items():
@@ -359,6 +463,7 @@ def _run(
         for seed in config["parent_model_seeds"]:
             parent = _corrected_parent(source_run, seed, device)
             parent_hash = _base_weights_hash(parent)
+            parent_new = _evaluate(parent, new_shadow, device=device)
             parent_old = _evaluate(parent, old_shadow, device=device)
             for arm_name, lambda_value, _schedule_arm in arms:
                 torch.manual_seed(seed)
@@ -368,6 +473,15 @@ def _run(
                 before = _base_weights_hash(candidate)
                 new_batches = _records_for_schedule(new_train, schedules[arm_name]["new"])
                 replay_batches = _records_for_schedule(replay, schedules[arm_name]["replay"])
+                initial_parity = {
+                    "new_train": initial_output_parity(
+                        parent, candidate, records=new_train, device=device
+                    ),
+                    "replay": initial_output_parity(
+                        parent, candidate, records=replay, device=device
+                    ),
+                }
+                accounting = parameter_accounting(candidate)
                 caches = (
                     _build_parent_caches(
                         parent, replay_batches, parent_hash=parent_hash, device=device
@@ -377,8 +491,11 @@ def _run(
                 )
                 training = _train(
                     candidate,
+                    parent=parent,
                     new_batches=new_batches,
                     replay_batches=replay_batches,
+                    fixed_new=new_train,
+                    fixed_replay=replay,
                     caches=caches,
                     parent_hash=parent_hash,
                     retention_weight=lambda_value,
@@ -393,10 +510,50 @@ def _run(
                     parent_old=parent_old,
                     candidate_new=new_cells,
                     candidate_old=old_cells,
-                    invariant_status=before == after,
+                    invariant_status=(
+                        before == after
+                        and all(value["status"] == "PASS" for value in initial_parity.values())
+                        and accounting["update_eligible_parameters"] == 1024
+                    ),
                 )
                 candidate_path = directory / f"candidate_{arm_name.lower()}_seed_{seed}.pt"
                 torch.save({"model": candidate.state_dict(), "gate": report}, candidate_path)
+                fresh_parity = _fresh_process_parity(
+                    candidate=candidate,
+                    checkpoint_path=candidate_path,
+                    new_records=new_train,
+                    replay_records=replay,
+                    directory=directory,
+                    device=device,
+                )
+                bootstrap = {
+                    cell.text(): paired_bootstrap_delta(
+                        parent_old[cell],
+                        old_cells[cell],
+                        root=ROOTS[protocol].bootstrap + seed,
+                    )
+                    for cell in sorted(parent_old)
+                }
+                previous_invariants = report["invariants"]
+                previous_gate = report["candidate_gate"]
+                if not isinstance(previous_invariants, dict) or not isinstance(previous_gate, str):
+                    raise RuntimeError("repair gate report has an invalid invariant payload")
+                updated_invariants = {
+                    "status": "PASS"
+                    if previous_invariants.get("status") == "PASS"
+                    and fresh_parity.get("status") == "PASS"
+                    else "INVALID_RUN_STOP",
+                    "base_hash_match": before == after,
+                    "initial_output_parity": initial_parity,
+                    "trainable_parameter_count": accounting["update_eligible_parameters"],
+                    "fresh_process_parity": fresh_parity,
+                }
+                report["invariants"] = updated_invariants
+                report["candidate_gate"] = (
+                    "PASS"
+                    if previous_gate == "PASS" and updated_invariants["status"] == "PASS"
+                    else "FAIL"
+                )
                 rows.append(
                     {
                         "parent_seed": seed,
@@ -406,6 +563,9 @@ def _run(
                         "candidate_base_hash_after": after,
                         "training": training,
                         "gate": report,
+                        "parameter_accounting": accounting,
+                        "old_bootstrap": bootstrap,
+                        "parent_new_cells": serialize_cells(parent_new),
                         "parent_old_cells": serialize_cells(parent_old),
                         "candidate_new_cells": serialize_cells(new_cells),
                         "candidate_old_cells": serialize_cells(old_cells),
