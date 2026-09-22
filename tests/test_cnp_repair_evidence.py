@@ -9,6 +9,7 @@ from apc.cnp.repair import (
     _collate_records,
     clone_corrected_local_candidate,
 )
+from apc.cnp.repair_alignment import gradient_alignment
 from apc.cnp.repair_evidence import (
     fixed_panel_trace,
     initial_output_parity,
@@ -86,3 +87,21 @@ def test_fresh_checkpoint_parity_is_independent_of_the_live_candidate(tmp_path) 
     result = verify_checkpoint(checkpoint, probe, device=torch.device("cpu"))
     assert result["status"] == "PASS"
     assert result["selection_masks_match"] is True
+
+
+def test_alignment_diagnostic_uses_gradients_without_an_optimizer_update() -> None:
+    records = _records()
+    torch.manual_seed(6)
+    parent = CorrectedConditionalSelectPrimitive(0)
+    candidate = clone_corrected_local_candidate(parent)
+    before = {name: value.detach().clone() for name, value in candidate.state_dict().items()}
+    result = gradient_alignment(
+        candidate,
+        parent,
+        new_records=records,
+        replay_records=records,
+        device=torch.device("cpu"),
+    )
+    assert result["base_keep_gradient_norm"] == 0.0
+    assert result["virtual_task_keep_cosine"] is not None
+    assert all(torch.equal(value, candidate.state_dict()[name]) for name, value in before.items())

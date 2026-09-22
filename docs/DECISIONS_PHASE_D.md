@@ -1900,3 +1900,19 @@ and their STOP decisions remain intact.
 The next authorized sequence item is a separately registered diagnostic of retention scale and
 new/replay update alignment. It must use the new evidence path, preserve all existing gate floors,
 and report a STOP rather than choosing an objective or coefficient post hoc.
+
+## ADR-0207: R-CNP-001D zero-update retention alignment diagnostic is authorized
+
+Date: 2026-09-22. Status: **Authorized; execution pending.**
+
+Following the user's instruction to continue in the review's stated order, R-CNP-001D is a bounded
+mechanism diagnosis registered in [its execution plan](exec-plans/active/CNP_RETENTION_ALIGNMENT_DIAGNOSTIC.md).
+It uses a fresh new-data root, the five fixed CNP-003 parents, immutable historical replay, zero
+optimizer updates, zero checkpoint/candidate writes, zero selection/promotion, and zero sealed
+access. It measures component gradients at the zero adapter and after an in-memory, rollback-only
+first-AdamW direction. The temporary probe is neither an optimizer step nor a candidate.
+
+The sole registered mechanism result requires all five virtual `task/keep` cosines to be at most
+−0.10. Any other result is `ALIGNMENT_CONFLICT_NOT_ESTABLISHED_STOP`. The diagnostic cannot choose
+a coefficient or objective, validate a margin constraint, change R-CNP-001S/R, or authorize
+R-CNP-002. Resource, split, parity, and rollback failures are invalid/resource stops.

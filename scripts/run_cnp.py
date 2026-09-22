@@ -42,6 +42,7 @@ def main() -> int:
             "repair-r001",
             "repair-schedule",
             "repair-retention",
+            "repair-alignment",
             "report",
         ),
     )
@@ -55,6 +56,7 @@ def main() -> int:
         defaults = {
             "repair-schedule": REPOSITORY_ROOT / "configs/cnp/repair_schedule_v1.json",
             "repair-retention": REPOSITORY_ROOT / "configs/cnp/repair_retention_v1.json",
+            "repair-alignment": REPOSITORY_ROOT / "configs/cnp/repair_alignment_v1.json",
         }
         arguments.config = defaults.get(arguments.mode, DEFAULT_REGISTRY_PATH)
     loaded_config = config(arguments.config)
@@ -188,6 +190,21 @@ def main() -> int:
             arguments.output_root or REPOSITORY_ROOT / "runs/cnp_repair/r001r",
             arguments.run_id,
             arguments.schedule_report,
+        )
+        print(json.dumps({"status": "COMPLETE", "run_directory": str(output)}, sort_keys=True))
+        return 0
+    if arguments.mode == "repair-alignment":
+        if arguments.source_run is None:
+            parser.error("repair-alignment requires --source-run")
+        if arguments.run_id is None:
+            parser.error("repair-alignment requires an explicit --run-id")
+        from apc.cnp.repair_alignment import run_repair_alignment
+
+        output = run_repair_alignment(
+            arguments.config,
+            arguments.source_run,
+            arguments.output_root or REPOSITORY_ROOT / "runs/cnp_repair/r001d",
+            arguments.run_id,
         )
         print(json.dumps({"status": "COMPLETE", "run_directory": str(output)}, sort_keys=True))
         return 0
