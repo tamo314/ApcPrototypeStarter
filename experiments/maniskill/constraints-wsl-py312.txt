@@ -1,0 +1,16 @@
+# Ubuntu 26.04 / WSL2 / Python 3.12, verified 2026-09-22.
+# Imports and Fetch URDF FK/IK work; simulator creation is blocked by rendering.
+# This is a targeted constraint set, not a complete cross-platform lock.
+mani_skill==3.0.1
+sapien==3.0.3
+pin==3.8.0
+libpinocchio==3.8.0
+# Newer releases resolved by pip have incompatible shared-library SONAMEs.
+cmeel-urdfdom==4.0.1
+cmeel-tinyxml2==10.0.0
+cmeel-boost==1.89.0
+eigenpy==3.12.0
+coal==3.0.2
+libcoal==3.0.2
+numpy==2.3.5
+torch==2.14.0+cpu

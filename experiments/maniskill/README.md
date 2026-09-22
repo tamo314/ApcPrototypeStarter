@@ -78,7 +78,47 @@ conda create --dry-run --prefix ./runs/pinocchio-conda-check -c conda-forge --st
 `pip check` → `import pinocchio` → FetchのFK/IK probe → 短いrolloutの順に確認する。
 既存NumPy 2.5.3を含む全依存の完全一致・Pinocchio/SAPIENの互換性は未検証。
 Condaの解決結果とpipのdry-runを確認してからその環境用のfreezeを保存する。
-今回パッケージの導入・更新は行っていない。調査成果物は `runs/pin-install-review-20260922-a/`。
+このWindows調査ではパッケージの導入・更新は行っていない。調査成果物は `runs/pin-install-review-20260922-a/`。
+
+### WSL2の専用venv（2026-09-22実行）
+
+Ubuntu 26.04 / Python 3.12.14で、`/home/tamot/.venvs/apc-maniskill-wsl-py312`
+を作成した。Windows側の `.venv` とは別環境で、前後のWindows依存freezeは一致した。
+Pinocchio 3.8.0のimportと、既存Fetch URDFを使うSAPIENのFK/IK計算は成功した。
+ただし **Fetch/PickCubeの環境生成は描画デバイスエラーで停止し、WSLでのrolloutは未成功**。
+
+同じ構成の導入手順（WSLのbashで実行。Python 3.12とuvは既存のものを利用）:
+
+```bash
+cd /mnt/c/Work/ApcPrototypeStarter/experiments/maniskill
+uv venv --python 3.12 --seed "$HOME/.venvs/apc-maniskill-wsl-py312"
+source "$HOME/.venvs/apc-maniskill-wsl-py312/bin/activate"
+python -m pip install 'torch==2.14.0+cpu' --index-url https://download.pytorch.org/whl/cpu
+python -m pip install -c constraints-wsl-py312.txt -e '.[dev]' 'pin==3.8.0'
+python -m pip check
+python -c 'import pinocchio, sapien; print(pinocchio.__version__)'
+export MS_ASSET_DIR="$PWD/.assets"
+python -m apc_maniskill doctor
+# 環境生成を含む診断。新しいrun名を指定する（現状は描画エラーになる）。
+python scripts/probe_fetch_ik.py --out runs/my-wsl-fetch-ik-probe
+```
+
+作成済み環境を使うときはactivateから始める。Windowsの `.venv/Scripts/python.exe` を
+WSLのPythonとして利用しない。既存シェルスクリプトを使う場合も
+`VENV="$HOME/.venvs/apc-maniskill-wsl-py312"` を明示する。
+
+`pin==3.8.0` だけでは新しいurdfdom/tinyxml2が選ばれ、`pip check` が通っても
+`liburdfdom_sensor.so.4.0` / `libtinyxml2.so.10` が見つからずimportに失敗した。
+上記constraintsは実際に解消した組合せであり、シミュレータ動作保証や完全lockではない。
+全依存・ログは `runs/setup-wsl-20260922-a/`〜`setup-wsl-20260922-c/` に保存。
+
+FK/IK単独確認ではFetchのrest姿勢から手先を上へ2 cm移す目標を解き、位置誤差は
+約0.093 mm、腕以外の関節変化は0だった（`runs/wsl-pinocchio-fk-20260922-b/`）。
+これは運動学のみで、物理step・接触操作の実績ではない。
+`render_backend="none"` のFetch/PickCubeでも、SAPIEN 3.0.3のURDF読込が
+`RenderMaterial()` を生成して `failed to find a rendering device` となった。
+`runs/wsl-fetch-ik-20260922-a/` に0 episode / 0 stepの失敗を保存。
+次はこの描画無効時のURDF読込経路を対象に、描画デバイスなしで起動する修正を検討する。
 
 ## 2. まず環境を動かす
 
@@ -238,12 +278,11 @@ resetなしの手動2目標連鎖は前方・横・戻りの各3例で完了し�
 未使用だったseed 1008〜1012では元モデル・小型モデルとも5/5連鎖を完了し、
 最後の1秒間も条件を維持した（合計1,106/1,088 step）。
 
-**現在の障害:** 接触操作の準備として既存Fetch/PickCubeのCPU逆運動学を試すと、
-Pinocchio未導入によりモデル生成が `TypeError: 'NoneType' object is not callable` で失敗した。
-これは既存の移動・蒸留の実行障害ではなく、次の腕IK経路の依存不足。
-`runs/fetch-pickcube-ik-probe-20260922-a/` に失敗記録を保存した。
-導入調査ではWindows用pip wheelがなく、別Conda環境またはLinux venvが候補となった（第1節）。
-次の一点は別の検証環境でPinocchio依存を解決し、13次元関節制御を保ったIK生成probeを再実行すること。
+**現在の障害:** WSLの専用venvへPinocchioを導入し、Fetch URDFのFK/IK単独計算は成功した。
+一方、Fetch/PickCubeは描画無効でもURDF読込中に描画デバイスを要求して停止する。
+`runs/wsl-fetch-ik-20260922-a/` に失敗記録を保存した（0 episode / 0 step）。
+Windowsで成功した既存の移動・蒸留の環境は保持している。
+次の一点はWSLの描画無効時のURDF読込経路を修正できるか確認し、環境生成を再試行すること。
 GPU物理・動画・APCの自動銀行は未検証。
 
 ## 上流資料（2026-09-22確認）

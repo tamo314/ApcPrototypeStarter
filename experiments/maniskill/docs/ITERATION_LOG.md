@@ -215,6 +215,15 @@ manifestがfailed、episode数0、error.txtが保存されることを確認し�
 - 成果物/状態: `runs/pin-install-review-20260922-a/` にpip-dry-run-network.txt、pypi-metadata.json、conda-metadata.json、local-checks.json等を保存。既存venvの `pip check` はNo broken requirements found、Pinocchio importは依然不在。調査のみのためpytest追加/再実行なし。次の一点は別検証環境で依存を解決し、Pinocchio 3.8.0を候補として上流Fetch CPU IK probeを再実行すること。版の候補選定は互換性実証とは区別する。
 - 一次資料: [公式導入方法](https://stack-of-tasks.github.io/pinocchio/download.html)、[PyPI pin](https://pypi.org/project/pin/4.1.0/#files)、[conda-forge配布メタデータ](https://api.anaconda.org/package/conda-forge/pinocchio)、[上流Windows導入回答](https://github.com/stack-of-tasks/pinocchio/discussions/2470)。上流のWindows回答は2024年のため、今回の配布メタデータでも照合した。
 
+## 2026-09-22 — WSL venvにPinocchio導入、Fetch FK/IK確認と描画障害
+
+- 依頼/変更: WSLのvenvで続行。基点 `88c28f9`、Ubuntu 26.04 / WSL2、Python 3.12.14。既存uvで `/home/tamot/.venvs/apc-maniskill-wsl-py312` を新設し、CPU版torch 2.14.0+cpu、ManiSkill 3.0.1、SAPIEN 3.0.3、Pinocchio 3.8.0を導入した。Windows側venvの前後freezeは一致。システムドライバは変更していない。
+- 導入時の失敗: `runs/setup-wsl-20260922-a/` はpip解決/pip check成功後、`liburdfdom_sensor.so.4.0` 不在でimport失敗。`setup-wsl-20260922-b/` でurdfdomを4.0.1にすると、次は `libtinyxml2.so.10` 不在。`setup-wsl-20260922-c/` でtinyxml2を10.0.0へ固定するとimportとpip checkが成功した。初期解決はurdfdom 6.0.0 / tinyxml2 11系。NumPyは2.3.5。各試行のscript/log/report/freezeを保持し、実測した主な依存を `constraints-wsl-py312.txt` に保存した。完全lockや物理実行の検証済み構成とはしない。
+- 環境生成probe: `scripts/probe_fetch_ik.py` を追加し、runnerを通じて既存Fetch/PickCube・13次元関節制御・CPU・描画なしで試行。予定seed 0 / 1 episode / 最大5 step。`runs/wsl-fetch-ik-20260922-a/` は **failed、0 episode / 0環境step**。URDF読込中のSAPIEN `RenderMaterial()` が `RuntimeError: failed to find a rendering device` で停止し、環境内IKまでは到達していない。保存済みprobe.pyが試行時のソース。現行スクリプトにはIK前のseed明示resetを追加したが、環境生成を通過できないためその経路は未実行。
+- 動く部分の確認: シミュレータを作らず、同梱Fetch URDFと実際のSAPIEN `PinocchioModel` でFK/IKを計算。腕7関節のみを有効にし、向きを保って手先を上へ2 cm動かす目標、最大500反復。`runs/wsl-pinocchio-fk-20260922-a/` の全関節0姿勢では有限値だがsuccess=false、位置誤差約0.300 mm。`wsl-pinocchio-fk-20260922-b/` では初期値だけをFetchのrest keyframeへ変更し、success=true、SE(3)誤差9.2874e-5、位置誤差9.2865e-5 m、腕以外の最大関節変化0。両runにcheck.py/result.jsonを保存した。nq=19 / nv=15は連続関節のPinocchio表現を含み、制御行動次元の変更ではない。
+- 実績/限界: 今回の物理episode/環境step/学習更新は全て0。URDFの運動学計算成功を接触操作やrolloutの成功と呼ばない。実環境を生成できないため統合テストは未実行、細切れテストは追加していない。Vulkan/glvndのICD警告と非推奨Frame.parent警告あり。WSLにはMesa ICDとWindows連携のCUDA/D3D12ライブラリがあるが、今回のSAPIEN描画経路は動かなかった。
+- 次の一点/停止理由: Pinocchio依存不足は解消した。次は描画無効でもvisual materialを作るURDF読込経路を対象に、描画デバイスなしで環境生成する最小修正を検討する。PickCubeの物体生成にも描画材質生成があるため、URDFだけの修正で解決すると断定しない。ユーザーの「明らかな障害まで」の指示に従い、今回の実験はこの実行障害を記録して止める。
+
 ## 追記テンプレート
 
 ### YYYY-MM-DD — 変更点の短い名前
