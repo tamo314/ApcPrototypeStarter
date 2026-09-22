@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "world": {
+    "physics_dt": 0.01,
+    "control_dt": 0.05,
+    "episode_seconds": 40.0,
+    "option_seconds": 15.0,
+    "mass": 1.0,
+    "radius": 0.18,
+    "max_force": 4.0,
+    "max_torque": 0.1,
+    "linear_drag": 0.3,
+    "angular_drag": 0.1,
+    "tolerance": 0.16,
+    "speed_tolerance": 0.2,
+    "dwell_seconds": 0.15,
+    "lower": [-6.0, -6.0, 0.0],
+    "upper": [6.0, 6.0, 6.0]
+  },
+  "splits": {
+    "train": [10, 11, 12, 13, 14, 15, 16, 17],
+    "validation": [1000, 1001, 1002, 1003],
+    "test": [2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007]
+  }
+}

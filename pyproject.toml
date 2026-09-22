@@ -23,6 +23,9 @@ dev = [
 plots = [
     "matplotlib>=3.8",
 ]
+embodied = [
+    "numpy>=1.26,<3",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
