@@ -191,6 +191,21 @@ manifestがfailed、episode数0、error.txtが保存されることを確認し�
 - 確認/テスト: 全5実runの有限値・T/T+1・モデル出力と行動・切替を考慮した距離報酬・終了を照合。teacherの元ファイルと両学習runコピーのSHA256が一致。expanded-return runに全条件のcomparison.json/analyze.pyを保存。蒸留機能に統合テスト1本を追加し、既存BCと合わせ **2 passed in 28.98s**、`runs/distill-feature-tests-20260922-a/`。テストでは教師ファイルを一時退避後、別プロセスでcandidateを実行し、teacher出力から計算し直したMSEとの一致も検査した。例外なし、Pinocchio警告のみ。
 - 次の一点: 状態1,154件と幅8を固定して更新数だけを3,000へ増やし、戻り方向の遅さが学習不足で変わるかを見る。低性能を障害とみなして停止せず、単一条件ずつ比較する。
 
+## 2026-09-22 — 小型candidateの更新数と未使用seedでの比較
+
+- 変更/条件: 基点 `68bd35e`、ソース変更なし。状態1,154件・幅8/138パラメータ・seed 0を固定し、更新数だけ1,000→3,000。`runs/distill8-expanded-3000-20260922-a/`、wall 2.515秒、同じデータ上のMSE 0.000527423→0.000197943。全入力runハッシュと最初の1,000更新までの記録損失が一致することを確認。
+- 既知探索条件: `distill8-3000-return-20260922-a` はseed 1003〜1005、3/3連鎖・到達後20 step全て成功維持、524 step（1,000更新の737から短縮、元モデル473よりは遅い）、wall 4.437秒。`distill8-3000-hold-20260922-a` はseed 1003〜1007、5/5到達・20 step全て成功維持、336 step、wall 3.922秒。
+- 追加比較: 両モデルを固定し、未使用だったseed 1008〜1012で戻り連鎖を各5 episode実行。`sequence-return-newseeds-teacher-model-20260922-a`（元の学習モデル、手設計teacherではない）は5/5、1,106 step、wall 5.000秒。`distill8-3000-return-newseeds-20260922-a`（小型）は5/5、1,088 step、wall 4.844秒。両方とも全例で最後の20 stepを維持。初期state40は対ごとに完全一致。追加seedも観測後はexplore扱い。
+- 実績/確認: 合計18 episode / 3,054環境step、3,000更新。全保存軌跡の有限値・T/T+1・checkpointと送信行動・目標切替を考慮した距離報酬・終了を照合。最後のrunにcomparison.json、analyze.py、additional_checks.json、check_sources.pyを保存。コード変更なしでpytest再実行なし。例外なし、Pinocchio警告のみ。合計step数は近いが、seed 1011では元モデル136→小型304 stepと遅くなり、seed 1010では292→216 stepと速くなった。少数条件での比較であり、一貫した効率改善・広い汎化・APC銀行の優位性を主張しない。
+- 次の一点: 移動と小型化が動く範囲を残し、研究計画Cの接触操作へ向け、既存Fetch/PickCubeの腕IK部品の利用可否を確認する。関節制御13次元を保ち、異なる身体/行動対応の転移とはしない。
+
+## 2026-09-22 — 接触操作準備のCPU逆運動学で依存障害
+
+- 問い/試行: 上流Fetch/PickCubeと13次元 `pd_joint_delta_pos` を生成し、腕の目標関節角を得るための前提として `agent.robot.create_pinocchio_model()` を実行。独自IKや接触方策の実装前に既存部品を確認した。runnerのenv_factoryでprobeを行い、失敗時もmanifest/error/依存/source_snapshotを保存する。
+- 条件/実績: 基点 `68bd35e`、Windows専用venv、CPU、seed 0、計画1 episode/最大1 step。`runs/fetch-pickcube-ik-probe-20260922-a/` は **failed、0 episode / 0環境step**、wall 3.641秒。環境/Fetchの生成とaction shape [13]までは確認し、kinematics生成で `TypeError: 'NoneType' object is not callable`。`probe.py`、`ik_probe.json`、`error.txt`、summaryを保存した。
+- 原因の確認: `importlib.util.find_spec('pinocchio')` はNone。インストール済みSAPIEN 3.0.3の `wrapper/pinocchio_model.py` は、非LinuxでPinocchio importに失敗すると `PinocchioModel=None` を設定し、生成関数はそれを呼んで失敗する。ManiSkillのCPU Kinematicsもこのクラスを使う。これまでの関節制御では警告のみだったが、今回の上流CPU IK経路には実際の障害となった。
+- 停止理由/次の一点: ユーザーの「明らかな障害が発生するまで自律的に進める」という停止条件に当たるため、新規実験はここで止める。移動・連鎖・蒸留の成果や既存runは保持し、環境依存は変更していない。次は専用venvで使えるPinocchio導入経路を確認してこの生成probeを再実行する。導入できない場合の別IK経路は未調査。接触操作の成功・学習は未実行であり、この失敗を研究全体の科学的ゲートにしない。
+
 ## 追記テンプレート
 
 ### YYYY-MM-DD — 変更点の短い名前
