@@ -11,7 +11,11 @@ WindowsとWSLの専用venvでCPU実行を確認した。台車の小規模な模
 方針は [AGENTS.md](AGENTS.md)、研究の順序は [計画](docs/RESEARCH_PLAN.md)、
 データ形式と将来の接続は [設計](docs/ARCHITECTURE.md) を参照する。
 
-**2026-09-23の計画改訂:** [APC実現性の学習計画](docs/RESEARCH_PLAN.md) に、
+**2026-09-23の最新設計:** [小さな身体操作と毎step判断：設計・実装計画](docs/PRIMITIVE_DECISION_PLAN.md)。
+手先の小移動・指開閉等の10候補から始め、数値状態を読む小型判断器で毎step選択する。
+移動・把持・運搬を大きな初期プリミティブとする案を更新した。設計のみで、実装・速度測定は未実施。
+
+**同日の先行計画改訂:** [APC実現性の学習計画](docs/RESEARCH_PLAN.md) に、
 操作BCの原因分析、最小スキル銀行、temporaryでの能力追加、小型candidateへの蒸留、
 解放後の再利用・過去能力保持と対照実験をまとめた。優先1の操作診断と小比較を実施済み。
 
