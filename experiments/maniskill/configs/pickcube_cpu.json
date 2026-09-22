@@ -1,0 +1,13 @@
+{
+  "env_id": "PickCube-v1",
+  "robot_uids": "panda",
+  "control_mode": "pd_joint_delta_pos",
+  "sim_backend": "physx_cpu",
+  "episodes": 3,
+  "max_steps": 64,
+  "seed": 0,
+  "policy": "random",
+  "video": false,
+  "split": "explore",
+  "task_label": "instrumentation_only"
+}

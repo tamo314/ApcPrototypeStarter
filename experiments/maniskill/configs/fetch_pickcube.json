@@ -1,0 +1,13 @@
+{
+  "env_id": "PickCube-v1",
+  "robot_uids": "fetch",
+  "control_mode": "pd_joint_delta_pos",
+  "sim_backend": "physx_cpu",
+  "episodes": 5,
+  "max_steps": 200,
+  "seed": 0,
+  "policy": "random",
+  "video": false,
+  "split": "explore",
+  "task_label": "mobile_body_scout"
+}
