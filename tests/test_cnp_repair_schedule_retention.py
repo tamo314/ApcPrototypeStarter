@@ -8,7 +8,13 @@ import torch
 from apc.cnp.contracts import SelectArguments, SetState
 from apc.cnp.data import CNPRecord
 from apc.cnp.repair_evaluation import CellKey, CellMetrics, SetEvidence, gate_report
-from apc.cnp.repair_retention import ParentLogitCache, combined_repair_loss, retention_loss
+from apc.cnp.repair_retention import (
+    ParentLogitCache,
+    combined_decision_repair_loss,
+    combined_repair_loss,
+    parent_correct_decision_loss,
+    retention_loss,
+)
 from apc.cnp.repair_schedule import ScheduleArm, build_side_schedule
 
 
@@ -158,3 +164,31 @@ def test_retention_loss_is_set_weighted_and_parent_cache_fails_closed() -> None:
     assert torch.allclose(
         total, torch.nn.functional.binary_cross_entropy_with_logits(task_logits, target.float())
     )
+
+
+def test_parent_correct_decision_loss_preserves_only_correct_parent_decisions() -> None:
+    candidate = torch.tensor([[-0.3, 0.2]], requires_grad=True)
+    target = torch.tensor([[False, True]])
+    parent = torch.tensor([[-1.0, -1.0]])  # first correct, second wrong
+    valid = torch.tensor([[True, True]])
+    decision = parent_correct_decision_loss(candidate, target, parent, valid, margin=0.5)
+    assert torch.allclose(decision, torch.tensor(0.04))
+    decision.backward()
+    assert torch.allclose(candidate.grad, torch.tensor([[0.4, 0.0]]))
+
+    total, values = combined_decision_repair_loss(
+        new_logits=candidate.detach().clone().requires_grad_(),
+        new_target=target,
+        new_valid=valid,
+        replay_logits=candidate.detach().clone().requires_grad_(),
+        replay_target=target,
+        replay_valid=valid,
+        parent_replay_logits=parent,
+        decision_weight=0.0,
+        decision_margin=0.5,
+    )
+    assert values["decision"] == pytest.approx(0.04)
+    expected_task = torch.nn.functional.binary_cross_entropy_with_logits(
+        candidate.detach(), target.float()
+    )
+    assert torch.allclose(total, expected_task)

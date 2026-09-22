@@ -43,6 +43,7 @@ def main() -> int:
             "repair-schedule",
             "repair-retention",
             "repair-alignment",
+            "repair-decision",
             "report",
         ),
     )
@@ -57,6 +58,7 @@ def main() -> int:
             "repair-schedule": REPOSITORY_ROOT / "configs/cnp/repair_schedule_v1.json",
             "repair-retention": REPOSITORY_ROOT / "configs/cnp/repair_retention_v1.json",
             "repair-alignment": REPOSITORY_ROOT / "configs/cnp/repair_alignment_v1.json",
+            "repair-decision": REPOSITORY_ROOT / "configs/cnp/repair_decision_v1.json",
         }
         arguments.config = defaults.get(arguments.mode, DEFAULT_REGISTRY_PATH)
     loaded_config = config(arguments.config)
@@ -204,6 +206,21 @@ def main() -> int:
             arguments.config,
             arguments.source_run,
             arguments.output_root or REPOSITORY_ROOT / "runs/cnp_repair/r001d",
+            arguments.run_id,
+        )
+        print(json.dumps({"status": "COMPLETE", "run_directory": str(output)}, sort_keys=True))
+        return 0
+    if arguments.mode == "repair-decision":
+        if arguments.source_run is None:
+            parser.error("repair-decision requires --source-run")
+        if arguments.run_id is None:
+            parser.error("repair-decision requires an explicit --run-id")
+        from apc.cnp.repair_followup import run_repair_decision
+
+        output = run_repair_decision(
+            arguments.config,
+            arguments.source_run,
+            arguments.output_root or REPOSITORY_ROOT / "runs/cnp_repair/r001m",
             arguments.run_id,
         )
         print(json.dumps({"status": "COMPLETE", "run_directory": str(output)}, sort_keys=True))

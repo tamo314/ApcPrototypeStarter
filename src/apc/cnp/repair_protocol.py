@@ -19,7 +19,7 @@ from apc.cnp.contracts import FEATURE_DIM, SelectArguments, SetState
 from apc.cnp.data import SOURCE_THRESHOLDS, CNPRecord, CNPWorld, make_world
 from apc.cnp.reference import reference_select
 
-ProtocolKind = Literal["schedule", "retention", "alignment"]
+ProtocolKind = Literal["schedule", "retention", "alignment", "decision"]
 PanelKind = Literal["new_train", "new_shadow", "old_shadow"]
 
 NEW_DOMAIN = "q1+q2+"
@@ -43,6 +43,7 @@ ROOTS: dict[ProtocolKind, RepairRoots] = {
     "schedule": RepairRoots(data=620010, schedule=620020, bootstrap=620030),
     "retention": RepairRoots(data=620110, schedule=620120, bootstrap=620130),
     "alignment": RepairRoots(data=620210, schedule=620220, bootstrap=620230),
+    "decision": RepairRoots(data=620310, schedule=620320, bootstrap=620330),
 }
 
 

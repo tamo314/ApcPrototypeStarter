@@ -50,7 +50,11 @@ from apc.cnp.repair_protocol import (
     make_protocol_panel,
     protocol_manifest,
 )
-from apc.cnp.repair_retention import ParentLogitCache, combined_repair_loss
+from apc.cnp.repair_retention import (
+    ParentLogitCache,
+    combined_decision_repair_loss,
+    combined_repair_loss,
+)
 from apc.cnp.repair_schedule import ScheduleArm, SideSchedule, build_side_schedule, schedule_audit
 
 UPDATES = 256
@@ -201,6 +205,8 @@ def _train(
     caches: list[ParentLogitCache] | None,
     parent_hash: str,
     retention_weight: float,
+    objective: str,
+    decision_margin: float,
     started: float,
     limits: dict[str, Any],
     device: torch.device,
@@ -225,6 +231,8 @@ def _train(
             device=device,
             retention_weight=retention_weight,
             step=0,
+            decision_weight=retention_weight if objective == "decision" else 0.0,
+            decision_margin=decision_margin,
         )
     ]
     candidate.train()
@@ -256,16 +264,31 @@ def _train(
                 input_ids=input_ids,
             )
             parent_logits = cache.logits.to(device)[:, :replay_width]
-            loss, values = combined_repair_loss(
-                new_logits=new_logits,
-                new_target=new_target,
-                new_valid=new_valid,
-                replay_logits=replay_logits,
-                replay_target=replay_target,
-                replay_valid=replay_valid,
-                parent_replay_logits=parent_logits,
-                retention_weight=retention_weight,
-            )
+            if objective == "retention":
+                loss, values = combined_repair_loss(
+                    new_logits=new_logits,
+                    new_target=new_target,
+                    new_valid=new_valid,
+                    replay_logits=replay_logits,
+                    replay_target=replay_target,
+                    replay_valid=replay_valid,
+                    parent_replay_logits=parent_logits,
+                    retention_weight=retention_weight,
+                )
+            elif objective == "decision":
+                loss, values = combined_decision_repair_loss(
+                    new_logits=new_logits,
+                    new_target=new_target,
+                    new_valid=new_valid,
+                    replay_logits=replay_logits,
+                    replay_target=replay_target,
+                    replay_valid=replay_valid,
+                    parent_replay_logits=parent_logits,
+                    decision_weight=retention_weight,
+                    decision_margin=decision_margin,
+                )
+            else:
+                raise ValueError(f"unknown registered repair objective: {objective}")
         loss.backward()
         torch.nn.utils.clip_grad_norm_(candidate.parameters(), max_norm=1.0)
         optimizer.step()
@@ -279,6 +302,8 @@ def _train(
                 device=device,
                 retention_weight=retention_weight,
                 step=step + 1,
+                decision_weight=retention_weight if objective == "decision" else 0.0,
+                decision_margin=decision_margin,
             )
             milestones.append({"batch_loss": float(loss.detach().cpu()), **values, **trace})
     return milestones
@@ -366,6 +391,9 @@ def _run(
     program: str,
     protocol: ProtocolKind,
     arms: list[tuple[str, float, ScheduleArm]],
+    objective: str = "task",
+    decision_margin: float = 0.0,
+    status_prefix: str = "R",
     prerequisite_schedule_report: Path | None = None,
 ) -> Path:
     if not torch.cuda.is_available():
@@ -486,7 +514,7 @@ def _run(
                     _build_parent_caches(
                         parent, replay_batches, parent_hash=parent_hash, device=device
                     )
-                    if program == "cnp_repair_retention_v1"
+                    if objective in {"retention", "decision"}
                     else None
                 )
                 training = _train(
@@ -499,6 +527,8 @@ def _run(
                     caches=caches,
                     parent_hash=parent_hash,
                     retention_weight=lambda_value,
+                    objective=objective,
+                    decision_margin=decision_margin,
                     started=started,
                     limits=config["limits"],
                     device=device,
@@ -584,13 +614,11 @@ def _run(
         viability = all(row["gate"]["candidate_gate"] == "PASS" for row in candidate_rows)  # type: ignore[index]
         report = {
             "program": program,
-            "status": "S_DIAGNOSTIC_VIABILITY_PASS"
-            if viability and program.endswith("schedule_v1")
-            else "R_DIAGNOSTIC_VIABILITY_PASS"
-            if viability
-            else "S_DIAGNOSTIC_FAIL_STOP"
-            if program.endswith("schedule_v1")
-            else "R_DIAGNOSTIC_FAIL_STOP",
+            "status": (
+                f"{status_prefix}_DIAGNOSTIC_VIABILITY_PASS"
+                if viability
+                else f"{status_prefix}_DIAGNOSTIC_FAIL_STOP"
+            ),
             "rows": rows,
             "resource": _resource_status(started, config["limits"]),
             "candidate_selection": 0,
@@ -626,6 +654,7 @@ def run_repair_schedule(
             (ScheduleArm.DISPERSED_MATCHED.value, 0.0, ScheduleArm.DISPERSED_MATCHED),
             (ScheduleArm.DISPERSED_BALANCED.value, 0.0, ScheduleArm.DISPERSED_BALANCED),
         ],
+        status_prefix="S",
     )
 
 
@@ -653,4 +682,30 @@ def run_repair_retention(
             ("LAMBDA_0", 0.0, ScheduleArm.DISPERSED_BALANCED),
             ("LAMBDA_1", 1.0, ScheduleArm.DISPERSED_BALANCED),
         ],
+        objective="retention",
+    )
+
+
+def run_repair_decision(
+    config_path: Path, source_run: Path, output_root: Path, run_id: str | None = None
+) -> Path:
+    """Execute the registered parent-correct decision-retention diagnostic only."""
+
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    if config.get("decision_margin") != 0.0:
+        raise ValueError("R-CNP-001M fixes the decision margin at zero")
+    return _run(
+        config_path=config_path,
+        source_run=source_run,
+        output_root=output_root,
+        run_id=run_id,
+        program="cnp_repair_decision_v1",
+        protocol="decision",
+        arms=[
+            ("TASK_ONLY", 0.0, ScheduleArm.DISPERSED_BALANCED),
+            ("PARENT_CORRECT_DECISION", 1.0, ScheduleArm.DISPERSED_BALANCED),
+        ],
+        objective="decision",
+        decision_margin=0.0,
+        status_prefix="M",
     )

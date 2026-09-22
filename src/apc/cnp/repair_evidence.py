@@ -9,7 +9,7 @@ import torch
 from apc.cnp.data import CNPRecord, canonical_json_hash
 from apc.cnp.repair import _collate_records, set_mean_masked_bce_loss
 from apc.cnp.repair_evaluation import CellKey
-from apc.cnp.repair_retention import retention_loss
+from apc.cnp.repair_retention import parent_correct_decision_loss, retention_loss
 
 
 def parameter_accounting(model: torch.nn.Module) -> dict[str, int]:
@@ -140,6 +140,8 @@ def fixed_panel_trace(
     device: torch.device,
     retention_weight: float,
     step: int,
+    decision_weight: float = 0.0,
+    decision_margin: float = 0.0,
 ) -> dict[str, float | int]:
     """Measure registered losses on fixed panels without checkpoint selection."""
 
@@ -148,9 +150,12 @@ def fixed_panel_trace(
     candidate.eval()
     parent.eval()
 
-    def aggregate(records: list[CNPRecord], *, replay: bool) -> tuple[float, float, float, float]:
+    def aggregate(
+        records: list[CNPRecord], *, replay: bool
+    ) -> tuple[float, float, float, float, float]:
         task_values: list[float] = []
         keep_values: list[float] = []
+        decision_values: list[float] = []
         correct_deltas: list[float] = []
         incorrect_deltas: list[float] = []
         with torch.inference_mode():
@@ -173,6 +178,17 @@ def fixed_panel_trace(
                             ).cpu()
                         )
                     )
+                    decision_values.append(
+                        float(
+                            parent_correct_decision_loss(
+                                candidate_result.logits,
+                                target,
+                                parent_result.logits,
+                                state.valid,
+                                margin=decision_margin,
+                            ).cpu()
+                        )
+                    )
                     for index in range(state.batch_size):
                         valid = state.valid[index]
                         delta = (
@@ -191,10 +207,11 @@ def fixed_panel_trace(
             0.0 if not keep_values else sum(keep_values) / len(keep_values),
             0.0 if not correct_deltas else sum(correct_deltas) / len(correct_deltas),
             0.0 if not incorrect_deltas else sum(incorrect_deltas) / len(incorrect_deltas),
+            0.0 if not decision_values else sum(decision_values) / len(decision_values),
         )
 
-    new_bce, _, _, _ = aggregate(new_records, replay=False)
-    replay_bce, keep_mse, parent_correct_mse, parent_incorrect_mse = aggregate(
+    new_bce, _, _, _, _ = aggregate(new_records, replay=False)
+    replay_bce, keep_mse, parent_correct_mse, parent_incorrect_mse, decision_loss = aggregate(
         replay_records, replay=True
     )
     return {
@@ -203,6 +220,8 @@ def fixed_panel_trace(
         "replay_bce": replay_bce,
         "keep_mse": keep_mse,
         "weighted_keep_mse": retention_weight * keep_mse,
+        "decision_loss": decision_loss,
+        "weighted_decision_loss": decision_weight * decision_loss,
         "parent_correct_replay_logit_mse": parent_correct_mse,
         "parent_incorrect_replay_logit_mse": parent_incorrect_mse,
     }

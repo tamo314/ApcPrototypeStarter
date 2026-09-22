@@ -1953,3 +1953,20 @@ It does not establish that any margin definition, coefficient, or learned candid
 new/old quality or retention. R-CNP-001S/R FAIL, v1 G3 STOP, no selection/promotion, and
 R-CNP-002 not authorized remain unchanged. The three preceding stopped namespaces are preserved
 as implementation evidence and are not scientific comparison arms.
+
+## ADR-0209: R-CNP-001M parent-correct decision diagnostic is registered
+
+Date: 2026-09-22. Status: **Authorized single-objective development diagnostic.**
+
+R-CNP-001D supports testing a decision-preserving alternative, so R-CNP-001M fixes one recipe
+before execution: task BCE plus a unit-weight, zero-margin hinge-squared loss only for replay
+elements where the immutable parent prediction equals the replay target. Parent-wrong elements
+remain constrained solely by label BCE. The control and candidate share the same fresh
+root-620310 panels, root-620320 balanced schedules, five CNP-003 parents, 256 updates, adapter,
+optimizer, resource limits, and all-cell evaluation. The full contract is
+`docs/exec-plans/active/CNP_PARENT_CORRECT_DECISION_DIAGNOSTIC.md`.
+
+No margin or coefficient search is allowed. Candidate selection, promotion, sealed access,
+transfer/composition, and R-CNP-002 remain out of scope. All five candidate gates must pass for
+`M_DIAGNOSTIC_VIABILITY_PASS`; any failure is `M_DIAGNOSTIC_FAIL_STOP` and closes this diagnostic
+without tuning.

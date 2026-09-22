@@ -97,3 +97,74 @@ def combined_repair_loss(
         "retention": float(keep.detach().cpu()),
         "total": float(total.detach().cpu()),
     }
+
+
+def parent_correct_decision_loss(
+    replay_logits: torch.Tensor,
+    replay_target: torch.Tensor,
+    parent_replay_logits: torch.Tensor,
+    valid: torch.Tensor,
+    *,
+    margin: float,
+) -> torch.Tensor:
+    """Keep parent-correct replay items on their label-correct side of a fixed margin.
+
+    Parent-wrong elements have no decision constraint and remain repairable through
+    the replay BCE term.  Parent logits are used only to decide the immutable mask;
+    the candidate is always directed by the replay target.
+    """
+
+    if (
+        replay_logits.shape != replay_target.shape
+        or replay_logits.shape != parent_replay_logits.shape
+        or replay_logits.shape != valid.shape
+    ):
+        raise ValueError("decision loss tensors must share shape")
+    if parent_replay_logits.requires_grad:
+        raise ValueError("parent logits must be detached before decision loss")
+    if margin < 0.0:
+        raise ValueError("decision margin must be non-negative")
+    target = replay_target.bool()
+    parent_correct = ((parent_replay_logits.detach() >= 0.0) == target) & valid
+    signed_logits = torch.where(target, replay_logits, -replay_logits)
+    violations = torch.relu(float(margin) - signed_logits).square()
+    per_set_counts = parent_correct.sum(dim=1)
+    non_empty = per_set_counts > 0
+    if not bool(non_empty.any()):
+        return replay_logits.sum() * 0.0
+    per_set = (violations * parent_correct).sum(dim=1) / per_set_counts.clamp_min(1)
+    return per_set[non_empty].mean()
+
+
+def combined_decision_repair_loss(
+    *,
+    new_logits: torch.Tensor,
+    new_target: torch.Tensor,
+    new_valid: torch.Tensor,
+    replay_logits: torch.Tensor,
+    replay_target: torch.Tensor,
+    replay_valid: torch.Tensor,
+    parent_replay_logits: torch.Tensor,
+    decision_weight: float,
+    decision_margin: float,
+) -> tuple[torch.Tensor, dict[str, float]]:
+    """Return task BCE plus the registered parent-correct decision constraint."""
+
+    if decision_weight not in {0.0, 1.0}:
+        raise ValueError("decision_weight must be the registered control or candidate value")
+    new_task = set_mean_masked_bce_loss(new_logits, new_target, new_valid)
+    replay_task = set_mean_masked_bce_loss(replay_logits, replay_target, replay_valid)
+    task = 0.5 * new_task + 0.5 * replay_task
+    decision = parent_correct_decision_loss(
+        replay_logits,
+        replay_target,
+        parent_replay_logits,
+        replay_valid,
+        margin=decision_margin,
+    )
+    total = task + decision_weight * decision
+    return total, {
+        "task": float(task.detach().cpu()),
+        "decision": float(decision.detach().cpu()),
+        "total": float(total.detach().cpu()),
+    }
