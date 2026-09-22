@@ -1,7 +1,7 @@
 # ManiSkill実験ワークスペース
 
 **現在:** 環境の起動・試行・記録と、Fetchの最小目標到達課題を実装。
-Windowsの専用venvでCPU実行を確認した。台車の小規模な模倣学習baselineも実装済み。
+WindowsとWSLの専用venvでCPU実行を確認した。台車の小規模な模倣学習baselineも実装済み。
 同一sceneで単一方策を2つの目標に順次使う手動連鎖も実装済み。
 別の小型ネットワークへの蒸留も実装済み。APCの自動スキル銀行・増設は未実装。
 ランダム方策の成功率を研究仮説の成否とみなさない。
@@ -85,7 +85,8 @@ Condaの解決結果とpipのdry-runを確認してからその環境用のfreez
 Ubuntu 26.04 / Python 3.12.14で、`/home/tamot/.venvs/apc-maniskill-wsl-py312`
 を作成した。Windows側の `.venv` とは別環境で、前後のWindows依存freezeは一致した。
 Pinocchio 3.8.0のimportと、既存Fetch URDFを使うSAPIENのFK/IK計算は成功した。
-ただし **Fetch/PickCubeの環境生成は描画デバイスエラーで停止し、WSLでのrolloutは未成功**。
+当初は描画デバイスエラーで停止したが、リポジトリ内の描画なし互換修正により、
+**Fetch/PickCubeと最小目標到達課題のCPU rolloutが成功**。GPU描画は引き続き利用できない。
 
 同じ構成の導入手順（WSLのbashで実行。Python 3.12とuvは既存のものを利用）:
 
@@ -99,8 +100,9 @@ python -m pip check
 python -c 'import pinocchio, sapien; print(pinocchio.__version__)'
 export MS_ASSET_DIR="$PWD/.assets"
 python -m apc_maniskill doctor
-# 環境生成を含む診断。新しいrun名を指定する（現状は描画エラーになる）。
+# 環境内FK/IKと5 stepの診断。毎回新しいrun名を指定する。
 python scripts/probe_fetch_ik.py --out runs/my-wsl-fetch-ik-probe
+python -m apc_maniskill rollout --config configs/fetch_reach_goal.json --episodes 3 --out runs/my-wsl-reach
 ```
 
 作成済み環境を使うときはactivateから始める。Windowsの `.venv/Scripts/python.exe` を
@@ -109,7 +111,7 @@ WSLのPythonとして利用しない。既存シェルスクリプトを使う�
 
 `pin==3.8.0` だけでは新しいurdfdom/tinyxml2が選ばれ、`pip check` が通っても
 `liburdfdom_sensor.so.4.0` / `libtinyxml2.so.10` が見つからずimportに失敗した。
-上記constraintsは実際に解消した組合せであり、シミュレータ動作保証や完全lockではない。
+上記constraintsは実測した組合せであり、あらゆるタスクの動作保証や完全lockではない。
 全依存・ログは `runs/setup-wsl-20260922-a/`〜`setup-wsl-20260922-c/` に保存。
 
 FK/IK単独確認ではFetchのrest姿勢から手先を上へ2 cm移す目標を解き、位置誤差は
@@ -121,7 +123,20 @@ FK/IK単独確認ではFetchのrest姿勢から手先を上へ2 cm移す目標�
 描画あり（`--video`）も `runs/wsl-fetch-render-probe-20260922-a/` で試したが、
 RenderSystem生成時に `vk::createInstanceUnique: ErrorIncompatibleDriver` で停止した。
 描画許可への切替だけでは解消せず、現在のWSLのVulkan描画経路が障害となっている。
-次はこの描画無効時のURDF読込経路を対象に、描画デバイスなしで起動する修正を検討する。
+
+修正は `src/apc_maniskill/headless.py`。runnerが動画なしで環境を生成する際に有効にする。
+ManiSkill 3.0.1 / SAPIEN 3.0.3に限定したプロセス内の互換処理で、別バージョンでは明示的に停止する。
+`scene.can_render()` がfalseの場合だけ、URDFの視覚要素と立方体・球の描画材質を省く。
+URDFの慣性・衝突、actorの物理形状・body type・初期姿勢は上流処理を使用する。
+環境のreset/reconfigure後にも有効。描画可能sceneは元の関数に委譲し、venv内のファイルは編集しない。
+確認範囲はPanda/FetchのPickCubeとFetchReach。任意タスクの全描画処理を無効化する仕組みではない。
+
+WSLの環境内FK/IKは成功（位置誤差約0.093 mm）し、5 stepを実行した。
+FetchReachはseed 1000〜1002の3/3到達・129 step、Fetch/PickCubeのランダム方策は
+3 episode / 150 stepを完了（把持・配置成功0/3）。保存先はそれぞれ
+`runs/wsl-fetch-headless-ik-20260922-a/`、`wsl-headless-reach-20260922-a/`、
+`wsl-headless-pickcube-20260922-a/`。物理の落下・接触・再生成も既存統合テストで確認した。
+Windowsでの修正前後の同seed比較では、3 episode / 150 stepの全保存配列が完全一致した。
 
 ## 2. まず環境を動かす
 
@@ -281,11 +296,10 @@ resetなしの手動2目標連鎖は前方・横・戻りの各3例で完了し�
 未使用だったseed 1008〜1012では元モデル・小型モデルとも5/5連鎖を完了し、
 最後の1秒間も条件を維持した（合計1,106/1,088 step）。
 
-**現在の障害:** WSLの専用venvへPinocchioを導入し、Fetch URDFのFK/IK単独計算は成功した。
-一方、Fetch/PickCubeは描画無効でもURDF読込中に描画デバイスを要求して停止する。
-`runs/wsl-fetch-ik-20260922-a/` に失敗記録を保存した（0 episode / 0 step）。
-Windowsで成功した既存の移動・蒸留の環境は保持している。
-次の一点はWSLの描画無効時のURDF読込経路を修正できるか確認し、環境生成を再試行すること。
+**障害解消:** WSLのPinocchio導入と描画なし経路の修正により、Fetchの環境内FK/IKと
+CPU rolloutが動いた。詳細・再現手順は第1節。Windowsの既存環境も保持している。
+次の一点はIKで得た関節目標を既存13次元関節制御へ渡し、短い閉ループ実行で手先の追従を測ること。
+現在のIK診断は解の運動学確認とゼロ行動rolloutまでで、IK解を追従させる制御や把持は未実装。
 GPU物理・動画・APCの自動銀行は未検証。
 
 ## 上流資料（2026-09-22確認）

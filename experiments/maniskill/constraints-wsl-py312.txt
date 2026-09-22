@@ -1,5 +1,6 @@
 # Ubuntu 26.04 / WSL2 / Python 3.12, verified 2026-09-22.
-# Imports and Fetch URDF FK/IK work; simulator creation is blocked by rendering.
+# With the repository headless fix: Fetch FK/IK and CPU state rollouts verified.
+# WSL rendering remains unavailable; use render_backend="none".
 # This is a targeted constraint set, not a complete cross-platform lock.
 mani_skill==3.0.1
 sapien==3.0.3

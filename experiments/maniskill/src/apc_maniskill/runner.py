@@ -139,6 +139,10 @@ def make_env(config: RunConfig, output: Path) -> Any:
     if config.env_id == "APC-FetchReachGoal-v1":
         from . import fetch_reach  # noqa: F401 -- registers local task
 
+    if not config.video:
+        from .headless import install_headless_compat
+        install_headless_compat()
+
     env = gym.make(
         config.env_id,
         num_envs=1,

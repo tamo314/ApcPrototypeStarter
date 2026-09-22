@@ -230,6 +230,15 @@ manifestがfailed、episode数0、error.txtが保存されることを確認し�
 - 結果: `runs/wsl-fetch-render-probe-20260922-a/` はfailed、0 episode / 0環境step。描画なし時のURDF読込より前、`_setup_scene` の `sapien.render.RenderSystem` 生成時に `vk::createInstanceUnique: ErrorIncompatibleDriver`。コンソールにはVulkan外部memory/semaphore拡張の不在と描画ドライバ非対応のメッセージが出た。別プロセスの `sapien.render.get_device_summary()` も `failed to find a rendering device` で失敗。
 - 解釈/次の一点: 描画禁止という実験条件を緩めるだけでは解消しない。現在のWSLからSAPIENのVulkan描画経路を利用できない。上流の対応表もWSLのRenderingは非対応、Windows/NVIDIAおよびLinux/NVIDIAは対応と記載している（[公式資料](https://maniskill.readthedocs.io/en/latest/user_guide/getting_started/installation.html#system-support)、今回再確認）。WSL継続時の次の一点は引き続き描画なしの環境生成経路の修正。描画を使う別案はネイティブLinux、またはWindows側の別環境でPinocchio導入を検証すること。今回の確認からWSL全般での絶対的な不可能性は主張しない。機能変更がないためpytestは追加/再実行していない。
 
+## 2026-09-22 — WSLの描画なし経路を修正しCPU実験を再開
+
+- 変更/範囲: 基点 `0003c89` + dirty source。`headless.py` にManiSkill 3.0.1 / SAPIEN 3.0.3限定の互換処理を追加し、runnerの動画なし環境生成で有効化。URDF loaderはlinkの浅いコピーからvisualsだけを除き、慣性・衝突は元の構築処理へ渡す。立方体/球は元と同じ衝突形状、body type、scene indices、初期姿勢で生成し、描画材質だけを省く。sceneが描画可能なら元の関数を呼ぶ。reset/reconfigureのため処理はプロセス内に保持。パッケージ本体・ドライバ・既存runは変更していない。任意タスクや他のパッケージ版までの一般対応ではない。
+- 環境内IK: `runs/wsl-fetch-headless-ik-20260922-a/`、Fetch/PickCube、CPU、seed 0、13次元関節制御。環境生成と既存SAPIEN Pinocchioモデル生成が成功。腕7関節のみ有効にして手先を上へ2 cm動かす解はsuccess=true、位置誤差9.2746e-5 m、腕以外の関節変化0。その後のゼロ行動rolloutは1 episode / 5 step、wall 5.303秒。IK解そのものはまだ制御に送っていない。ik_probe.jsonに実際の関節順・解・目標を保存した。
+- 到達/物理実行: `runs/wsl-headless-reach-20260922-a/` は既存手設計fetch_goal、seed 1000〜1002、3/3到達、129 step、wall 5.255秒。`runs/wsl-headless-pickcube-20260922-a/` は既存ランダム方策、seed 0〜2、3 episode / 150 step、wall 5.430秒、全例50 stepの環境時間制限で終了、把持・配置成功0/3。ゼロ成功を起動失敗とはしない。今回WSL実験は計7 episode / 284 step、学習更新0。保存NPZの有限値、T/T+1、13次元行動と範囲、報酬・集計・最終infoを照合し、後者runにaudit.py/audit.jsonを保存。
+- 物理保持の比較: Windowsの同じ既存venv内で、上流の描画なし生成と修正後の生成をseed 0〜2のFetch/PickCubeで各3 episode / 150 step実行。`runs/headless-parity-20260922-a/` のupstream/patched全NPZ配列（観測・行動・報酬・終了・成功）が完全一致。check.py/comparison.jsonを保存。Windows比較分は計6 episode / 300 step、WSLとの数値一致は要求していない。
+- テスト: 新規の細切れテストは増やさず、既存 `test_rollout_feature.py` の1本を物理確認まで拡張した。再生成後に描画コンポーネントがなく、ロボット/机/立方体の衝突があり、立方体の質量0.064 kgが維持されることを確認。高さ0.15 mから20 step落下させ、最終z=0.01999991 m、机との接触力z=0.62786049 Nを測定した後、通常の収集→保存→集計を実行。`wsl-headless-tests-20260922-a/` の初回はテスト側がEntityを物理componentと誤認して **1 failed / 1 passed（16.89秒）**。参照だけを修正し、失敗した収集テストのみ `wsl-headless-tests-20260922-b/` で再実行、**1 passed（9.96秒）**。到達統合テストは初回に通過済み。最終的に対象の既存2本が通過。テスト内診断stepは上記実験step数から除外。
+- 留保/次の一点: Vulkan/glvndのimport警告は残るが、このCPU状態観測経路を阻害しない。GPU描画・画像観測は未対応で、修正後の描画あり経路は未実測。依存不足と描画なし起動障害が解消したので、次はIK解を既存13次元関節制御へ渡す短い閉ループ診断で、手先追従誤差と姿勢保持を測る。現在の結果を把持能力・接触操作の学習成果とは呼ばない。
+
 ## 追記テンプレート
 
 ### YYYY-MM-DD — 変更点の短い名前
