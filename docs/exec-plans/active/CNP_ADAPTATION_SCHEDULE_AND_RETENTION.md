@@ -1,6 +1,6 @@
 # CNP 適応改善 — 実装・診断計画
 
-日付: 2026-09-22 / ADR-0204 / `R_CNP001S_R_COMPLETE_GATES_FAIL`
+日付: 2026-09-22 / ADR-0205 / `R_CNP001S_R_GATES_FAIL_VERIFICATION_GAPS_RECORDED`
 
 入口: [改善レビュー](../../results/R_CNP001_IMPROVEMENT_REVIEW.md)
 → [詳細設計](../../design-docs/CNP_ADAPTATION_SCHEDULE_AND_RETENTION.md)。
@@ -9,6 +9,11 @@
 `repair_followup.py`、2つの固定config、`repair-schedule`/`repair-retention` CLIを追加した。
 R-CNP-001S/Rを完了し、いずれもall-five candidate gate FAILを記録した。v1 G3 FAIL、
 R-CNP-001 FAILを維持する。R-CNP-002は未認可である。
+
+[S/R結果レビュー](../../results/R_CNP001SR_IMPROVEMENT_REVIEW.md)で全保存gateを再確認。
+Rの「1/5 PASS」は誤記で、正しくは0/5。研究実行は終了したが、共通panel学習曲線・
+別process復元・事前panel/履歴分離監査等に契約との差があり、全受入条件完了とは扱わない。
+不足の詳細と改善順位は同レビューを正本とする。追加実験はこの追記で認可しない。
 
 ## 1. 工程と完了条件
 
@@ -19,7 +24,7 @@ R-CNP-001 FAILを維持する。R-CNP-002は未認可である。
 | I-2 | schedule実装 | 完了。A/B/C quota、整数比較の分散器、JSONL固定、input/target独立性を追加 |
 | I-3 | runner・容量記録・親cache・保持loss実装 | 完了。親hash/cache検証、凍結hash、resource STOP、RのS結果参照を追加 |
 | R-CNP-001S | 既存5親、A/B/Cの単一block診断 | 完了。Cを含む全15候補がFAIL、`S_DIAGNOSTIC_FAIL_STOP` |
-| R-CNP-001R | 別split、固定Cでlambda0/1の比較 | 完了。lambda1はold保持を改善するが1/5 PASS、`R_DIAGNOSTIC_FAIL_STOP` |
+| R-CNP-001R | 別split、固定Cでlambda0/1の比較 | 実行終了。lambda1はold保持を改善するが0/5 PASS、`R_DIAGNOSTIC_FAIL_STOP`。検証不足はADR-0205 |
 | R-CNP-002実行登録 | 固定レシピ・修正版親・新splitで正式確認する契約 | 新seed/データ/予算・G1/G2/G3・causal/controlのmanifest固定 |
 
 設計完了から研究実行へ自動遷移しない。後日実装が指示された場合、I-1〜3と必要なテストは
@@ -93,6 +98,8 @@ PASSと呼ばない。標準G0の必要条件を満たさない状態から研�
 R-CNP-002は固定親診断と別の確認プログラム。今回の設計は、旧親の適格性不足を診断で
 扱う例外を、正式確認へ持ち込まない。採用するレシピを先に固定し、新規親について
 G1/G2とold品質が成立してから適応を検証する。転移・合成・G4の要件は元計画を維持する。
+
+以下はS/R実行前の実装・設計時点の記録であり、現在の実行状態は冒頭とADR-0205を参照。
 
 実装時検証: 合成fixtureによるCNP修正関連9 test、`ruff check .`、`mypy src/apc`は
 Python 3.12でPASS。full pytestの結果は実行記録へ追記する。

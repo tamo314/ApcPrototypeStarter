@@ -1,6 +1,10 @@
 # CNP 適応の順序・保持改善設計
 
-日付: 2026-09-22 / ADR-0202 / `IMPLEMENTATION_COMPLETE_EXECUTION_PENDING`
+日付: 2026-09-22 / 設計: ADR-0202 / 実行後レビュー: ADR-0205
+
+現在はS/R実行終了、両診断0/5 PASS。以下の設計時点の記述を実行待ちの意味にしない。
+要求と実装・保存証跡の差は[結果レビュー](../results/R_CNP001SR_IMPROVEMENT_REVIEW.md)§3に記録する。
+要求は緩和せず、全検証完了とは認定しない。
 
 ## 1. 目的と範囲
 

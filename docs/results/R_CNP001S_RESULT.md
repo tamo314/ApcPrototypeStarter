@@ -4,6 +4,10 @@
 
 状態: **`S_DIAGNOSTIC_FAIL_STOP`**。
 
+後続の[結果レビュー（ADR-0205）](R_CNP001SR_IMPROVEMENT_REVIEW.md)で保存gateとの
+算術一致を確認した。共通panel学習曲線・別process復元等の証跡不足は別途記録し、
+本runを実行契約の全検証完了とは扱わない。
+
 固定CNP-003親seed 610200–610204について、`q1+q2+`の修正版LOCALを
 `ORDERED`、`DISPERSED_MATCHED`、`DISPERSED_BALANCED`で各256 update実行した。
 全15候補がnew品質、old品質、またはold保持の少なくとも一つを満たさず、事前指定候補C

@@ -1,0 +1,2310 @@
+{
+  "python": "3.12.13",
+  "scope": "saved JSON arithmetic only",
+  "model_forward": 0,
+  "optimizer_updates": 0,
+  "sealed_access": 0,
+  "script_sha256": "8613678b43d73cdb1d8af051d187cc1f1fa594c3dc7d8be1881c9716c62b13bc",
+  "programs": {
+    "S": {
+      "input": "runs\\cnp_repair\\r001s\\rcnp001s_schedule3\\report.json",
+      "sha256": "351e8b390a6f90755be701b51a8008f4a483b4eae211d4e993acc52a0210bede",
+      "run_directory_files": [
+        "candidate_dispersed_balanced_seed_610200.pt",
+        "candidate_dispersed_balanced_seed_610201.pt",
+        "candidate_dispersed_balanced_seed_610202.pt",
+        "candidate_dispersed_balanced_seed_610203.pt",
+        "candidate_dispersed_balanced_seed_610204.pt",
+        "candidate_dispersed_matched_seed_610200.pt",
+        "candidate_dispersed_matched_seed_610201.pt",
+        "candidate_dispersed_matched_seed_610202.pt",
+        "candidate_dispersed_matched_seed_610203.pt",
+        "candidate_dispersed_matched_seed_610204.pt",
+        "candidate_ordered_seed_610200.pt",
+        "candidate_ordered_seed_610201.pt",
+        "candidate_ordered_seed_610202.pt",
+        "candidate_ordered_seed_610203.pt",
+        "candidate_ordered_seed_610204.pt",
+        "data_manifest.json",
+        "report.json",
+        "run_manifest.json",
+        "schedule_DISPERSED_BALANCED_new.jsonl",
+        "schedule_DISPERSED_BALANCED_replay.jsonl",
+        "schedule_DISPERSED_MATCHED_new.jsonl",
+        "schedule_DISPERSED_MATCHED_replay.jsonl",
+        "schedule_ORDERED_new.jsonl",
+        "schedule_ORDERED_replay.jsonl",
+        "schedule_audit.json"
+      ],
+      "schedule_arithmetic_pass": true,
+      "schedule_sha256": {
+        "ORDERED/new": "fa9161eb4495db4ff197fd8794559d074c9654581c4538d4044eb700b5241cf4",
+        "ORDERED/replay": "a9d9c43f7d0e8ca2ae73fdcfa9ec0c6aca4582de282c89bae27aea6eccca0ee5",
+        "DISPERSED_MATCHED/new": "b0f19b3322d9d089124a16808fe7862b0e5f3a0b6518b87bcdc7462bcbd4d199",
+        "DISPERSED_MATCHED/replay": "8d7e91412ce3cedaa480c435ff40379dcb5e8d1df7a1e8bdc0f63207d4387f2c",
+        "DISPERSED_BALANCED/new": "65167e2fdadd063b8c385c7fe75fd8722a6e3c1c9666e6b3f2132993c6592a5a",
+        "DISPERSED_BALANCED/replay": "231d87d9c9a2137f1df0142add44eeeb4a1364f882378a1a3bcaf870d1e847a3"
+      },
+      "saved_status": "S_DIAGNOSTIC_FAIL_STOP",
+      "set_records_verified": 691200,
+      "summaries_and_failure_lists_match": true,
+      "base_hashes_match": true,
+      "panel_input_ids_match_across_arms_and_seeds": true,
+      "groups": {
+        "ORDERED": {
+          "passes": 0,
+          "mean_failure_counts": {
+            "parent_old_quality": 15.4,
+            "new_quality": 80.0,
+            "old_quality": 57.2,
+            "old_retention": 81.2
+          },
+          "mean_old_transitions": {
+            "CONTINUED_PASS": 59.6,
+            "NEW_FAILURE": 45.0,
+            "RECOVERED": 3.2,
+            "CONTINUED_FAILURE": 12.2
+          },
+          "mean_old_f1_delta": -0.021908298344286495,
+          "metrics": {
+            "new": {
+              "mean_cell_ba": 0.9213062174903541,
+              "mean_cell_f1": 0.9407514098148628,
+              "ba_failures": 78.8,
+              "f1_failures": 16.4
+            },
+            "old": {
+              "mean_cell_ba": 0.9415365558974205,
+              "mean_cell_f1": 0.952932281384863,
+              "ba_failures": 57.2,
+              "f1_failures": 6.8
+            },
+            "parent_old": {
+              "mean_cell_ba": 0.9691974246176163,
+              "mean_cell_f1": 0.9748405797291495,
+              "ba_failures": 15.4,
+              "f1_failures": 0.2
+            }
+          }
+        },
+        "DISPERSED_MATCHED": {
+          "passes": 0,
+          "mean_failure_counts": {
+            "parent_old_quality": 15.4,
+            "new_quality": 79.0,
+            "old_quality": 49.8,
+            "old_retention": 69.4
+          },
+          "mean_old_transitions": {
+            "CONTINUED_PASS": 66.8,
+            "NEW_FAILURE": 37.8,
+            "RECOVERED": 3.4,
+            "CONTINUED_FAILURE": 12.0
+          },
+          "mean_old_f1_delta": -0.016050800926199708,
+          "metrics": {
+            "new": {
+              "mean_cell_ba": 0.9253883650644508,
+              "mean_cell_f1": 0.9419113515290409,
+              "ba_failures": 77.8,
+              "f1_failures": 16.4
+            },
+            "old": {
+              "mean_cell_ba": 0.945696348172899,
+              "mean_cell_f1": 0.9587897788029499,
+              "ba_failures": 49.8,
+              "f1_failures": 3.8
+            },
+            "parent_old": {
+              "mean_cell_ba": 0.9691974246176163,
+              "mean_cell_f1": 0.9748405797291495,
+              "ba_failures": 15.4,
+              "f1_failures": 0.2
+            }
+          }
+        },
+        "DISPERSED_BALANCED": {
+          "passes": 0,
+          "mean_failure_counts": {
+            "parent_old_quality": 15.4,
+            "new_quality": 73.4,
+            "old_quality": 49.4,
+            "old_retention": 72.0
+          },
+          "mean_old_transitions": {
+            "CONTINUED_PASS": 66.0,
+            "NEW_FAILURE": 38.6,
+            "RECOVERED": 4.6,
+            "CONTINUED_FAILURE": 10.8
+          },
+          "mean_old_f1_delta": -0.01692425853711989,
+          "metrics": {
+            "new": {
+              "mean_cell_ba": 0.9298673941897373,
+              "mean_cell_f1": 0.9435691553790392,
+              "ba_failures": 73.2,
+              "f1_failures": 16.0
+            },
+            "old": {
+              "mean_cell_ba": 0.9481218120855583,
+              "mean_cell_f1": 0.9579163211920296,
+              "ba_failures": 49.4,
+              "f1_failures": 3.8
+            },
+            "parent_old": {
+              "mean_cell_ba": 0.9691974246176163,
+              "mean_cell_f1": 0.9748405797291495,
+              "ba_failures": 15.4,
+              "f1_failures": 0.2
+            }
+          }
+        }
+      },
+      "rows": [
+        {
+          "seed": 610200,
+          "arm": "ORDERED",
+          "candidate_gate": "FAIL",
+          "failure_counts": {
+            "parent_old_quality": 18,
+            "new_quality": 78,
+            "old_quality": 67,
+            "old_retention": 95
+          },
+          "old_transitions": {
+            "CONTINUED_PASS": 50,
+            "NEW_FAILURE": 52,
+            "CONTINUED_FAILURE": 15,
+            "RECOVERED": 3
+          },
+          "worst_old_f1_delta": -0.12760416666666663,
+          "mean_old_f1_delta": -0.03000678747344584,
+          "metrics": {
+            "new": {
+              "mean_cell_ba": 0.9288543930328184,
+              "mean_cell_f1": 0.9455203510250464,
+              "ba_failures": 77,
+              "f1_failures": 12,
+              "quality_by_length": {
+                "1": 14,
+                "2": 18,
+                "4": 15,
+                "8": 15,
+                "16": 16
+              }
+            },
+            "old": {
+              "mean_cell_ba": 0.9316426542022219,
+              "mean_cell_f1": 0.9416312738065195,
+              "ba_failures": 67,
+              "f1_failures": 17,
+              "quality_by_length": {
+                "1": 14,
+                "2": 13,
+                "4": 13,
+                "8": 13,
+                "16": 14
+              }
+            },
+            "parent_old": {
+              "mean_cell_ba": 0.9667842915186858,
+              "mean_cell_f1": 0.9716380612799653,
+              "ba_failures": 18,
+              "f1_failures": 1,
+              "quality_by_length": {
+                "1": 4,
+                "2": 4,
+                "4": 4,
+                "8": 3,
+                "16": 3
+              }
+            }
+          },
+          "recorded_batch_losses": [
+            {
+              "loss": 0.10671380162239075,
+              "retention": 0.0,
+              "step": 16,
+              "task": 0.10671380162239075
+            },
+            {
+              "loss": 0.1295083612203598,
+              "retention": 0.0,
+              "step": 64,
+              "task": 0.1295083612203598
+            },
+            {
+              "loss": 0.10368320345878601,
+              "retention": 0.0,
+              "step": 256,
+              "task": 0.10368320345878601
+            }
+          ]
+        },
+        {
+          "seed": 610200,
+          "arm": "DISPERSED_MATCHED",
+          "candidate_gate": "FAIL",
+          "failure_counts": {
+            "parent_old_quality": 18,
+            "new_quality": 82,
+            "old_quality": 46,
+            "old_retention": 62
+          },
+          "old_transitions": {
+            "CONTINUED_PASS": 67,
+            "NEW_FAILURE": 35,
+            "CONTINUED_FAILURE": 11,
+            "RECOVERED": 7
+          },
+          "worst_old_f1_delta": -0.09799107142857144,
+          "mean_old_f1_delta": -0.013461803383019518,
+          "metrics": {
+            "new": {
+              "mean_cell_ba": 0.926391523612759,
+              "mean_cell_f1": 0.9422510907704844,
+              "ba_failures": 82,
+              "f1_failures": 13,
+              "quality_by_length": {
+                "1": 16,
+                "2": 17,
+                "4": 17,
+                "8": 15,
+                "16": 17
+              }
+            },
+            "old": {
+              "mean_cell_ba": 0.9453577635763627,
+              "mean_cell_f1": 0.9581762578969458,
+              "ba_failures": 46,
+              "f1_failures": 6,
+              "quality_by_length": {
+                "1": 11,
+                "2": 8,
+                "4": 9,
+                "8": 10,
+                "16": 8
+              }
+            },
+            "parent_old": {
+              "mean_cell_ba": 0.9667842915186858,
+              "mean_cell_f1": 0.9716380612799653,
+              "ba_failures": 18,
+              "f1_failures": 1,
+              "quality_by_length": {
+                "1": 4,
+                "2": 4,
+                "4": 4,
+                "8": 3,
+                "16": 3
+              }
+            }
+          },
+          "recorded_batch_losses": [
+            {
+              "loss": 0.1509440392255783,
+              "retention": 0.0,
+              "step": 16,
+              "task": 0.1509440392255783
+            },
+            {
+              "loss": 0.2361936718225479,
+              "retention": 0.0,
+              "step": 64,
+              "task": 0.2361936718225479
+            },
+            {
+              "loss": 0.21756744384765625,
+              "retention": 0.0,
+              "step": 256,
+              "task": 0.21756744384765625
+            }
+          ]
+        },
+        {
+          "seed": 610200,
+          "arm": "DISPERSED_BALANCED",
+          "candidate_gate": "FAIL",
+          "failure_counts": {
+            "parent_old_quality": 18,
+            "new_quality": 70,
+            "old_quality": 57,
+            "old_retention": 74
+          },
+          "old_transitions": {
+            "CONTINUED_PASS": 59,
+            "NEW_FAILURE": 43,
+            "CONTINUED_FAILURE": 14,
+            "RECOVERED": 4
+          },
+          "worst_old_f1_delta": -0.07734375000000004,
+          "mean_old_f1_delta": -0.017136733974807947,
+          "metrics": {
+            "new": {
+              "mean_cell_ba": 0.9329482413982929,
+              "mean_cell_f1": 0.9448493005078458,
+              "ba_failures": 70,
+              "f1_failures": 13,
+              "quality_by_length": {
+                "1": 14,
+                "2": 13,
+                "4": 13,
+                "8": 14,
+                "16": 16
+              }
+            },
+            "old": {
+              "mean_cell_ba": 0.9477648893568186,
+              "mean_cell_f1": 0.9545013273051574,
+              "ba_failures": 57,
+              "f1_failures": 6,
+              "quality_by_length": {
+                "1": 12,
+                "2": 11,
+                "4": 11,
+                "8": 11,
+                "16": 12
+              }
+            },
+            "parent_old": {
+              "mean_cell_ba": 0.9667842915186858,
+              "mean_cell_f1": 0.9716380612799653,
+              "ba_failures": 18,
+              "f1_failures": 1,
+              "quality_by_length": {
+                "1": 4,
+                "2": 4,
+                "4": 4,
+                "8": 3,
+                "16": 3
+              }
+            }
+          },
+          "recorded_batch_losses": [
+            {
+              "loss": 0.23111853003501892,
+              "retention": 0.0,
+              "step": 16,
+              "task": 0.23111853003501892
+            },
+            {
+              "loss": 0.36279919743537903,
+              "retention": 0.0,
+              "step": 64,
+              "task": 0.36279919743537903
+            },
+            {
+              "loss": 0.08025258779525757,
+              "retention": 0.0,
+              "step": 256,
+              "task": 0.08025258779525757
+            }
+          ]
+        },
+        {
+          "seed": 610201,
+          "arm": "ORDERED",
+          "candidate_gate": "FAIL",
+          "failure_counts": {
+            "parent_old_quality": 10,
+            "new_quality": 75,
+            "old_quality": 45,
+            "old_retention": 76
+          },
+          "old_transitions": {
+            "CONTINUED_PASS": 72,
+            "NEW_FAILURE": 38,
+            "CONTINUED_FAILURE": 7,
+            "RECOVERED": 3
+          },
+          "worst_old_f1_delta": -0.07146577380952379,
+          "mean_old_f1_delta": -0.018387802424154453,
+          "metrics": {
+            "new": {
+              "mean_cell_ba": 0.9219706264279586,
+              "mean_cell_f1": 0.9410391325790762,
+              "ba_failures": 75,
+              "f1_failures": 17,
+              "quality_by_length": {
+                "1": 14,
+                "2": 14,
+                "4": 16,
+                "8": 14,
+                "16": 17
+              }
+            },
+            "old": {
+              "mean_cell_ba": 0.9485017529540613,
+              "mean_cell_f1": 0.9595686043351737,
+              "ba_failures": 45,
+              "f1_failures": 2,
+              "quality_by_length": {
+                "1": 10,
+                "2": 8,
+                "4": 10,
+                "8": 8,
+                "16": 9
+              }
+            },
+            "parent_old": {
+              "mean_cell_ba": 0.9714648789056273,
+              "mean_cell_f1": 0.977956406759328,
+              "ba_failures": 10,
+              "f1_failures": 0,
+              "quality_by_length": {
+                "1": 2,
+                "2": 2,
+                "4": 2,
+                "8": 2,
+                "16": 2
+              }
+            }
+          },
+          "recorded_batch_losses": [
+            {
+              "loss": 0.07341078668832779,
+              "retention": 0.0,
+              "step": 16,
+              "task": 0.07341078668832779
+            },
+            {
+              "loss": 0.1892947554588318,
+              "retention": 0.0,
+              "step": 64,
+              "task": 0.1892947554588318
+            },
+            {
+              "loss": 0.16439758241176605,
+              "retention": 0.0,
+              "step": 256,
+              "task": 0.16439758241176605
+            }
+          ]
+        },
+        {
+          "seed": 610201,
+          "arm": "DISPERSED_MATCHED",
+          "candidate_gate": "FAIL",
+          "failure_counts": {
+            "parent_old_quality": 10,
+            "new_quality": 70,
+            "old_quality": 40,
+            "old_retention": 63
+          },
+          "old_transitions": {
+            "CONTINUED_PASS": 77,
+            "NEW_FAILURE": 33,
+            "CONTINUED_FAILURE": 7,
+            "RECOVERED": 3
+          },
+          "worst_old_f1_delta": -0.09959077380952386,
+          "mean_old_f1_delta": -0.014306998430954199,
+          "metrics": {
+            "new": {
+              "mean_cell_ba": 0.9326761187547923,
+              "mean_cell_f1": 0.9460264807498521,
+              "ba_failures": 70,
+              "f1_failures": 17,
+              "quality_by_length": {
+                "1": 12,
+                "2": 13,
+                "4": 16,
+                "8": 13,
+                "16": 16
+              }
+            },
+            "old": {
+              "mean_cell_ba": 0.9492988099415272,
+              "mean_cell_f1": 0.963649408328374,
+              "ba_failures": 40,
+              "f1_failures": 4,
+              "quality_by_length": {
+                "1": 9,
+                "2": 10,
+                "4": 7,
+                "8": 7,
+                "16": 7
+              }
+            },
+            "parent_old": {
+              "mean_cell_ba": 0.9714648789056273,
+              "mean_cell_f1": 0.977956406759328,
+              "ba_failures": 10,
+              "f1_failures": 0,
+              "quality_by_length": {
+                "1": 2,
+                "2": 2,
+                "4": 2,
+                "8": 2,
+                "16": 2
+              }
+            }
+          },
+          "recorded_batch_losses": [
+            {
+              "loss": 0.1301802098751068,
+              "retention": 0.0,
+              "step": 16,
+              "task": 0.1301802098751068
+            },
+            {
+              "loss": 0.24007585644721985,
+              "retention": 0.0,
+              "step": 64,
+              "task": 0.24007585644721985
+            },
+            {
+              "loss": 0.11771894991397858,
+              "retention": 0.0,
+              "step": 256,
+              "task": 0.11771894991397858
+            }
+          ]
+        },
+        {
+          "seed": 610201,
+          "arm": "DISPERSED_BALANCED",
+          "candidate_gate": "FAIL",
+          "failure_counts": {
+            "parent_old_quality": 10,
+            "new_quality": 63,
+            "old_quality": 38,
+            "old_retention": 65
+          },
+          "old_transitions": {
+            "CONTINUED_PASS": 78,
+            "NEW_FAILURE": 32,
+            "CONTINUED_FAILURE": 6,
+            "RECOVERED": 4
+          },
+          "worst_old_f1_delta": -0.06781994047619055,
+          "mean_old_f1_delta": -0.013860401223225006,
+          "metrics": {
+            "new": {
+              "mean_cell_ba": 0.9361900333691711,
+              "mean_cell_f1": 0.9465487840433399,
+              "ba_failures": 63,
+              "f1_failures": 17,
+              "quality_by_length": {
+                "1": 9,
+                "2": 12,
+                "4": 14,
+                "8": 12,
+                "16": 16
+              }
+            },
+            "old": {
+              "mean_cell_ba": 0.9528596146847336,
+              "mean_cell_f1": 0.9640960055361031,
+              "ba_failures": 38,
+              "f1_failures": 2,
+              "quality_by_length": {
+                "1": 7,
+                "2": 9,
+                "4": 7,
+                "8": 8,
+                "16": 7
+              }
+            },
+            "parent_old": {
+              "mean_cell_ba": 0.9714648789056273,
+              "mean_cell_f1": 0.977956406759328,
+              "ba_failures": 10,
+              "f1_failures": 0,
+              "quality_by_length": {
+                "1": 2,
+                "2": 2,
+                "4": 2,
+                "8": 2,
+                "16": 2
+              }
+            }
+          },
+          "recorded_batch_losses": [
+            {
+              "loss": 0.22297260165214539,
+              "retention": 0.0,
+              "step": 16,
+              "task": 0.22297260165214539
+            },
+            {
+              "loss": 0.28510943055152893,
+              "retention": 0.0,
+              "step": 64,
+              "task": 0.28510943055152893
+            },
+            {
+              "loss": 0.11032567918300629,
+              "retention": 0.0,
+              "step": 256,
+              "task": 0.11032567918300629
+            }
+          ]
+        },
+        {
+          "seed": 610202,
+          "arm": "ORDERED",
+          "candidate_gate": "FAIL",
+          "failure_counts": {
+            "parent_old_quality": 17,
+            "new_quality": 74,
+            "old_quality": 63,
+            "old_retention": 87
+          },
+          "old_transitions": {
+            "CONTINUED_PASS": 53,
+            "NEW_FAILURE": 50,
+            "CONTINUED_FAILURE": 13,
+            "RECOVERED": 4
+          },
+          "worst_old_f1_delta": -0.09200148809523812,
+          "mean_old_f1_delta": -0.02291889046182701,
+          "metrics": {
+            "new": {
+              "mean_cell_ba": 0.9289892508100575,
+              "mean_cell_f1": 0.9455113606574169,
+              "ba_failures": 73,
+              "f1_failures": 14,
+              "quality_by_length": {
+                "1": 15,
+                "2": 14,
+                "4": 16,
+                "8": 14,
+                "16": 15
+              }
+            },
+            "old": {
+              "mean_cell_ba": 0.9424578195130836,
+              "mean_cell_f1": 0.9509821468409407,
+              "ba_failures": 63,
+              "f1_failures": 6,
+              "quality_by_length": {
+                "1": 10,
+                "2": 13,
+                "4": 15,
+                "8": 13,
+                "16": 12
+              }
+            },
+            "parent_old": {
+              "mean_cell_ba": 0.9686606510156861,
+              "mean_cell_f1": 0.9739010373027678,
+              "ba_failures": 17,
+              "f1_failures": 0,
+              "quality_by_length": {
+                "1": 3,
+                "2": 3,
+                "4": 5,
+                "8": 4,
+                "16": 2
+              }
+            }
+          },
+          "recorded_batch_losses": [
+            {
+              "loss": 0.10355131328105927,
+              "retention": 0.0,
+              "step": 16,
+              "task": 0.10355131328105927
+            },
+            {
+              "loss": 0.18107998371124268,
+              "retention": 0.0,
+              "step": 64,
+              "task": 0.18107998371124268
+            },
+            {
+              "loss": 0.11357146501541138,
+              "retention": 0.0,
+              "step": 256,
+              "task": 0.11357146501541138
+            }
+          ]
+        },
+        {
+          "seed": 610202,
+          "arm": "DISPERSED_MATCHED",
+          "candidate_gate": "FAIL",
+          "failure_counts": {
+            "parent_old_quality": 17,
+            "new_quality": 83,
+            "old_quality": 55,
+            "old_retention": 70
+          },
+          "old_transitions": {
+            "CONTINUED_PASS": 61,
+            "NEW_FAILURE": 42,
+            "CONTINUED_FAILURE": 13,
+            "RECOVERED": 4
+          },
+          "worst_old_f1_delta": -0.06886160714285716,
+          "mean_old_f1_delta": -0.015585081899240483,
+          "metrics": {
+            "new": {
+              "mean_cell_ba": 0.9231475563194389,
+              "mean_cell_f1": 0.9417246199196604,
+              "ba_failures": 80,
+              "f1_failures": 16,
+              "quality_by_length": {
+                "1": 16,
+                "2": 16,
+                "4": 17,
+                "8": 17,
+                "16": 17
+              }
+            },
+            "old": {
+              "mean_cell_ba": 0.9447340933888836,
+              "mean_cell_f1": 0.9583159554035273,
+              "ba_failures": 55,
+              "f1_failures": 2,
+              "quality_by_length": {
+                "1": 10,
+                "2": 12,
+                "4": 13,
+                "8": 9,
+                "16": 11
+              }
+            },
+            "parent_old": {
+              "mean_cell_ba": 0.9686606510156861,
+              "mean_cell_f1": 0.9739010373027678,
+              "ba_failures": 17,
+              "f1_failures": 0,
+              "quality_by_length": {
+                "1": 3,
+                "2": 3,
+                "4": 5,
+                "8": 4,
+                "16": 2
+              }
+            }
+          },
+          "recorded_batch_losses": [
+            {
+              "loss": 0.14909876883029938,
+              "retention": 0.0,
+              "step": 16,
+              "task": 0.14909876883029938
+            },
+            {
+              "loss": 0.2203672081232071,
+              "retention": 0.0,
+              "step": 64,
+              "task": 0.2203672081232071
+            },
+            {
+              "loss": 0.17255790531635284,
+              "retention": 0.0,
+              "step": 256,
+              "task": 0.17255790531635284
+            }
+          ]
+        },
+        {
+          "seed": 610202,
+          "arm": "DISPERSED_BALANCED",
+          "candidate_gate": "FAIL",
+          "failure_counts": {
+            "parent_old_quality": 17,
+            "new_quality": 78,
+            "old_quality": 51,
+            "old_retention": 73
+          },
+          "old_transitions": {
+            "CONTINUED_PASS": 63,
+            "NEW_FAILURE": 40,
+            "CONTINUED_FAILURE": 11,
+            "RECOVERED": 6
+          },
+          "worst_old_f1_delta": -0.07064732142857144,
+          "mean_old_f1_delta": -0.017665174218906506,
+          "metrics": {
+            "new": {
+              "mean_cell_ba": 0.9276528491249433,
+              "mean_cell_f1": 0.9436021166707658,
+              "ba_failures": 77,
+              "f1_failures": 14,
+              "quality_by_length": {
+                "1": 16,
+                "2": 15,
+                "4": 17,
+                "8": 15,
+                "16": 15
+              }
+            },
+            "old": {
+              "mean_cell_ba": 0.9462196833918365,
+              "mean_cell_f1": 0.9562358630838613,
+              "ba_failures": 51,
+              "f1_failures": 5,
+              "quality_by_length": {
+                "1": 9,
+                "2": 12,
+                "4": 12,
+                "8": 9,
+                "16": 9
+              }
+            },
+            "parent_old": {
+              "mean_cell_ba": 0.9686606510156861,
+              "mean_cell_f1": 0.9739010373027678,
+              "ba_failures": 17,
+              "f1_failures": 0,
+              "quality_by_length": {
+                "1": 3,
+                "2": 3,
+                "4": 5,
+                "8": 4,
+                "16": 2
+              }
+            }
+          },
+          "recorded_batch_losses": [
+            {
+              "loss": 0.26771992444992065,
+              "retention": 0.0,
+              "step": 16,
+              "task": 0.26771992444992065
+            },
+            {
+              "loss": 0.2949049174785614,
+              "retention": 0.0,
+              "step": 64,
+              "task": 0.2949049174785614
+            },
+            {
+              "loss": 0.08765825629234314,
+              "retention": 0.0,
+              "step": 256,
+              "task": 0.08765825629234314
+            }
+          ]
+        },
+        {
+          "seed": 610203,
+          "arm": "ORDERED",
+          "candidate_gate": "FAIL",
+          "failure_counts": {
+            "parent_old_quality": 14,
+            "new_quality": 89,
+            "old_quality": 66,
+            "old_retention": 85
+          },
+          "old_transitions": {
+            "CONTINUED_PASS": 52,
+            "NEW_FAILURE": 54,
+            "CONTINUED_FAILURE": 12,
+            "RECOVERED": 2
+          },
+          "worst_old_f1_delta": -0.0900421626984127,
+          "mean_old_f1_delta": -0.024269418077660202,
+          "metrics": {
+            "new": {
+              "mean_cell_ba": 0.9150783787395991,
+              "mean_cell_f1": 0.9358356506495664,
+              "ba_failures": 88,
+              "f1_failures": 18,
+              "quality_by_length": {
+                "1": 17,
+                "2": 16,
+                "4": 18,
+                "8": 17,
+                "16": 21
+              }
+            },
+            "old": {
+              "mean_cell_ba": 0.9400115959371864,
+              "mean_cell_f1": 0.951434911043025,
+              "ba_failures": 66,
+              "f1_failures": 6,
+              "quality_by_length": {
+                "1": 12,
+                "2": 13,
+                "4": 14,
+                "8": 13,
+                "16": 14
+              }
+            },
+            "parent_old": {
+              "mean_cell_ba": 0.9706346944744312,
+              "mean_cell_f1": 0.9757043291206853,
+              "ba_failures": 14,
+              "f1_failures": 0,
+              "quality_by_length": {
+                "1": 4,
+                "2": 2,
+                "4": 3,
+                "8": 3,
+                "16": 2
+              }
+            }
+          },
+          "recorded_batch_losses": [
+            {
+              "loss": 0.10481056571006775,
+              "retention": 0.0,
+              "step": 16,
+              "task": 0.10481056571006775
+            },
+            {
+              "loss": 0.19102081656455994,
+              "retention": 0.0,
+              "step": 64,
+              "task": 0.19102081656455994
+            },
+            {
+              "loss": 0.17990505695343018,
+              "retention": 0.0,
+              "step": 256,
+              "task": 0.17990505695343018
+            }
+          ]
+        },
+        {
+          "seed": 610203,
+          "arm": "DISPERSED_MATCHED",
+          "candidate_gate": "FAIL",
+          "failure_counts": {
+            "parent_old_quality": 14,
+            "new_quality": 83,
+            "old_quality": 64,
+            "old_retention": 86
+          },
+          "old_transitions": {
+            "CONTINUED_PASS": 54,
+            "NEW_FAILURE": 52,
+            "CONTINUED_FAILURE": 12,
+            "RECOVERED": 2
+          },
+          "worst_old_f1_delta": -0.09055059523809528,
+          "mean_old_f1_delta": -0.02361312941209205,
+          "metrics": {
+            "new": {
+              "mean_cell_ba": 0.9239606106703885,
+              "mean_cell_f1": 0.9377881428915485,
+              "ba_failures": 82,
+              "f1_failures": 20,
+              "quality_by_length": {
+                "1": 18,
+                "2": 16,
+                "4": 16,
+                "8": 15,
+                "16": 18
+              }
+            },
+            "old": {
+              "mean_cell_ba": 0.9408039530950723,
+              "mean_cell_f1": 0.9520911997085932,
+              "ba_failures": 64,
+              "f1_failures": 6,
+              "quality_by_length": {
+                "1": 13,
+                "2": 13,
+                "4": 13,
+                "8": 12,
+                "16": 13
+              }
+            },
+            "parent_old": {
+              "mean_cell_ba": 0.9706346944744312,
+              "mean_cell_f1": 0.9757043291206853,
+              "ba_failures": 14,
+              "f1_failures": 0,
+              "quality_by_length": {
+                "1": 4,
+                "2": 2,
+                "4": 3,
+                "8": 3,
+                "16": 2
+              }
+            }
+          },
+          "recorded_batch_losses": [
+            {
+              "loss": 0.13695479929447174,
+              "retention": 0.0,
+              "step": 16,
+              "task": 0.13695479929447174
+            },
+            {
+              "loss": 0.2582821846008301,
+              "retention": 0.0,
+              "step": 64,
+              "task": 0.2582821846008301
+            },
+            {
+              "loss": 0.18476377427577972,
+              "retention": 0.0,
+              "step": 256,
+              "task": 0.18476377427577972
+            }
+          ]
+        },
+        {
+          "seed": 610203,
+          "arm": "DISPERSED_BALANCED",
+          "candidate_gate": "FAIL",
+          "failure_counts": {
+            "parent_old_quality": 14,
+            "new_quality": 81,
+            "old_quality": 61,
+            "old_retention": 84
+          },
+          "old_transitions": {
+            "CONTINUED_PASS": 55,
+            "NEW_FAILURE": 51,
+            "CONTINUED_FAILURE": 10,
+            "RECOVERED": 4
+          },
+          "worst_old_f1_delta": -0.08431299603174602,
+          "mean_old_f1_delta": -0.021306319077205576,
+          "metrics": {
+            "new": {
+              "mean_cell_ba": 0.9280083967297006,
+              "mean_cell_f1": 0.9400991228907737,
+              "ba_failures": 81,
+              "f1_failures": 19,
+              "quality_by_length": {
+                "1": 16,
+                "2": 15,
+                "4": 17,
+                "8": 15,
+                "16": 18
+              }
+            },
+            "old": {
+              "mean_cell_ba": 0.9461805744706913,
+              "mean_cell_f1": 0.9543980100434798,
+              "ba_failures": 61,
+              "f1_failures": 5,
+              "quality_by_length": {
+                "1": 9,
+                "2": 12,
+                "4": 14,
+                "8": 12,
+                "16": 14
+              }
+            },
+            "parent_old": {
+              "mean_cell_ba": 0.9706346944744312,
+              "mean_cell_f1": 0.9757043291206853,
+              "ba_failures": 14,
+              "f1_failures": 0,
+              "quality_by_length": {
+                "1": 4,
+                "2": 2,
+                "4": 3,
+                "8": 3,
+                "16": 2
+              }
+            }
+          },
+          "recorded_batch_losses": [
+            {
+              "loss": 0.3237193524837494,
+              "retention": 0.0,
+              "step": 16,
+              "task": 0.3237193524837494
+            },
+            {
+              "loss": 0.27244654297828674,
+              "retention": 0.0,
+              "step": 64,
+              "task": 0.27244654297828674
+            },
+            {
+              "loss": 0.11678957939147949,
+              "retention": 0.0,
+              "step": 256,
+              "task": 0.11678957939147949
+            }
+          ]
+        },
+        {
+          "seed": 610204,
+          "arm": "ORDERED",
+          "candidate_gate": "FAIL",
+          "failure_counts": {
+            "parent_old_quality": 18,
+            "new_quality": 84,
+            "old_quality": 45,
+            "old_retention": 63
+          },
+          "old_transitions": {
+            "CONTINUED_PASS": 71,
+            "NEW_FAILURE": 31,
+            "CONTINUED_FAILURE": 14,
+            "RECOVERED": 4
+          },
+          "worst_old_f1_delta": -0.1015625,
+          "mean_old_f1_delta": -0.013958593284344971,
+          "metrics": {
+            "new": {
+              "mean_cell_ba": 0.9116384384413372,
+              "mean_cell_f1": 0.9358505541632076,
+              "ba_failures": 81,
+              "f1_failures": 21,
+              "quality_by_length": {
+                "1": 16,
+                "2": 16,
+                "4": 17,
+                "8": 17,
+                "16": 18
+              }
+            },
+            "old": {
+              "mean_cell_ba": 0.9450689568805489,
+              "mean_cell_f1": 0.9610444708986563,
+              "ba_failures": 45,
+              "f1_failures": 3,
+              "quality_by_length": {
+                "1": 8,
+                "2": 11,
+                "4": 10,
+                "8": 8,
+                "16": 8
+              }
+            },
+            "parent_old": {
+              "mean_cell_ba": 0.9684426071736508,
+              "mean_cell_f1": 0.9750030641830012,
+              "ba_failures": 18,
+              "f1_failures": 0,
+              "quality_by_length": {
+                "1": 4,
+                "2": 4,
+                "4": 4,
+                "8": 4,
+                "16": 2
+              }
+            }
+          },
+          "recorded_batch_losses": [
+            {
+              "loss": 0.1814560890197754,
+              "retention": 0.0,
+              "step": 16,
+              "task": 0.1814560890197754
+            },
+            {
+              "loss": 0.24027621746063232,
+              "retention": 0.0,
+              "step": 64,
+              "task": 0.24027621746063232
+            },
+            {
+              "loss": 0.14306843280792236,
+              "retention": 0.0,
+              "step": 256,
+              "task": 0.14306843280792236
+            }
+          ]
+        },
+        {
+          "seed": 610204,
+          "arm": "DISPERSED_MATCHED",
+          "candidate_gate": "FAIL",
+          "failure_counts": {
+            "parent_old_quality": 18,
+            "new_quality": 77,
+            "old_quality": 44,
+            "old_retention": 66
+          },
+          "old_transitions": {
+            "CONTINUED_PASS": 75,
+            "NEW_FAILURE": 27,
+            "CONTINUED_FAILURE": 17,
+            "RECOVERED": 1
+          },
+          "worst_old_f1_delta": -0.09635416666666674,
+          "mean_old_f1_delta": -0.013286991505692286,
+          "metrics": {
+            "new": {
+              "mean_cell_ba": 0.9207660159648746,
+              "mean_cell_f1": 0.941766423313659,
+              "ba_failures": 75,
+              "f1_failures": 16,
+              "quality_by_length": {
+                "1": 14,
+                "2": 15,
+                "4": 17,
+                "8": 15,
+                "16": 16
+              }
+            },
+            "old": {
+              "mean_cell_ba": 0.9482871208626497,
+              "mean_cell_f1": 0.961716072677309,
+              "ba_failures": 44,
+              "f1_failures": 1,
+              "quality_by_length": {
+                "1": 8,
+                "2": 8,
+                "4": 9,
+                "8": 10,
+                "16": 9
+              }
+            },
+            "parent_old": {
+              "mean_cell_ba": 0.9684426071736508,
+              "mean_cell_f1": 0.9750030641830012,
+              "ba_failures": 18,
+              "f1_failures": 0,
+              "quality_by_length": {
+                "1": 4,
+                "2": 4,
+                "4": 4,
+                "8": 4,
+                "16": 2
+              }
+            }
+          },
+          "recorded_batch_losses": [
+            {
+              "loss": 0.18276390433311462,
+              "retention": 0.0,
+              "step": 16,
+              "task": 0.18276390433311462
+            },
+            {
+              "loss": 0.33682143688201904,
+              "retention": 0.0,
+              "step": 64,
+              "task": 0.33682143688201904
+            },
+            {
+              "loss": 0.14809831976890564,
+              "retention": 0.0,
+              "step": 256,
+              "task": 0.14809831976890564
+            }
+          ]
+        },
+        {
+          "seed": 610204,
+          "arm": "DISPERSED_BALANCED",
+          "candidate_gate": "FAIL",
+          "failure_counts": {
+            "parent_old_quality": 18,
+            "new_quality": 75,
+            "old_quality": 40,
+            "old_retention": 64
+          },
+          "old_transitions": {
+            "CONTINUED_PASS": 75,
+            "NEW_FAILURE": 27,
+            "CONTINUED_FAILURE": 13,
+            "RECOVERED": 5
+          },
+          "worst_old_f1_delta": -0.078125,
+          "mean_old_f1_delta": -0.014652664191454423,
+          "metrics": {
+            "new": {
+              "mean_cell_ba": 0.9245374503265791,
+              "mean_cell_f1": 0.9427464527824704,
+              "ba_failures": 75,
+              "f1_failures": 17,
+              "quality_by_length": {
+                "1": 15,
+                "2": 15,
+                "4": 15,
+                "8": 14,
+                "16": 16
+              }
+            },
+            "old": {
+              "mean_cell_ba": 0.9475842985237118,
+              "mean_cell_f1": 0.9603503999915468,
+              "ba_failures": 40,
+              "f1_failures": 1,
+              "quality_by_length": {
+                "1": 8,
+                "2": 9,
+                "4": 7,
+                "8": 7,
+                "16": 9
+              }
+            },
+            "parent_old": {
+              "mean_cell_ba": 0.9684426071736508,
+              "mean_cell_f1": 0.9750030641830012,
+              "ba_failures": 18,
+              "f1_failures": 0,
+              "quality_by_length": {
+                "1": 4,
+                "2": 4,
+                "4": 4,
+                "8": 4,
+                "16": 2
+              }
+            }
+          },
+          "recorded_batch_losses": [
+            {
+              "loss": 0.3530852198600769,
+              "retention": 0.0,
+              "step": 16,
+              "task": 0.3530852198600769
+            },
+            {
+              "loss": 0.25887399911880493,
+              "retention": 0.0,
+              "step": 64,
+              "task": 0.25887399911880493
+            },
+            {
+              "loss": 0.11821085214614868,
+              "retention": 0.0,
+              "step": 256,
+              "task": 0.11821085214614868
+            }
+          ]
+        }
+      ]
+    },
+    "R": {
+      "input": "runs\\cnp_repair\\r001r\\rcnp001r_retention1\\report.json",
+      "sha256": "3fbfbef154379a4bb6b565dd6142b6c7e58b4819228898d06380289b5aa6b4a1",
+      "run_directory_files": [
+        "candidate_lambda_0_seed_610200.pt",
+        "candidate_lambda_0_seed_610201.pt",
+        "candidate_lambda_0_seed_610202.pt",
+        "candidate_lambda_0_seed_610203.pt",
+        "candidate_lambda_0_seed_610204.pt",
+        "candidate_lambda_1_seed_610200.pt",
+        "candidate_lambda_1_seed_610201.pt",
+        "candidate_lambda_1_seed_610202.pt",
+        "candidate_lambda_1_seed_610203.pt",
+        "candidate_lambda_1_seed_610204.pt",
+        "data_manifest.json",
+        "report.json",
+        "run_manifest.json",
+        "schedule_LAMBDA_0_new.jsonl",
+        "schedule_LAMBDA_0_replay.jsonl",
+        "schedule_LAMBDA_1_new.jsonl",
+        "schedule_LAMBDA_1_replay.jsonl",
+        "schedule_audit.json"
+      ],
+      "schedule_arithmetic_pass": true,
+      "schedule_sha256": {
+        "LAMBDA_0/new": "d83512c6ea206bc12229f3038aee6097b269de71b1762c14883c739fccfad72e",
+        "LAMBDA_0/replay": "21b6afe814be389cc9afda9c3d85b5f60843e1de5dcb8baf8513a331f8691131",
+        "LAMBDA_1/new": "d83512c6ea206bc12229f3038aee6097b269de71b1762c14883c739fccfad72e",
+        "LAMBDA_1/replay": "21b6afe814be389cc9afda9c3d85b5f60843e1de5dcb8baf8513a331f8691131"
+      },
+      "saved_status": "R_DIAGNOSTIC_FAIL_STOP",
+      "set_records_verified": 460800,
+      "summaries_and_failure_lists_match": true,
+      "base_hashes_match": true,
+      "panel_input_ids_match_across_arms_and_seeds": true,
+      "groups": {
+        "LAMBDA_0": {
+          "passes": 0,
+          "mean_failure_counts": {
+            "parent_old_quality": 3.0,
+            "new_quality": 72.2,
+            "old_quality": 52.6,
+            "old_retention": 73.0
+          },
+          "mean_old_transitions": {
+            "CONTINUED_PASS": 66.2,
+            "NEW_FAILURE": 50.8,
+            "RECOVERED": 1.2,
+            "CONTINUED_FAILURE": 1.8
+          },
+          "mean_old_f1_delta": -0.018782022593382776,
+          "metrics": {
+            "new": {
+              "mean_cell_ba": 0.9237217576876329,
+              "mean_cell_f1": 0.9368830031849338,
+              "ba_failures": 72.2,
+              "f1_failures": 24.0
+            },
+            "old": {
+              "mean_cell_ba": 0.9509822606900935,
+              "mean_cell_f1": 0.9576321974282405,
+              "ba_failures": 51.6,
+              "f1_failures": 2.4
+            },
+            "parent_old": {
+              "mean_cell_ba": 0.9766809485031736,
+              "mean_cell_f1": 0.9764142200216233,
+              "ba_failures": 3.0,
+              "f1_failures": 0.0
+            }
+          }
+        },
+        "LAMBDA_1": {
+          "passes": 0,
+          "mean_failure_counts": {
+            "parent_old_quality": 3.0,
+            "new_quality": 107.8,
+            "old_quality": 2.6,
+            "old_retention": 0.4
+          },
+          "mean_old_transitions": {
+            "CONTINUED_PASS": 117.0,
+            "NEW_FAILURE": 0.0,
+            "RECOVERED": 0.4,
+            "CONTINUED_FAILURE": 2.6
+          },
+          "mean_old_f1_delta": 9.424120162662992e-05,
+          "metrics": {
+            "new": {
+              "mean_cell_ba": 0.8787858689555467,
+              "mean_cell_f1": 0.8803001445401755,
+              "ba_failures": 107.8,
+              "f1_failures": 63.4
+            },
+            "old": {
+              "mean_cell_ba": 0.976699393664531,
+              "mean_cell_f1": 0.97650846122325,
+              "ba_failures": 2.6,
+              "f1_failures": 0.0
+            },
+            "parent_old": {
+              "mean_cell_ba": 0.9766809485031736,
+              "mean_cell_f1": 0.9764142200216233,
+              "ba_failures": 3.0,
+              "f1_failures": 0.0
+            }
+          }
+        }
+      },
+      "rows": [
+        {
+          "seed": 610200,
+          "arm": "LAMBDA_0",
+          "candidate_gate": "FAIL",
+          "failure_counts": {
+            "parent_old_quality": 3,
+            "new_quality": 75,
+            "old_quality": 48,
+            "old_retention": 71
+          },
+          "old_transitions": {
+            "NEW_FAILURE": 46,
+            "CONTINUED_PASS": 71,
+            "CONTINUED_FAILURE": 2,
+            "RECOVERED": 1
+          },
+          "worst_old_f1_delta": -0.0703125,
+          "mean_old_f1_delta": -0.017153359280236095,
+          "metrics": {
+            "new": {
+              "mean_cell_ba": 0.9199275466155981,
+              "mean_cell_f1": 0.9350438584312825,
+              "ba_failures": 75,
+              "f1_failures": 25,
+              "quality_by_length": {
+                "1": 15,
+                "2": 15,
+                "4": 15,
+                "8": 15,
+                "16": 15
+              }
+            },
+            "old": {
+              "mean_cell_ba": 0.9537436232518587,
+              "mean_cell_f1": 0.9575722618839061,
+              "ba_failures": 48,
+              "f1_failures": 0,
+              "quality_by_length": {
+                "1": 11,
+                "2": 7,
+                "4": 11,
+                "8": 8,
+                "16": 11
+              }
+            },
+            "parent_old": {
+              "mean_cell_ba": 0.9759093369842723,
+              "mean_cell_f1": 0.9747256211641422,
+              "ba_failures": 3,
+              "f1_failures": 0,
+              "quality_by_length": {
+                "1": 1,
+                "2": 1,
+                "4": 1,
+                "8": 0,
+                "16": 0
+              }
+            }
+          },
+          "recorded_batch_losses": [
+            {
+              "loss": 0.16801956295967102,
+              "retention": 13.472428321838379,
+              "step": 16,
+              "task": 0.16801956295967102,
+              "total": 0.16801956295967102
+            },
+            {
+              "loss": 0.2921123504638672,
+              "retention": 11.839914321899414,
+              "step": 64,
+              "task": 0.2921123504638672,
+              "total": 0.2921123504638672
+            },
+            {
+              "loss": 0.21174001693725586,
+              "retention": 9.70440673828125,
+              "step": 256,
+              "task": 0.21174001693725586,
+              "total": 0.21174001693725586
+            }
+          ]
+        },
+        {
+          "seed": 610200,
+          "arm": "LAMBDA_1",
+          "candidate_gate": "FAIL",
+          "failure_counts": {
+            "parent_old_quality": 3,
+            "new_quality": 108,
+            "old_quality": 2,
+            "old_retention": 0
+          },
+          "old_transitions": {
+            "CONTINUED_PASS": 117,
+            "CONTINUED_FAILURE": 2,
+            "RECOVERED": 1
+          },
+          "worst_old_f1_delta": -0.0078125,
+          "mean_old_f1_delta": 0.0002917234554772228,
+          "metrics": {
+            "new": {
+              "mean_cell_ba": 0.8759031463965193,
+              "mean_cell_f1": 0.8740801845761599,
+              "ba_failures": 108,
+              "f1_failures": 67,
+              "quality_by_length": {
+                "1": 21,
+                "2": 23,
+                "4": 20,
+                "8": 22,
+                "16": 22
+              }
+            },
+            "old": {
+              "mean_cell_ba": 0.975988886427384,
+              "mean_cell_f1": 0.9750173446196194,
+              "ba_failures": 2,
+              "f1_failures": 0,
+              "quality_by_length": {
+                "1": 1,
+                "2": 1,
+                "4": 0,
+                "8": 0,
+                "16": 0
+              }
+            },
+            "parent_old": {
+              "mean_cell_ba": 0.9759093369842723,
+              "mean_cell_f1": 0.9747256211641422,
+              "ba_failures": 3,
+              "f1_failures": 0,
+              "quality_by_length": {
+                "1": 1,
+                "2": 1,
+                "4": 1,
+                "8": 0,
+                "16": 0
+              }
+            }
+          },
+          "recorded_batch_losses": [
+            {
+              "loss": 0.2281469702720642,
+              "retention": 0.010365061461925507,
+              "step": 16,
+              "task": 0.2177819013595581,
+              "total": 0.2281469702720642
+            },
+            {
+              "loss": 0.5733242034912109,
+              "retention": 0.003525181207805872,
+              "step": 64,
+              "task": 0.56979900598526,
+              "total": 0.5733242034912109
+            },
+            {
+              "loss": 0.35665711760520935,
+              "retention": 0.014805884100496769,
+              "step": 256,
+              "task": 0.34185123443603516,
+              "total": 0.35665711760520935
+            }
+          ]
+        },
+        {
+          "seed": 610201,
+          "arm": "LAMBDA_0",
+          "candidate_gate": "FAIL",
+          "failure_counts": {
+            "parent_old_quality": 3,
+            "new_quality": 74,
+            "old_quality": 44,
+            "old_retention": 66
+          },
+          "old_transitions": {
+            "NEW_FAILURE": 43,
+            "CONTINUED_PASS": 74,
+            "CONTINUED_FAILURE": 1,
+            "RECOVERED": 2
+          },
+          "worst_old_f1_delta": -0.08666004134754135,
+          "mean_old_f1_delta": -0.0175188271903378,
+          "metrics": {
+            "new": {
+              "mean_cell_ba": 0.9237360428582547,
+              "mean_cell_f1": 0.9358905722436199,
+              "ba_failures": 74,
+              "f1_failures": 24,
+              "quality_by_length": {
+                "1": 15,
+                "2": 16,
+                "4": 13,
+                "8": 15,
+                "16": 15
+              }
+            },
+            "old": {
+              "mean_cell_ba": 0.9546853792482213,
+              "mean_cell_f1": 0.9603766387480702,
+              "ba_failures": 44,
+              "f1_failures": 2,
+              "quality_by_length": {
+                "1": 8,
+                "2": 10,
+                "4": 9,
+                "8": 9,
+                "16": 8
+              }
+            },
+            "parent_old": {
+              "mean_cell_ba": 0.9787083403608757,
+              "mean_cell_f1": 0.977895465938408,
+              "ba_failures": 3,
+              "f1_failures": 0,
+              "quality_by_length": {
+                "1": 1,
+                "2": 2,
+                "4": 0,
+                "8": 0,
+                "16": 0
+              }
+            }
+          },
+          "recorded_batch_losses": [
+            {
+              "loss": 0.15556767582893372,
+              "retention": 8.820594787597656,
+              "step": 16,
+              "task": 0.15556767582893372,
+              "total": 0.15556767582893372
+            },
+            {
+              "loss": 0.2568393051624298,
+              "retention": 9.89019775390625,
+              "step": 64,
+              "task": 0.2568393051624298,
+              "total": 0.2568393051624298
+            },
+            {
+              "loss": 0.19012507796287537,
+              "retention": 11.681645393371582,
+              "step": 256,
+              "task": 0.19012507796287537,
+              "total": 0.19012507796287537
+            }
+          ]
+        },
+        {
+          "seed": 610201,
+          "arm": "LAMBDA_1",
+          "candidate_gate": "FAIL",
+          "failure_counts": {
+            "parent_old_quality": 3,
+            "new_quality": 108,
+            "old_quality": 3,
+            "old_retention": 1
+          },
+          "old_transitions": {
+            "CONTINUED_PASS": 117,
+            "CONTINUED_FAILURE": 3
+          },
+          "worst_old_f1_delta": -0.010863095238095144,
+          "mean_old_f1_delta": -0.0003249026178373693,
+          "metrics": {
+            "new": {
+              "mean_cell_ba": 0.882848997171914,
+              "mean_cell_f1": 0.8851879869095932,
+              "ba_failures": 108,
+              "f1_failures": 57,
+              "quality_by_length": {
+                "1": 21,
+                "2": 22,
+                "4": 21,
+                "8": 22,
+                "16": 22
+              }
+            },
+            "old": {
+              "mean_cell_ba": 0.9785569100808845,
+              "mean_cell_f1": 0.9775705633205707,
+              "ba_failures": 3,
+              "f1_failures": 0,
+              "quality_by_length": {
+                "1": 1,
+                "2": 2,
+                "4": 0,
+                "8": 0,
+                "16": 0
+              }
+            },
+            "parent_old": {
+              "mean_cell_ba": 0.9787083403608757,
+              "mean_cell_f1": 0.977895465938408,
+              "ba_failures": 3,
+              "f1_failures": 0,
+              "quality_by_length": {
+                "1": 1,
+                "2": 2,
+                "4": 0,
+                "8": 0,
+                "16": 0
+              }
+            }
+          },
+          "recorded_batch_losses": [
+            {
+              "loss": 0.24544884264469147,
+              "retention": 0.0010111765004694462,
+              "step": 16,
+              "task": 0.24443766474723816,
+              "total": 0.24544884264469147
+            },
+            {
+              "loss": 0.4662344753742218,
+              "retention": 0.0038471496663987637,
+              "step": 64,
+              "task": 0.4623873233795166,
+              "total": 0.4662344753742218
+            },
+            {
+              "loss": 0.3377654254436493,
+              "retention": 0.012447437271475792,
+              "step": 256,
+              "task": 0.32531797885894775,
+              "total": 0.3377654254436493
+            }
+          ]
+        },
+        {
+          "seed": 610202,
+          "arm": "LAMBDA_0",
+          "candidate_gate": "FAIL",
+          "failure_counts": {
+            "parent_old_quality": 2,
+            "new_quality": 67,
+            "old_quality": 51,
+            "old_retention": 78
+          },
+          "old_transitions": {
+            "CONTINUED_PASS": 68,
+            "NEW_FAILURE": 50,
+            "CONTINUED_FAILURE": 1,
+            "RECOVERED": 1
+          },
+          "worst_old_f1_delta": -0.08741028936341444,
+          "mean_old_f1_delta": -0.019447794820198656,
+          "metrics": {
+            "new": {
+              "mean_cell_ba": 0.9306593037241465,
+              "mean_cell_f1": 0.9403435241591173,
+              "ba_failures": 67,
+              "f1_failures": 22,
+              "quality_by_length": {
+                "1": 17,
+                "2": 15,
+                "4": 11,
+                "8": 12,
+                "16": 12
+              }
+            },
+            "old": {
+              "mean_cell_ba": 0.9518783208039332,
+              "mean_cell_f1": 0.9576210177556789,
+              "ba_failures": 49,
+              "f1_failures": 3,
+              "quality_by_length": {
+                "1": 9,
+                "2": 9,
+                "4": 12,
+                "8": 12,
+                "16": 9
+              }
+            },
+            "parent_old": {
+              "mean_cell_ba": 0.9768203279508629,
+              "mean_cell_f1": 0.9770688125758775,
+              "ba_failures": 2,
+              "f1_failures": 0,
+              "quality_by_length": {
+                "1": 2,
+                "2": 0,
+                "4": 0,
+                "8": 0,
+                "16": 0
+              }
+            }
+          },
+          "recorded_batch_losses": [
+            {
+              "loss": 0.1686897873878479,
+              "retention": 6.185814380645752,
+              "step": 16,
+              "task": 0.1686897873878479,
+              "total": 0.1686897873878479
+            },
+            {
+              "loss": 0.23187032341957092,
+              "retention": 10.792070388793945,
+              "step": 64,
+              "task": 0.23187032341957092,
+              "total": 0.23187032341957092
+            },
+            {
+              "loss": 0.1865825355052948,
+              "retention": 12.230831146240234,
+              "step": 256,
+              "task": 0.1865825355052948,
+              "total": 0.1865825355052948
+            }
+          ]
+        },
+        {
+          "seed": 610202,
+          "arm": "LAMBDA_1",
+          "candidate_gate": "FAIL",
+          "failure_counts": {
+            "parent_old_quality": 2,
+            "new_quality": 104,
+            "old_quality": 2,
+            "old_retention": 1
+          },
+          "old_transitions": {
+            "CONTINUED_PASS": 118,
+            "CONTINUED_FAILURE": 2
+          },
+          "worst_old_f1_delta": -0.01041666666666663,
+          "mean_old_f1_delta": 0.0002907750559003728,
+          "metrics": {
+            "new": {
+              "mean_cell_ba": 0.8866154043788135,
+              "mean_cell_f1": 0.8855194243846539,
+              "ba_failures": 104,
+              "f1_failures": 58,
+              "quality_by_length": {
+                "1": 20,
+                "2": 21,
+                "4": 20,
+                "8": 21,
+                "16": 22
+              }
+            },
+            "old": {
+              "mean_cell_ba": 0.9768516332154693,
+              "mean_cell_f1": 0.9773595876317779,
+              "ba_failures": 2,
+              "f1_failures": 0,
+              "quality_by_length": {
+                "1": 2,
+                "2": 0,
+                "4": 0,
+                "8": 0,
+                "16": 0
+              }
+            },
+            "parent_old": {
+              "mean_cell_ba": 0.9768203279508629,
+              "mean_cell_f1": 0.9770688125758775,
+              "ba_failures": 2,
+              "f1_failures": 0,
+              "quality_by_length": {
+                "1": 2,
+                "2": 0,
+                "4": 0,
+                "8": 0,
+                "16": 0
+              }
+            }
+          },
+          "recorded_batch_losses": [
+            {
+              "loss": 0.22221685945987701,
+              "retention": 0.004448851570487022,
+              "step": 16,
+              "task": 0.21776801347732544,
+              "total": 0.22221685945987701
+            },
+            {
+              "loss": 0.5234948992729187,
+              "retention": 0.0025793618988245726,
+              "step": 64,
+              "task": 0.5209155082702637,
+              "total": 0.5234948992729187
+            },
+            {
+              "loss": 0.30084505677223206,
+              "retention": 0.009158753789961338,
+              "step": 256,
+              "task": 0.2916862964630127,
+              "total": 0.30084505677223206
+            }
+          ]
+        },
+        {
+          "seed": 610203,
+          "arm": "LAMBDA_0",
+          "candidate_gate": "FAIL",
+          "failure_counts": {
+            "parent_old_quality": 4,
+            "new_quality": 67,
+            "old_quality": 69,
+            "old_retention": 70
+          },
+          "old_transitions": {
+            "NEW_FAILURE": 66,
+            "CONTINUED_PASS": 50,
+            "CONTINUED_FAILURE": 3,
+            "RECOVERED": 1
+          },
+          "worst_old_f1_delta": -0.1015625,
+          "mean_old_f1_delta": -0.019357099385303493,
+          "metrics": {
+            "new": {
+              "mean_cell_ba": 0.929911639585059,
+              "mean_cell_f1": 0.9410671437654264,
+              "ba_failures": 67,
+              "f1_failures": 23,
+              "quality_by_length": {
+                "1": 14,
+                "2": 14,
+                "4": 12,
+                "8": 13,
+                "16": 14
+              }
+            },
+            "old": {
+              "mean_cell_ba": 0.9432641137924812,
+              "mean_cell_f1": 0.9542059715740113,
+              "ba_failures": 66,
+              "f1_failures": 7,
+              "quality_by_length": {
+                "1": 11,
+                "2": 15,
+                "4": 12,
+                "8": 16,
+                "16": 15
+              }
+            },
+            "parent_old": {
+              "mean_cell_ba": 0.9751379945421075,
+              "mean_cell_f1": 0.9735630709593149,
+              "ba_failures": 4,
+              "f1_failures": 0,
+              "quality_by_length": {
+                "1": 3,
+                "2": 0,
+                "4": 1,
+                "8": 0,
+                "16": 0
+              }
+            }
+          },
+          "recorded_batch_losses": [
+            {
+              "loss": 0.21126532554626465,
+              "retention": 5.915408611297607,
+              "step": 16,
+              "task": 0.21126532554626465,
+              "total": 0.21126532554626465
+            },
+            {
+              "loss": 0.324313223361969,
+              "retention": 14.253727912902832,
+              "step": 64,
+              "task": 0.324313223361969,
+              "total": 0.324313223361969
+            },
+            {
+              "loss": 0.23461678624153137,
+              "retention": 18.052906036376953,
+              "step": 256,
+              "task": 0.23461678624153137,
+              "total": 0.23461678624153137
+            }
+          ]
+        },
+        {
+          "seed": 610203,
+          "arm": "LAMBDA_1",
+          "candidate_gate": "FAIL",
+          "failure_counts": {
+            "parent_old_quality": 4,
+            "new_quality": 109,
+            "old_quality": 3,
+            "old_retention": 0
+          },
+          "old_transitions": {
+            "CONTINUED_PASS": 116,
+            "CONTINUED_FAILURE": 3,
+            "RECOVERED": 1
+          },
+          "worst_old_f1_delta": -0.0078125,
+          "mean_old_f1_delta": -3.0673749931082554e-05,
+          "metrics": {
+            "new": {
+              "mean_cell_ba": 0.8794209468225537,
+              "mean_cell_f1": 0.880141632820245,
+              "ba_failures": 109,
+              "f1_failures": 68,
+              "quality_by_length": {
+                "1": 20,
+                "2": 22,
+                "4": 21,
+                "8": 23,
+                "16": 23
+              }
+            },
+            "old": {
+              "mean_cell_ba": 0.9751231815206582,
+              "mean_cell_f1": 0.9735323972093838,
+              "ba_failures": 3,
+              "f1_failures": 0,
+              "quality_by_length": {
+                "1": 3,
+                "2": 0,
+                "4": 0,
+                "8": 0,
+                "16": 0
+              }
+            },
+            "parent_old": {
+              "mean_cell_ba": 0.9751379945421075,
+              "mean_cell_f1": 0.9735630709593149,
+              "ba_failures": 4,
+              "f1_failures": 0,
+              "quality_by_length": {
+                "1": 3,
+                "2": 0,
+                "4": 1,
+                "8": 0,
+                "16": 0
+              }
+            }
+          },
+          "recorded_batch_losses": [
+            {
+              "loss": 0.255942165851593,
+              "retention": 0.003914977423846722,
+              "step": 16,
+              "task": 0.2520271837711334,
+              "total": 0.255942165851593
+            },
+            {
+              "loss": 0.5743933916091919,
+              "retention": 0.0032912956085056067,
+              "step": 64,
+              "task": 0.5711020827293396,
+              "total": 0.5743933916091919
+            },
+            {
+              "loss": 0.3412434458732605,
+              "retention": 0.024329237639904022,
+              "step": 256,
+              "task": 0.3169142007827759,
+              "total": 0.3412434458732605
+            }
+          ]
+        },
+        {
+          "seed": 610204,
+          "arm": "LAMBDA_0",
+          "candidate_gate": "FAIL",
+          "failure_counts": {
+            "parent_old_quality": 3,
+            "new_quality": 78,
+            "old_quality": 51,
+            "old_retention": 80
+          },
+          "old_transitions": {
+            "NEW_FAILURE": 49,
+            "CONTINUED_PASS": 68,
+            "CONTINUED_FAILURE": 2,
+            "RECOVERED": 1
+          },
+          "worst_old_f1_delta": -0.08493303571428568,
+          "mean_old_f1_delta": -0.020433032290837837,
+          "metrics": {
+            "new": {
+              "mean_cell_ba": 0.914374255655106,
+              "mean_cell_f1": 0.9320699173252226,
+              "ba_failures": 78,
+              "f1_failures": 26,
+              "quality_by_length": {
+                "1": 18,
+                "2": 17,
+                "4": 13,
+                "8": 15,
+                "16": 15
+              }
+            },
+            "old": {
+              "mean_cell_ba": 0.9513398663539732,
+              "mean_cell_f1": 0.958385097179536,
+              "ba_failures": 51,
+              "f1_failures": 0,
+              "quality_by_length": {
+                "1": 11,
+                "2": 10,
+                "4": 10,
+                "8": 9,
+                "16": 11
+              }
+            },
+            "parent_old": {
+              "mean_cell_ba": 0.9768287426777493,
+              "mean_cell_f1": 0.9788181294703739,
+              "ba_failures": 3,
+              "f1_failures": 0,
+              "quality_by_length": {
+                "1": 2,
+                "2": 0,
+                "4": 0,
+                "8": 0,
+                "16": 1
+              }
+            }
+          },
+          "recorded_batch_losses": [
+            {
+              "loss": 0.18794159591197968,
+              "retention": 7.603269577026367,
+              "step": 16,
+              "task": 0.18794159591197968,
+              "total": 0.18794159591197968
+            },
+            {
+              "loss": 0.252960741519928,
+              "retention": 11.940174102783203,
+              "step": 64,
+              "task": 0.252960741519928,
+              "total": 0.252960741519928
+            },
+            {
+              "loss": 0.26531773805618286,
+              "retention": 15.68861198425293,
+              "step": 256,
+              "task": 0.26531773805618286,
+              "total": 0.26531773805618286
+            }
+          ]
+        },
+        {
+          "seed": 610204,
+          "arm": "LAMBDA_1",
+          "candidate_gate": "FAIL",
+          "failure_counts": {
+            "parent_old_quality": 3,
+            "new_quality": 110,
+            "old_quality": 3,
+            "old_retention": 0
+          },
+          "old_transitions": {
+            "CONTINUED_PASS": 117,
+            "CONTINUED_FAILURE": 3
+          },
+          "worst_old_f1_delta": -0.0078125,
+          "mean_old_f1_delta": 0.00024428386452400586,
+          "metrics": {
+            "new": {
+              "mean_cell_ba": 0.8691408500079331,
+              "mean_cell_f1": 0.8765714940102253,
+              "ba_failures": 110,
+              "f1_failures": 67,
+              "quality_by_length": {
+                "1": 20,
+                "2": 21,
+                "4": 21,
+                "8": 24,
+                "16": 24
+              }
+            },
+            "old": {
+              "mean_cell_ba": 0.9769763570782592,
+              "mean_cell_f1": 0.9790624133348979,
+              "ba_failures": 3,
+              "f1_failures": 0,
+              "quality_by_length": {
+                "1": 2,
+                "2": 0,
+                "4": 0,
+                "8": 0,
+                "16": 1
+              }
+            },
+            "parent_old": {
+              "mean_cell_ba": 0.9768287426777493,
+              "mean_cell_f1": 0.9788181294703739,
+              "ba_failures": 3,
+              "f1_failures": 0,
+              "quality_by_length": {
+                "1": 2,
+                "2": 0,
+                "4": 0,
+                "8": 0,
+                "16": 1
+              }
+            }
+          },
+          "recorded_batch_losses": [
+            {
+              "loss": 0.24845373630523682,
+              "retention": 0.005970915779471397,
+              "step": 16,
+              "task": 0.24248282611370087,
+              "total": 0.24845373630523682
+            },
+            {
+              "loss": 0.5907915234565735,
+              "retention": 0.004109186120331287,
+              "step": 64,
+              "task": 0.5866823196411133,
+              "total": 0.5907915234565735
+            },
+            {
+              "loss": 0.3661068379878998,
+              "retention": 0.013824045658111572,
+              "step": 256,
+              "task": 0.3522827923297882,
+              "total": 0.3661068379878998
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "reviewed_code_sha256": {
+    "src\\apc\\cnp\\repair.py": "bcf27d018cc00bb43e627482d3fddf50db23eed04af8c889e818b4fedc28b833",
+    "src\\apc\\cnp\\repair_diagnostic.py": "1e736474ed0f79e3db73ebd907ac088f06961f722fbbeca80b155b7cefafc5ce",
+    "src\\apc\\cnp\\repair_evaluation.py": "00b5014bf91a04506c7153324b564aefe6c698dcca9b627203f88ec0277ff6da",
+    "src\\apc\\cnp\\repair_followup.py": "3576ffc83b68ba7d12af143bcdf663989acbc0ca25117e5550c601405227cad2",
+    "src\\apc\\cnp\\repair_protocol.py": "7fa57a421fd956941501d719fbf71446bdae56941dd29111bd1e9e19b286061f",
+    "src\\apc\\cnp\\repair_retention.py": "d5c30b853f11b2d6804610898d476525be64724e7df2d15334d0ee092efb1046",
+    "src\\apc\\cnp\\repair_schedule.py": "aec4e5b5af7d1adcc5d268dfead303eebacf7d2848c6c92ccdeb20b6f019fa77"
+  }
+}

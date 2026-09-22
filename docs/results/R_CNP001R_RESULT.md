@@ -7,12 +7,16 @@
 独立rootのnew/old shadowと、R-CNP-001Sで固定したC scheduleを用いて、固定CNP-003親seed
 610200–610204に対する`LAMBDA_0`と`LAMBDA_1`を各256 update実行した。lambda=1はreplayの
 正解BCEを残しつつ、親replay logitへの集合等重みMSEを加えた。全10候補を保存したが、
-lambda=1のcandidate gateは4/5 seedでFAILのため、登録済み診断はFAILである。
+lambda=1のcandidate gateは5/5 seedでFAILのため、登録済み診断はFAILである。
+
+訂正（ADR-0205）: 初版の「4/5 FAIL」「1/5 PASS」は報告文の誤記だった。
+保存reportの全gateと集合証跡を再集計し、0/5 PASSを確認した。run・測定値は変更していない。
+[結果レビュー](R_CNP001SR_IMPROVEMENT_REVIEW.md)には実行契約に対する証跡不足も記録する。
 
 | arm | new品質失敗cell/seed | old品質失敗cell/seed | old保持失敗cell/seed | candidate gate |
 |---|---:|---:|---:|---:|
 | LAMBDA_0 | 72.2 | 52.6 | 73.0 | 0/5 PASS |
-| LAMBDA_1 | 107.8 | 2.6 | 0.4 | 1/5 PASS |
+| LAMBDA_1 | 107.8 | 2.6 | 0.4 | 0/5 PASS |
 
 lambda=1は旧条件の品質と保持を大幅に改善した一方、new品質を悪化させ、全5親の条件を
 満たさない。固定係数1を別の値へ変更したり、成功seedのみで採択したりしない。これは固定v1親を

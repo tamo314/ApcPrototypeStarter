@@ -80,7 +80,9 @@ ADR-0201の[改善案レビュー](../../results/R_CNP001_IMPROVEMENT_REVIEW.md)
 ADR-0202で[順序・保持改善の詳細設計](../../design-docs/CNP_ADAPTATION_SCHEDULE_AND_RETENTION.md)と
 [実装・診断計画](CNP_ADAPTATION_SCHEDULE_AND_RETENTION.md)を固定した。
 評価セル128集合、A/B/Cのquotaと分散規則、lambda0/1の独立保持対照、予算・停止条件を定義。
-状態は`DESIGN_COMPLETE_IMPLEMENTATION_PENDING`。本書のR-CNP-001実行記録は変更しない。
+S/Rは実行終了、両診断0/5 PASS（ADR-0205）。
+[結果レビュー](../../results/R_CNP001SR_IMPROVEMENT_REVIEW.md)でR報告文の誤記と検証不足を記録した。
+本書のR-CNP-001実行記録は変更しない。追加実験・R-CNP-002を認可しない。
 
 ### R-CNP-002: 修正版親からの独立確認
 

@@ -1838,3 +1838,43 @@ all-cell candidate gate for only one fixed parent; the registered all-five crite
 an optimal lambda, permit a post-result coefficient change, select a candidate, or confirm repaired
 H-CNP2. Runtime is 1,970.313 seconds, 67,965,440 peak CUDA bytes, and 2,803,081,216 peak process
 RAM, within the registered limits. R-CNP-002 remains unauthorized.
+
+## ADR-0205: R-CNP-001S/R artifact review corrects the pass count and records verification gaps
+
+Date: 2026-09-22. Status: **Review complete; S/R FAIL preserved; implementation verification
+gaps recorded; no new research execution.**
+
+The user requested a review of R-CNP-001S/R and improvement options. The arithmetic-only
+[review](results/R_CNP001SR_IMPROVEMENT_REVIEW.md) and
+[audit](results/R_CNP001SR_IMPROVEMENT_AUDIT.json) verify 1,152,000 saved set rows, all cell
+summaries, failure lists, old-quality transitions, candidate gates, recorded frozen-base hashes,
+and paired schedule arithmetic. No model forward, dataset generation, optimizer update,
+candidate selection, promotion, or sealed access is performed. Input report hashes are unchanged.
+
+**Correction to ADR-0204:** its statements that lambda one fails 4/5 seeds and passes one parent
+are reporting errors. The original machine-readable report has always recorded FAIL for all
+five lambda-one candidates, with 108/108/104/109/110 new-quality failures. The correct result is
+0/5 PASS, not 1/5. Preserve ADR-0204 as historical text; this ADR supersedes only its erroneous
+pass-count interpretation. The historical run, numeric cell measurements, and all-five STOP
+decision are unchanged. Correct the current result summary and plan/index pointers explicitly.
+
+Schedule dispersion reduces some descriptive failures but does not establish viability. In R,
+lambda one removes all old-quality failures newly introduced from parent-passing cells, while
+lowering new mean-cell BA and F1 in every parent. Residual old-quality failures are inherited
+from the parent; two parents still have one retention failure each. S and R use different panels
+and cannot be treated as a matched cross-program intervention.
+
+The runner does not implement all promised verification: fixed-panel loss milestones and
+parent-new evaluation, initial-output and fresh-process parity, pre-training panel validity,
+historical split-audit persistence, bootstrap intervals, and detailed cost/provenance accounting
+are missing or incomplete. Its reported invariant PASS only tests before/after base hashes.
+Numerical failure evidence remains valid as saved evidence; complete contractual acceptance
+and mechanism attribution are not established. Do not manufacture retrospective PASS records.
+
+Prioritize contract-aligned instrumentation, then a separately scoped diagnostic of retention
+scale and new/replay update conflict. A label-aware replay decision-margin constraint is an
+unvalidated alternative to exact parent-logit matching; scalar coefficient calibration is a
+separate conditional option. Neither is selected or implemented here. Two lambda endpoints do
+not prove a feasible intermediate value, capacity failure, or impossibility of joint learning.
+Only a locked recipe and qualified repaired parents can enter independent confirmation under
+the original causal/transfer/composition requirements. R-CNP-002 remains unauthorized.
