@@ -1954,9 +1954,9 @@ new/old quality or retention. R-CNP-001S/R FAIL, v1 G3 STOP, no selection/promot
 R-CNP-002 not authorized remain unchanged. The three preceding stopped namespaces are preserved
 as implementation evidence and are not scientific comparison arms.
 
-## ADR-0209: R-CNP-001M parent-correct decision diagnostic is registered
+## ADR-0209: R-CNP-001M parent-correct decision diagnostic fails its all-five gate
 
-Date: 2026-09-22. Status: **Authorized single-objective development diagnostic.**
+Date: 2026-09-22. Status: **Diagnostic complete; `M_DIAGNOSTIC_FAIL_STOP`.**
 
 R-CNP-001D supports testing a decision-preserving alternative, so R-CNP-001M fixes one recipe
 before execution: task BCE plus a unit-weight, zero-margin hinge-squared loss only for replay
@@ -1966,7 +1966,14 @@ root-620310 panels, root-620320 balanced schedules, five CNP-003 parents, 256 up
 optimizer, resource limits, and all-cell evaluation. The full contract is
 `docs/exec-plans/active/CNP_PARENT_CORRECT_DECISION_DIAGNOSTIC.md`.
 
+The completed run is `runs/cnp_repair/r001m/rcnp001m_decision1/`. The candidate improves aggregate
+failure-cell counts against `TASK_ONLY` (new 305 vs 400, old 107 vs 336, retention 220 vs 430),
+but fails all three quality/retention gate columns for each of the five parents. Thus the correct
+registered result is `M_DIAGNOSTIC_FAIL_STOP`, not a viable recipe. All split/support audits,
+initial and fresh-process parity checks, frozen-base hashes, 1,024 update-eligible parameter
+accounting, and resource bounds pass; candidate selection and sealed access remain zero and
+promotion is not authorized.
+
 No margin or coefficient search is allowed. Candidate selection, promotion, sealed access,
-transfer/composition, and R-CNP-002 remain out of scope. All five candidate gates must pass for
-`M_DIAGNOSTIC_VIABILITY_PASS`; any failure is `M_DIAGNOSTIC_FAIL_STOP` and closes this diagnostic
-without tuning.
+transfer/composition, and R-CNP-002 remain out of scope. This stop closes the registered
+single-objective diagnostic without tuning.
