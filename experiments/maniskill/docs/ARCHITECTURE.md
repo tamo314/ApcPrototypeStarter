@@ -116,6 +116,11 @@ configはmanifest、解決済み依存は各runの記録を参照する。
 ## 終了・失敗・出力保護
 
 環境のterminated/truncatedでそのepisodeを終了し、明示的reset後にのみ次へ進む。
+Fetchの `post_success_steps > 0` では `HoldAfterSuccess` wrapperで初回成功後の
+観測期間を指定する。元のtask終了信号をinfoに残し、success自体は変更しない。
+wrapperは指定step後に診断終了を返すため、この終了は最終時点の成功を意味しない。
+途中の時間制限は維持し、未完了の観測期間は `hold_complete=false` で識別する。
+task metadataは元課題のまま、manifestのepisode_protocol/configでこの差を記録する。
 最終episode後にcloseし、任意の動画をflushしてからcompletedにする。
 捕捉できる例外はerror.txtとmanifestに残し非ゼロ終了する。失敗runを黙って再試行しない。
 途中のstepログをflushする。SIGKILL/segfaultではfinallyは保証されず、runningのまま残り得る。

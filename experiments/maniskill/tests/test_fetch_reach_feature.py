@@ -21,7 +21,7 @@ def test_fetch_reach_to_saved_evidence(tmp_path):
     subprocess.run([
         sys.executable, "-m", "apc_maniskill", "rollout",
         "--config", str(WORKSPACE / "configs/fetch_reach_goal.json"),
-        "--out", str(out), "--episodes", "2", "--max-steps", "60",
+        "--out", str(out), "--episodes", "2", "--max-steps", "80", "--post-success-steps", "20",
     ], check=True, timeout=180)
     result = subprocess.run([
         sys.executable, "-m", "apc_maniskill", "summarize", str(out),
@@ -39,6 +39,7 @@ def test_fetch_reach_to_saved_evidence(tmp_path):
         rows = [row for row in steps if row["episode"] == episode["episode"]]
         initial = episode["reset_info"]
         previous_distance = initial["distance"][0]
+        first_success = None
         with np.load(out / episode["trajectory"], allow_pickle=False) as data:
             assert len(rows) == episode["steps"] == len(data["actions"])
             assert len(data["observations"]) == len(rows) + 1
@@ -62,8 +63,17 @@ def test_fetch_reach_to_saved_evidence(tmp_path):
                 success = (distance <= task["goal_tolerance"] and speed <= task["speed_tolerance"]
                            and yaw_rate <= task["yaw_rate_tolerance"])
                 assert bool(data["success"][i]) == row["success"] == bool(success)
-                assert bool(data["terminated"][i]) == row["terminated"] == bool(success)
+                if success and first_success is None:
+                    first_success = i + 1
+                after = 0 if first_success is None else i + 1 - first_success
+                complete = first_success is not None and after >= 20
+                assert info["task_terminated"] == [bool(success)]
+                assert info["first_success_step"] == (-1 if first_success is None else first_success)
+                assert info["post_success_steps"] == after
+                assert info["hold_complete"] == complete
+                assert bool(data["terminated"][i]) == row["terminated"] == complete
                 previous_distance = distance
             np.testing.assert_allclose(episode["return"], initial["distance"][0] - previous_distance, atol=1e-6)
             assert episode["runner_truncated"] == (not (data["terminated"][-1] or data["truncated"][-1]))
             assert episode["final_info"] == rows[-1]["info"]
+            assert episode["hold_complete"] == rows[-1]["info"]["hold_complete"]

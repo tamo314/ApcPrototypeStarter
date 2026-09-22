@@ -94,8 +94,13 @@ class RunConfig:
     split: str = "explore"
     task_label: str = "instrumentation"
     checkpoint: str | None = None
+    post_success_steps: int = 0
 
     def validate(self) -> None:
+        if type(self.post_success_steps) is not int or self.post_success_steps < 0:
+            raise ValueError("post_success_steps must be a nonnegative integer")
+        if self.post_success_steps and self.env_id != "APC-FetchReachGoal-v1":
+            raise ValueError("Post-success diagnostics require APC-FetchReachGoal-v1")
         for name in ("episodes", "max_steps"):
             value = getattr(self, name)
             if type(value) is not int or value < 1:
@@ -137,6 +142,9 @@ def make_env(config: RunConfig, output: Path) -> Any:
         render_backend="gpu" if config.video else "none",
         render_mode="rgb_array" if config.video else None,
     )
+    if config.post_success_steps:
+        from .protocols import HoldAfterSuccess
+        env = HoldAfterSuccess(env, config.post_success_steps)
     if config.video:
         try:
             from mani_skill.utils.wrappers.record import RecordEpisode
@@ -175,6 +183,8 @@ def collect(config: RunConfig, output: Path, *, env_factory: Callable = make_env
         "schema_version": 1, "status": "running", "started_at": utc_now(),
         "config": asdict(config), "num_envs": 1, "obs_mode": "state",
         "provenance": provenance(), "completed_episodes": 0,
+        "episode_protocol": ("hold_after_first_success" if config.post_success_steps
+                             else "terminate_on_task_done"),
     }
     json_write(output / "manifest.json", manifest)
     freeze = command([sys.executable, "-m", "pip", "freeze"])
@@ -275,6 +285,10 @@ def collect(config: RunConfig, output: Path, *, env_factory: Callable = make_env
                     "trajectory": trajectory,
                     "reset_info": saved_reset_info, "final_info": json_info(info),
                 }
+                if config.post_success_steps:
+                    row.update(first_success_step=info["first_success_step"],
+                               post_success_steps=info["post_success_steps"],
+                               hold_complete=info["hold_complete"])
                 episodes_file.write(json.dumps(row, allow_nan=False) + "\n")
                 episodes_file.flush()
                 manifest["completed_episodes"] += 1
@@ -312,6 +326,8 @@ def summarize(output: Path) -> dict[str, Any]:
         "success_observed_episodes": len(known),
         "success_unknown_episodes": len(episodes) - len(known),
         "success_rate_over_observed": sum(known) / len(known) if known else None,
+        "success_final_episodes": sum(e["success_final"] is True for e in episodes),
+        "hold_complete_episodes": sum(e.get("hold_complete", False) for e in episodes),
         "mean_return": sum(e["return"] for e in episodes) / len(episodes) if episodes else None,
         "steps": sum(e["steps"] for e in episodes),
         "runner_truncated_episodes": sum(e["runner_truncated"] for e in episodes),

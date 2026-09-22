@@ -126,6 +126,12 @@ python -m apc_maniskill rollout --config configs/fetch_reach_goal.json --seed 10
 腕・胴体・グリッパは共通の手設計姿勢補正で、台車には学習済み出力のみを送る。
 推論中のteacher切替や手設計の台車停止ルールはない。
 
+`rollout ... --post-success-steps 20` は初回到達後も同じ目標で20 step観測する
+Fetch専用診断。成功の幾何条件は変えず、wrapperがその観測期間の終了までterminatedを延期する。
+元の終了信号はinfoの `task_terminated` に保存し、時間制限は維持する。
+summaryの成功率は一度でも成功した割合。維持を見る際は `success_final_episodes` と
+`hold_complete_episodes`、毎stepのsuccessを確認する。
+
 学習runには `training.json`、`losses.jsonl`、`policy.pt` を保存する。
 データのseed/ハッシュ、更新数、パラメータ数、学習データ上のMSE、実行時間を残す。
 rolloutはチェックポイントのコピー/ハッシュを保存し、タスクと制御の互換性を検査する。
@@ -169,8 +175,8 @@ GPU・Fetch・動画は研究用マシンで短い実runを行い、結果を実
 固定した重み1/4のモデルを追加seed 1003〜1007で各5 episode比較し、両方5/5到達。
 重み4では合計276→234 step、目標範囲へ入ってから終了まで67→25 stepに短縮した。
 ただしseed 1003の最終角速度は重み4でも0.098 rad/sで、停止閾値付近に残る。
-次は重み4を固定したまま、到達後も20 step（1秒）同じ目標で制御を続ける診断を追加し、
-seed 1003〜1007で距離・速度の条件を維持できるかを見る。連鎖前の停止状態の確認とする。
+到達後20 step（1秒）の診断では5/5が最終的に目標範囲から外れた。
+次は教師軌跡にも20 stepの停止継続を含め、同じ学習条件で停止維持への影響を調べる。
 GPU物理・動画・APCの銀行/合成/圧縮は未検証。
 
 ## 上流資料（2026-09-22確認）
