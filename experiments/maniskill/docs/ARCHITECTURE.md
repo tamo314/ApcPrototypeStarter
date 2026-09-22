@@ -1,5 +1,9 @@
 # 実装とデータの設計
 
+2026-09-23の [改訂学習計画](RESEARCH_PLAN.md) に、最小スキル銀行・selector・
+temporary/candidateの役割、課題列、比較と容量計測を定義した。
+以下の「実装済み」はコードの現状であり、計画にある銀行・選択・解放機能はまだ含まない。
+
 ## 実装済みと未実装を分ける
 
 現在実装されているのは `RunConfig → ManiSkill → rollout → NPZ/JSONL → summary`。
