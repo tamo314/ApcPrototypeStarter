@@ -311,6 +311,19 @@ manifestがfailed、episode数0、error.txtが保存されることを確認し�
 - 予算/成果物: 今回の追加環境step・episode・学習更新は全て0。新しいrun/checkpointは作成していない。README、MANISKILL.md、ARCHITECTURE.mdの案内を同期した。
 - 確認/未実行: 文書差分・参照先・既存実験記録との対応を確認。コード変更がないためテストとシミュレーションは実行していない。次の実験は改訂計画第3節の診断と小比較。
 
+## 2026-09-23 — 操作教師の再同期、有効ラベルDAgger、固定未使用seed評価
+
+- 問い/今回変えた点: 改訂計画第3節に従い、2回目DAggerの退行がデータ比率、近傍ラベル競合、教師内部stageと物理状態の不整合のどれで説明できるかを既存3,420 sampleで測定した。元runを変更しない解析CLI、把持済み開放/無効IKラベルの明示除外、物理状態から毎step stageを再選択する回復教師 `physical_state_resync_v1`、rollout比較CLIを実装した。
+- commit / 条件: 基点 `ced7223` + 各runのdirty source snapshot。WSL/Python 3.12/CPU、Fetch、`APC-FetchPickCube-v1`、`pd_joint_delta_pos` 20 Hz。比較は探索済みseed 20〜22、学習seed 0、各3,000更新。固定後の未使用評価は、既存runに未出現だったseed 1200〜1204。結果を見て設定を変えていない。
+- 既存データ診断: `runs/op-bc-diagnosis-20260923-b/`。成功教師1,320 sampleのstageは443/219/120/125/253/160。一方、旧DAgger 1・2は各1,050件全てstage 0/開放指令。旧DAgger 2では756件が行動前に把持済みで、異stage・異sourceの近傍5点は行動RMS差中央値0.614、グリッパー符号不一致70.5%。全近傍では不一致24.4%。旧DAgger 1の無効IKは364件、旧DAgger 2は101件。数値上の近傍だけで記憶必須とは結論しない。
+- 最小除外比較: `op-bc-dagger2-filtered-train3000-20260923-a` は旧DAgger 2の把持済み開放756件だけを除外し、2,664 sampleで学習。`op-bc-dagger2-filtered-policy-trainseeds-20260923-a` は目標到達0/3だが把持3/3・2 cm超持上げ2/3となり、単純集約の把持1/3から回復。旧1-roundの持上げ3/3は超えなかった。
+- 教師再同期比較: 同じ1-round checkpointとseedで `op-bc-dagger2-resync-20260923-a` を収集。実行NPZのhashは旧DAgger 2と全3 episodeで一致し、教師ラベルだけを変更した。stageは接近180/下降50/閉じ64/持上げ241/運搬515、把持済み開放競合0。`op-bc-resync-diagnosis-20260923-b` で全近傍のグリッパー符号不一致は6.4%へ低下。再同期データで学習した `op-bc-dagger2-resync-policy-trainseeds-20260923-a` は目標到達0/3、把持2/3、2 cm超持上げ1/3。保存状態へのMSE 0.001800だけでは閉ループ改善を保証しなかった。
+- 有効ラベルでの追加1 round: 上記再同期モデルの失敗状態を `op-bc-dagger3-resync-20260923-a` で1回だけ収集。接近768/下降137/閉じ5/持上げ140、無効IK 462/1,050だった。成功教師、旧DAgger 1、同期済みDAgger 2・3から無効IK計925件を除外し、3,545 sampleで `op-bc-dagger3-resync-valid-train3000-20260923-a` を学習。全sourceの実収集費は5,170 step、成功選択・ラベル除外前は4,470 sample。旧学習成果物の `source_environment_steps=4470` は前者を過少計上しており、コードでは両値を分離した。探索seedの `op-bc-dagger3-resync-valid-policy-trainseeds-20260923-a` は**初の目標到達2/3**、把持・2 cm超持上げ3/3、779 step。seed 21/22の最短目標距離は2.02/2.42 cm。ただし初回成功を含む21観測中のsuccessは5件/4件だけで、連続維持・最終成功とも0/2。seed 20は最短7.73 cmで未到達。
+- 固定未使用評価: 同checkpointの `op-bc-dagger3-resync-valid-policy-unseen1200-20260923-a` はseed 1200〜1204で目標到達0/5、把持・2 cm超持上げ2/5、1,750 step。同条件の手設計 `op-bc-teacher-unseen1200-20260923-a` は2/5成功・最終成功・hold完了、1,411 step。教師も3/5失敗する条件だが、seed 1202/1204は教師成功・学習方策未把持であり、学習方策の汎化は示していない。
+- 比較成果物/予算: v1の `op-bc-filter-comparison-20260923-c` は入力manifest/trajectory/checkpoint hashとepisode指標を保存する。v2の `op-bc-generalization-comparison-20260923-e` はepisode hash、成功後の観測数、連続成功、最終成功、hold完了も保存し、NPZのsuccess列、episode集計、成功後step、run内checkpoint実体を照合した。今回のrunnerは25 episode / 8,140環境step、学習9,000更新（解析・テストを除く）。全run completed、`error.txt` なし。既知のVulkan/glvnd/Pinocchio警告のみ。
+- 統合テスト: 既存 `tests/test_operation_bc_feature.py` 1本を、教師再同期後の把持済み開放競合0、実データ上の無効IKラベル49件の除外、全収集538 stepと成功選択後358 sampleの分離、episode hash、データ解析、checkpoint誤差、rollout比較v2まで拡張。最終実行は `runs/op-bc-resync-feature-tests-20260923-g/` で **1 passed in 48.62s**。成功率は合格条件にしていない。中間の `...-d/` は初期方策にも成功教師だけを使ったため無効IKが0件となり、除外件数を正としたテスト条件に失敗した。runを保持し、初期方策だけ全教師へ戻して両経路を検査した。
+- 解釈/停止理由: 旧2-round退行の明確な教師同期不良を修正し、探索条件で学習方策の目標到達を初めて観測した点は成果。一方、保持と未使用条件への汎化は未達。次の修正候補はstage抽出比率、履歴入力、局所目標化、未使用条件を探索へ移したon-policy収集で分岐し、今回のデータだけでは一意でない。良い結果まで再ラベルroundを無制限に増やさず、操作試行を停止する。計画上の独立した次作業は既存移動方策の最小銀行登録。
+
 ## 追記テンプレート
 
 ### YYYY-MM-DD — 変更点の短い名前

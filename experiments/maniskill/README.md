@@ -5,14 +5,15 @@ WindowsとWSLの専用venvでCPU実行を確認した。台車の小規模な模
 同一sceneで単一方策を2つの目標に順次使う手動連鎖も実装済み。
 別の小型ネットワークへの蒸留も実装済み。APCの自動スキル銀行・増設は未実装。
 手設計の把持・運搬軌跡から操作BCを学習し、learner状態への教師再ラベルも実装した。
-1回の再ラベルで把持・持上げまで改善したが、学習方策単独の配置成功は未達。
+教師stageを物理状態へ再同期し、無効ラベルを除くと探索seedで初めて2/3目標到達。
+ただし成功を1秒維持できず、未使用seedでは0/5のため操作の汎化は未達。
 ランダム方策の成功率を研究仮説の成否とみなさない。
 方針は [AGENTS.md](AGENTS.md)、研究の順序は [計画](docs/RESEARCH_PLAN.md)、
 データ形式と将来の接続は [設計](docs/ARCHITECTURE.md) を参照する。
 
 **2026-09-23の計画改訂:** [APC実現性の学習計画](docs/RESEARCH_PLAN.md) に、
 操作BCの原因分析、最小スキル銀行、temporaryでの能力追加、小型candidateへの蒸留、
-解放後の再利用・過去能力保持と対照実験をまとめた。計画改訂に伴う新しい実験は未実施。
+解放後の再利用・過去能力保持と対照実験をまとめた。優先1の操作診断と小比較を実施済み。
 
 ## 1. セットアップ
 
@@ -207,17 +208,24 @@ python -m apc_maniskill rollout --config configs/fetch_pick_bc.json --checkpoint
 
 # learnerが実際に訪れた状態で既存IK教師の行動を別ラベルとして保存する。
 python -m apc_maniskill collect-operation-dagger --checkpoint runs/my-operation-bc/policy.pt --episodes 3 --seed 20 --out runs/my-operation-relabel
-python -m apc_maniskill train-operation-bc --demo-run runs/my-operation-demo --successful-only --extra-demo-run runs/my-operation-relabel --updates 3000 --out runs/my-operation-dagger
+python -m apc_maniskill train-operation-bc --demo-run runs/my-operation-demo --successful-only --extra-demo-run runs/my-operation-relabel --exclude-grasp-open-conflicts --exclude-invalid-ik-labels --updates 3000 --out runs/my-operation-dagger
+
+# 元runを変更せず、stage偏り、物理矛盾、近傍行動差、checkpoint誤差を解析する。
+python -m apc_maniskill analyze-operation-data --demo-run runs/my-operation-demo --relabel-run runs/my-operation-relabel --checkpoint runs/my-operation-dagger/policy.pt --out runs/my-operation-analysis
+python -m apc_maniskill analyze-operation-rollouts --run-dir runs/my-operation-rollout --out runs/my-operation-rollout-analysis
 ```
 
 入力は上流Fetch/PickCubeのstate54全体、ネットワークは54→64→64→11のTanh MLP
 （8,395パラメータ）。arm/gripper/bodyの正規化行動0:11を学び、教師で常にゼロだった
 base 11:13はゼロ固定する。推論中にIKや手動stageへ切り替えない。
 `--successful-only` は手設計runの成功episodeだけを選び、失敗run自体は削除しない。
+学習記録では全入力episodeの実収集費 `source_environment_steps` と、成功選択・ラベル除外前の
+`selected_source_samples_before_filter` を分ける。episodeログと選択NPZのhashを保存し、
+`success_ever` / `success_final` がNPZのsuccess列と一致することを読込時に検査する。
 
 `collect-operation-dagger` のNPZ `actions` はlearnerが物理環境へ送った行動のまま。
 `steps.jsonl` の `info.diagnostic.teacher_action` に同じ状態での手設計教師ラベル、
-`behavior_action` に送信行動を保存する。教師のstage更新はlearner実行後の物理状態に基づく。
+`behavior_action` に送信行動を保存する。教師stageは各step開始時の物理状態へ再同期する。
 再ラベルrunを独立評価とは呼ばず、学習データとして扱う。
 
 最初の実測では手設計10 episodeの8/10が成功。成功8軌跡だけの通常BCは、同じ
@@ -225,6 +233,14 @@ seed 20〜22でも0/3成功・把持0/3だった。1回目の再ラベル1,050 s
 0/3成功のままだが3/3で把持・持上げまで進み、最短物体-目標距離は約4.7〜6.3 cm。
 2回目を単純に追加すると把持1/3へ退行したため、再ラベル回数を増やし続けていない。
 全て探索済みseedであり、学習済み配置・汎化・自動selectorの実証ではない。
+
+退行診断では、2回目DAggerの1,050状態が全て接近stageの開放指令で、うち756状態は
+既に把持済みだった。教師stageを把持・物体高さ・目標距離へ再同期し、無効IKラベルを
+除いてもう1回だけ収集すると、seed 20〜22で把持・持上げ3/3、目標到達2/3へ改善した。
+ただし到達2例は初回成功を含む21観測中、成功条件が5件/4件だけで、連続維持0/2、
+最終状態も失敗条件へ戻った。固定checkpointを未使用seed
+1200〜1204で評価すると目標到達0/5、把持・持上げ2/5。同じ手設計教師は2/5成功・最終成功を
+維持した。探索条件での改善と未使用条件での汎化を区別し、追加再ラベルはここで止めた。
 
 ## 2. まず環境を動かす
 
@@ -389,13 +405,12 @@ resetなしの手動2目標連鎖は前方・横・戻りの各3例で完了し�
 未使用だったseed 1008〜1012では元モデル・小型モデルとも5/5連鎖を完了し、
 最後の1秒間も条件を維持した（合計1,106/1,088 step）。
 
-**操作BC:** 手設計軌跡→小型MLP→checkpoint単独rolloutと、learner状態へ教師行動を
-別記録する再ラベル経路を実装した。通常BCは把持できず、1回の再ラベルで3/3把持・
-持上げへ改善したが配置成功0/3。2回目の単純集約は把持1/3へ退行した。
-直近は集約データのsource/stage偏り、近傍教師行動の競合、教師の内部状態と物理状態の
-不整合を測り、抽出比率や履歴入力を一つずつ比較する。state54には把持・速度情報も
-含まれるため、段階入力の不足を退行原因と断定しない。
-同時に進められる独立した作業として、既存移動方策の銀行登録と選択履歴の記録がある。
+**操作BC:** 2回目DAggerの退行は、把持済み756状態へ接近stageの開放指令を付けた
+教師同期不良が主因候補だった。物理状態への再同期と無効IKラベル除外後、探索seedでは
+初めて2/3目標到達したが、1秒維持0/2、未使用seedでは0/5だった。単純なラベル破損は
+修正できた一方、次はstage抽出比率、履歴、局所目標化、新条件での再ラベルのどれを
+変えるべきか一意でないため、操作学習を無制限に続けない。
+独立した次作業は、既存移動方策の銀行登録と選択履歴の記録である。
 操作の完全習得を待たず、能力追加→圧縮→解放→再利用の一巡を目指す。
 条件・予算・比較方式は [改訂計画](docs/RESEARCH_PLAN.md) を参照する。
 現在の学習済み操作を完成スキル・自動銀行・移動から把持への連鎖の実績とはしない。

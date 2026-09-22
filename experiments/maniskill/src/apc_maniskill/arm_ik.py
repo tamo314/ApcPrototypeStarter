@@ -87,7 +87,57 @@ class ArmIKPolicy:
                                       [np.cos(half_pitch), 0, np.sin(half_pitch), 0])
         self.initial_base = array(self.robot.get_qpos())[0, :3]
         self.last_solver = {}
+        self.last_resync = {}
         return self.observe()
+
+    def synchronize_pick_place(self):
+        """Choose a recovery label stage from the current physical state."""
+        if self.protocol != "pick_place":
+            raise ValueError("Physical-state resynchronization requires pick_place")
+        actual = physical_pose(self.links[self.link_index].pose)
+        cube = array(self.env.cube.pose.p)[0]
+        goal = array(self.env.goal_site.pose.p)[0]
+        grasped = bool(array(self.env.evaluate()["is_grasped"])[0])
+        cube_lift = float(cube[2] - self.cube_initial[2])
+        cube_goal_distance = float(np.linalg.norm(cube - goal))
+        desired_q = self.target.q
+        orientation_error = float(2 * np.arccos(np.clip(abs(np.dot(actual.q, desired_q)), 0, 1)))
+        cube_offset = cube - actual.p
+        if grasped:
+            self.gripper_target = -0.01
+            if cube_goal_distance <= self.env.goal_thresh:
+                self.stage = 5
+                self.target = sapien.Pose(goal - cube_offset, desired_q)
+            elif cube_lift >= 0.10:
+                self.stage = 4
+                self.target = sapien.Pose(goal - cube_offset, desired_q)
+            else:
+                self.stage = 3
+                lifted_cube = cube.copy()
+                lifted_cube[2] = self.cube_initial[2] + 0.15
+                self.target = sapien.Pose(lifted_cube - cube_offset, desired_q)
+        else:
+            approach = cube + [0, 0, 0.12]
+            grasp = cube + [0, 0, self.grasp_height]
+            grasp_distance = float(np.linalg.norm(actual.p - grasp))
+            horizontally_aligned = np.linalg.norm(actual.p[:2] - cube[:2]) <= 0.03
+            self.gripper_target = 0.05
+            if grasp_distance <= 0.025 and orientation_error <= 0.15:
+                self.stage = 2
+                self.gripper_target = -0.01
+                self.target = sapien.Pose(grasp, desired_q)
+            elif (horizontally_aligned and actual.p[2] > grasp[2]
+                  and actual.p[2] <= approach[2] + 0.03 and orientation_error <= 0.15):
+                self.stage = 1
+                self.target = sapien.Pose(grasp, desired_q)
+            else:
+                self.stage = 0
+                self.target = sapien.Pose(approach, desired_q)
+        self.stage_steps = 0
+        self.last_resync = dict(
+            teacher_resynchronized=True, resync_pre_action_grasped=grasped,
+            resync_pre_action_cube_lift_m=cube_lift,
+            resync_pre_action_cube_goal_distance_m=cube_goal_distance)
 
     def action(self):
         qpos = array(self.robot.get_qpos())[0]
@@ -178,7 +228,8 @@ class ArmIKPolicy:
         qpos = array(self.robot.get_qpos())[0]
         distance = float(np.linalg.norm(actual.p - self.target.p))
         angle = float(2 * np.arccos(np.clip(abs(np.dot(actual.q, self.target.q)), 0, 1)))
-        report = dict(self.last_solver, stage=self.stage, target_position=self.target.p.tolist(),
+        report = dict(self.last_solver, **self.last_resync, stage=self.stage,
+                     target_position=self.target.p.tolist(),
                     target_quaternion=self.target.q.tolist(), ee_position=actual.p.tolist(),
                     ee_quaternion=actual.q.tolist(), qpos=qpos.tolist(),
                     position_error_m=distance, orientation_error_rad=angle,

@@ -67,7 +67,10 @@ batch 64、均等抽出のMSEを使う。base 11:13は教師データでゼロ�
 推論でもゼロ固定する。これは移動と操作を一方策で学んだ結果ではない。
 
 `--successful-only` は元runを変更せず、成功を一度でも観測した手設計episodeだけを選ぶ。
-入力runの全seed、選択/除外seed、NPZ hashをtraining.jsonへ保存する。
+入力runの全seed、選択/除外seed、episodeログと選択NPZのhashをtraining.jsonへ保存する。
+episodeの成功集計はNPZのsuccess列から再計算して照合する。`source_environment_steps` は
+選択前の全入力episodeの実収集費、`selected_source_samples_before_filter` は成功選択後かつ
+ラベル除外前のsample数として分ける。
 `--extra-demo-run` は互換な手設計またはDAgger再ラベルrunを複数連結する。
 
 `collect-operation-dagger` は固定checkpointの出力を実際の13次元行動として物理環境へ送り、
@@ -77,11 +80,24 @@ batch 64、均等抽出のMSEを使う。base 11:13は教師データでゼロ�
 教師ラベルの形状・有限値・baseゼロを検査してから利用する。教師ラベル本体を含む
 `steps.jsonl` のhashも保存する。
 
+初版教師はlearnerが教師の5 mm到達条件を満たさないとstage 0から進まず、把持済み状態にも
+開放指令を付けた。現在の再ラベル教師 `physical_state_resync_v1` は毎step、修正済み把持フラグ、
+物体高さ、物体-目標距離、手先-物体姿勢から接近/下降/閉じる/持上げ/運搬/保持を再選択する。
+分類閾値と行動前の同期状態をmetadata/step診断へ保存する。これは手設計の回復教師であり、
+学習済みselectorではない。学習時の明示オプションで、把持済みなのに開くラベルと
+IK/可動域/机経路検査に失敗したラベルを除外し、基準別件数・実除外数をsourceごとに残す。
+
+`analyze-operation-data` は元runを変更せず、source×stage×episode件数、把持/持上げとの整合、
+IK失敗、行動分布、異episodeかつ同じ把持状態の近傍行動差、checkpointのsource/stage別MSEを
+新しい解析runへ保存する。`analyze-operation-rollouts` は入力manifest/episode/trajectory/checkpoint
+hash、最大step・成功後観測数、把持・持上げ・最短距離、最終成功、hold完了、初回成功後の
+連続成功を比較runへ保存する。標準化state距離は診断であり、同一状態の証明ではない。
+
 checkpointはstate_dict、state54の標準化統計、task/control、教師seed、学習action slice、
-全入力runの種別とmanifest/trajectory/step hashを持つ。
+全入力runの種別とmanifest/episode/trajectory/step hashを持つ。
 rolloutはコピーのhashと、固定baseを含む実際の全13次元行動を保存する。
-現在のmemoryless方策では1回の再ラベルで把持・持上げへ改善した一方、2回目の単純集約で
-退行した。stage別ラベルの競合は未測定で、履歴/段階入力の必要性は未確定。
+現在のmemoryless方策は同期済み有効ラベルで探索seed 2/3目標到達まで改善したが、最終維持0/2、
+未使用seed 0/5。教師同期不良は測定・修正したが、履歴/局所目標/stage比率の必要性は未確定。
 
 `distill` は固定checkpointを教師にし、保存された行動直前の観測で再推論した
 台車出力から別の小型candidateを学習する。手設計ラベルのBCとalgorithmで区別する。

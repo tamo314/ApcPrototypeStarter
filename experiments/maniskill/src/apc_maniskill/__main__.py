@@ -46,6 +46,25 @@ def main() -> None:
     operation_bc.add_argument("--seed", type=int, default=0)
     operation_bc.add_argument("--successful-only", action="store_true",
                               help="Train only on teacher episodes that reached success")
+    operation_bc.add_argument(
+        "--exclude-grasp-open-conflicts", action="store_true",
+        help="Exclude DAgger labels that open the gripper in an already-grasped state")
+    operation_bc.add_argument(
+        "--exclude-invalid-ik-labels", action="store_true",
+        help="Exclude DAgger labels whose scripted IK/path validation failed")
+    operation_analysis = commands.add_parser(
+        "analyze-operation-data", help="Measure operation label balance and nearby-state conflicts")
+    operation_analysis.add_argument("--demo-run", type=Path, required=True)
+    operation_analysis.add_argument("--relabel-run", type=Path, action="append", required=True)
+    operation_analysis.add_argument("--out", type=Path, required=True)
+    operation_analysis.add_argument("--neighbors", type=int, default=5)
+    operation_analysis.add_argument("--checkpoint", type=Path, action="append", default=[])
+    operation_analysis.add_argument("--all-teacher-episodes", action="store_true",
+                                    help="Analyze failed scripted episodes too")
+    rollout_analysis = commands.add_parser(
+        "analyze-operation-rollouts", help="Compare saved learned operation rollouts")
+    rollout_analysis.add_argument("--run-dir", type=Path, action="append", required=True)
+    rollout_analysis.add_argument("--out", type=Path, required=True)
     dagger = commands.add_parser(
         "collect-operation-dagger", help="Run an operation policy and save separate scripted labels")
     dagger.add_argument("--checkpoint", type=Path, required=True)
@@ -101,8 +120,20 @@ def main() -> None:
     elif args.command == "train-operation-bc":
         from .operation_bc import train
         output = train(args.demo_run, args.out, updates=args.updates, seed=args.seed,
-                       successful_only=args.successful_only, extra_runs=args.extra_demo_run)
+                       successful_only=args.successful_only, extra_runs=args.extra_demo_run,
+                       exclude_grasp_open_conflicts=args.exclude_grasp_open_conflicts,
+                       exclude_invalid_ik_labels=args.exclude_invalid_ik_labels)
         print((output / "training.json").read_text(encoding="utf-8"))
+    elif args.command == "analyze-operation-data":
+        from .operation_analysis import analyze
+        output = analyze(args.demo_run, args.relabel_run, args.out, neighbors=args.neighbors,
+                         checkpoints=args.checkpoint,
+                         successful_only=not args.all_teacher_episodes)
+        print((output / "analysis.json").read_text(encoding="utf-8"))
+    elif args.command == "analyze-operation-rollouts":
+        from .operation_analysis import analyze_rollouts
+        output = analyze_rollouts(args.run_dir, args.out)
+        print((output / "analysis.json").read_text(encoding="utf-8"))
     elif args.command == "collect-operation-dagger":
         from .operation_dagger import OperationDaggerPolicy
         from .runner import json_write

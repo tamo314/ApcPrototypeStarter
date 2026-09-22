@@ -23,6 +23,13 @@ class OperationDaggerPolicy:
         self.metadata = dict(source="learned rollout with separate scripted teacher labels",
                              learned=True, protocol="pick_place", relabel="dagger",
                              label_source="hand-designed upstream IK joint tracking",
+                             label_version="physical_state_resync_v1",
+                             label_resynchronization=dict(
+                                 grasped="lift below 0.10 m, then transport, then hold at goal",
+                                 ungrasped="approach, aligned descent, or close from current cube pose",
+                                 approach_height_m=0.12, grasp_position_tolerance_m=0.025,
+                                 alignment_xy_tolerance_m=0.03,
+                                 orientation_tolerance_rad=0.15),
                              behavior_policy=self.learner.metadata,
                              teacher_policy=self.teacher.metadata,
                              action_mapping=self.teacher.metadata["action_mapping"])
@@ -35,6 +42,7 @@ class OperationDaggerPolicy:
         return self.teacher.reset()
 
     def action(self):
+        self.teacher.synchronize_pick_place()
         self.pending_teacher = array(self.teacher.action())
         observation = array(self.env.get_obs())
         action = np.zeros(self.env.action_space.shape, dtype=self.env.action_space.dtype)
