@@ -38,7 +38,8 @@
   実環境テスト成功と呼ばない。そこで架空のデータを研究結果として作らない。
 
 現在の機能テストは `tests/test_rollout_feature.py`、
-`tests/test_fetch_reach_feature.py`、`tests/test_bc_feature.py` の各機能1本。
+`tests/test_fetch_reach_feature.py`、`tests/test_bc_feature.py`、
+`tests/test_sequence_feature.py` の各機能1本。
 実環境での実行方法:
 
 ```bash

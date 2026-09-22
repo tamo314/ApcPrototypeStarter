@@ -95,8 +95,16 @@ class RunConfig:
     task_label: str = "instrumentation"
     checkpoint: str | None = None
     post_success_steps: int = 0
+    next_goal_offset: list[float] | None = None
 
     def validate(self) -> None:
+        if self.next_goal_offset is not None:
+            offset = np.asarray(self.next_goal_offset)
+            if (offset.shape != (2,) or offset.dtype.kind not in "fi"
+                    or not np.isfinite(offset).all() or np.linalg.norm(offset) < 0.2):
+                raise ValueError("next_goal_offset must contain two finite metres with norm >= 0.2")
+            if self.env_id != "APC-FetchReachGoal-v1":
+                raise ValueError("Goal sequences require APC-FetchReachGoal-v1")
         if type(self.post_success_steps) is not int or self.post_success_steps < 0:
             raise ValueError("post_success_steps must be a nonnegative integer")
         if self.post_success_steps and self.env_id != "APC-FetchReachGoal-v1":
@@ -141,7 +149,11 @@ def make_env(config: RunConfig, output: Path) -> Any:
         sim_backend=config.sim_backend,
         render_backend="gpu" if config.video else "none",
         render_mode="rgb_array" if config.video else None,
+        **({"max_episode_steps": 400} if config.next_goal_offset is not None else {}),
     )
+    if config.next_goal_offset is not None:
+        from .protocols import TwoGoalSequence
+        env = TwoGoalSequence(env, config.next_goal_offset)
     if config.post_success_steps:
         from .protocols import HoldAfterSuccess
         env = HoldAfterSuccess(env, config.post_success_steps)
@@ -185,6 +197,8 @@ def collect(config: RunConfig, output: Path, *, env_factory: Callable = make_env
         "provenance": provenance(), "completed_episodes": 0,
         "episode_protocol": ("hold_after_first_success" if config.post_success_steps
                              else "terminate_on_task_done"),
+        "goal_protocol": ("manually_ordered_two_goals_world_offset"
+                          if config.next_goal_offset is not None else "single_sampled_goal"),
     }
     json_write(output / "manifest.json", manifest)
     freeze = command([sys.executable, "-m", "pip", "freeze"])
@@ -289,6 +303,8 @@ def collect(config: RunConfig, output: Path, *, env_factory: Callable = make_env
                     row.update(first_success_step=info["first_success_step"],
                                post_success_steps=info["post_success_steps"],
                                hold_complete=info["hold_complete"])
+                if config.next_goal_offset is not None:
+                    row["completed_goals"] = info["completed_goals"]
                 episodes_file.write(json.dumps(row, allow_nan=False) + "\n")
                 episodes_file.flush()
                 manifest["completed_episodes"] += 1
@@ -328,6 +344,7 @@ def summarize(output: Path) -> dict[str, Any]:
         "success_rate_over_observed": sum(known) / len(known) if known else None,
         "success_final_episodes": sum(e["success_final"] is True for e in episodes),
         "hold_complete_episodes": sum(e.get("hold_complete", False) for e in episodes),
+        "completed_goals": sum(e.get("completed_goals", 0) for e in episodes),
         "mean_return": sum(e["return"] for e in episodes) / len(episodes) if episodes else None,
         "steps": sum(e["steps"] for e in episodes),
         "runner_truncated_episodes": sum(e["runner_truncated"] for e in episodes),

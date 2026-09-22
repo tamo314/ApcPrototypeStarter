@@ -1,0 +1,16 @@
+{
+  "env_id": "APC-FetchReachGoal-v1",
+  "robot_uids": "fetch",
+  "control_mode": "pd_joint_delta_pos",
+  "sim_backend": "physx_cpu",
+  "reward_mode": "dense",
+  "episodes": 3,
+  "max_steps": 400,
+  "seed": 1003,
+  "policy": "fetch_bc",
+  "video": false,
+  "split": "explore",
+  "task_label": "manual_two_goal_sequence_single_supervised_policy",
+  "post_success_steps": 20,
+  "next_goal_offset": [0.7, 0.2]
+}

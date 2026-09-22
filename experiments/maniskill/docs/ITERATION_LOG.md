@@ -163,6 +163,24 @@ manifestがfailed、episode数0、error.txtが保存されることを確認し�
 - 確認: 教師の旧406 stepまでの観測は旧データと完全一致。両runの有限値・T/T+1・20 step継続・終了、学習方策の行動とcheckpoint出力を照合し、比較runに `analysis.json` / `analyze.py` を保存。今回計15 episode / 941環境step、1,000更新。例外なし、Pinocchio警告のみ。コード変更なしのためpytest再実行なし。
 - 解釈/次の一点: 停止状態を含む教師分布がこの5例の短期維持に役立った。長期安定性・新しい目標方向・複数目標の連鎖は未測定。次はこのモデルを固定して、同一scene内でresetなしに2つの局所目標を実行する。順序は手動指定で、単一方策の反復使用とAPCの自動スキル銀行を区別する。
 
+## 2026-09-22 — 同一sceneでの手動2目標連鎖
+
+- 変更: `TwoGoalSequence`、`next_goal_offset`、連鎖configを追加。第1目標の成功時にgoalだけを切り替え、qpos/qvel・controller・時計をresetしない。第2目標成功をsequence successとし、今回もその後20 stepを観測。全体上限400 step。切替stepの旧目標/報酬はreward_info、新しい目標は次のpolicy観測に保存。自動selector/銀行ではなく単一方策の手動反復使用。
+- 条件: 基点 `22e1064` + dirtyソース、CPU、`fetch_reach_sequence.json`、seed 1003〜1005。固定checkpoint `bc-hold-train-20260922-a/policy.pt`。まず前方offset [0.7,0.2]を両方策各3 episode、次に横 [0,0.7]、戻り [-0.7,0]をそれぞれ各3 episode。方向を変える以外の追加学習なし。各小比較は最大2,400 step。
+
+| run（`runs/` 以下） | 方策 | 完了 | step | wall秒 |
+|---|---|---|---|---|
+| `sequence-forward-bc-20260922-a` | 学習 | 3/3 | 334 | 3.953 |
+| `sequence-forward-teacher-20260922-a` | 手設計教師 | 3/3 | 339 | 3.703 |
+| `sequence-side-bc-20260922-a` | 学習 | 3/3 | 386 | 3.500 |
+| `sequence-side-teacher-20260922-a` | 手設計教師 | 3/3 | 368 | 3.532 |
+| `sequence-return-bc-20260922-a` | 学習 | 3/3 | 473 | 4.015 |
+| `sequence-return-teacher-20260922-a` | 手設計教師 | 3/3 | 413 | 3.594 |
+
+- 観測: 合計18 episode / 2,313環境step、学習更新0。全episodeで2目標達成後の20 step全てで成功条件を維持。前方の学習方策は第1目標46/48/49 step、第2目標90/89/95 stepで成功。戻り方向のseed 1004は学習184 step・教師122 stepで第2目標に到達し、学習側が62 step遅い。成功だけで効率が同じとはしない。
+- 確認/テスト: 全runの有限値・T/T+1・学習出力と全送信行動・旧目標での各step報酬を照合。切替前後の全qpos/qvelと姿勢/速度が完全一致し、elapsed_stepsは連続。戻り学習run内に全6条件のanalysis.json/analyze.py保存。新規機能全体に統合テスト1本を追加し、変更した継続診断と合わせ **2 passed in 10.19s**、`runs/sequence-feature-tests-20260922-a/`。例外なし、Pinocchio警告のみ。最初の前方学習runのsnapshot後、hold wrapperが元task_terminatedを上書きしないよう記録を修正した（物理/方策は同一、hold_input_terminatedを別保存）。
+- 解釈/次の一点: この範囲では単一goal-conditioned方策の反復使用で連鎖できたため、能力を無理に別スキルへ分割しない。次は固定1,314パラメータモデルの出力から別の小型candidateを蒸留し、実際の閉ループ維持/連鎖と容量を比較する。自動銀行増設・temporary解放の成果とはまだ呼ばない。
+
 ## 追記テンプレート
 
 ### YYYY-MM-DD — 変更点の短い名前

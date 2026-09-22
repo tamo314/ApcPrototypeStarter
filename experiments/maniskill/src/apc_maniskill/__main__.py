@@ -23,6 +23,8 @@ def main() -> None:
     rollout.add_argument("--checkpoint", type=str)
     rollout.add_argument("--post-success-steps", type=int,
                          help="Fetch-only diagnostic: continue N steps after first success")
+    rollout.add_argument("--next-goal-offset", type=float, nargs=2, metavar=("X", "Y"),
+                         help="Manually chain a second Fetch goal at this world offset (metres)")
     rollout.add_argument("--sim-backend", choices=["physx_cpu", "physx_cuda"])
     rollout.add_argument("--video", action="store_true", default=None)
     summary = commands.add_parser("summarize", help="Print a summary, including failed/partial status")
@@ -52,7 +54,7 @@ def main() -> None:
     elif args.command == "rollout":
         values = json.loads(args.config.read_text(encoding="utf-8"))
         for key in ("episodes", "max_steps", "seed", "policy", "checkpoint", "sim_backend", "video",
-                    "post_success_steps"):
+                    "post_success_steps", "next_goal_offset"):
             value = getattr(args, key)
             if value is not None:
                 values[key] = value

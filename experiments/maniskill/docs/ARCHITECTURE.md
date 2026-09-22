@@ -6,7 +6,8 @@
 単一環境、state観測、Box行動、random/zero方策、CPU/GPUの明示選択、任意動画に加え、
 `APC-FetchReachGoal-v1` と手設計の診断方策 `fetch_goal/fetch_zero/fetch_random` を実装。
 台車の小規模な模倣学習baselineを `bc.py` に実装した。
-GPU並列auto-reset、APCのスキル銀行、selector、追加学習/蒸留は未実装。
+`TwoGoalSequence` でresetなしの手動2目標連鎖を実装した。
+GPU並列auto-reset、APCのスキル銀行、自動selector、追加学習/蒸留は未実装。
 本体コードは `src/apc_maniskill/`。旧 `src/apc/` をimportしない独立Pythonパッケージ。
 
 到達課題は `fetch_reach.py` にあり、ManiSkill 3.0.1のFetchとbuild_groundを使用する。
@@ -48,7 +49,21 @@ checkpointはstate_dictと標準化統計、feature/task/control情報、教師s
 manifestの `policy_details` が実際の方策とcheckpointを識別する。
 task内の `policy_source` は元の診断方策の説明で、学習方策の出自はpolicy_detailsを参照する。
 チェックポイントのコピーとsha256、実行ソースsnapshotをrunに保存する。
-この単一方策baselineは、銀行・temporary・圧縮・スキル再利用を実装していない。
+この単一方策baselineは、銀行・temporary・圧縮を実装していない。
+
+## 手動の2目標連鎖
+
+`next_goal_offset` を指定すると、最初の到達で同じsceneのgoal_xyだけを変更する。
+目標順序とoffsetは手動指定。1個の方策を反復使用し、自動選択や銀行増設はない。
+台車・腕のqpos/qvel、controller、環境時計はresetしない。合計時間制限は400 step。
+stage 0の到達ではepisodeを終えず、stage 1での到達をsequence successとする。
+到達後診断wrapperとも組み合わせられる。completed_goalsは一度到達した目標数。
+
+切替stepの報酬は直前の目標で計算する一方、返す観測は次の行動に使う新しい目標を含む。
+そのため `reward_info` に旧目標と距離/報酬/成功を残し、通常infoは新目標に対応させる。
+切替直前の `switch_observation_before` とNPZの切替後観測で物理状態の連続性を確認できる。
+NPZのT+1観測は常に次のpolicy入力で、行動教師として observations[:-1] を使える。
+連鎖run全体のreturnを最初と最後の目標距離差と同一視しない。
 
 ## 次に実装する経路
 
