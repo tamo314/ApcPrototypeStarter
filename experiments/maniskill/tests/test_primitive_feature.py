@@ -10,7 +10,7 @@ import pytest
 @pytest.mark.skipif(os.getenv("APC_RUN_MANISKILL_TEST") != "1", reason="Explicit real-simulator test")
 def test_primitive_to_saved_rollout_and_selector(tmp_path):
     from apc_maniskill.primitive_learning import MLPSelector, train
-    from apc_maniskill.primitive_policy import PickPlaceSelector, PrimitivePolicy
+    from apc_maniskill.primitive_policy import BaseDemoSelector, PickPlaceSelector, PrimitivePolicy
     from apc_maniskill.runner import RunConfig, collect
 
     def run(name, episodes, steps, factory):
@@ -48,6 +48,22 @@ def test_primitive_to_saved_rollout_and_selector(tmp_path):
             assert diagnostic["gripper_target_after_update_m"] == -.01
         if chosen == 6:
             assert diagnostic["gripper_target_after_update_m"] == .05
+
+    _, base = run("base", 1, 180, lambda env, output: PrimitivePolicy(
+        env, output, selector=BaseDemoSelector(), allow_rotation=True, allow_base=True))
+    decisions = [row["info"]["diagnostic"] for row in base]
+    assert [decisions[t]["executed_id"] for t in (30, 65, 100, 135)] == [16, 18, 17, 19]
+    assert decisions[30]["interruption_reason_code"] == 1
+    assert decisions[170]["interruption_reason_code"] == 2
+    assert all(not decisions[t]["post_action_state"]["hand_target_valid"] for t in range(30, 170))
+    assert decisions[170]["post_action_state"]["hand_target_valid"]
+    assert all(decisions[t]["gripper_target_after_update_m"] == -.01 for t in range(30, 160))
+    assert all(decisions[t]["gripper_target_after_update_m"] == .05 for t in range(160, 180))
+    assert decisions[64]["post_action_state"]["base_pose"][0] > .015
+    assert decisions[169]["post_action_state"]["base_pose"][0] < .005
+    assert all(np.isfinite(d["table_contact_force_norm_sum_n"]) for d in decisions)
+    np.testing.assert_allclose(decisions[170]["base_target_after"],
+                               decisions[170]["pre_action_state"]["base_pose"])
 
     teacher, _ = run("teacher", 2, 80, lambda env, output: PrimitivePolicy(
         env, output, selector=PickPlaceSelector(use_rotation=True), allow_rotation=True))

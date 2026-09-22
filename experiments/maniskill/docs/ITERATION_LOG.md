@@ -351,6 +351,31 @@ manifestがfailed、episode数0、error.txtが保存されることを確認し�
 - 費用/速度: 上記runnerは計**30 episode/13,833環境step、9,000学習更新**。教師問い合わせはDAgger収集の1,800件。初期MLP checkpoint実体は38,177 byte。初期MLPのselector p50/p95/最大は0.587/0.990/1.727 ms、IKと指令生成は3.264/13.279/24.431 ms。教師 `-d/` はselector 0.552/0.950/2.211 ms、IKと指令生成3.294/40.507/49.340 msで、selector+更新+IKが50 msを超えたのは1/1,683 step。env.step、ログ保存、初期ロードをこの部分計時に含めない。同期runnerなので実時間20 Hzの達成ではない。CPU条件と各依存はrun manifestに保存。
 - 確認/障害: 全10 runはcompleted、runnerの有限値確認を通過し、例外なし。実シミュレータ統合テスト `tests/test_primitive_feature.py` は手動操作、2 episode教師、短い学習、checkpoint再読込、learner単独行動と教師ID分離まで1本で通過。最終は `runs/primitive-feature-tests-20260923-a/` の **1 passed in 20.14s**（270テストstep、実験計数から除外）。既知のVulkan/glvnd・Pinocchio/NumPy警告のみ。主な明確な障害は、教師が2/3成功した同じ探索seedでも学習selectorが閉ループ成功0/3に留まり、単純なDAggerやID頻度調整で回復しないこと。モデル入力の識別性、`continue`偏り、局面別ラベル誤りと局所制御の寄与は未分離。未使用seedの独立評価、台車4候補、APCの能力追加・圧縮・解放は未実行。次は失敗局面をID別に切り分け、保持目標の経過時間・姿勢を含む特徴の有効性を調べる。
 
+## 2026-09-23 — 相対特徴・追加教師と20候補への拡張
+
+- 問い/変更: 基点 `68971ab`。初期16候補MLPの`continue`過多、未使用配置への転移、台車4候補と腕の中断を調べた。WSL専用Python 3.12/CPU、ManiSkill 3.0.1、Fetch、`APC-FetchPickCube-v1`、状態観測、20 Hz制御/100 Hz物理、最大600 stepを主条件とした。全て新しいrunディレクトリ。`hold_complete`は初回成功後20 stepを観測した意味で、連続成功とは別。以下の「最終」はepisode末のsuccessである。
+- 入力の診断: 初期モデルのlearner状態では教師とIDが1,014/1,800件異なり、`continue`へ偏った。v1特徴のほぼ定数のquaternion成分が標準化後最大99.3に達した。標準偏差下限0.01ではepisode検証lossが138.06→10.27、accuracy64.3%だが同seed閉ループ最終0/3。root系相対位置と持上げ量を含む特徴schema v2では検証accuracy70.8%だが最終0/3。両方とも同じ元教師episode 0/1を学習しepisode 2を検証、各3,000更新。
+- 探索seed 1300〜1302: v2に教師全3 episodeを入れると訓練accuracy97.1%、閉ループ初回1/3・最終0/3。実行行動を変えない教師問い合わせ `primitive-mlp-relative-dagger-20260923-a/` ではID相違593/1,723。1回目の単純集約は最終0/3、ID平方根逆頻度抽出では初回2/3・最終0/3。成功後にモデルが`hold`または+Xを選び、教師は+Zを16/18 step提案した。2回目の問い合わせを追加したモデルは初回/最終1/3。教師ラベルは別保存し、同じ実行actionであることを比較した。探索seedでの改善を独立汎化とはしない。
+
+| run（全て `runs/` 下） | seed / episode / step | 初回/最終成功 | 役割 |
+|---|---:|---:|---|
+| `primitive-mlp-stdfloor-rollout-20260923-a` | 1300〜1302 / 3 / 1,800 | 0/3・0/3 | 標準偏差下限0.01 |
+| `primitive-mlp-relative-rollout-20260923-a` | 1300〜1302 / 3 / 1,800 | 0/3・0/3 | v2相対特徴、episode検証あり |
+| `primitive-mlp-relative-allseeds-rollout-20260923-a` | 1300〜1302 / 3 / 1,723 | 1/3・0/3 | 教師全3 episode学習 |
+| `primitive-mlp-relative-dagger1-rollout-20260923-a` | 1300〜1302 / 3 / 1,800 | 0/3・0/3 | 1回目再ラベル単純集約 |
+| `primitive-mlp-relative-dagger-balanced-rollout-20260923-a` | 1300〜1302 / 3 / 1,642 | 2/3・0/3 | 同じデータをID平方根逆頻度抽出 |
+| `primitive-mlp-relative-dagger2-rollout-20260923-a` | 1300〜1302 / 3 / 1,770 | 1/3・1/3 | 2回目再ラベル追加 |
+| `primitive-teacher-unseen1500-20260923-a` / `primitive-mlp-relative-dagger2-unseen1500-20260923-a` | 1500〜1504 / 各5 / 2,765・3,000 | 4/5・3/5 / 0/5・0/5 | 固定モデル初回未使用評価。その後探索へ移行 |
+| `primitive-mlp-relative-teacher1500-rollout-20260923-a` | 1500〜1504 / 5 / 2,834 | 3/5・2/5 | 同seed教師5 episodeで再学習後の探索評価 |
+| `primitive-teacher-unseen1600-20260923-a` / `primitive-mlp-relative-teacher1500-unseen1600-20260923-a` | 1600〜1604 / 各5 / 2,759・2,877 | 3/5・2/5 / 1/5・1/5 | 次の未使用評価。その後探索へ移行 |
+| `primitive-teacher-unseen1700-20260923-a` / `primitive-mlp-relative-teachers1500-1600-unseen1700-20260923-a` | 1700〜1704 / 各5 / 2,509・2,715 | 4/5・4/5 / 3/5・3/5 | 1500+1600教師で学習、固定未使用評価 |
+| `primitive-teacher-unseen1800-20260923-a` / `primitive-mlp-relative-multisource-unseen1800-20260923-a` | 1800〜1804 / 各5 / 2,931・3,000 | 1/5・1/5 / 0/5・0/5 | 教師3組+learner状態2組で学習、次の固定未使用評価 |
+
+- 学習費: 各学習は3,000更新。1500教師は2,765 sample、1500+1600教師は5,524 sample。最後の統合モデル `primitive-mlp-relative-multisource-train-20260923-a/` は教師3組7,207 step、learner状態2組3,365 stepから計10,572 sample、訓練accuracy94.22%、7,696パラメータ。episode検証を使わず、未使用1800で評価した。複数sourceのmanifest、step SHA256、元環境stepを保存した。source収集費は今回のrunner総stepへ重複加算しない。1500、1600は最初の評価を見てから訓練に使ったので、再学習後の同seed成績を未使用としない。
+- 台車4候補: `primitives.py` に旧ID 0〜15を維持して前進/後退2 cm・左/右旋回3度のID 16〜19を追加。`PrimitivePolicy` は手先目標と台車目標を切替え、台車中は腕/胴体関節と指幅を保持する。サンプル点による机AABB経路検査を台車目標候補と毎stepに適用。`primitive-base-demo-20260923-b/` と接触計測追加後の `-c/` は各3 episode/690 step、全4候補を各episodeで1回ずつ実行、腕→台車と台車→腕を各3回記録。両runの送信actionは全690 stepで一致、`-c/` の全記録stepの机接触力は0 N。台車demoは物体へ向かわない列で最終成功0/3。有限サンプルと制御step単位の接触結果であり、連続衝突や新しい操作課題の成功保証ではない。20 ID選択モデルは未学習で、旧16 ID checkpointをそのheadとしては使わない。
+- 1800の分離: 教師はseed1802だけ最終成功、モデルは同seedで把持なし。1802の序盤の回転は類似するが、300〜400 step後の手先・物体距離は教師0.017 m、モデル0.065 mで、教師のみ指閉鎖を選んだ。seed1800/1801では教師とモデルが類似した失敗軌跡で、教師自身が解けない配置を含む。1700の3/5だけから条件横断の安定した汎化を結論しない。接近局面の`continue`と軸移動の判断、教師の可解範囲を次の診断点とする。台車を必要とする課題、20 ID selector、APCのtemporary獲得・圧縮・解放は未実施。
+- 予算/確認: この継続でrunner **76 episode/40,850環境step、学習27,000更新**。学習sourceの再利用と教師問い合わせは上記内のrunへ含む。全runはcompleted、例外なし。WSLの既知のVulkan/glvnd/Pinocchio/NumPy警告のみ。既存 `tests/test_primitive_feature.py` 1本を台車まで拡張し、`runs/primitive-feature-tests-20260923-b/` で **1 passed in 20.26s**。手動80+台車180+教師160+学習30 = 450テストstepはrunner予算から除外。テストはID、目標の有効性・中断、指幅、台車追従、接触値、保存NPZ/送信行動の対応を確認し、成功率を合格条件にしない。
+
 ## 追記テンプレート
 
 ### YYYY-MM-DD — 変更点の短い名前

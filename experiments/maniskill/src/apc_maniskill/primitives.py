@@ -11,6 +11,7 @@ NAMES = ("hand_x_plus", "hand_x_minus", "hand_y_plus", "hand_y_minus",
          "hand_z_plus", "hand_z_minus", "gripper_open", "gripper_close",
          "continue", "hold", "rotate_x_plus", "rotate_x_minus",
          "rotate_y_plus", "rotate_y_minus", "rotate_z_plus", "rotate_z_minus")
+NAMES20 = NAMES + ("base_forward", "base_backward", "base_turn_left", "base_turn_right")
 CONTINUE = 8
 HOLD = 9
 
@@ -19,6 +20,8 @@ HOLD = 9
 class PrimitiveConfig:
     translation_m: float = 0.01
     rotation_rad: float = float(np.deg2rad(3))
+    base_step_m: float = 0.02
+    base_turn_rad: float = float(np.deg2rad(3))
     target_timeout_steps: int = 40
     position_tolerance_m: float = 0.003
     gripper_open_m: float = 0.05
@@ -27,6 +30,8 @@ class PrimitiveConfig:
     def validate(self):
         if (not np.isfinite(self.translation_m) or self.translation_m <= 0
                 or not np.isfinite(self.rotation_rad) or self.rotation_rad <= 0
+                or not np.isfinite(self.base_step_m) or self.base_step_m <= 0
+                or not np.isfinite(self.base_turn_rad) or self.base_turn_rad <= 0
                 or self.position_tolerance_m <= 0
                 or self.position_tolerance_m >= self.translation_m
                 or not np.isfinite(self.gripper_open_m)
