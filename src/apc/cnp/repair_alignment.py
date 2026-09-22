@@ -100,7 +100,7 @@ def _virtual_first_adamw_step(
     with torch.no_grad():
         for parameter in parameters:
             size = parameter.numel()
-            local = gradient[offset : offset + size].reshape_as(parameter)
+            local = gradient[offset : offset + size].reshape_as(parameter).to(parameter.device)
             parameter.add_(-learning_rate * local / (local.abs() + epsilon))
             offset += size
     if offset != gradient.numel():

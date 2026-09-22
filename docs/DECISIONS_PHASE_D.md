@@ -1922,3 +1922,9 @@ any model forward or optimizer update. The first rejected the legacy replay cond
 the second incorrectly applied shadow-cell class support to the training replay buffer. Correct the
 generic preflight to preserve legacy keys and require panel-level class support for train/replay,
 while retaining full per-cell support for shadow panels. Rerun only in a new namespace after tests.
+
+`rcnp001d_alignment3` passes preflight and begins the first parent's gradient calculation, then
+fails before any optimizer update, candidate write, or selection because the stored measurement
+vector is CPU-resident while the virtual adapter is CUDA-resident. Explicitly transfer the temporary
+slice to the adapter device and rerun only in a new namespace. Preserve all three namespaces and
+their manifests; none provides a scientific alignment result.
