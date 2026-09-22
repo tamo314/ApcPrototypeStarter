@@ -38,6 +38,26 @@ manifestがfailed、episode数0、error.txtが保存されることを確認し�
 > 大きな機能がまとまったときだけ、その機能全体の統合テストを原則1本追加する。
 > フェーズゲートや文書承認を作らず、動く部分から実験を続け、変更と次の一点を記録する。
 
+## 2026-09-22 — Windows Git Bash セットアップの修正と実行
+
+- 問い/今回変えた点: Windowsの`core.autocrlf=true`でshell scriptがCRLF化し、Bashの`set -euo pipefail`が失敗した。`.gitattributes`で`.sh`をLF固定し、Windows venvの`Scripts/python.exe`とWindows形式のPython引数パスを扱えるようにした。
+- commit / config / robot・controller / seed・split: 未コミット。config・robot・seedは未使用。
+- 環境step・episode・学習step・wall time等の予算と実績: setupのみ。rollout、episode、学習stepは0。
+- runパス / 実データの観測 / 失敗した条件: `runs/setup-20260922T120412Z-834/`に`doctor.json`と`requirements.freeze.txt`を保存。Python 3.12.13、ManiSkill 3.0.1、SAPIEN 3.0.3、PyTorch 2.14.0を導入。RTX 5060 TiとVulkanは検出した一方、`torch_cuda_available`はfalse。初回はCRLF、次にWindows venvの`bin/python`不在、さらにGit Bashの`/c/...`をWindows Pythonのeditable installに渡したことにより停止した。
+- 解釈（測定と推測を分ける）: CPU環境の導入と診断は完了した。PyTorch CUDA不可はdoctorの測定結果であり、PhysX GPU実行可否は未測定。
+- 次に変える一点: `run_iteration.sh`でPanda/PickCubeを少数episode実行し、CPU物理のrun成果物を確認する。
+- 機能テストを実行した場合の結果 / 未実行と理由: setup scriptの実行とdoctorを確認。実シミュレータの機能テスト・rolloutは、この作業の範囲外のため未実行。
+
+## 2026-09-22 — PickCube CPU rollout の実行
+
+- 問い/今回変えた点: WSL等で`cygpath`がない場合にも、Windows Pythonへ渡すパスを`wslpath`または元のパスで扱えるようにした。
+- commit / config / robot・controller / seed・split: 未コミット。`configs/pickcube_cpu.json`、Panda、`pd_joint_delta_pos`、seed 0〜2、explore。
+- 環境step・episode・学習step・wall time等の予算と実績: 3 episode、150 environment step、学習step 0、runner wall time 13.875秒。
+- runパス / 実データの観測 / 失敗した条件: `runs/trial-20260922T122449Z-79/`。3本のepisode NPZ、step/episode JSONL、manifest、依存記録、summaryを保存。ランダム方策の成功率は0/3、平均returnは3.840811556826035。各episodeは50 stepで環境のtruncatedとなり、runnerによる予算打ち切りは0。Pinocchioが未導入という警告は出たが実行は完了した。
+- 解釈（測定と推測を分ける）: CPU物理でPanda/PickCubeの環境生成、軌跡保存、集計は測定済み。ランダム方策の0成功はAPC学習やスキル再利用の結果ではない。
+- 次に変える一点: Fetch/PickCubeを少数episode実行し、身体と制御空間を観察する。
+- 機能テストを実行した場合の結果 / 未実行と理由: `run_iteration.sh`の実環境trialが完走。pytest機能テストは今回未実行。
+
 ## 2026-09-22 — Fetch観察と最小目標到達課題の実行
 
 - 問い/今回変えた点: 既存runnerでPanda/Fetchを各3 episode確認した後、上流BaseEnv・Fetch・build_groundで `APC-FetchReachGoal-v1` を追加。全身13次元を維持し、手設計の台車制御と腕/胴体のrest姿勢への補正を実装。距離改善報酬、到達時の速度、姿勢誤差、reset/final infoを保存する。

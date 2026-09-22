@@ -38,6 +38,7 @@ PyTorchは使用GPUに適したwheelを選ぶ。既定はPyPIのtorchだが、�
 ```bash
 cd experiments/maniskill
 source .venv/bin/activate
+# Windows の Git Bash では代わりに: source .venv/Scripts/activate
 export MS_ASSET_DIR="$PWD/.assets"
 # Fetchなどで不足を指摘された場合は上流ダウンローダを使う
 python -m mani_skill.utils.download_asset --help
@@ -67,6 +68,7 @@ PickCubeを移動課題と同一視しない。
 
 ```bash
 source .venv/bin/activate
+# Windows の Git Bash では代わりに: source .venv/Scripts/activate
 export MS_ASSET_DIR="$PWD/.assets"
 python -m apc_maniskill doctor
 python -m apc_maniskill rollout --config configs/fetch_pickcube.json --seed 1000 --episodes 5
