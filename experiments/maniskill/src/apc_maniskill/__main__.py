@@ -30,6 +30,8 @@ def main() -> None:
     bc.add_argument("--out", type=Path, required=True)
     bc.add_argument("--updates", type=int, default=1000)
     bc.add_argument("--seed", type=int, default=0)
+    bc.add_argument("--stop-weight", type=float, default=1.0,
+                    help="Sampling weight for zero base-command demonstrations (>=1)")
     args = parser.parse_args()
     if args.command == "doctor":
         report = provenance()
@@ -58,7 +60,8 @@ def main() -> None:
         print(json.dumps(summarize(output), indent=2))
     elif args.command == "train-bc":
         from .bc import train
-        output = train(args.demo_run, args.out, updates=args.updates, seed=args.seed)
+        output = train(args.demo_run, args.out, updates=args.updates, seed=args.seed,
+                       stop_weight=args.stop_weight)
         print((output / "training.json").read_text(encoding="utf-8"))
     else:
         print(json.dumps(summarize(args.run_dir), indent=2))

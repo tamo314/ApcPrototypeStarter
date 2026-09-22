@@ -29,6 +29,12 @@ NPZの `observations[:-1]` と `actions[:, 11:13]` を対応づける。
 state40内の位置はfeature schema v1で明示し、統合テストでinfoの幾何と照合する。
 教師データ由来の平均/標準偏差（下限0.05）で標準化し、5→32→32→2のTanh MLPを
 均等サンプリングの行動MSEで訓練する。CPU、Adam 0.001、batch 64。
+`--stop-weight`（既定1、有限値かつ1以上）で、教師の台車2出力がともに
+絶対値1e-7以下のサンプルの抽出重みを変更できる。1は元のrandint経路を維持し、
+1より大きい場合は重み付き復元抽出を使う。損失自体はミニバッチ内の通常MSE。
+元データの停止件数、期待抽出比率、実抽出件数を記録し、学習後の全体/停止/移動MSEは
+重みなしの元データ上で計算する。checkpointとpolicy_detailsにもstop_weightを保存する。
+旧checkpointはstop_weight=1として読み込める。物理的な停止判定は変更しない。
 学習stepは勾配更新数であり、保存軌跡を使う学習中の環境step数は0。
 
 checkpointはstate_dictと標準化統計、feature/task/control情報、教師seedを含む。

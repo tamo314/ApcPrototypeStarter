@@ -21,7 +21,8 @@ def test_teacher_training_and_learned_rollout(tmp_path):
     commands = [
         ["rollout", "--config", str(WORKSPACE / "configs/fetch_reach_goal.json"),
          "--out", str(demo), "--episodes", "2", "--seed", "30", "--max-steps", "60"],
-        ["train-bc", "--demo-run", str(demo), "--out", str(training), "--updates", "40"],
+        ["train-bc", "--demo-run", str(demo), "--out", str(training), "--updates", "40",
+         "--stop-weight", "4"],
         ["rollout", "--config", str(WORKSPACE / "configs/fetch_reach_bc.json"),
          "--out", str(rollout), "--checkpoint", str(training / "policy.pt"),
          "--episodes", "2", "--seed", "50", "--max-steps", "12"],
@@ -35,6 +36,14 @@ def test_teacher_training_and_learned_rollout(tmp_path):
     assert report["completed_updates"] == 40
     assert report["samples"] == sum(r["steps"] for r in teacher_rows)
     assert report["source"]["seeds"] == [30, 31]
+    stop_count = 0
+    for row in teacher_rows:
+        with np.load(demo / row["trajectory"], allow_pickle=False) as data:
+            stop_count += int((np.abs(data["actions"][:, 11:13]).max(axis=1) <= 1e-7).sum())
+    assert report["stop_samples"] == stop_count
+    assert report["sampled_total_count"] == 40 * 64
+    assert 0 < report["sampled_stop_count"] < report["sampled_total_count"]
+    assert manifest["policy_details"]["stop_weight"] == report["stop_weight"] == 4
     assert np.isfinite([report["initial_train_mse"], report["final_train_mse"]]).all()
     assert report["checkpoint_sha256"] == sha256(rollout / "policy.pt")
     assert manifest["policy_details"]["checkpoint_sha256"] == report["checkpoint_sha256"]

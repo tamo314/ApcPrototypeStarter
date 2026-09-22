@@ -73,11 +73,13 @@ def load_demonstrations(path: Path):
     return np.concatenate(xs), np.concatenate(ys), source
 
 
-def train(demo_run: Path, output: Path, *, updates=1000, seed=0) -> Path:
+def train(demo_run: Path, output: Path, *, updates=1000, seed=0, stop_weight=1.0) -> Path:
     from .runner import json_write, provenance, snapshot_source, utc_now
 
     if type(updates) is not int or updates < 1 or not 0 <= seed < 2**32:
         raise ValueError("Positive updates and a uint32 seed are required")
+    if not np.isfinite(stop_weight) or stop_weight < 1:
+        raise ValueError("stop_weight must be finite and >= 1")
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     started = time.monotonic()
@@ -85,7 +87,10 @@ def train(demo_run: Path, output: Path, *, updates=1000, seed=0) -> Path:
                   algorithm="behavior_cloning", teacher="hand-designed fetch_goal",
                   feature_schema=FEATURE_SCHEMA, device="cpu", torch_threads=1,
                   seed=seed, requested_updates=updates, completed_updates=0,
-                  batch_size=64, learning_rate=0.001, loss="uniform action MSE",
+                  batch_size=64, learning_rate=0.001, loss="minibatch action MSE",
+                  stop_weight=float(stop_weight), stop_action_tolerance=1e-7,
+                  sampling="uniform" if stop_weight == 1 else "stop-weighted replacement",
+                  sampled_stop_count=0, sampled_total_count=0,
                   architecture=[5, 32, 32, 2], environment_steps_during_training=0)
     json_write(output / "training.json", report)
     try:
@@ -97,6 +102,10 @@ def train(demo_run: Path, output: Path, *, updates=1000, seed=0) -> Path:
         model = make_model()
         report["parameter_count"] = sum(p.numel() for p in model.parameters())
         x, y = torch.from_numpy(x), torch.from_numpy(y)
+        stopped = y.abs().amax(dim=1) <= report["stop_action_tolerance"]
+        weights = torch.where(stopped, float(stop_weight), 1.0)
+        report.update(stop_samples=int(stopped.sum()),
+                      expected_stop_fraction=float(weights[stopped].sum() / weights.sum()))
         mean, scale = x.mean(dim=0), x.std(dim=0, unbiased=False).clamp_min(0.05)
         x = (x - mean) / scale
         optimizer = torch.optim.Adam(model.parameters(), lr=report["learning_rate"])
@@ -105,7 +114,9 @@ def train(demo_run: Path, output: Path, *, updates=1000, seed=0) -> Path:
         json_write(output / "training.json", report)
         with (output / "losses.jsonl").open("x", encoding="utf-8") as log:
             for update in range(1, updates + 1):
-                indices = torch.randint(len(x), (report["batch_size"],))
+                # Keep the original RNG path at weight=1 for exact baseline comparisons.
+                indices = (torch.randint(len(x), (report["batch_size"],)) if stop_weight == 1 else
+                           torch.multinomial(weights, report["batch_size"], replacement=True))
                 loss = nn.functional.mse_loss(model(x[indices]), y[indices])
                 if not torch.isfinite(loss):
                     raise ValueError("Nonfinite training loss")
@@ -113,12 +124,18 @@ def train(demo_run: Path, output: Path, *, updates=1000, seed=0) -> Path:
                 loss.backward()
                 optimizer.step()
                 report["completed_updates"] = update
+                report["sampled_stop_count"] += int(stopped[indices].sum())
+                report["sampled_total_count"] += len(indices)
                 if update == 1 or update % 100 == 0 or update == updates:
                     log.write(json.dumps(dict(update=update, minibatch_mse=loss.item())) + "\n")
                     log.flush()
         model.eval()
         with torch.no_grad():
-            report["final_train_mse"] = float(nn.functional.mse_loss(model(x), y))
+            sample_mse = (model(x) - y).square().mean(dim=1)
+            # Always report unweighted dataset MSE, so sampling variants stay comparable.
+            report["final_train_mse"] = float(sample_mse.mean())
+            report["final_stop_mse"] = float(sample_mse[stopped].mean()) if stopped.any() else None
+            report["final_moving_mse"] = float(sample_mse[~stopped].mean()) if (~stopped).any() else None
         if not np.isfinite(report["final_train_mse"]):
             raise ValueError("Nonfinite final training loss")
         checkpoint = dict(format_version=1, feature_schema=FEATURE_SCHEMA,
@@ -126,7 +143,7 @@ def train(demo_run: Path, output: Path, *, updates=1000, seed=0) -> Path:
                           env_id=ENV_ID, control_mode="pd_joint_delta_pos",
                           control_freq=source["control_freq"], task=source["task"],
                           training_seeds=source["seeds"], training_source=source["run"],
-                          training_seed=seed, updates=updates)
+                          training_seed=seed, updates=updates, stop_weight=float(stop_weight))
         torch.save(checkpoint, output / "policy.pt")
         report.update(status="completed", checkpoint="policy.pt",
                       checkpoint_sha256=sha256(output / "policy.pt"))
@@ -166,6 +183,7 @@ class BCPolicy:
                              training_source=checkpoint["training_source"],
                              training_seeds=checkpoint["training_seeds"],
                              updates=checkpoint["updates"],
+                             stop_weight=checkpoint.get("stop_weight", 1.0),
                              parameter_count=sum(p.numel() for p in self.model.parameters()))
 
     def predict(self, observations: np.ndarray) -> np.ndarray:
