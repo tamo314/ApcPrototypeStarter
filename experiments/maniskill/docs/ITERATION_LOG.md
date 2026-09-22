@@ -224,6 +224,12 @@ manifestがfailed、episode数0、error.txtが保存されることを確認し�
 - 実績/限界: 今回の物理episode/環境step/学習更新は全て0。URDFの運動学計算成功を接触操作やrolloutの成功と呼ばない。実環境を生成できないため統合テストは未実行、細切れテストは追加していない。Vulkan/glvndのICD警告と非推奨Frame.parent警告あり。WSLにはMesa ICDとWindows連携のCUDA/D3D12ライブラリがあるが、今回のSAPIEN描画経路は動かなかった。
 - 次の一点/停止理由: Pinocchio依存不足は解消した。次は描画無効でもvisual materialを作るURDF読込経路を対象に、描画デバイスなしで環境生成する最小修正を検討する。PickCubeの物体生成にも描画材質生成があるため、URDFだけの修正で解決すると断定しない。ユーザーの「明らかな障害まで」の指示に従い、今回の実験はこの実行障害を記録して止める。
 
+## 2026-09-22 — WSLで描画を有効にした場合の切り分け
+
+- 問い/条件: ユーザーの「描画有りを許容するなら進められるか」に対し、既存WSL venvと依存を維持し、基点 `2cd4b5d`、`fetch_pickcube.json` に `--video --episodes 1 --max-steps 1` を指定して確認した。CPU物理のまま、描画backendをgpuへ変更。システム/ドライバの変更なし。
+- 結果: `runs/wsl-fetch-render-probe-20260922-a/` はfailed、0 episode / 0環境step。描画なし時のURDF読込より前、`_setup_scene` の `sapien.render.RenderSystem` 生成時に `vk::createInstanceUnique: ErrorIncompatibleDriver`。コンソールにはVulkan外部memory/semaphore拡張の不在と描画ドライバ非対応のメッセージが出た。別プロセスの `sapien.render.get_device_summary()` も `failed to find a rendering device` で失敗。
+- 解釈/次の一点: 描画禁止という実験条件を緩めるだけでは解消しない。現在のWSLからSAPIENのVulkan描画経路を利用できない。上流の対応表もWSLのRenderingは非対応、Windows/NVIDIAおよびLinux/NVIDIAは対応と記載している（[公式資料](https://maniskill.readthedocs.io/en/latest/user_guide/getting_started/installation.html#system-support)、今回再確認）。WSL継続時の次の一点は引き続き描画なしの環境生成経路の修正。描画を使う別案はネイティブLinux、またはWindows側の別環境でPinocchio導入を検証すること。今回の確認からWSL全般での絶対的な不可能性は主張しない。機能変更がないためpytestは追加/再実行していない。
+
 ## 追記テンプレート
 
 ### YYYY-MM-DD — 変更点の短い名前

@@ -118,6 +118,9 @@ FK/IK単独確認ではFetchのrest姿勢から手先を上へ2 cm移す目標�
 `render_backend="none"` のFetch/PickCubeでも、SAPIEN 3.0.3のURDF読込が
 `RenderMaterial()` を生成して `failed to find a rendering device` となった。
 `runs/wsl-fetch-ik-20260922-a/` に0 episode / 0 stepの失敗を保存。
+描画あり（`--video`）も `runs/wsl-fetch-render-probe-20260922-a/` で試したが、
+RenderSystem生成時に `vk::createInstanceUnique: ErrorIncompatibleDriver` で停止した。
+描画許可への切替だけでは解消せず、現在のWSLのVulkan描画経路が障害となっている。
 次はこの描画無効時のURDF読込経路を対象に、描画デバイスなしで起動する修正を検討する。
 
 ## 2. まず環境を動かす
