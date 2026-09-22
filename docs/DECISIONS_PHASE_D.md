@@ -1928,3 +1928,28 @@ fails before any optimizer update, candidate write, or selection because the sto
 vector is CPU-resident while the virtual adapter is CUDA-resident. Explicitly transfer the temporary
 slice to the adapter device and rerun only in a new namespace. Preserve all three namespaces and
 their manifests; none provides a scientific alignment result.
+
+## ADR-0208: R-CNP-001D supports virtual first-step task/retention gradient conflict
+
+Date: 2026-09-22. Status: **Diagnostic complete; mechanism supported; objective replacement not yet tested.**
+
+The completed run is `runs/cnp_repair/r001d/rcnp001d_alignment4/`, at commit `d885408` plus the
+preflight corrections in `25def7c` and `3ab0192`. Fresh alignment-root new data and immutable
+historical replay pass their split/support audit. Initial adapter parity is exact for all five
+parents on both panels, all frozen-base hashes are unchanged after rollback, and the run consumes
+zero optimizer updates, candidate writes, selections, promotions, and sealed accesses. It uses
+34.391 seconds, 68,075,520 peak CUDA allocated bytes, 69,206,016 reserved bytes, and
+1,913,335,808 process RAM bytes, all within the registered limits.
+
+At the zero adapter the keep-MSE gradient is necessarily zero. After the registered in-memory,
+rollback-only first AdamW task direction, virtual task/keep cosines are −0.9894, −0.9304,
+−0.7903, −0.8329, and −0.9567 for seeds 610200--610204. All are at most the pre-registered
+−0.10 threshold, so `ALIGNMENT_CONFLICT_SUPPORTED` is the correct mechanism result. New/replay
+gradients begin aligned (cosines 0.6446--0.9930), whereas the MSE constraint is strongly opposed
+to the combined task direction after the first task movement.
+
+This supports investigating a decision-preserving retention objective as the next single change.
+It does not establish that any margin definition, coefficient, or learned candidate will pass
+new/old quality or retention. R-CNP-001S/R FAIL, v1 G3 STOP, no selection/promotion, and
+R-CNP-002 not authorized remain unchanged. The three preceding stopped namespaces are preserved
+as implementation evidence and are not scientific comparison arms.

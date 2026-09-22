@@ -26,7 +26,7 @@ Rの「1/5 PASS」は誤記で、正しくは0/5。研究実行は終了した�
 | I-4 | 実行・計測の契約適合 | 完了。学習前support/split manifest、親new評価、step0/16/64/256固定panel trace、初期・fresh-process parity、bootstrap、parameter会計を追加。既存S/R evidenceは変更しない |
 | R-CNP-001S | 既存5親、A/B/Cの単一block診断 | 完了。Cを含む全15候補がFAIL、`S_DIAGNOSTIC_FAIL_STOP` |
 | R-CNP-001R | 別split、固定Cでlambda0/1の比較 | 実行終了。lambda1はold保持を改善するが0/5 PASS、`R_DIAGNOSTIC_FAIL_STOP`。検証不足はADR-0205 |
-| R-CNP-001D | 保持MSEとtask勾配の更新数0整合診断 | ADR-0207で認可。fresh root・5親・virtual first-stepのみ。R-CNP-002の前提にはしない |
+| R-CNP-001D | 保持MSEとtask勾配の更新数0整合診断 | 完了。全5親でvirtual task/keep cosine≤−0.10、`ALIGNMENT_CONFLICT_SUPPORTED`。ADR-0208。目的関数の有効性は未検証 |
 | R-CNP-002実行登録 | 固定レシピ・修正版親・新splitで正式確認する契約 | 新seed/データ/予算・G1/G2/G3・causal/controlのmanifest固定 |
 
 設計完了から研究実行へ自動遷移しない。後日実装が指示された場合、I-1〜3と必要なテストは
