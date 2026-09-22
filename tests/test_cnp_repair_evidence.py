@@ -69,6 +69,32 @@ def test_preflight_trace_and_initial_parity_are_cpu_testable() -> None:
     assert trace["parent_incorrect_replay_logit_mse"] == 0.0
 
 
+def test_preflight_support_audits_legacy_replay_conditions_without_reinterpreting_them() -> None:
+    record = _record(0, target=True)
+    legacy = CNPRecord(
+        state=record.state,
+        arguments=record.arguments,
+        target=record.target,
+        role=record.role,
+        condition_key="source_00",
+        schedule_index=record.schedule_index,
+    )
+    negative = _record(1, target=False)
+    legacy_negative = CNPRecord(
+        state=negative.state,
+        arguments=negative.arguments,
+        target=negative.target,
+        role=negative.role,
+        condition_key="source_00",
+        schedule_index=negative.schedule_index,
+    )
+    evidence = preflight_panel_evidence(
+        {"replay": [legacy, legacy_negative]}, expected_shadow_sets=128
+    )
+    assert evidence["status"] == "PASS"
+    assert "condition=source_00|length=1|threshold=0.50" in evidence["panels"]["replay"]["cells"]
+
+
 def test_fresh_checkpoint_parity_is_independent_of_the_live_candidate(tmp_path) -> None:
     records = _records()
     torch.manual_seed(5)

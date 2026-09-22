@@ -52,7 +52,13 @@ def preflight_panel_evidence(
             lambda: {"sets": 0, "positive_items": 0, "negative_items": 0}
         )
         for record in records:
-            key = CellKey.from_record(record).text()
+            try:
+                key = CellKey.from_record(record).text()
+            except ValueError:
+                key = (
+                    f"condition={record.condition_key}|length={record.state.width}|"
+                    f"threshold={float(record.arguments.threshold[0]):.2f}"
+                )
             valid = record.state.valid
             target = record.target.bool() & valid
             cells[key]["sets"] += 1
