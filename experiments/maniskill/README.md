@@ -1,7 +1,8 @@
 # ManiSkill実験ワークスペース
 
 **現在:** 環境の起動・試行・記録と、Fetchの最小目標到達課題を実装。
-Windowsの専用venvでCPU実行を確認した。APCの学習器やスキル銀行は未実装。
+Windowsの専用venvでCPU実行を確認した。台車の小規模な模倣学習baselineも実装済み。
+APCのスキル銀行・追加学習/圧縮は未実装。
 ランダム方策の成功率を研究仮説の成否とみなさない。
 方針は [AGENTS.md](AGENTS.md)、研究の順序は [計画](docs/RESEARCH_PLAN.md)、
 データ形式と将来の接続は [設計](docs/ARCHITECTURE.md) を参照する。
@@ -99,7 +100,31 @@ rest keyframeへ戻すdelta指令とグリッパ0.015 m指令を送り、台車�
 `fetch_goal` は手設計の閉ループ制御、`fetch_zero` は台車ゼロ指令、
 `fetch_random` は台車のみランダム指令。既存の `random`/`zero` は全身への指令で別物。
 姿勢保持は物理的な固定ではなく、ずれを `posture_max_error` に記録する。
-学習済み方策・スキル再利用の成果とは呼ばない。
+これらの手設計方策を学習済み方策・スキル再利用の成果とは呼ばない。
+
+### 台車の模倣学習baseline
+
+このフォルダで、毎回新しい出力先を指定する:
+
+```bash
+python -m apc_maniskill rollout --config configs/fetch_reach_goal.json --episodes 10 --seed 10 --out runs/my-demo
+python -m apc_maniskill train-bc --demo-run runs/my-demo --out runs/my-bc --updates 1000 --seed 0
+python -m apc_maniskill rollout --config configs/fetch_reach_bc.json --checkpoint runs/my-bc/policy.pt --out runs/my-learned
+python -m apc_maniskill rollout --config configs/fetch_reach_goal.json --seed 1000 --out runs/my-teacher-comparison
+```
+
+`train-bc` は保存済み教師軌跡の行動直前の観測から、正規化された台車の前進/旋回指令を学習する。
+入力は身体座標の相対目標xyと台車速度vx/vy/yaw rateの5要素、ネットワークは
+5→32→32→2（Tanh、1,314パラメータ）。CPU、Adam、学習率0.001、batch 64、
+均等サンプリングのMSEを使う。入力の平均/標準偏差は教師データだけで求める。
+腕・胴体・グリッパは共通の手設計姿勢補正で、台車には学習済み出力のみを送る。
+推論中のteacher切替や手設計の台車停止ルールはない。
+
+学習runには `training.json`、`losses.jsonl`、`policy.pt` を保存する。
+データのseed/ハッシュ、更新数、パラメータ数、学習データ上のMSE、実行時間を残す。
+rolloutはチェックポイントのコピー/ハッシュを保存し、タスクと制御の互換性を検査する。
+新しいrunには実行コードの `source_snapshot/` も保存する。
+学習損失は独立評価ではない。比較seed 1000〜1002も今回確認した探索データとして扱う。
 
 ## 3. 保存されるもの
 
@@ -121,10 +146,11 @@ rest keyframeへ戻すdelta指令とグリッパ0.015 m指令を送り、台車�
 ## 4. テスト
 
 機能のまとまりを変更したときだけ、対象の機能全体のテストを行う。
-「試行→保存→集計」と「Fetch到達課題→閉ループ制御→成果物」に各1本。
+「試行→保存→集計」「Fetch到達課題→閉ループ制御→成果物」
+「教師軌跡→学習→重み再読込→学習方策の実行」に各1本。
 
 ```bash
-APC_RUN_MANISKILL_TEST=1 python -m pytest -q tests/test_rollout_feature.py tests/test_fetch_reach_feature.py
+APC_RUN_MANISKILL_TEST=1 python -m pytest -q tests/test_rollout_feature.py tests/test_fetch_reach_feature.py tests/test_bc_feature.py
 ```
 
 通常実行では明示的にskipされる。skipは成功ではない。成功率の最低値は検査しない。
@@ -134,9 +160,10 @@ GPU・Fetch・動画は研究用マシンで短い実runを行い、結果を実
 ## 5. 次の作業
 
 [実験メモ](docs/ITERATION_LOG.md)にPanda/Fetchと到達課題のCPU実runを記録した。
-次は同じ身体・行動対応のまま、小規模な模倣学習baselineを作り、
-学習した方策自身の閉ループrolloutを手設計制御と比較する。
-GPU物理・動画・学習は未検証。
+小規模な模倣学習方策の閉ループ試行も3 episode実行済み。
+次は同じデータ・更新数で停止指令サンプルの学習比率だけを上げ、
+同じ比較seedで角速度と到達step数を比較する。
+GPU物理・動画・APCの銀行/合成/圧縮は未検証。
 
 ## 上流資料（2026-09-22確認）
 

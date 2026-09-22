@@ -9,6 +9,7 @@ import importlib.metadata
 import json
 import math
 import platform
+import shutil
 import subprocess
 import sys
 import time
@@ -40,6 +41,13 @@ def json_write(path: Path, value: Any) -> None:
     temporary = path.with_suffix(path.suffix + ".tmp")
     temporary.write_text(json.dumps(value, indent=2, allow_nan=False) + "\n", encoding="utf-8")
     temporary.replace(path)
+
+
+def snapshot_source(output: Path) -> None:
+    snapshot = output / "source_snapshot"
+    snapshot.mkdir(exist_ok=False)
+    for source in Path(__file__).parent.glob("*.py"):
+        shutil.copy2(source, snapshot / source.name)
 
 
 def array(value: Any) -> np.ndarray:
@@ -85,6 +93,7 @@ class RunConfig:
     video: bool = False
     split: str = "explore"
     task_label: str = "instrumentation"
+    checkpoint: str | None = None
 
     def validate(self) -> None:
         for name in ("episodes", "max_steps"):
@@ -93,8 +102,13 @@ class RunConfig:
                 raise ValueError(f"{name} must be a positive integer")
         if type(self.seed) is not int or not 0 <= self.seed < 2**32 - self.episodes:
             raise ValueError("seed must permit all episode seeds in the uint32 range")
-        if self.policy not in ("random", "zero", "fetch_goal", "fetch_random", "fetch_zero"):
+        if self.policy not in ("random", "zero", "fetch_goal", "fetch_random", "fetch_zero", "fetch_bc"):
             raise ValueError("Unknown instrumentation/Fetch diagnostic policy")
+        if self.policy == "fetch_bc":
+            if not isinstance(self.checkpoint, str) or not self.checkpoint:
+                raise ValueError("fetch_bc requires a checkpoint path")
+        elif self.checkpoint is not None:
+            raise ValueError("checkpoint is only used with fetch_bc")
         if self.policy.startswith("fetch_") and self.env_id != "APC-FetchReachGoal-v1":
             raise ValueError("Fetch diagnostics require APC-FetchReachGoal-v1")
         if self.sim_backend not in ("physx_cpu", "physx_cuda"):
@@ -170,6 +184,7 @@ def collect(config: RunConfig, output: Path, *, env_factory: Callable = make_env
     env = None
     start = time.monotonic()
     try:
+        snapshot_source(output)
         env = env_factory(config, output)
         space = env.action_space
         if not hasattr(space, "low") or not hasattr(space, "high"):
@@ -183,6 +198,16 @@ def collect(config: RunConfig, output: Path, *, env_factory: Callable = make_env
         manifest["sim_freq"] = float(env.unwrapped.sim_config.sim_freq)
         if hasattr(env.unwrapped, "experiment_metadata"):
             manifest["task"] = env.unwrapped.experiment_metadata()
+        learned_policy = None
+        if config.policy == "fetch_bc":
+            from .bc import BCPolicy
+            checkpoint_copy = output / "policy.pt"
+            shutil.copy2(config.checkpoint, checkpoint_copy)
+            learned_policy = BCPolicy(checkpoint_copy, manifest["task"], manifest["control_freq"])
+            manifest["policy_details"] = learned_policy.metadata
+            manifest["policy_details"]["original_checkpoint"] = str(Path(config.checkpoint).resolve())
+        else:
+            manifest["policy_details"] = {"source": "hand-designed diagnostic"}
         json_write(output / "manifest.json", manifest)
         with (output / "episodes.jsonl").open("x", encoding="utf-8") as episodes_file, \
              (output / "steps.jsonl").open("x", encoding="utf-8") as steps_file:
@@ -200,8 +225,15 @@ def collect(config: RunConfig, output: Path, *, env_factory: Callable = make_env
                     action = space.sample() if config.policy == "random" else np.clip(
                         np.zeros(space.shape, dtype=space.dtype), space.low, space.high
                     )
-                    if config.policy.startswith("fetch_"):
+                    if learned_policy is not None:
+                        # Only posture is shared; no scripted base fallback or stopping rule.
+                        action = env.unwrapped.diagnostic_action("fetch_zero", space)
+                        start_idx, end_idx = env.unwrapped.agent.controller.action_mapping["base"]
+                        action[start_idx:end_idx] = learned_policy.predict(array(obs))[0]
+                    elif config.policy.startswith("fetch_"):
                         action = env.unwrapped.diagnostic_action(config.policy, space)
+                    if not np.isfinite(action).all():
+                        raise ValueError("Nonfinite action")
                     saved_action = array(action)
                     obs, reward, terminated, truncated, info = env.step(action)
                     observation, r = array(obs), float(scalar(reward))
@@ -284,5 +316,7 @@ def summarize(output: Path) -> dict[str, Any]:
         "steps": sum(e["steps"] for e in episodes),
         "runner_truncated_episodes": sum(e["runner_truncated"] for e in episodes),
         "wall_seconds": manifest.get("wall_seconds"),
-        "note": "Instrumentation result; not evidence of APC learning or skill reuse.",
+        "note": ("Supervised base-policy rollout; not evidence of APC skill-bank learning or reuse."
+                 if manifest["config"]["policy"] == "fetch_bc" else
+                 "Instrumentation result; not evidence of APC learning or skill reuse."),
     }

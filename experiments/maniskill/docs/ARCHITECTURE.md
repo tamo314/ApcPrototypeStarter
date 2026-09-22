@@ -5,7 +5,8 @@
 現在実装されているのは `RunConfig → ManiSkill → rollout → NPZ/JSONL → summary`。
 単一環境、state観測、Box行動、random/zero方策、CPU/GPUの明示選択、任意動画に加え、
 `APC-FetchReachGoal-v1` と手設計の診断方策 `fetch_goal/fetch_zero/fetch_random` を実装。
-GPU並列auto-reset、学習器、スキル銀行、selector、蒸留は未実装。
+台車の小規模な模倣学習baselineを `bc.py` に実装した。
+GPU並列auto-reset、APCのスキル銀行、selector、追加学習/蒸留は未実装。
 本体コードは `src/apc_maniskill/`。旧 `src/apc/` をimportしない独立Pythonパッケージ。
 
 到達課題は `fetch_reach.py` にあり、ManiSkill 3.0.1のFetchとbuild_groundを使用する。
@@ -19,6 +20,29 @@ base_velocity 3の計40要素。相対目標だけ身体座標、他は世界座
 到達と停止の閾値、開始/目標分布、行動対応はmanifestのtaskに保存する。
 reset/final infoはepisode行、毎stepの距離・速度・姿勢誤差はsteps.jsonlに残す。
 姿勢誤差は台車以外の一般化座標の最大絶対誤差であり、m/radの混在した診断値。
+
+## 最初の学習baseline
+
+`train-bc` はcompletedな `fetch_goal` の実軌跡のみを教師にする。
+NPZの `observations[:-1]` と `actions[:, 11:13]` を対応づける。
+入力は相対目標xyと身体座標の台車速度vx/vy/yaw rate（計5要素）。
+state40内の位置はfeature schema v1で明示し、統合テストでinfoの幾何と照合する。
+教師データ由来の平均/標準偏差（下限0.05）で標準化し、5→32→32→2のTanh MLPを
+均等サンプリングの行動MSEで訓練する。CPU、Adam 0.001、batch 64。
+学習stepは勾配更新数であり、保存軌跡を使う学習中の環境step数は0。
+
+checkpointはstate_dictと標準化統計、feature/task/control情報、教師seedを含む。
+`weights_only=True` で読み込み、タスク/制御/入力schemaの互換性と数値を確認する。
+学習runの `training.json` は状態、ハイパーパラメータ、データ由来とハッシュ、
+学習MSE、パラメータ数、wall timeを保持し、失敗時はerror.txtを保存する。
+学習MSEは全教師データで測った当てはまりで、汎化指標ではない。
+
+`fetch_bc` のrolloutは1回ロードしたモデルを毎step使い、台車の手設計制御に戻らない。
+非台車部分のみ `fetch_zero` と同じ姿勢補正を使い、送った全身13次元行動を保存する。
+manifestの `policy_details` が実際の方策とcheckpointを識別する。
+task内の `policy_source` は元の診断方策の説明で、学習方策の出自はpolicy_detailsを参照する。
+チェックポイントのコピーとsha256、実行ソースsnapshotをrunに保存する。
+この単一方策baselineは、銀行・temporary・圧縮・スキル再利用を実装していない。
 
 ## 次に実装する経路
 
@@ -79,8 +103,9 @@ summaryの成功率は成功情報を得たepisodeだけを分母にし、その
 物理エンジンの全状態を保存していないため、NPZだけで厳密な物理リプレイはできない。
 必要になった時点でRecordEpisodeのtrajectory保存やstate_dictの保存を足す。
 seedを記録しても異なるGPU/依存/PhysX版でbitwise再現を保証しない。
-git dirty状態は記録するが、未コミットソース全体のsnapshotまでは初版で保存しない。
-意味のある比較はコミット済みソースを使い、例外的なdirty runは差分を別途保管する。
+git dirty状態を記録し、新しいrollout/学習runはパッケージ内Pythonソースを
+`source_snapshot/` に保存する。リポジトリ全体や依存のsnapshotではない。
+configはmanifest、解決済み依存は各runの記録を参照する。
 
 ## 終了・失敗・出力保護
 
