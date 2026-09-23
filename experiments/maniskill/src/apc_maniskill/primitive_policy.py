@@ -72,12 +72,37 @@ class PitchGuardSelector:
         return 12 if pitch < desired else 13
 
 
+class RotationProbeSelector:
+    """Explicit exploration: perturb rotation while retaining the learned selector elsewhere."""
+
+    def __init__(self, base_selector, schedule=None):
+        self.base_selector = base_selector
+        self.schedule = schedule if schedule is not None else {450: 12, 520: 13, 590: 12, 660: 13, 730: 12}
+        self.metadata = dict(base_selector.metadata, selector="cart_rotation_probe_v1",
+                             learned=False, exploration=True, probe_schedule=self.schedule)
+        self.last_scores = []
+        self.probe_applied = False
+        self.probe_raw_id = HOLD
+
+    def reset(self):
+        self.base_selector.reset()
+        self.last_scores = []
+        self.probe_applied = False
+
+    def select(self, step, observation):
+        self.probe_raw_id = self.base_selector.select(step, observation)
+        self.last_scores = self.base_selector.last_scores
+        self.probe_applied = step in self.schedule
+        return self.schedule.get(step, self.probe_raw_id)
+
+
 class PickPlaceSelector:
     """Physical-state teacher using only the same ten executor operations."""
 
-    def __init__(self, grasp_height_m=0.012, use_rotation=False):
+    def __init__(self, grasp_height_m=0.012, use_rotation=False, desired_pitch_deg=15):
         self.grasp_height_m = grasp_height_m
         self.use_rotation = use_rotation
+        self.desired_pitch_deg = desired_pitch_deg
 
     def reset(self):
         pass
@@ -86,7 +111,7 @@ class PickPlaceSelector:
         hand = np.asarray(observation["measured_hand_position"])
         if self.use_rotation:
             q = np.asarray(observation["measured_hand_quaternion"])
-            desired_pitch = np.deg2rad(15)
+            desired_pitch = np.deg2rad(self.desired_pitch_deg)
             pitch = 2 * np.arctan2(q[2], q[0])
             pending_q = np.asarray(observation["hand_target_quaternion"])
             pending_angle = 2 * np.arccos(np.clip(abs(np.dot(q, pending_q)), 0, 1))
@@ -209,8 +234,9 @@ class BaseReadyPickSelector:
     metadata = dict(base_switch_measured_x_m=0.195, base_ready_error_m=0.001,
                     base_ready_min_age_steps=15)
 
-    def __init__(self):
-        self.pick = PickPlaceSelector(use_rotation=True)
+    def __init__(self, desired_pitch_deg=15):
+        self.pick = PickPlaceSelector(use_rotation=True, desired_pitch_deg=desired_pitch_deg)
+        self.metadata = dict(type(self).metadata, desired_pitch_deg=desired_pitch_deg)
 
     def reset(self):
         self.pick.reset()
@@ -224,6 +250,65 @@ class BaseReadyPickSelector:
         if error < 0.001 and observation["base_target_age_steps"] >= 15:
             return 16
         return CONTINUE
+
+
+class AxisRetryPickSelector(PickPlaceSelector):
+    """Diagnostic axis-order change after a rejected translation target."""
+
+    def select(self, step, observation):
+        chosen = super().select(step, observation)
+        if (chosen >= 6 or observation["last_override_reason_code"] != 2
+                or observation["selected_id"] != chosen):
+            return chosen
+        hand = np.asarray(observation["measured_hand_position"])
+        cube = np.asarray(observation["cube_position"])
+        if observation["grasped"]:
+            delta = (np.array([0., 0., .15]) if cube[2] < observation["cube_initial_z"] + .10
+                     else np.asarray(observation["goal_position"]) - cube)
+        else:
+            height = self.grasp_height_m if np.linalg.norm((cube - hand)[:2]) < .008 else .12
+            delta = cube + [0, 0, height] - hand
+        delta = np.asarray(observation["root_rotation"]).T @ delta
+        magnitude = np.abs(delta)
+        magnitude[chosen // 2] = 0
+        axis = int(np.argmax(magnitude))
+        return 2 * axis + int(delta[axis] < 0) if magnitude[axis] > .003 else chosen
+
+
+class BaseReadyAxisRetryPickSelector(BaseReadyPickSelector):
+    metadata = dict(BaseReadyPickSelector.metadata, selector="base_ready_axis_retry_pick_v1",
+                    learned=False, retry_alternate_axis=True)
+
+    def __init__(self):
+        self.pick = AxisRetryPickSelector(use_rotation=True)
+
+
+class BaseReadyRecoverPickSelector(BaseReadyPickSelector):
+    """Diagnostic far-start teacher: retreat once after repeated arm rejection."""
+
+    metadata = dict(BaseReadyPickSelector.metadata, selector="base_ready_recover_pick_v1",
+                    recovery_rejections=5, recovery_wait_steps=35, recovery_max_count=1,
+                    learned=False)
+
+    def reset(self):
+        super().reset()
+        self.approached = False
+        self.rejection_streak = 0
+        self.retreat_started = None
+
+    def select(self, step, observation):
+        self.approached = self.approached or observation["base_pose"][0] >= 0.195
+        if not self.approached:
+            return super().select(step, observation)
+        if self.retreat_started is not None and step < self.retreat_started + 35:
+            return CONTINUE
+        if self.retreat_started is None:
+            self.rejection_streak = (self.rejection_streak + 1
+                                     if observation["last_override_reason_code"] == 2 else 0)
+            if self.rejection_streak >= 5:
+                self.retreat_started = step
+                return 17
+        return self.pick.select(step, observation)
 
 
 class BaseReadySettledPickSelector(BaseReadyPickSelector):
@@ -461,6 +546,9 @@ class PrimitivePolicy(ArmIKPolicy):
             self.pre_action["base_path_clearance_m"] = base_path_clearance
         if hasattr(self.selector, "last_scores"):
             self.pre_action["selector_logits"] = self.selector.last_scores
+        if hasattr(self.selector, "probe_applied"):
+            self.pre_action.update(probe_applied=self.selector.probe_applied,
+                                   probe_raw_id=self.selector.probe_raw_id)
         if hasattr(self.selector, "last_raw_id"):
             self.pre_action.update(raw_model_id=self.selector.last_raw_id,
                                    pitch_guard_triggered=self.selector.last_guard_triggered,

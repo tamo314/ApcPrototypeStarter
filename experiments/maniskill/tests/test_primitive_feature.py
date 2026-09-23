@@ -10,7 +10,8 @@ import pytest
 @pytest.mark.skipif(os.getenv("APC_RUN_MANISKILL_TEST") != "1", reason="Explicit real-simulator test")
 def test_primitive_to_saved_rollout_and_selector(tmp_path):
     from apc_maniskill.primitive_learning import MLPSelector, train
-    from apc_maniskill.primitive_policy import (BaseReadyPickSelector, BaseDemoSelector, BaseRecoverPickSelector,
+    from apc_maniskill.primitive_policy import (BaseReadyPickSelector, BaseReadyRecoverPickSelector, BaseReadyAxisRetryPickSelector,
+                                                RotationProbeSelector, BaseDemoSelector, BaseRecoverPickSelector,
                                                 BaseThenPickSelector, PickPlaceSelector,
                                                 PitchGuardSelector, PrimitivePolicy)
     from apc_maniskill.runner import RunConfig, collect
@@ -88,7 +89,7 @@ def test_primitive_to_saved_rollout_and_selector(tmp_path):
     assert recovery[retreat[0] + 35]["post_action_state"]["base_pose"][0] < .005
     assert all(row["table_contact_force_norm_sum_n"] == 0 for row in recovery)
 
-    far_out, far_rows = run("far_approach", 2, 240, lambda env, output: PrimitivePolicy(
+    far_out, far_rows = run("far_approach", 2, 550, lambda env, output: PrimitivePolicy(
         env, output, selector=BaseReadyPickSelector(), allow_rotation=True, allow_base=True),
         seed=1901, env_id="APC-FetchPickCubeFar-v1")
     assert json.loads((far_out / "manifest.json").read_text())["task"]["start_back_m"] == .20
@@ -128,10 +129,11 @@ def test_primitive_to_saved_rollout_and_selector(tmp_path):
     # real hand/base execution. A diagnostic teacher must not change its actions.
     from apc_maniskill.primitive_learning import LearnedSelector, SCHEMA_V6
     tree_train = tmp_path / "tree_train"
-    train(far_out, tree_train, feature_schema=SCHEMA_V6, model_kind="cart")
+    train(far_out, tree_train, feature_schema=SCHEMA_V6, model_kind="cart", partition_grasp=True)
     tree_training = json.loads((tree_train / "training.json").read_text())
     assert tree_training["tree_nodes"] > 1
     assert tree_training["updates"] == 0
+    assert tree_training["partition_grasp"]
 
     def tree_factory(query):
         def factory(env, output):
@@ -149,6 +151,32 @@ def test_primitive_to_saved_rollout_and_selector(tmp_path):
     assert all(len(row["info"]["diagnostic"]["selector_logits"]) == 20 for row in tree_rows)
     assert [row["info"]["diagnostic"]["submitted_action"] for row in tree_rows] == [
         row["info"]["diagnostic"]["submitted_action"] for row in tree_query]
+
+
+    _, far_recovery = run("far_recovery", 1, 530, lambda env, output: PrimitivePolicy(
+        env, output, selector=BaseReadyRecoverPickSelector(), allow_rotation=True, allow_base=True),
+        seed=2802, env_id="APC-FetchPickCubeFar-v1")
+    assert sum(r["info"]["diagnostic"]["proposed_id"] == 17 for r in far_recovery) == 1
+    assert far_recovery[-1]["info"]["diagnostic"]["post_action_state"]["base_pose"][0] < .19
+
+    _, axis_retry = run("axis_retry", 1, 490, lambda env, output: PrimitivePolicy(
+        env, output, selector=BaseReadyAxisRetryPickSelector(), allow_rotation=True, allow_base=True),
+        seed=2802, env_id="APC-FetchPickCubeFar-v1")
+    assert any(r["info"]["diagnostic"]["pre_action_state"]["last_override_reason_code"] == 2
+               and r["info"]["diagnostic"]["proposed_id"] in (3, 5) for r in axis_retry)
+
+    def probe_factory(env, output):
+        learned_selector = LearnedSelector(tree_train / "selector.pt", env.unwrapped.experiment_metadata(),
+                                          float(env.unwrapped.sim_config.control_freq))
+        return PrimitivePolicy(env, output, selector=RotationProbeSelector(learned_selector, {20: 12}),
+                               allow_rotation=True, allow_base=True, query_teacher=True)
+
+    probe_out, probe = run("rotation_probe", 1, 30, probe_factory,
+                           seed=1903, env_id="APC-FetchPickCubeFar-v1")
+    assert not json.loads((probe_out / "manifest.json").read_text())["policy_details"]["learned"]
+    assert probe[20]["info"]["diagnostic"]["probe_applied"]
+    assert probe[20]["info"]["diagnostic"]["proposed_id"] == 12
+    assert all(r["info"]["diagnostic"]["teacher_label_valid"] for r in probe)
 
     teacher, _ = run("teacher", 2, 80, lambda env, output: PrimitivePolicy(
         env, output, selector=PickPlaceSelector(use_rotation=True), allow_rotation=True))

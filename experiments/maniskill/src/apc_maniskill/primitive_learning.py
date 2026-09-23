@@ -88,13 +88,15 @@ def train(source: Path, output: Path, *, updates=3000, seed=0,
           sampling="uniform", std_floor=1e-4, feature_schema=SCHEMA_V1,
           train_all=False, extra_teacher_sources: list[Path] | None = None,
           dagger_strides: list[int] | None = None, model_kind="mlp",
-          max_depth=12, min_leaf=2):
+          max_depth=12, min_leaf=2, partition_grasp=False):
     if updates < 1:
         raise ValueError("updates must be positive")
     if not np.isfinite(std_floor) or std_floor <= 0:
         raise ValueError("std_floor must be finite and positive")
     if model_kind not in ("mlp", "cart"):
         raise ValueError("Unknown selector model kind")
+    if partition_grasp and model_kind != "cart":
+        raise ValueError("Physical grasp partition requires CART")
     output.mkdir(parents=True, exist_ok=False)
     shutil.copy2(__file__, output / "primitive_learning.py")
     shutil.copy2(source / "manifest.json", output / "source_manifest.json")
@@ -174,7 +176,9 @@ def train(source: Path, output: Path, *, updates=3000, seed=0,
         shutil.copy2(Path(__file__).with_name("primitive_tree.py"), output / "primitive_tree.py")
         weights = np.ones(len(xt)) if probabilities is None else probabilities * len(xt)
         model = CART.fit(xt.numpy(), yt.numpy(), weights, len(names),
-                         max_depth=max_depth, min_leaf=min_leaf)
+                         max_depth=max_depth, min_leaf=min_leaf,
+                         root_feature=(x.shape[1] - (1 if feature_schema == SCHEMA_V6 else len(names) + 1))
+                         if partition_grasp else None)
         updates = 0  # One tree fit; no gradient optimizer updates.
     else:
         model = network(x.shape[1], len(names))
@@ -208,6 +212,7 @@ def train(source: Path, output: Path, *, updates=3000, seed=0,
     checkpoint["sampling"] = sampling
     checkpoint["std_floor"] = std_floor
     model_details = dict(model_kind=model_kind,
+                         partition_grasp=partition_grasp,
                          tree_nodes=len(model.feature) if model_kind == "cart" else None,
                          tree_max_depth=max_depth if model_kind == "cart" else None,
                          tree_min_leaf=min_leaf if model_kind == "cart" else None,
@@ -267,6 +272,7 @@ class LearnedSelector:
                              selector_parameters=sum(p.numel() for p in self.model.parameters()),
                              selector_stored_values=sum(t.numel() for t in self.model.state_dict().values()),
                              tree_nodes=saved.get("tree_nodes"), tree_fits=saved.get("tree_fits", 0),
+                             partition_grasp=saved.get("partition_grasp", False),
                              checkpoint_sha256=hashlib.sha256(checkpoint.read_bytes()).hexdigest(),
                              source_steps_sha256=saved["source_steps_sha256"],
                              training_updates=saved["updates"])
@@ -304,13 +310,15 @@ def main():
     parser.add_argument("--model-kind", choices=["mlp", "cart"], default="mlp")
     parser.add_argument("--max-depth", type=int, default=12)
     parser.add_argument("--min-leaf", type=int, default=2)
+    parser.add_argument("--partition-grasp", action="store_true",
+                        help="CART structural prior: split measured grasp state before fitting decisions")
     args = parser.parse_args()
     train(args.source, args.out, updates=args.updates, seed=args.seed,
           dagger_source=args.dagger_source, sampling=args.sampling,
           std_floor=args.std_floor, feature_schema=args.feature_schema,
           train_all=args.train_all, extra_teacher_sources=args.extra_teacher_source,
           dagger_strides=args.dagger_stride, model_kind=args.model_kind,
-          max_depth=args.max_depth, min_leaf=args.min_leaf)
+          max_depth=args.max_depth, min_leaf=args.min_leaf, partition_grasp=args.partition_grasp)
 
 
 if __name__ == "__main__":

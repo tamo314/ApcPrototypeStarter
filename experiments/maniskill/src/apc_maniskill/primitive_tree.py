@@ -32,9 +32,11 @@ class CART(nn.Module):
         return result[0] if single else result
 
     @classmethod
-    def fit(cls, x, y, weights, output_dim, *, max_depth=12, min_leaf=2):
+    def fit(cls, x, y, weights, output_dim, *, max_depth=12, min_leaf=2, root_feature=None):
         if max_depth < 1 or min_leaf < 1:
             raise ValueError("CART depth and leaf size must be positive")
+        if root_feature is not None and len(np.unique(x[:, root_feature])) != 2:
+            raise ValueError("A physical-state partition requires both observed states in training")
         nodes = []
 
         def grow(indices, depth):
@@ -46,7 +48,10 @@ class CART(nn.Module):
                 return node
             best_gain, best = 1e-10, None
             parent_score = np.dot(counts, counts) / counts.sum()
-            for feature in range(x.shape[1]):
+            candidates = [root_feature] if depth == 0 and root_feature is not None else range(x.shape[1])
+            if depth == 0 and root_feature is not None:
+                best_gain = -np.inf  # Explicit structural prior, even for zero immediate gain.
+            for feature in candidates:
                 order = indices[np.argsort(x[indices, feature], kind="stable")]
                 values = x[order, feature]
                 cuts = np.flatnonzero(values[:-1] < values[1:])
