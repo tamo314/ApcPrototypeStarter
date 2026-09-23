@@ -1,4 +1,4 @@
-"""Persistent target executor and a bounded manual selector for the first ten IDs."""
+"""Persistent target executor and diagnostic selectors for Fetch primitives."""
 from __future__ import annotations
 
 from dataclasses import asdict
@@ -29,6 +29,40 @@ class BaseDemoSelector:
 
     def select(self, step, observation):
         return self.schedule.get(step, CONTINUE)
+
+
+class PitchGuardSelector:
+    """Diagnostic hybrid: retain MLP decisions except the teacher's pitch correction."""
+
+    def __init__(self, base_selector):
+        self.base_selector = base_selector
+        self.metadata = dict(base_selector.metadata, selector="mlp_with_pitch_guard_v1",
+                             learned=False, hybrid=True, pitch_guard_desired_deg=15,
+                             pitch_guard_tolerance_deg=2)
+        self.last_scores = []
+        self.last_raw_id = HOLD
+        self.last_guard_triggered = False
+
+    def reset(self):
+        self.base_selector.reset()
+        self.last_scores = []
+        self.last_raw_id = HOLD
+        self.last_guard_triggered = False
+
+    def select(self, step, observation):
+        self.last_raw_id = self.base_selector.select(step, observation)
+        self.last_scores = self.base_selector.last_scores
+        q = np.asarray(observation["measured_hand_quaternion"])
+        pitch = 2 * np.arctan2(q[2], q[0])
+        desired = np.deg2rad(15)
+        self.last_guard_triggered = abs(pitch - desired) > np.deg2rad(2)
+        if not self.last_guard_triggered:
+            return self.last_raw_id
+        pending_q = np.asarray(observation["hand_target_quaternion"])
+        pending_angle = 2 * np.arccos(np.clip(abs(np.dot(q, pending_q)), 0, 1))
+        if pending_angle > 0.02 and observation["target_age_steps"] < 12:
+            return CONTINUE
+        return 12 if pitch < desired else 13
 
 
 class PickPlaceSelector:
@@ -84,6 +118,65 @@ class PickPlaceSelector:
         return 2 * axis + int(delta_root[axis] < 0)
 
 
+class BaseThenPickSelector:
+    """Manual same-scene chain: one safe base advance, then physical pick teacher."""
+
+    schedule = {0: 16}
+
+    def __init__(self):
+        self.pick = PickPlaceSelector(use_rotation=True)
+
+    def reset(self):
+        self.pick.reset()
+
+    def select(self, step, observation):
+        if step < 35:
+            return self.schedule.get(step, CONTINUE)
+        return self.pick.select(step, observation)
+
+
+class WaitThenPickSelector:
+    """Matched 35-step delay control for the manual base-to-pick chain."""
+
+    def __init__(self):
+        self.pick = PickPlaceSelector(use_rotation=True)
+
+    def reset(self):
+        self.pick.reset()
+
+    def select(self, step, observation):
+        return CONTINUE if step < 35 else self.pick.select(step, observation)
+
+
+class BaseRecoverPickSelector:
+    """Manual recovery: undo the base advance after repeated arm path rejection."""
+
+    def __init__(self):
+        self.pick = PickPlaceSelector(use_rotation=True)
+        self.ik_rejection_streak = 0
+        self.retreat_started = None
+
+    def reset(self):
+        self.pick.reset()
+        self.ik_rejection_streak = 0
+        self.retreat_started = None
+
+    def select(self, step, observation):
+        if step == 0:
+            return 16
+        if step < 35:
+            return CONTINUE
+        if self.retreat_started is not None and step < self.retreat_started + 35:
+            return CONTINUE
+        if self.retreat_started is None:
+            self.ik_rejection_streak = (self.ik_rejection_streak + 1
+                                        if observation["last_override_reason_code"] == 2 else 0)
+            if self.ik_rejection_streak >= 5:
+                self.retreat_started = step
+                return 17
+        return self.pick.select(step, observation)
+
+
 class PrimitivePolicy(ArmIKPolicy):
     def __init__(self, env, output, *, config: PrimitiveConfig | None = None, selector=None,
                  allow_rotation=False, allow_base=False, query_teacher=False):
@@ -106,6 +199,9 @@ class PrimitivePolicy(ArmIKPolicy):
                                                   NAMES if allow_rotation else NAMES[:10]),
                              primitive_config=asdict(self.primitive_config),
                              selector=("physical_state_pick_place_v1" if isinstance(self.selector, PickPlaceSelector)
+                                       else "base_then_pick_v2" if isinstance(self.selector, BaseThenPickSelector)
+                                       else "base_recover_pick_v1" if isinstance(self.selector, BaseRecoverPickSelector)
+                                       else "wait_then_pick_v1" if isinstance(self.selector, WaitThenPickSelector)
                                        else "base_demo_v1" if isinstance(self.selector, BaseDemoSelector)
                                        else "manual_schedule_v1"), learned=False,
                              target_frame="world_from_measured_ee_and_root_axis",
@@ -122,6 +218,17 @@ class PrimitivePolicy(ArmIKPolicy):
 
     def reset(self):
         super().reset()
+        if self.allow_base:
+            from mani_skill.utils.geometry.trimesh_utils import get_component_mesh
+
+            for index, link in enumerate(self.links):
+                if link.name == "base_link":
+                    self.base_collision_index = index
+                    self.base_collision_vertices = get_component_mesh(
+                        link._objs[0], to_world_frame=False).vertices
+                    break
+            else:
+                raise ValueError("Fetch base_link missing from table path check")
         self.cube_initial_z = float(array(self.env.cube.pose.p)[0, 2])
         if hasattr(self.selector, "reset"):
             self.selector.reset()
@@ -160,7 +267,8 @@ class PrimitivePolicy(ArmIKPolicy):
                     mode_code=self.mode, hand_target_valid=self.mode == 0,
                     base_pose=qpos[:3].tolist(), base_velocity=qvel[:3].tolist(),
                     base_target=self.base_target.tolist(),
-                    base_target_age_steps=self.step - self.base_target_started)
+                    base_target_age_steps=self.step - self.base_target_started,
+                    last_override_reason_code=self.pre_action.get("override_reason_code", 0))
 
     def action(self):
         start = time.perf_counter()
@@ -227,7 +335,7 @@ class PrimitivePolicy(ArmIKPolicy):
             self.base_target_started = self.step
             candidate = qpos.copy()
             candidate[:3] = self.base_target
-            base_path_clearance = self.path_clearance(qpos, candidate, physical_pose(self.robot.pose))
+            base_path_clearance = self._base_path_clearance(qpos, candidate, physical_pose(self.robot.pose))
             if base_path_clearance < 0.002:
                 self.mode = 0
                 self.base_target = qpos[:3].copy()
@@ -279,11 +387,24 @@ class PrimitivePolicy(ArmIKPolicy):
             self.pre_action["base_path_clearance_m"] = base_path_clearance
         if hasattr(self.selector, "last_scores"):
             self.pre_action["selector_logits"] = self.selector.last_scores
+        if hasattr(self.selector, "last_raw_id"):
+            self.pre_action.update(raw_model_id=self.selector.last_raw_id,
+                                   pitch_guard_triggered=self.selector.last_guard_triggered,
+                                   pitch_guard_changed_id=selected != self.selector.last_raw_id)
         if teacher_id is not None:
             self.pre_action.update(teacher_id=teacher_id,
                                    teacher_label_valid=0 <= teacher_id < len(NAMES),
                                    teacher_ik_feasibility_checked=False)
         return command
+
+    def _base_path_clearance(self, start, end, root):
+        arm_vertices = self.collision_vertices
+        self.collision_vertices = arm_vertices.copy()
+        self.collision_vertices[self.base_collision_index] = self.base_collision_vertices
+        try:
+            return self.path_clearance(start, end, root)
+        finally:
+            self.collision_vertices = arm_vertices
 
     def _base_action(self, qpos):
         qvel = array(self.robot.get_qvel())[0]
@@ -309,7 +430,7 @@ class PrimitivePolicy(ArmIKPolicy):
         predicted = qpos.copy()
         predicted[:2] += 0.05 * forward_speed * forward
         predicted[2] += 0.05 * yaw_speed
-        clearance = self.path_clearance(qpos, predicted, physical_pose(self.robot.pose))
+        clearance = self._base_path_clearance(qpos, predicted, physical_pose(self.robot.pose))
         clear = clearance >= 0.002
         start, end = mapping["base"]
         if clear:
@@ -325,10 +446,11 @@ class PrimitivePolicy(ArmIKPolicy):
     def after_step(self):
         report = super().after_step()
         if self.allow_base:
-            forces = [array(self.env.scene.get_pairwise_contact_forces(
-                link, self.env.table_scene.table))[0] for link in self.links]
-            report["table_contact_force_norm_sum_n"] = float(
-                sum(np.linalg.norm(force) for force in forces))
+            forces = {link.name: float(np.linalg.norm(array(self.env.scene.get_pairwise_contact_forces(
+                link, self.env.table_scene.table))[0])) for link in self.links}
+            report["table_contact_force_norm_sum_n"] = float(sum(forces.values()))
+            report["table_contact_force_by_link_n"] = {
+                name: force for name, force in forces.items() if force > 1e-3}
         report.update(self.pre_action)
         report.update(post_action_state=self._state())
         self.step += 1

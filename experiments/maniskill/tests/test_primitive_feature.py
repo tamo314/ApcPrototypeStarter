@@ -10,13 +10,15 @@ import pytest
 @pytest.mark.skipif(os.getenv("APC_RUN_MANISKILL_TEST") != "1", reason="Explicit real-simulator test")
 def test_primitive_to_saved_rollout_and_selector(tmp_path):
     from apc_maniskill.primitive_learning import MLPSelector, train
-    from apc_maniskill.primitive_policy import BaseDemoSelector, PickPlaceSelector, PrimitivePolicy
+    from apc_maniskill.primitive_policy import (BaseDemoSelector, BaseRecoverPickSelector,
+                                                BaseThenPickSelector, PickPlaceSelector,
+                                                PitchGuardSelector, PrimitivePolicy)
     from apc_maniskill.runner import RunConfig, collect
 
-    def run(name, episodes, steps, factory):
+    def run(name, episodes, steps, factory, *, seed=1400):
         out = tmp_path / name
         collect(RunConfig(env_id="APC-FetchPickCube-v1", robot_uids="fetch", policy="external",
-                          episodes=episodes, max_steps=steps, env_max_steps=steps, seed=1400),
+                          episodes=episodes, max_steps=steps, env_max_steps=steps, seed=seed),
                 out, policy_factory=factory)
         assert json.loads((out / "manifest.json").read_text())["status"] == "completed"
         rows = [json.loads(line) for line in (out / "steps.jsonl").read_text().splitlines()]
@@ -65,6 +67,27 @@ def test_primitive_to_saved_rollout_and_selector(tmp_path):
     np.testing.assert_allclose(decisions[170]["base_target_after"],
                                decisions[170]["pre_action_state"]["base_pose"])
 
+    _, chained = run("base_then_pick", 1, 120, lambda env, output: PrimitivePolicy(
+        env, output, selector=BaseThenPickSelector(), allow_rotation=True, allow_base=True))
+    chain = [row["info"]["diagnostic"] for row in chained]
+    assert chain[0]["executed_id"] == 16
+    assert chain[35]["interruption_reason_code"] == 2
+    assert chain[35]["mode_after_code"] == 0
+    assert all(row["override_reason_code"] != 3 for row in chain)
+    assert all(row["table_contact_force_norm_sum_n"] == 0 for row in chain)
+
+    _, recovered = run("base_recovery", 1, 250, lambda env, output: PrimitivePolicy(
+        env, output, selector=BaseRecoverPickSelector(), allow_rotation=True, allow_base=True),
+        seed=1901)
+    recovery = [row["info"]["diagnostic"] for row in recovered]
+    retreat = [i for i, row in enumerate(recovery) if row["executed_id"] == 17]
+    assert len(retreat) == 1
+    assert recovery[retreat[0]]["pre_action_state"]["last_override_reason_code"] == 2
+    assert recovery[retreat[0]]["interruption_reason_code"] == 1
+    assert recovery[retreat[0] + 35]["interruption_reason_code"] == 2
+    assert recovery[retreat[0] + 35]["post_action_state"]["base_pose"][0] < .005
+    assert all(row["table_contact_force_norm_sum_n"] == 0 for row in recovery)
+
     teacher, _ = run("teacher", 2, 80, lambda env, output: PrimitivePolicy(
         env, output, selector=PickPlaceSelector(use_rotation=True), allow_rotation=True))
     learned = tmp_path / "train"
@@ -83,3 +106,16 @@ def test_primitive_to_saved_rollout_and_selector(tmp_path):
     assert all(len(row["info"]["diagnostic"]["selector_logits"]) == 16 for row in learner)
     assert all(row["info"]["diagnostic"]["teacher_label_valid"] for row in learner)
     assert all(not row["info"]["diagnostic"]["teacher_ik_feasibility_checked"] for row in learner)
+
+    def guard_factory(env, output):
+        base_selector = MLPSelector(learned / "selector.pt", env.unwrapped.experiment_metadata(),
+                                    float(env.unwrapped.sim_config.control_freq))
+        return PrimitivePolicy(env, output, selector=PitchGuardSelector(base_selector),
+                               allow_rotation=True)
+
+    guard_out, guard_rows = run("pitch_guard", 1, 30, guard_factory)
+    guard = [row["info"]["diagnostic"] for row in guard_rows]
+    assert json.loads((guard_out / "manifest.json").read_text())["policy_details"]["hybrid"]
+    assert guard[0]["pitch_guard_triggered"]
+    assert guard[0]["proposed_id"] == 13
+    assert all(0 <= row["raw_model_id"] < 16 for row in guard)

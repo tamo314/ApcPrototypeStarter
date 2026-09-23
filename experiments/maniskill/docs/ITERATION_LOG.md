@@ -376,6 +376,29 @@ manifestがfailed、episode数0、error.txtが保存されることを確認し�
 - 1800の分離: 教師はseed1802だけ最終成功、モデルは同seedで把持なし。1802の序盤の回転は類似するが、300〜400 step後の手先・物体距離は教師0.017 m、モデル0.065 mで、教師のみ指閉鎖を選んだ。seed1800/1801では教師とモデルが類似した失敗軌跡で、教師自身が解けない配置を含む。1700の3/5だけから条件横断の安定した汎化を結論しない。接近局面の`continue`と軸移動の判断、教師の可解範囲を次の診断点とする。台車を必要とする課題、20 ID selector、APCのtemporary獲得・圧縮・解放は未実施。
 - 予算/確認: この継続でrunner **76 episode/40,850環境step、学習27,000更新**。学習sourceの再利用と教師問い合わせは上記内のrunへ含む。全runはcompleted、例外なし。WSLの既知のVulkan/glvnd/Pinocchio/NumPy警告のみ。既存 `tests/test_primitive_feature.py` 1本を台車まで拡張し、`runs/primitive-feature-tests-20260923-b/` で **1 passed in 20.26s**。手動80+台車180+教師160+学習30 = 450テストstepはrunner予算から除外。テストはID、目標の有効性・中断、指幅、台車追従、接触値、保存NPZ/送信行動の対応を確認し、成功率を合格条件にしない。
 
+## 2026-09-23 — 次段階：姿勢の反実行診断と安全な台車→腕→台車回復
+
+- 問い/条件: 基点 `ec2b96c`。WSL/Python 3.12/CPU、ManiSkill 3.0.1、単一Fetch、`APC-FetchPickCube-v1`、状態観測、20 Hz制御/100 Hz物理、13次元action。旧runは不変。新runは全て `runs/` 内の別ディレクトリ。seed 1802、1702〜1704、1900〜1904は結果を見て比較した探索seed。2000〜2004は最後まで学習・設計に使わない固定未使用条件。episodeの初回成功、最終成功、20 step観測完了を分ける。
+- 姿勢診断: `primitive-mlp-multisource-query1802-20260923-a/` で旧MLPの実行actionが問い合わせなしseed1802の全600 stepと一致。手先pitchは約12.3度で止まり、教師の15±2度より小さい。step 70以降の教師は主に回転ID12、MLPは主に`continue`。この600件を既存教師3組+DAgger2組へ追加し、同じ3,000更新で平方根逆ID抽出 (`primitive-mlp-multisource-dagger1802-train-20260923-a/`)、全sample均等抽出 (`...-uniform-train-20260923-a/`)、新しい600件だけ10 step間隔で抽出 (`...-stride10-train-20260923-a/`) を比較。各教師なしrollout `...-rollout-20260923-a/` はseed1802の600 stepで初回/最終成功0/1。平方根逆IDモデルは回転・`continue`反復で物体接近が止まり、均等・間引きも同様。追加収集の実費600 step、採用sampleは前2条件600、間引き条件60。訓練accuracy93.56%/95.35%/93.85%を成功の代用にしない。
+- 診断用hybrid: 固定旧MLPの判断を毎step計算し、pitchが15±2度外だけ教師の回転/追従規則で上書きする `mlp_pitch_guard` を追加。元のモデルID、上書き有無、logitを分離保存し、manifestに`hybrid=true`、`learned=false`を記録。seed1802は600 stepでは把持後未到達、700 step上限で初回成功step611だが最終失敗。成功後の20 stepで教師/実行ID差は3件、物体は目標許容距離2.5 cmを再超過した。問い合わせありrun `primitive-mlp-pitch-guard1802-query-20260923-a/` となしlong runの送信actionは631件全一致。探索seed1800〜1804の600 stepでは元MLP、hybridとも最終0/5、hybridは終了時把持2/5→3/5。hybridの成果を学習済みselectorと呼ばない。
+- 台車接触と修正: 20 IDの前進3回→教師操作 `primitive-base-then-pick1702-20260923-a/` はseed1702で最終成功したが、base位置約0.039 mから`base_link`と机の接触を検出（最大79.7 N）。最初の経路検査の最小AABB距離は約0.192 mと誤って安全を示した。リンク別力を保存した再実行 `-b/` で接触リンクを特定。台車候補・毎stepの有限サンプル経路検査に`base_link`を追加した `-c/` では2/3回目の前進が拒否され、seed1702は最終成功、全step接触0 N。初回の危険な成功を安全な成功へ数え直さない。
+- 安全な連鎖: 実測に合わせ、前進1回（約2 cm）→35 stepから物理状態教師の腕操作へ通常切替する `base_then_pick_v2` を実装。`primitive-base-then-pick-v2-1702-20260923-a/` は探索seed1702〜1704、1,572 step、最終2/3、接触0 N・台車拒否0・台車→腕切替各1回。同seedの旧教師は3/3。3回前進・安全拒否条件の中間run `primitive-base-then-pick-safe1702-20260923-a/` は2/3、2回目と3回目の前進が各episodeで拒否。比較のため35 step何も動かさず教師を開始する `wait_then_pick_v1` も追加。
+
+| 条件（全て `runs/` 下） | seed / episode / step | 初回 / 最終成功 | 接触・観察 |
+|---|---:|---:|---|
+| `primitive-teacher-unseen1900-20260923-a` | 1900〜1904 / 5 / 2,804 | 4/5・4/5 | 台車なし、600 step上限 |
+| `primitive-wait-then-pick1900-20260923-a` | 同 / 5 / 2,884 | 2/5・1/5 | 35 step待機、600 step |
+| `primitive-base-then-pick-v2-unseen1900-20260923-a` | 同 / 5 / 2,891 | 1/5・1/5 | 35 stepで台車前進、600 step、接触0 N |
+| `primitive-wait-then-pick1900-long-20260923-a` | 同 / 5 / 3,043 | 4/5・4/5 | 700 step上限 |
+| `primitive-base-then-pick-v2-1900-long-20260923-a` | 同 / 5 / 3,284 | 2/5・2/5 | 700 step、seed1901/1903で腕経路拒否493/380 step、接触0 N |
+| `primitive-base-recover-pick1900-20260923-a` | 同 / 5 / 3,172 | 4/5・4/5 | 700 step、1901/1903で後退、接触0 N |
+| `primitive-wait-then-pick-unseen2000-20260923-a` | 2000〜2004 / 5 / 3,092 | 4/5・4/5 | 固定未使用、700 step |
+| `primitive-base-recover-pick-unseen2000-20260923-a` | 同 / 5 / 3,168 | 3/5・3/5 | 固定未使用、後退3/5、接触0 N |
+
+- 回復の原因と動作: seed1901/1903のIK数値解と関節範囲は有効だが机経路検査が連続拒否。`base_link`を台車移動時だけ検査して腕では従来の腕リンクだけを検査する変更でも拒否は同数で、リンク追加による偽陽性ではなかった。既存ID17「台車後退2 cm」を腕経路拒否5回の後に一度だけ選ぶ `base_recover_pick_v1` を追加。`primitive-base-recover-pick1901-20260923-a/` ではseed1901/1903が後退後に最終成功、1902は後退不要で成功。未使用2000〜2004ではseed2001/2004が後退後成功、2002は後退後も失敗。待機対照4/5に対して回復付き3/5なので、台車を先に使う利点や20 ID selectorの学習は示していない。
+- 追加条件の設計限界: インストール済みPickCubeは`cube_spawn_center`/`cube_spawn_half_size`で物体と目標を台上に配置する。単に物体を遠くへずらしても、このsceneでは台車前進が約2 cmで机に接近し、それ以上は安全検査が拒否する。台車必須のN条件には机・ロボットの相対配置と安全な移動経路を共に設計する必要がある。物体だけを動かした架空の「能力不足」taskは作っていない。temporaryの学習、candidate蒸留、銀行増設・解放、学習20 ID selectorは未実施。
+- 実績/確認: この作業のrunnerは**23 run / 67 episode / 40,719環境step**、学習**9,000更新**、runner wall合計601.3秒。各失敗・接触runを保存。全run completed、例外なし。最終の実環境統合テスト `tests/test_primitive_feature.py` は `primitive-feature-tests-20260923-e/` で **1 passed in 32.44s**（850テストstep、runner総計外）。同1本で手先/指/台車4 ID、通常切替、seed1901の後退、接触0、checkpointと保存actionを確認。既知のVulkan/glvnd/Pinocchio/NumPy警告のみ。次の一点は、台車が必要で机への接触経路がない開始条件を定義し、手設計20 IDと台車なし対照を小さく比較してから、必要な能力追加を選ぶ。
+
 ## 追記テンプレート
 
 ### YYYY-MM-DD — 変更点の短い名前

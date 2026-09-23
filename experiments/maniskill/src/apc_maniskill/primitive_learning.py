@@ -51,7 +51,8 @@ def network(input_dim):
 def train(source: Path, output: Path, *, updates=3000, seed=0,
           dagger_source: Path | list[Path] | None = None,
           sampling="uniform", std_floor=1e-4, feature_schema=SCHEMA_V1,
-          train_all=False, extra_teacher_sources: list[Path] | None = None):
+          train_all=False, extra_teacher_sources: list[Path] | None = None,
+          dagger_strides: list[int] | None = None):
     if updates < 1:
         raise ValueError("updates must be positive")
     if not np.isfinite(std_floor) or std_floor <= 0:
@@ -68,6 +69,9 @@ def train(source: Path, output: Path, *, updates=3000, seed=0,
     dagger_rows = []
     dagger_sources = ([] if dagger_source is None else
                       [dagger_source] if isinstance(dagger_source, Path) else list(dagger_source))
+    dagger_strides = [1] * len(dagger_sources) if dagger_strides is None else dagger_strides
+    if len(dagger_strides) != len(dagger_sources) or any(stride < 1 for stride in dagger_strides):
+        raise ValueError("Specify one positive stride per DAgger source")
     dagger_digests = []
     source_manifest = json.loads((source / "manifest.json").read_text(encoding="utf-8"))
     names = source_manifest["policy_details"]["primitive_names"]
@@ -84,7 +88,7 @@ def train(source: Path, output: Path, *, updates=3000, seed=0,
         teacher_steps = teacher_path / "steps.jsonl"
         teacher_digests.append(hashlib.sha256(teacher_steps.read_bytes()).hexdigest())
         rows.extend(json.loads(line) for line in teacher_steps.read_text(encoding="utf-8").splitlines())
-    for dagger_path in dagger_sources:
+    for dagger_path, stride in zip(dagger_sources, dagger_strides):
         dagger_manifest = json.loads((dagger_path / "manifest.json").read_text(encoding="utf-8"))
         if (dagger_manifest["status"] != "completed" or dagger_manifest["task"] != source_manifest["task"]
                 or dagger_manifest["policy_details"]["primitive_names"] != names):
@@ -94,7 +98,7 @@ def train(source: Path, output: Path, *, updates=3000, seed=0,
         new_rows = [json.loads(line) for line in dagger_steps.read_text(encoding="utf-8").splitlines()]
         if not all(row["info"]["diagnostic"].get("teacher_label_valid") for row in new_rows):
             raise ValueError("DAgger rows require explicit valid teacher labels")
-        dagger_rows.extend(new_rows)
+        dagger_rows.extend(row for row in new_rows if row["step"] % stride == 0)
     episodes = sorted({row["episode"] for row in rows[:primary_rows]})
     if len(episodes) < 2:
         raise ValueError("Need at least two episodes for episode-level validation")
@@ -146,6 +150,7 @@ def train(source: Path, output: Path, *, updates=3000, seed=0,
                       source_steps_sha256=digest, source=str(source.resolve()),
                       teacher_steps_sha256=teacher_digests,
                       dagger_steps_sha256=dagger_digests,
+                      dagger_source_strides=dagger_strides,
                       train_episodes=episodes if train_all else episodes[:-1],
                       validation_episode=None if train_all else episodes[-1],
                       updates=updates, seed=seed)
@@ -157,6 +162,7 @@ def train(source: Path, output: Path, *, updates=3000, seed=0,
                teacher_sources=[str(path.resolve()) for path in teacher_paths],
                teacher_steps_sha256=teacher_digests,
                dagger_sources=[str(path.resolve()) for path in dagger_sources],
+               dagger_source_strides=dagger_strides,
                source_environment_steps=sum(row["steps"] for path in teacher_paths for row in
                    [json.loads(line) for line in (path / "episodes.jsonl").read_text().splitlines()]),
                dagger_environment_steps=sum(row["steps"] for path in dagger_sources for row in
@@ -211,6 +217,7 @@ def main():
     parser.add_argument("--updates", type=int, default=3000)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--dagger-source", type=Path, action="append")
+    parser.add_argument("--dagger-stride", type=int, action="append")
     parser.add_argument("--extra-teacher-source", type=Path, action="append")
     parser.add_argument("--sampling", choices=["uniform", "sqrt_inverse"], default="uniform")
     parser.add_argument("--std-floor", type=float, default=1e-4)
@@ -220,7 +227,8 @@ def main():
     train(args.source, args.out, updates=args.updates, seed=args.seed,
           dagger_source=args.dagger_source, sampling=args.sampling,
           std_floor=args.std_floor, feature_schema=args.feature_schema,
-          train_all=args.train_all, extra_teacher_sources=args.extra_teacher_source)
+          train_all=args.train_all, extra_teacher_sources=args.extra_teacher_source,
+          dagger_strides=args.dagger_stride)
 
 
 if __name__ == "__main__":
