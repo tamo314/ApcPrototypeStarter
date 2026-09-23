@@ -399,6 +399,32 @@ manifestがfailed、episode数0、error.txtが保存されることを確認し�
 - 追加条件の設計限界: インストール済みPickCubeは`cube_spawn_center`/`cube_spawn_half_size`で物体と目標を台上に配置する。単に物体を遠くへずらしても、このsceneでは台車前進が約2 cmで机に接近し、それ以上は安全検査が拒否する。台車必須のN条件には机・ロボットの相対配置と安全な移動経路を共に設計する必要がある。物体だけを動かした架空の「能力不足」taskは作っていない。temporaryの学習、candidate蒸留、銀行増設・解放、学習20 ID selectorは未実施。
 - 実績/確認: この作業のrunnerは**23 run / 67 episode / 40,719環境step**、学習**9,000更新**、runner wall合計601.3秒。各失敗・接触runを保存。全run completed、例外なし。最終の実環境統合テスト `tests/test_primitive_feature.py` は `primitive-feature-tests-20260923-e/` で **1 passed in 32.44s**（850テストstep、runner総計外）。同1本で手先/指/台車4 ID、通常切替、seed1901の後退、接触0、checkpointと保存actionを確認。既知のVulkan/glvnd/Pinocchio/NumPy警告のみ。次の一点は、台車が必要で机への接触経路がない開始条件を定義し、手設計20 IDと台車なし対照を小さく比較してから、必要な能力追加を選ぶ。
 
+### 2026-09-23 — 遠方開始のN候補、20候補selectorと実訪問状態の再ラベル
+
+- 問い/変更: 机との接触で前進が約2 cmに限られた標準PickCubeから、机・物体・目標を動かさずFetchのrootだけ20 cm後方へ置く `APC-FetchPickCubeFar-v1` を追加。同じsceneで台車なし、手設計の10回前進、台車目標到達状態で進行する列、20候補MLPを比較した。台車の4 IDと腕の16 ID、IK、机経路検査は既存実装を使う。遠方開始の移動列は学習済み能力と数えない。
+- 環境/予算: WSL Python 3.12、ManiSkill 3.0.1、Fetch `pd_joint_delta_pos`、CPU物理・状態観測・描画なし。各episodeは最大900 step、初回成功後20 stepを別途観測。前段階で探索済みの1901〜1903を条件設計・教師学習に使用。2101〜2103、2201〜2203、2301〜2303、2401〜2403は順番に新しい評価seedとして使い、結果を見た後は探索扱いへ移した。学習4本は各3,000更新。runディレクトリは全て `experiments/maniskill/runs/` 以下、manifest、source snapshot、全step、episode、モデルcheckpointを保存。
+
+| run名（`runs/`下） | seed / episode / step | 初回・最終成功 | 観察 |
+|---|---:|---:|---|
+| `primitive-far-approach2100-20260923-a` | 2100 / 1 / 900 | 0/1・0/1 | 9回前進の初回probe。台車拒否・接触0、腕拒否344 step。 |
+| `primitive-far-approach1901-20260923-a` | 1901〜1903 / 3 / 2,638 | 3/3・3/3 | 30 step間隔で10回前進。台車/腕拒否・接触0。 |
+| `primitive-far-nobase1901-20260923-a` | 同 / 3 / 2,700 | 0/3・0/3 | 台車なし。腕拒否710/602/710 step、手先/物体の最短距離0.292/0.160/0.263 m。 |
+| `primitive-far-mlp20-2101-20260923-a` | 2101〜2103 / 3 / 2,700 | 0/3・0/3 | v3特徴、sqrt逆頻度。約22 cmまで11回進み、以後各449回の台車拒否。 |
+| `primitive-far-approach2101-20260923-a` | 同 / 3 / 2,587 | 1/3・1/3 | 同seed手設計対照。教師自身も配置で失敗。 |
+| `primitive-far-mlp20-2201-20260923-a` | 2201〜2203 / 3 / 2,700 | 0/3・0/3 | 1901＋2101教師、4乗根逆頻度。台車拒否各449回。 |
+| `primitive-far-ready1901-20260923-a` | 1901〜1903 / 3 / 2,255 | 3/3・3/3 | 状態ベース教師v1。11回目の前進中に約20 cmで腕へ切替。接触0。 |
+| `primitive-far-ready1901-20260923-b` | 同 / 3 / 2,594 | 1/3・1/3 | 台車目標の完全到達後だけ切替えるv2。結果が低下、失敗も保存。 |
+| `primitive-far-ready-mlp20-2301-20260923-a` | 2301〜2303 / 3 / 2,700 | 0/3・0/3 | v4特徴の学習器。11回前進/腕切替、台車拒否・接触0。2303は把持したが最終失敗。 |
+| `primitive-far-ready2301-20260923-a` | 同 / 3 / 2,407 | 2/3・2/3 | v1手設計の同seed対照。 |
+| `primitive-far-ready-query2303-20260923-a` | 2303 / 1 / 900 | 0/1・0/1 | 学習器の実訪問状態900件に20 ID対応教師を問い合わせ。全行動がqueryなしrunと一致、教師ID不一致653件。 |
+| `primitive-far-ready-mlp20-2401-20260923-a` | 2401〜2403 / 3 / 2,700 | 0/3・0/3 | query 900件をDAgger追加。11回前進/腕切替、台車拒否・接触0。腕拒否104/15/226 step、2402だけ把持21 step。 |
+| `primitive-far-ready2401-20260923-a` | 同 / 3 / 2,032 | 3/3・2/3 | v1手設計対照。2402は初回成功後20 step観測完了時に成功を失う。 |
+| `primitive-far-ready-pitchguard2403-20260923-a` | 2403 / 1 / 900 | 0/1・0/1 | 20 ID DAggerモデルのpitchだけ手規則で補助。最終pitch16.2度、腕拒否271 step、把持なし、接触0。hybridであり学習性能ではない。 |
+
+- 学習checkpoint: `primitive-far-selector20-20260923-a/` は1901の3教師episode、v3特徴、sqrt逆頻度。`primitive-far-selector20-20260923-b/` は2101の3教師episodeを追加、4乗根逆頻度。`primitive-far-ready-selector20-20260923-a/` は状態ベース1901教師、台車目標到達と測定位置の切替flagを含むv4特徴。`primitive-far-ready-selector20-dagger-20260923-a/` は同教師にquery2303の900ラベルを加えた。各training.jsonにsource hash、分布、更新数を保存。旧16 ID checkpointは20 IDとしてロードできない。20 ID queryの教師は遠方開始専用とし、標準sceneでの誤ラベル収集を拒否する。
+- 計測/解釈: runner **14 run / 36 episode / 30,713環境step**、wall合計540.1秒、学習**12,000更新**。1901〜1903の台車あり/なしでreset直後の物体・目標座標は各seedで一致。台車ありrunの机接触力は全記録stepで0 N（台車なし2,700 stepにはリンク別計測なし）。全run completed、例外なし。有限stepとサンプル点の安全観測であり連続軌道保証ではない。台車なし教師と手設計台車列の同seed対照から、今回の遠方開始は台車移動の効用があるN候補。ただし別seedの手設計成功は一定でなく、学習20 IDの閉ループ成功もまだない。query2303の台車局面183 stepは教師とモデルが全件一致、腕局面717 stepでは653件不一致、教師は回転ID13を662回提案。pitch補助で姿勢を補正してもseed2403では成功しなかった。残る明確な失敗は腕局面の選択と経路拒否の組合せ。既存プリミティブの局所制御器自体の不足、新IDの必要性、temporaryの獲得は示されていない。
+- 検証: 最終の実環境統合テスト `primitive-feature-tests-20260923-h/` は **1 passed in 44.36s**、1,390テストstep（runner総計外）。遠方sceneの移動・切替・接触0、20 ID教師データ→学習→再ロード→rollout、20 ID queryの送信行動一致を同じ1本で確認。既知のVulkan/glvnd/Pinocchio/NumPy警告のみ。`git diff --check` とPython compileも実行する。次の一点は、教師が成功する条件の腕局面でモデルが選ぶ`continue`・軸移動・回転を状態別に照合し、局所的な特徴/収集変更で比較する。
+
 ## 追記テンプレート
 
 ### YYYY-MM-DD — 変更点の短い名前

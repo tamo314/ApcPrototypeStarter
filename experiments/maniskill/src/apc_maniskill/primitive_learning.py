@@ -11,21 +11,23 @@ import numpy as np
 import torch
 from torch import nn
 
-from .primitives import NAMES
+from .primitives import NAMES, NAMES20
 from .runner import json_write
 
 
 SCHEMA_V1 = "fetch_primitive_features_v1"
 SCHEMA_V2 = "fetch_primitive_relative_features_v2"
+SCHEMA_V3 = "fetch_primitive_relative_base_features_v3"
+SCHEMA_V4 = "fetch_primitive_base_ready_features_v4"
 
 
-def features(state, schema=SCHEMA_V1):
+def features(state, schema=SCHEMA_V1, primitive_count=16):
     if schema == SCHEMA_V1:
         fields = ("measured_hand_position", "measured_hand_quaternion", "cube_position",
                   "goal_position", "hand_target_position", "hand_target_quaternion",
                   "root_rotation")
         values = [np.asarray(state[name], dtype=np.float32).reshape(-1) for name in fields]
-    elif schema == SCHEMA_V2:
+    elif schema in (SCHEMA_V2, SCHEMA_V3, SCHEMA_V4):
         hand = np.asarray(state["measured_hand_position"], dtype=np.float32)
         cube = np.asarray(state["cube_position"], dtype=np.float32)
         goal = np.asarray(state["goal_position"], dtype=np.float32)
@@ -37,15 +39,27 @@ def features(state, schema=SCHEMA_V1):
                   np.asarray([cube[2] - state["cube_initial_z"], hand[2] - cube[2]], dtype=np.float32)]
     else:
         raise ValueError("Unknown primitive feature schema")
+    if schema in (SCHEMA_V3, SCHEMA_V4):
+        if primitive_count != 20:
+            raise ValueError("Base feature schema requires the 20-ID bank")
+        base = np.asarray(state["base_pose"], dtype=np.float32)
+        base_target = np.asarray(state["base_target"], dtype=np.float32)
+        values += [base, base_target - base,
+                   np.asarray([state["base_target_age_steps"] / 40,
+                               state["mode_code"], state["hand_target_valid"]], dtype=np.float32)]
+        if schema == SCHEMA_V4:
+            ready = (state["mode_code"] == 1 and state["base_target_age_steps"] >= 15
+                     and np.linalg.norm(base_target - base) < 0.001)
+            values += [np.asarray([float(ready), float(base[0] >= 0.195)], dtype=np.float32)]
     values += [np.asarray([state["gripper_target_m"], min(state["target_age_steps"], 40) / 40,
                            float(state["grasped"])], dtype=np.float32),
-               np.eye(16, dtype=np.float32)[state["selected_id"]]]
+               np.eye(primitive_count, dtype=np.float32)[state["selected_id"]]]
     return np.concatenate(values)
 
 
-def network(input_dim):
+def network(input_dim, output_dim=16):
     return nn.Sequential(nn.Linear(input_dim, 64), nn.ReLU(),
-                         nn.Linear(64, 64), nn.ReLU(), nn.Linear(64, 16))
+                         nn.Linear(64, 64), nn.ReLU(), nn.Linear(64, output_dim))
 
 
 def train(source: Path, output: Path, *, updates=3000, seed=0,
@@ -75,8 +89,12 @@ def train(source: Path, output: Path, *, updates=3000, seed=0,
     dagger_digests = []
     source_manifest = json.loads((source / "manifest.json").read_text(encoding="utf-8"))
     names = source_manifest["policy_details"]["primitive_names"]
-    if names != list(NAMES) or source_manifest["status"] != "completed":
-        raise ValueError("Training requires a completed fetch16 teacher run")
+    if names not in (list(NAMES), list(NAMES20)) or source_manifest["status"] != "completed":
+        raise ValueError("Training requires a completed fetch16 or fetch20 teacher run")
+    if len(names) == 20 and feature_schema not in (SCHEMA_V3, SCHEMA_V4):
+        raise ValueError("The 20-ID bank requires base-state features")
+    if len(names) == 16 and feature_schema in (SCHEMA_V3, SCHEMA_V4):
+        raise ValueError("Base-state features require the 20-ID bank")
     for index, teacher_path in enumerate(teacher_paths[1:], start=1):
         teacher_manifest = json.loads((teacher_path / "manifest.json").read_text(encoding="utf-8"))
         if (teacher_manifest["status"] != "completed" or teacher_manifest["task"] != source_manifest["task"]
@@ -102,7 +120,7 @@ def train(source: Path, output: Path, *, updates=3000, seed=0,
     episodes = sorted({row["episode"] for row in rows[:primary_rows]})
     if len(episodes) < 2:
         raise ValueError("Need at least two episodes for episode-level validation")
-    x = np.stack([features(row["info"]["diagnostic"]["pre_action_state"], feature_schema)
+    x = np.stack([features(row["info"]["diagnostic"]["pre_action_state"], feature_schema, len(names))
                   for row in rows + dagger_rows])
     y = np.asarray([row["info"]["diagnostic"]["proposed_id"] for row in rows]
                    + [row["info"]["diagnostic"]["teacher_id"] for row in dagger_rows], dtype=np.int64)
@@ -114,19 +132,20 @@ def train(source: Path, output: Path, *, updates=3000, seed=0,
     x = (x - mean) / std
     torch.manual_seed(seed)
     torch.set_num_threads(1)
-    model = network(x.shape[1])
+    model = network(x.shape[1], len(names))
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     xt = torch.from_numpy(x[train_mask])
     yt = torch.from_numpy(y[train_mask])
     xv = torch.from_numpy(x[~train_mask])
     yv = torch.from_numpy(y[~train_mask])
     rng = np.random.default_rng(seed)
-    if sampling not in ("uniform", "sqrt_inverse"):
+    if sampling not in ("uniform", "sqrt_inverse", "fourth_root_inverse"):
         raise ValueError("Unknown sampling rule")
     probabilities = None
-    if sampling == "sqrt_inverse":
-        counts = np.bincount(y[train_mask], minlength=16)
-        probabilities = 1 / np.sqrt(counts[y[train_mask]])
+    if sampling in ("sqrt_inverse", "fourth_root_inverse"):
+        counts = np.bincount(y[train_mask], minlength=len(names))
+        exponent = 0.5 if sampling == "sqrt_inverse" else 0.25
+        probabilities = 1 / np.power(counts[y[train_mask]], exponent)
         probabilities = probabilities / probabilities.sum()
     for _ in range(updates):
         sampled = (rng.integers(0, len(xt), 128) if probabilities is None
@@ -144,7 +163,7 @@ def train(source: Path, output: Path, *, updates=3000, seed=0,
             validation_logits = model(xv)
             validation_loss = float(nn.functional.cross_entropy(validation_logits, yv))
             validation_accuracy = float((validation_logits.argmax(1) == yv).float().mean())
-    checkpoint = dict(schema=feature_schema, primitive_names=list(NAMES),
+    checkpoint = dict(schema=feature_schema, primitive_names=names,
                       task=source_manifest["task"], control_freq=source_manifest["control_freq"],
                       state_dict=model.state_dict(), mean=mean, std=std,
                       source_steps_sha256=digest, source=str(source.resolve()),
@@ -176,16 +195,20 @@ def train(source: Path, output: Path, *, updates=3000, seed=0,
                sampling=sampling, std_floor=std_floor, feature_schema=feature_schema,
                validation_accuracy=validation_accuracy,
                model_parameters=sum(p.numel() for p in model.parameters()),
-               label_counts=np.bincount(y, minlength=16).tolist()))
+               label_counts=np.bincount(y, minlength=len(names)).tolist()))
 
 
 class MLPSelector:
     def __init__(self, checkpoint: Path, task, control_freq):
         saved = torch.load(checkpoint, map_location="cpu", weights_only=False)
-        if (saved["schema"] not in (SCHEMA_V1, SCHEMA_V2) or saved["primitive_names"] != list(NAMES)
+        if (saved["schema"] not in (SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4)
+                or saved["primitive_names"] not in (list(NAMES), list(NAMES20))
                 or saved["task"] != task or saved["control_freq"] != control_freq):
             raise ValueError("Primitive selector checkpoint schema or task mismatch")
-        self.model = network(len(saved["mean"]))
+        self.primitive_count = len(saved["primitive_names"])
+        if (saved["schema"] in (SCHEMA_V3, SCHEMA_V4)) != (self.primitive_count == 20):
+            raise ValueError("Primitive bank and feature schema mismatch")
+        self.model = network(len(saved["mean"]), self.primitive_count)
         self.model.load_state_dict(saved["state_dict"])
         self.model.eval()
         torch.set_num_threads(1)
@@ -203,7 +226,8 @@ class MLPSelector:
         self.last_scores = []
 
     def select(self, step, observation):
-        x = torch.from_numpy(((features(observation, self.schema) - self.mean) / self.std).astype(np.float32))
+        x = torch.from_numpy(((features(observation, self.schema, self.primitive_count)
+                               - self.mean) / self.std).astype(np.float32))
         with torch.no_grad():
             logits = self.model(x)
         self.last_scores = logits.tolist()
@@ -219,9 +243,9 @@ def main():
     parser.add_argument("--dagger-source", type=Path, action="append")
     parser.add_argument("--dagger-stride", type=int, action="append")
     parser.add_argument("--extra-teacher-source", type=Path, action="append")
-    parser.add_argument("--sampling", choices=["uniform", "sqrt_inverse"], default="uniform")
+    parser.add_argument("--sampling", choices=["uniform", "sqrt_inverse", "fourth_root_inverse"], default="uniform")
     parser.add_argument("--std-floor", type=float, default=1e-4)
-    parser.add_argument("--feature-schema", choices=[SCHEMA_V1, SCHEMA_V2], default=SCHEMA_V1)
+    parser.add_argument("--feature-schema", choices=[SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4], default=SCHEMA_V1)
     parser.add_argument("--train-all", action="store_true")
     args = parser.parse_args()
     train(args.source, args.out, updates=args.updates, seed=args.seed,

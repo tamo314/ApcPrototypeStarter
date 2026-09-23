@@ -36,9 +36,13 @@ class PitchGuardSelector:
 
     def __init__(self, base_selector):
         self.base_selector = base_selector
-        self.metadata = dict(base_selector.metadata, selector="mlp_with_pitch_guard_v1",
+        self.metadata = dict(base_selector.metadata,
+                             selector=("mlp20_with_pitch_guard_v1" if base_selector.primitive_count == 20
+                                       else "mlp_with_pitch_guard_v1"),
                              learned=False, hybrid=True, pitch_guard_desired_deg=15,
                              pitch_guard_tolerance_deg=2)
+        if base_selector.primitive_count == 20:
+            self.metadata["guard_start_base_x_m"] = 0.195
         self.last_scores = []
         self.last_raw_id = HOLD
         self.last_guard_triggered = False
@@ -52,6 +56,9 @@ class PitchGuardSelector:
     def select(self, step, observation):
         self.last_raw_id = self.base_selector.select(step, observation)
         self.last_scores = self.base_selector.last_scores
+        if self.base_selector.primitive_count == 20 and observation["base_pose"][0] < 0.195:
+            self.last_guard_triggered = False
+            return self.last_raw_id
         q = np.asarray(observation["measured_hand_quaternion"])
         pitch = 2 * np.arctan2(q[2], q[0])
         desired = np.deg2rad(15)
@@ -177,6 +184,65 @@ class BaseRecoverPickSelector:
         return self.pick.select(step, observation)
 
 
+class BaseApproachPickSelector:
+    """Move from the far start toward the standard base pose, then pick in one scene."""
+
+    move_count = 10
+    move_interval_steps = 30
+    metadata = dict(base_move_count=move_count, base_move_interval_steps=move_interval_steps)
+
+    def __init__(self):
+        self.pick = PickPlaceSelector(use_rotation=True)
+
+    def reset(self):
+        self.pick.reset()
+
+    def select(self, step, observation):
+        if step < self.move_count * self.move_interval_steps:
+            return 16 if step % self.move_interval_steps == 0 else CONTINUE
+        return self.pick.select(step, observation)
+
+
+class BaseReadyPickSelector:
+    """Advance only after the previous short base target has settled."""
+
+    metadata = dict(base_switch_measured_x_m=0.195, base_ready_error_m=0.001,
+                    base_ready_min_age_steps=15)
+
+    def __init__(self):
+        self.pick = PickPlaceSelector(use_rotation=True)
+
+    def reset(self):
+        self.pick.reset()
+
+    def select(self, step, observation):
+        error = np.linalg.norm(np.asarray(observation["base_target"]) - observation["base_pose"])
+        if observation["base_pose"][0] >= 0.195:
+            return self.pick.select(step, observation)
+        if observation["mode_code"] == 0:
+            return 16
+        if error < 0.001 and observation["base_target_age_steps"] >= 15:
+            return 16
+        return CONTINUE
+
+
+class BaseReadySettledPickSelector(BaseReadyPickSelector):
+    """Diagnostic variant: wait for the terminal base target to settle."""
+
+    metadata = dict(base_switch_target_x_m=0.19, base_ready_error_m=0.001,
+                    base_ready_min_age_steps=15)
+
+    def select(self, step, observation):
+        error = np.linalg.norm(np.asarray(observation["base_target"]) - observation["base_pose"])
+        if observation["base_target"][0] >= 0.19 and error < 0.001:
+            return self.pick.select(step, observation)
+        if observation["mode_code"] == 0:
+            return 16
+        if error < 0.001 and observation["base_target_age_steps"] >= 15:
+            return 16
+        return CONTINUE
+
+
 class PrimitivePolicy(ArmIKPolicy):
     def __init__(self, env, output, *, config: PrimitiveConfig | None = None, selector=None,
                  allow_rotation=False, allow_base=False, query_teacher=False):
@@ -187,7 +253,10 @@ class PrimitivePolicy(ArmIKPolicy):
         self.allow_base = allow_base
         if allow_base and not allow_rotation:
             raise ValueError("Base candidates extend the stable 16-ID bank")
-        self.teacher = PickPlaceSelector(use_rotation=allow_rotation) if query_teacher else None
+        if allow_base and query_teacher and "start_back_m" not in env.unwrapped.experiment_metadata():
+            raise ValueError("The 20-ID base teacher requires the far-start task")
+        self.teacher = (BaseReadyPickSelector() if allow_base else
+                        PickPlaceSelector(use_rotation=allow_rotation)) if query_teacher else None
         super().__init__(env, output, protocol="track", torso_ik=True, table_clearance=True,
                          offset=(0, 0, 0))
         if tuple(self.env.agent.controller.action_mapping["base"]) != (11, 13):
@@ -201,6 +270,9 @@ class PrimitivePolicy(ArmIKPolicy):
                              selector=("physical_state_pick_place_v1" if isinstance(self.selector, PickPlaceSelector)
                                        else "base_then_pick_v2" if isinstance(self.selector, BaseThenPickSelector)
                                        else "base_recover_pick_v1" if isinstance(self.selector, BaseRecoverPickSelector)
+                                       else "base_approach_pick_v1" if isinstance(self.selector, BaseApproachPickSelector)
+                                       else "base_ready_settled_pick_v2" if isinstance(self.selector, BaseReadySettledPickSelector)
+                                       else "base_ready_pick_v1" if isinstance(self.selector, BaseReadyPickSelector)
                                        else "wait_then_pick_v1" if isinstance(self.selector, WaitThenPickSelector)
                                        else "base_demo_v1" if isinstance(self.selector, BaseDemoSelector)
                                        else "manual_schedule_v1"), learned=False,
@@ -212,6 +284,8 @@ class PrimitivePolicy(ArmIKPolicy):
                              interruption_reason_codes={"0": "none", "1": "hand_to_base",
                                                         "2": "base_to_hand"},
                              base_action_units=["forward_m_per_s", "yaw_rad_per_s_divided_by_3.14"],
+                             teacher_query_source=("base_ready_pick_v1" if allow_base else
+                                                   "physical_state_pick_place_v1") if query_teacher else None,
                              teacher_query_ik_feasibility_checked=False)
         if hasattr(self.selector, "metadata"):
             self.metadata.update(self.selector.metadata)
@@ -393,7 +467,7 @@ class PrimitivePolicy(ArmIKPolicy):
                                    pitch_guard_changed_id=selected != self.selector.last_raw_id)
         if teacher_id is not None:
             self.pre_action.update(teacher_id=teacher_id,
-                                   teacher_label_valid=0 <= teacher_id < len(NAMES),
+                                   teacher_label_valid=0 <= teacher_id < (len(NAMES20) if self.allow_base else len(NAMES)),
                                    teacher_ik_feasibility_checked=False)
         return command
 

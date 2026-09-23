@@ -10,14 +10,14 @@ import pytest
 @pytest.mark.skipif(os.getenv("APC_RUN_MANISKILL_TEST") != "1", reason="Explicit real-simulator test")
 def test_primitive_to_saved_rollout_and_selector(tmp_path):
     from apc_maniskill.primitive_learning import MLPSelector, train
-    from apc_maniskill.primitive_policy import (BaseDemoSelector, BaseRecoverPickSelector,
+    from apc_maniskill.primitive_policy import (BaseReadyPickSelector, BaseDemoSelector, BaseRecoverPickSelector,
                                                 BaseThenPickSelector, PickPlaceSelector,
                                                 PitchGuardSelector, PrimitivePolicy)
     from apc_maniskill.runner import RunConfig, collect
 
-    def run(name, episodes, steps, factory, *, seed=1400):
+    def run(name, episodes, steps, factory, *, seed=1400, env_id="APC-FetchPickCube-v1"):
         out = tmp_path / name
-        collect(RunConfig(env_id="APC-FetchPickCube-v1", robot_uids="fetch", policy="external",
+        collect(RunConfig(env_id=env_id, robot_uids="fetch", policy="external",
                           episodes=episodes, max_steps=steps, env_max_steps=steps, seed=seed),
                 out, policy_factory=factory)
         assert json.loads((out / "manifest.json").read_text())["status"] == "completed"
@@ -87,6 +87,42 @@ def test_primitive_to_saved_rollout_and_selector(tmp_path):
     assert recovery[retreat[0] + 35]["interruption_reason_code"] == 2
     assert recovery[retreat[0] + 35]["post_action_state"]["base_pose"][0] < .005
     assert all(row["table_contact_force_norm_sum_n"] == 0 for row in recovery)
+
+    far_out, far_rows = run("far_approach", 2, 240, lambda env, output: PrimitivePolicy(
+        env, output, selector=BaseReadyPickSelector(), allow_rotation=True, allow_base=True),
+        seed=1901, env_id="APC-FetchPickCubeFar-v1")
+    assert json.loads((far_out / "manifest.json").read_text())["task"]["start_back_m"] == .20
+    for episode in range(2):
+        far = [row["info"]["diagnostic"] for row in far_rows if row["episode"] == episode]
+        assert sum(row["executed_id"] == 16 for row in far) == 11
+        assert any(row["interruption_reason_code"] == 2 for row in far)
+        assert far[-1]["post_action_state"]["base_pose"][0] > .19
+        assert all(row["table_contact_force_norm_sum_n"] == 0 for row in far)
+
+    far_train = tmp_path / "far_train"
+    from apc_maniskill.primitive_learning import SCHEMA_V4
+    train(far_out, far_train, updates=20, feature_schema=SCHEMA_V4)
+
+    def far_model_factory(env, output):
+        selector = MLPSelector(far_train / "selector.pt", env.unwrapped.experiment_metadata(),
+                               float(env.unwrapped.sim_config.control_freq))
+        return PrimitivePolicy(env, output, selector=selector, allow_rotation=True, allow_base=True)
+
+    _, far_model = run("far_model", 1, 30, far_model_factory, seed=1901,
+                       env_id="APC-FetchPickCubeFar-v1")
+    assert all(len(row["info"]["diagnostic"]["selector_logits"]) == 20 for row in far_model)
+
+    def far_query_factory(env, output):
+        selector = MLPSelector(far_train / "selector.pt", env.unwrapped.experiment_metadata(),
+                               float(env.unwrapped.sim_config.control_freq))
+        return PrimitivePolicy(env, output, selector=selector, allow_rotation=True,
+                               allow_base=True, query_teacher=True)
+
+    _, far_query = run("far_query", 1, 30, far_query_factory, seed=1901,
+                       env_id="APC-FetchPickCubeFar-v1")
+    assert [row["info"]["diagnostic"]["submitted_action"] for row in far_query] == [
+        row["info"]["diagnostic"]["submitted_action"] for row in far_model]
+    assert all(row["info"]["diagnostic"]["teacher_label_valid"] for row in far_query)
 
     teacher, _ = run("teacher", 2, 80, lambda env, output: PrimitivePolicy(
         env, output, selector=PickPlaceSelector(use_rotation=True), allow_rotation=True))

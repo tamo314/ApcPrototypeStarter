@@ -1,5 +1,6 @@
 """Upstream Fetch/PickCube with absolute joint-speed termination semantics."""
 import torch
+import sapien
 from mani_skill.envs.tasks.tabletop.pick_cube import PickCubeEnv
 from mani_skill.utils.registration import register_env
 
@@ -30,3 +31,23 @@ class FetchPickCube(PickCubeEnv):
         info["is_robot_static"] = (info["body_abs_qvel_max"] <= 0.2) & (info["base_abs_qvel_max"] <= 0.05)
         info["success"] = info["is_obj_placed"] & info["is_robot_static"]
         return info
+
+
+@register_env("APC-FetchPickCubeFar-v1", max_episode_steps=50)
+class FetchPickCubeFar(FetchPickCube):
+    """Same table and cube distribution, with Fetch starting 20 cm farther back."""
+
+    start_back_m = 0.20
+
+    def _initialize_episode(self, env_idx, options):
+        super()._initialize_episode(env_idx, options)
+        from .runner import array
+
+        original = self.agent.robot.pose
+        position = array(original.p)[0]
+        position[0] -= self.start_back_m
+        self.agent.robot.set_pose(sapien.Pose(position, array(original.q)[0]))
+
+    def experiment_metadata(self):
+        return dict(super().experiment_metadata(), start_back_m=self.start_back_m,
+                    placement_distribution="same as APC-FetchPickCube-v1")
