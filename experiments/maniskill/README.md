@@ -34,6 +34,30 @@ seed1901〜1903では台車なし教師の最終成功0/3に対し、20候補の
 新プリミティブ獲得・temporary蒸留・解放の結果はまだない。条件と失敗は
 [計画書の第13節](docs/PRIMITIVE_DECISION_PLAN.md) と [実験メモ](docs/ITERATION_LOG.md) を参照する。
 
+**2026-09-24のselector改善:** 教師データに欠けていた回転方向と、把持後の移動判断を診断。
+幾何特徴v5、直前IDを除くv6、教師ラベルから分岐を学ぶCART決定木を追加した。
+同じseed2701〜2705では決定木の再ラベル追加前が最終0/5、追加後が2/5、教師は3/5。
+探索済み2401〜2403では旧MLPの0/3に対し追加後の木は2/3。
+最後の未使用2801〜2805でも最終2/5（教師2/5）だった。把持後の誤判断と腕経路拒否は残る。
+教師の呼出しによる実行時の操作補助は使わない。20候補の組合せ学習の改善であり、
+新プリミティブ本体の獲得ではない。途中の腕・机接触も含めた条件別結果は
+[計画書の第14節](docs/PRIMITIVE_DECISION_PLAN.md) を参照する。
+
+学習済み決定木の再実行例（既存WSL環境、毎回新しい出力先を指定）:
+
+```bash
+python scripts/run_fetch_primitives.py --selector tree --rotations --base --far-start \
+  --episodes 3 --seed 2401 --max-steps 900 --post-success-steps 20 \
+  --checkpoint runs/primitive-far-tree-dagger-train-20260924-a/selector.pt \
+  --out runs/my-tree-rollout
+```
+
+学習入口は `python -m apc_maniskill.primitive_learning --model-kind cart`。
+`--feature-schema fetch_primitive_geometry_features_v5` または
+`fetch_primitive_geometry_no_history_v6`、教師の `--source`、新しい `--out` を指定する。
+木は最大深さ12・葉の最小sample数2が既定。`--sampling sqrt_inverse` は木では
+sample重みとして使い、MLPの勾配更新数と木のfit回数・ノード数を分けて記録する。
+
 **同日の先行計画改訂:** [APC実現性の学習計画](docs/RESEARCH_PLAN.md) に、
 操作BCの原因分析、最小スキル銀行、temporaryでの能力追加、小型candidateへの蒸留、
 解放後の再利用・過去能力保持と対照実験をまとめた。優先1の操作診断と小比較を実施済み。

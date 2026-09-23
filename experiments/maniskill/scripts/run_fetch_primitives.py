@@ -18,7 +18,7 @@ def main():
     parser.add_argument("--episodes", type=int, default=3)
     parser.add_argument("--seed", type=int, default=1300)
     parser.add_argument("--max-steps", type=int, default=100)
-    parser.add_argument("--selector", choices=["manual", "pick_place", "mlp", "mlp_pitch_guard",
+    parser.add_argument("--selector", choices=["manual", "pick_place", "mlp", "tree", "mlp_pitch_guard",
                                                "base_demo", "base_then_pick", "base_recover_pick", "base_approach_pick",
                                                "base_ready_pick", "base_ready_settled_pick",
                                                "wait_then_pick"], default="manual")
@@ -29,15 +29,15 @@ def main():
     parser.add_argument("--checkpoint", type=Path)
     parser.add_argument("--query-teacher", action="store_true")
     args = parser.parse_args()
-    if (args.selector in ("mlp", "mlp_pitch_guard")) != (args.checkpoint is not None):
-        parser.error("mlp selectors require --checkpoint, other selectors do not")
-    if args.selector in ("mlp", "mlp_pitch_guard") and not args.rotations:
-        parser.error("the 16-ID MLP checkpoint requires --rotations")
+    if (args.selector in ("mlp", "tree", "mlp_pitch_guard")) != (args.checkpoint is not None):
+        parser.error("learned selectors require --checkpoint, other selectors do not")
+    if args.selector in ("mlp", "tree", "mlp_pitch_guard") and not args.rotations:
+        parser.error("learned checkpoints require --rotations")
     if args.selector == "wait_then_pick" and not args.rotations:
         parser.error("wait_then_pick requires --rotations")
     if args.base and not args.rotations:
         parser.error("base candidates require --rotations to preserve IDs 0..15")
-    if args.base and args.selector not in ("base_demo", "base_then_pick", "base_recover_pick", "base_approach_pick", "base_ready_pick", "base_ready_settled_pick", "mlp", "mlp_pitch_guard"):
+    if args.base and args.selector not in ("base_demo", "base_then_pick", "base_recover_pick", "base_approach_pick", "base_ready_pick", "base_ready_settled_pick", "mlp", "tree", "mlp_pitch_guard"):
         parser.error("the 20-ID manual selectors require a base selector")
     if args.selector in ("base_demo", "base_then_pick", "base_recover_pick", "base_approach_pick", "base_ready_pick", "base_ready_settled_pick") and not args.base:
         parser.error("20-ID manual selectors require --base")
@@ -45,8 +45,8 @@ def main():
         parser.error("the 20-ID pitch diagnostic requires --far-start")
     if args.selector in ("base_approach_pick", "base_ready_pick", "base_ready_settled_pick") and not args.far_start:
         parser.error("base approach selectors require --far-start")
-    if args.query_teacher and args.selector not in ("mlp", "mlp_pitch_guard"):
-        parser.error("teacher queries are only recorded alongside mlp execution")
+    if args.query_teacher and args.selector not in ("mlp", "tree", "mlp_pitch_guard"):
+        parser.error("teacher queries are only recorded alongside learned execution")
     if args.base and args.query_teacher and not args.far_start:
         parser.error("the 20-ID teacher requires --far-start")
     config = RunConfig(env_id="APC-FetchPickCubeFar-v1" if args.far_start else "APC-FetchPickCube-v1",
@@ -60,12 +60,14 @@ def main():
 
     def factory(env, output):
         shutil.copy2(__file__, output / "run_fetch_primitives.py")
-        if args.selector in ("mlp", "mlp_pitch_guard"):
-            from apc_maniskill.primitive_learning import MLPSelector
+        if args.selector in ("mlp", "tree", "mlp_pitch_guard"):
+            from apc_maniskill.primitive_learning import LearnedSelector
             copied = output / "selector.pt"
             shutil.copy2(args.checkpoint, copied)
-            selector = MLPSelector(copied, env.unwrapped.experiment_metadata(),
+            selector = LearnedSelector(copied, env.unwrapped.experiment_metadata(),
                                    float(env.unwrapped.sim_config.control_freq))
+            if (args.selector == "tree") != (selector.model_kind == "cart"):
+                raise ValueError("Runner selector kind does not match checkpoint model")
             if selector.primitive_count != (20 if args.base else 16):
                 raise ValueError("Checkpoint primitive count does not match runner bank")
             if args.selector == "mlp_pitch_guard":

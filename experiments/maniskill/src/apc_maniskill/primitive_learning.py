@@ -19,6 +19,8 @@ SCHEMA_V1 = "fetch_primitive_features_v1"
 SCHEMA_V2 = "fetch_primitive_relative_features_v2"
 SCHEMA_V3 = "fetch_primitive_relative_base_features_v3"
 SCHEMA_V4 = "fetch_primitive_base_ready_features_v4"
+SCHEMA_V5 = "fetch_primitive_geometry_features_v5"
+SCHEMA_V6 = "fetch_primitive_geometry_no_history_v6"
 
 
 def features(state, schema=SCHEMA_V1, primitive_count=16):
@@ -27,7 +29,7 @@ def features(state, schema=SCHEMA_V1, primitive_count=16):
                   "goal_position", "hand_target_position", "hand_target_quaternion",
                   "root_rotation")
         values = [np.asarray(state[name], dtype=np.float32).reshape(-1) for name in fields]
-    elif schema in (SCHEMA_V2, SCHEMA_V3, SCHEMA_V4):
+    elif schema in (SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6):
         hand = np.asarray(state["measured_hand_position"], dtype=np.float32)
         cube = np.asarray(state["cube_position"], dtype=np.float32)
         goal = np.asarray(state["goal_position"], dtype=np.float32)
@@ -39,7 +41,7 @@ def features(state, schema=SCHEMA_V1, primitive_count=16):
                   np.asarray([cube[2] - state["cube_initial_z"], hand[2] - cube[2]], dtype=np.float32)]
     else:
         raise ValueError("Unknown primitive feature schema")
-    if schema in (SCHEMA_V3, SCHEMA_V4):
+    if schema in (SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6):
         if primitive_count != 20:
             raise ValueError("Base feature schema requires the 20-ID bank")
         base = np.asarray(state["base_pose"], dtype=np.float32)
@@ -47,14 +49,33 @@ def features(state, schema=SCHEMA_V1, primitive_count=16):
         values += [base, base_target - base,
                    np.asarray([state["base_target_age_steps"] / 40,
                                state["mode_code"], state["hand_target_valid"]], dtype=np.float32)]
-        if schema == SCHEMA_V4:
+        if schema in (SCHEMA_V4, SCHEMA_V5, SCHEMA_V6):
             ready = (state["mode_code"] == 1 and state["base_target_age_steps"] >= 15
                      and np.linalg.norm(base_target - base) < 0.001)
             values += [np.asarray([float(ready), float(base[0] >= 0.195)], dtype=np.float32)]
+    if schema in (SCHEMA_V5, SCHEMA_V6):
+        # Observable geometry only: no teacher call, stage, desired ID or action mask.
+        # The 12 mm grasp offset and 12 cm approach height are task priors shared
+        # with the demonstration policy, recorded by this versioned schema.
+        q = np.asarray(state["measured_hand_quaternion"], dtype=np.float32)
+        target_q = np.asarray(state["hand_target_quaternion"], dtype=np.float32)
+        pending_angle = 2 * np.arccos(np.clip(abs(np.dot(q, target_q)), 0, 1))
+        offsets = [cube - hand + [0, 0, .012], cube - hand + [0, 0, .12], goal - cube]
+        values += [np.asarray([2 * np.arctan2(q[2], q[0]), pending_angle,
+                               np.linalg.norm(target - hand),
+                               np.linalg.norm((cube - hand)[:2]),
+                               np.linalg.norm(offsets[0]), np.linalg.norm(goal - cube),
+                               state["position_tolerance_m"]], dtype=np.float32)]
+        for delta in offsets:
+            delta_root = root.T @ delta
+            magnitude = np.abs(delta_root)
+            values += [delta_root, magnitude,
+                       magnitude[[0, 0, 1]] - magnitude[[1, 2, 2]]]
     values += [np.asarray([state["gripper_target_m"], min(state["target_age_steps"], 40) / 40,
-                           float(state["grasped"])], dtype=np.float32),
-               np.eye(primitive_count, dtype=np.float32)[state["selected_id"]]]
-    return np.concatenate(values)
+                           float(state["grasped"])], dtype=np.float32)]
+    if schema != SCHEMA_V6:
+        values += [np.eye(primitive_count, dtype=np.float32)[state["selected_id"]]]
+    return np.concatenate(values).astype(np.float32)
 
 
 def network(input_dim, output_dim=16):
@@ -66,11 +87,14 @@ def train(source: Path, output: Path, *, updates=3000, seed=0,
           dagger_source: Path | list[Path] | None = None,
           sampling="uniform", std_floor=1e-4, feature_schema=SCHEMA_V1,
           train_all=False, extra_teacher_sources: list[Path] | None = None,
-          dagger_strides: list[int] | None = None):
+          dagger_strides: list[int] | None = None, model_kind="mlp",
+          max_depth=12, min_leaf=2):
     if updates < 1:
         raise ValueError("updates must be positive")
     if not np.isfinite(std_floor) or std_floor <= 0:
         raise ValueError("std_floor must be finite and positive")
+    if model_kind not in ("mlp", "cart"):
+        raise ValueError("Unknown selector model kind")
     output.mkdir(parents=True, exist_ok=False)
     shutil.copy2(__file__, output / "primitive_learning.py")
     shutil.copy2(source / "manifest.json", output / "source_manifest.json")
@@ -91,9 +115,9 @@ def train(source: Path, output: Path, *, updates=3000, seed=0,
     names = source_manifest["policy_details"]["primitive_names"]
     if names not in (list(NAMES), list(NAMES20)) or source_manifest["status"] != "completed":
         raise ValueError("Training requires a completed fetch16 or fetch20 teacher run")
-    if len(names) == 20 and feature_schema not in (SCHEMA_V3, SCHEMA_V4):
+    if len(names) == 20 and feature_schema not in (SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6):
         raise ValueError("The 20-ID bank requires base-state features")
-    if len(names) == 16 and feature_schema in (SCHEMA_V3, SCHEMA_V4):
+    if len(names) == 16 and feature_schema in (SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6):
         raise ValueError("Base-state features require the 20-ID bank")
     for index, teacher_path in enumerate(teacher_paths[1:], start=1):
         teacher_manifest = json.loads((teacher_path / "manifest.json").read_text(encoding="utf-8"))
@@ -132,8 +156,6 @@ def train(source: Path, output: Path, *, updates=3000, seed=0,
     x = (x - mean) / std
     torch.manual_seed(seed)
     torch.set_num_threads(1)
-    model = network(x.shape[1], len(names))
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     xt = torch.from_numpy(x[train_mask])
     yt = torch.from_numpy(y[train_mask])
     xv = torch.from_numpy(x[~train_mask])
@@ -147,14 +169,24 @@ def train(source: Path, output: Path, *, updates=3000, seed=0,
         exponent = 0.5 if sampling == "sqrt_inverse" else 0.25
         probabilities = 1 / np.power(counts[y[train_mask]], exponent)
         probabilities = probabilities / probabilities.sum()
-    for _ in range(updates):
-        sampled = (rng.integers(0, len(xt), 128) if probabilities is None
-                   else rng.choice(len(xt), 128, replace=True, p=probabilities))
-        indices = torch.from_numpy(sampled)
-        loss = nn.functional.cross_entropy(model(xt[indices]), yt[indices])
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+    if model_kind == "cart":
+        from .primitive_tree import CART
+        shutil.copy2(Path(__file__).with_name("primitive_tree.py"), output / "primitive_tree.py")
+        weights = np.ones(len(xt)) if probabilities is None else probabilities * len(xt)
+        model = CART.fit(xt.numpy(), yt.numpy(), weights, len(names),
+                         max_depth=max_depth, min_leaf=min_leaf)
+        updates = 0  # One tree fit; no gradient optimizer updates.
+    else:
+        model = network(x.shape[1], len(names))
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+        for _ in range(updates):
+            sampled = (rng.integers(0, len(xt), 128) if probabilities is None
+                       else rng.choice(len(xt), 128, replace=True, p=probabilities))
+            indices = torch.from_numpy(sampled)
+            loss = nn.functional.cross_entropy(model(xt[indices]), yt[indices])
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
     with torch.no_grad():
         training_accuracy = float((model(xt).argmax(1) == yt).float().mean())
         validation_loss = None
@@ -175,6 +207,12 @@ def train(source: Path, output: Path, *, updates=3000, seed=0,
                       updates=updates, seed=seed)
     checkpoint["sampling"] = sampling
     checkpoint["std_floor"] = std_floor
+    model_details = dict(model_kind=model_kind,
+                         tree_nodes=len(model.feature) if model_kind == "cart" else None,
+                         tree_max_depth=max_depth if model_kind == "cart" else None,
+                         tree_min_leaf=min_leaf if model_kind == "cart" else None,
+                         tree_fits=int(model_kind == "cart"))
+    checkpoint.update(model_details)
     torch.save(checkpoint, output / "selector.pt")
     json_write(output / "training.json", dict(source=str(source.resolve()),
                source_steps_sha256=digest, dagger_steps_sha256=dagger_digests,
@@ -195,28 +233,40 @@ def train(source: Path, output: Path, *, updates=3000, seed=0,
                sampling=sampling, std_floor=std_floor, feature_schema=feature_schema,
                validation_accuracy=validation_accuracy,
                model_parameters=sum(p.numel() for p in model.parameters()),
+               model_stored_values=sum(t.numel() for t in model.state_dict().values()),
+               **model_details,
                label_counts=np.bincount(y, minlength=len(names)).tolist()))
 
 
-class MLPSelector:
+class LearnedSelector:
     def __init__(self, checkpoint: Path, task, control_freq):
         saved = torch.load(checkpoint, map_location="cpu", weights_only=False)
-        if (saved["schema"] not in (SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4)
+        if (saved["schema"] not in (SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6)
                 or saved["primitive_names"] not in (list(NAMES), list(NAMES20))
                 or saved["task"] != task or saved["control_freq"] != control_freq):
             raise ValueError("Primitive selector checkpoint schema or task mismatch")
         self.primitive_count = len(saved["primitive_names"])
-        if (saved["schema"] in (SCHEMA_V3, SCHEMA_V4)) != (self.primitive_count == 20):
+        if (saved["schema"] in (SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6)) != (self.primitive_count == 20):
             raise ValueError("Primitive bank and feature schema mismatch")
-        self.model = network(len(saved["mean"]), self.primitive_count)
+        self.model_kind = saved.get("model_kind", "mlp")
+        if self.model_kind == "cart":
+            from .primitive_tree import CART
+            self.model = CART(saved["tree_nodes"], self.primitive_count)
+        elif self.model_kind == "mlp":
+            self.model = network(len(saved["mean"]), self.primitive_count)
+        else:
+            raise ValueError("Unknown checkpoint model kind")
         self.model.load_state_dict(saved["state_dict"])
         self.model.eval()
         torch.set_num_threads(1)
         self.schema = saved["schema"]
         self.mean = saved["mean"]
         self.std = saved["std"]
-        self.metadata = dict(learned=True, selector="mlp64x2_v1", selector_schema=self.schema,
+        self.metadata = dict(learned=True, selector=("cart_v1" if self.model_kind == "cart" else "mlp64x2_v1"),
+                             selector_schema=self.schema, selector_model_kind=self.model_kind,
                              selector_parameters=sum(p.numel() for p in self.model.parameters()),
+                             selector_stored_values=sum(t.numel() for t in self.model.state_dict().values()),
+                             tree_nodes=saved.get("tree_nodes"), tree_fits=saved.get("tree_fits", 0),
                              checkpoint_sha256=hashlib.sha256(checkpoint.read_bytes()).hexdigest(),
                              source_steps_sha256=saved["source_steps_sha256"],
                              training_updates=saved["updates"])
@@ -234,6 +284,10 @@ class MLPSelector:
         return int(logits.argmax())
 
 
+# Preserve the existing public import used by earlier scripts and saved sources.
+MLPSelector = LearnedSelector
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, required=True)
@@ -245,14 +299,18 @@ def main():
     parser.add_argument("--extra-teacher-source", type=Path, action="append")
     parser.add_argument("--sampling", choices=["uniform", "sqrt_inverse", "fourth_root_inverse"], default="uniform")
     parser.add_argument("--std-floor", type=float, default=1e-4)
-    parser.add_argument("--feature-schema", choices=[SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4], default=SCHEMA_V1)
+    parser.add_argument("--feature-schema", choices=[SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6], default=SCHEMA_V1)
     parser.add_argument("--train-all", action="store_true")
+    parser.add_argument("--model-kind", choices=["mlp", "cart"], default="mlp")
+    parser.add_argument("--max-depth", type=int, default=12)
+    parser.add_argument("--min-leaf", type=int, default=2)
     args = parser.parse_args()
     train(args.source, args.out, updates=args.updates, seed=args.seed,
           dagger_source=args.dagger_source, sampling=args.sampling,
           std_floor=args.std_floor, feature_schema=args.feature_schema,
           train_all=args.train_all, extra_teacher_sources=args.extra_teacher_source,
-          dagger_strides=args.dagger_stride)
+          dagger_strides=args.dagger_stride, model_kind=args.model_kind,
+          max_depth=args.max_depth, min_leaf=args.min_leaf)
 
 
 if __name__ == "__main__":

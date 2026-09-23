@@ -425,6 +425,40 @@ manifestがfailed、episode数0、error.txtが保存されることを確認し�
 - 計測/解釈: runner **14 run / 36 episode / 30,713環境step**、wall合計540.1秒、学習**12,000更新**。1901〜1903の台車あり/なしでreset直後の物体・目標座標は各seedで一致。台車ありrunの机接触力は全記録stepで0 N（台車なし2,700 stepにはリンク別計測なし）。全run completed、例外なし。有限stepとサンプル点の安全観測であり連続軌道保証ではない。台車なし教師と手設計台車列の同seed対照から、今回の遠方開始は台車移動の効用があるN候補。ただし別seedの手設計成功は一定でなく、学習20 IDの閉ループ成功もまだない。query2303の台車局面183 stepは教師とモデルが全件一致、腕局面717 stepでは653件不一致、教師は回転ID13を662回提案。pitch補助で姿勢を補正してもseed2403では成功しなかった。残る明確な失敗は腕局面の選択と経路拒否の組合せ。既存プリミティブの局所制御器自体の不足、新IDの必要性、temporaryの獲得は示されていない。
 - 検証: 最終の実環境統合テスト `primitive-feature-tests-20260923-h/` は **1 passed in 44.36s**、1,390テストstep（runner総計外）。遠方sceneの移動・切替・接触0、20 ID教師データ→学習→再ロード→rollout、20 ID queryの送信行動一致を同じ1本で確認。既知のVulkan/glvnd/Pinocchio/NumPy警告のみ。`git diff --check` とPython compileも実行する。次の一点は、教師が成功する条件の腕局面でモデルが選ぶ`continue`・軸移動・回転を状態別に照合し、局所的な特徴/収集変更で比較する。
 
+### 2026-09-24 — 幾何特徴と決定木による20 ID selectorの改善
+
+- 基点 `1afacba`。WSL Python3.12/CPU、ManiSkill3.0.1、単一Fetch、`APC-FetchPickCubeFar-v1`、`pd_joint_delta_pos`、状態観測、20 Hz制御/100 Hz物理。900 step上限、初回成功後20 step観測。旧runは保持。以下は全て `experiments/maniskill/runs/` 下。最初は3 episode診断＋3,000更新＋同seed評価とし、得られた失敗に応じて追加ラベル、MLP/木の同データ比較、未使用条件へ小さいバッチで拡張した。
+- 診断: `primitive-far-query2401-20260924-a/decision_analysis.json`。前回モデルとの2,700件の送信action一致。台車局面549 stepは教師IDと全一致。seed2401の姿勢局面706 step中634件、2402の非把持接近630 step中367件、2403の姿勢局面717 step中687件でID不一致。前回の訓練3,155 sampleには上向き回転ID12が0件。2401ではそのIDを必要とするがモデルは継続/並進を選び、2402では教師の上昇ID4に対し継続が318件だった。
+- 実装: v5は87次元。v4にpitch・角度/位置追従誤差・水平距離・把持点距離・軸間誤差を追加した。把持高さ12 mm/接近高さ12 cmというtask priorを共有し、正解IDやstageは渡さない。v6は直前ID one-hotを除く67次元。CARTは重み付きGini、深さ12、最小葉sample2、sqrt逆頻度のsample重み。教師呼出しによる操作補助はなく、queryは別ラベル保存のみ。既存20 IDの実行器・IK・机経路検査は変更していない。`--model-kind cart`で学習、`--selector tree`で独立processへロードし、種類・schema・task・候補数を検査する。木の葉log確率を既存`selector_logits`へ記録。勾配パラメータ0という値とモデル全体の容量を混同しないよう、ノード数とbufferを含む保存数値数も記録する。
+
+| run（`runs/`下） | seed / episode / step | 初回・最終成功 | 比較・失敗 |
+|---|---:|---:|---|
+| `primitive-far-query2401-20260924-a` | 2401〜2403 / 3 / 2,700 | 0/3・0/3 | 前回v4 MLPの実訪問ラベル |
+| `primitive-far-geometry2401-20260924-a` | 同 / 3 / 2,700 | 0/3・0/3 | 同じ3,155 sampleでv5特徴だけ変更 |
+| `primitive-far-v4-dagger2401-20260924-a` | 同 / 3 / 2,540 | 1/3・1/3 | 今回queryを加えた5,855 sample、v4対照 |
+| `primitive-far-geometry-dagger2401-20260924-a` | 同 / 3 / 2,495 | 1/3・1/3 | 同じ追加データ、v5。失敗2403で前腕接触あり |
+| `primitive-far-geometry-multi2501-20260924-a` | 2501〜2503 / 3 / 2,700 | 0/3・0/3 | 別配置教師と再訪問ラベルを含む12,789 sampleのMLP |
+| `primitive-far-teacher2501-20260924-a` | 同 / 3 / 2,700 | 0/3・0/3 | 手設計対照。2503で上腕接触あり |
+| `primitive-far-tree2501-20260924-a` | 同 / 3 / 2,356 | 1/3・1/3 | MLPと同じデータ、117ノード。2503で上腕接触あり |
+| `primitive-far-tree2601-20260924-a` | 2601〜2605 / 5 / 4,208 | 1/5・0/5 | 固定木の次の未使用条件。把持5/5だが上昇判断が崩れる |
+| `primitive-far-teacher2601-20260924-a` | 同 / 5 / 3,768 | 3/5・3/5 | 同seed教師。その後学習へ追加 |
+| `primitive-far-tree2701-20260924-a` | 2701〜2705 / 5 / 4,184 | 2/5・2/5 | 23,121 sampleで再学習、149ノード |
+| `primitive-far-tree-before2701-20260924-a` | 同 / 5 / 4,500 | 0/5・0/5 | 再学習前117ノードの同seed対照 |
+| `primitive-far-teacher2701-20260924-a` | 同 / 5 / 3,942 | 3/5・3/5 | 同seed教師 |
+| `primitive-far-tree-final2401-20260924-a` | 2401〜2403 / 3 / 2,032 | 3/3・2/3 | 探索条件の再実行。教師と同じ初回/最終成績 |
+| `primitive-far-tree-nohistory2701-20260924-a` | 2701〜2705 / 5 / 4,184 | 2/5・2/5 | 同じ23,121 sample、v6、153ノード。直前ID除去で改善せず |
+| `primitive-far-tree2801-20260924-a` | 2801〜2805 / 5 / 4,066 | 2/5・2/5 | 固定した149ノードの最終未使用条件 |
+| `primitive-far-teacher2801-20260924-a` | 同 / 5 / 4,095 | 2/5・2/5 | 最終対照。両方式の成功seedは一部異なる |
+
+- 学習run: `primitive-far-geometry-train-20260924-b/`、`primitive-far-v4-dagger-train-20260924-a/`、`primitive-far-geometry-dagger-train-20260924-a/`、`primitive-far-geometry-multi-train-20260924-a/` は各3,000更新。MLPの訓練accuracyは順に97.27/95.70/94.93/93.45%で、閉ループの成功を代用しない。木の `primitive-far-tree-multi-train-20260924-a/`、`primitive-far-tree-dagger-train-20260924-a/`、`primitive-far-tree-nohistory-train-20260924-a/` は各1 fit、勾配更新0。117/149/153ノード、保存数値2,808/3,576/3,672。各training.jsonにsourceのパス・SHA256・sample数・ラベル分布・設定を保存。
+- 収集順と独立性: 最初のsourceはready1901教師とquery2303。5,855 sample版は今回query2401を追加。12,789 sample版はready2301/2401教師とgeometry-dagger2401のqueryを追加。23,121 sample版はteacher2601とtree2501/2601のqueryを追加。2501/2601は結果を見てから探索/学習へ移行。2701はv6の特徴検討に使ったため、その後は探索扱い。最終2801〜2805は学習/設計に未使用で、結果を見た後の再学習なし。過去runのmanifestにもこれら新seedの先行使用がないことを確認。最終モデルのsource seedは1901〜1903、2301〜2303、2401〜2403、2501〜2503、2601〜2605で、2701/2801の各評価組と非重複。
+- 残る判断誤り: 2702では把持・閉指後に閉指ID7を137回、下降ID5を142回選ぶ一方、教師は上昇ID4。誤った閉指葉は深さ5であり深さ上限12による切捨てではない。直前IDを外すv6だけでは成功数が変わらなかった。2805も上昇を下降/閉指へ置換して失敗した。2705では教師とのID不一致は1件だが腕経路拒否405 step、2802/2803では教師も431/448 step拒否し把持できない。selectorが誤る状態の収集と、教師も失敗する接近軌道・局所制御の診断を分ける必要がある。20候補を出力可能だが訓練ラベルは12 IDのみで、全20操作の獲得を意味しない。
+- 接触: geometry-dagger2401の失敗seed2403で`forearm_roll_link`と机に2 step（最大27.042 N）。teacher2501のseed2503で`upperarm_roll_link`に2 step（最大0.818 N）、tree2501の同seedで3 step（最大0.818 N）。拒否後も動的な追従・接触が残りうるため、有限サンプル検査を完全な衝突防止と呼ばない。上記以外の13 runは全記録stepで机接触0 N。149ノードの最終2801でも接触0 Nだが安全性一般の保証ではない。接触runも削除していない。
+- 実行障害: 最初の`primitive-far-geometry-train-20260924-a/`は幾何offsetのNumPy型昇格でfloat64入力となり、最初の勾配更新前に型不一致で停止。`error.txt`へ記録し、特徴出力を明示float32にして別run `-b`で再実行。環境障害や新しい依存導入はなし。既知のVulkan/glvnd/Pinocchio/NumPy警告のみ。
+- 実績: **16 runner run / 64 episode / 53,170環境step**、episode wall合計**629.4秒**（初期化・学習時間を含まない）。**MLP12,000勾配更新＋CART3 fit**。再利用した過去sourceの収集費を重複加算しない。集計スクリプト・全episode別の拒否/把持/ID混同行列は `primitive-improvement-report-20260924-a/report.py` と `report.json`。診断queryなしのrunの不一致欄0は未計測であり、教師との全一致を意味しない。
+- 検証: 既存 `tests/test_primitive_feature.py` 1本へCART/v5/v6の学習→保存→ロード→台車/腕の実行を追加し、teacher query有無で240件の送信行動が一致することも確認。`primitive-feature-tests-20260924-a/` は1 passed in50.37s、v6追加後の `-b/` は **1 passed in49.92s**。各1,870 step、合計3,740テストstepはrunner総計外。Python compileと差分確認も通過。タスク成功数はテストの合格条件にしていない。
+- 解釈/次: 同seed2701で0/5→2/5の改善、最終未使用2801で2/5（教師2/5）を実測。安定した汎化は未達。既存の小操作を組み合わせる学習の改善で、新プリミティブ獲得・temporary圧縮/解放の成果ではない。次は把持/閉指/持上げの状態を意図的に分けた反例収集と、教師も拒否する配置での腕経路・動的接触余裕を小さく比較する。
+
 ## 追記テンプレート
 
 ### YYYY-MM-DD — 変更点の短い名前

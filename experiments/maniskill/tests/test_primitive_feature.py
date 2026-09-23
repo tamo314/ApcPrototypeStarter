@@ -124,6 +124,32 @@ def test_primitive_to_saved_rollout_and_selector(tmp_path):
         row["info"]["diagnostic"]["submitted_action"] for row in far_model]
     assert all(row["info"]["diagnostic"]["teacher_label_valid"] for row in far_query)
 
+    # New geometry features and a learned tree must survive train/save/load and
+    # real hand/base execution. A diagnostic teacher must not change its actions.
+    from apc_maniskill.primitive_learning import LearnedSelector, SCHEMA_V6
+    tree_train = tmp_path / "tree_train"
+    train(far_out, tree_train, feature_schema=SCHEMA_V6, model_kind="cart")
+    tree_training = json.loads((tree_train / "training.json").read_text())
+    assert tree_training["tree_nodes"] > 1
+    assert tree_training["updates"] == 0
+
+    def tree_factory(query):
+        def factory(env, output):
+            selector = LearnedSelector(tree_train / "selector.pt", env.unwrapped.experiment_metadata(),
+                                       float(env.unwrapped.sim_config.control_freq))
+            return PrimitivePolicy(env, output, selector=selector, allow_rotation=True,
+                                   allow_base=True, query_teacher=query)
+        return factory
+
+    tree_out, tree_rows = run("tree", 1, 240, tree_factory(False), seed=1903,
+                              env_id="APC-FetchPickCubeFar-v1")
+    _, tree_query = run("tree_query", 1, 240, tree_factory(True), seed=1903,
+                        env_id="APC-FetchPickCubeFar-v1")
+    assert json.loads((tree_out / "manifest.json").read_text())["policy_details"]["selector"] == "cart_v1"
+    assert all(len(row["info"]["diagnostic"]["selector_logits"]) == 20 for row in tree_rows)
+    assert [row["info"]["diagnostic"]["submitted_action"] for row in tree_rows] == [
+        row["info"]["diagnostic"]["submitted_action"] for row in tree_query]
+
     teacher, _ = run("teacher", 2, 80, lambda env, output: PrimitivePolicy(
         env, output, selector=PickPlaceSelector(use_rotation=True), allow_rotation=True))
     learned = tmp_path / "train"
