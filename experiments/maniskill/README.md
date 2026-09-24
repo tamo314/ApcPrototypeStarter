@@ -4,8 +4,10 @@
 自律決定木による台車遠方開始課題の完走、およびAPCプリミティブ銀行の最小実装と
 Temporary獲得・定着・完全解放・再利用・保持の全ライフサイクル実証を完了。
 WindowsとWSLの専用venvでCPU実行を確認した。
+研究成果の全体総括は [APC研究総括レポート](docs/APC_RESEARCH_SUMMARY.md) を参照。
 方針は [AGENTS.md](AGENTS.md)、研究の順序は [計画](docs/RESEARCH_PLAN.md)、
 データ形式と将来の接続は [設計](docs/ARCHITECTURE.md) を参照する。
+
 
 **2026-09-23〜24の身体操作と自律判断:** [小さな身体操作と毎step判断：設計・実装計画](docs/PRIMITIVE_DECISION_PLAN.md)。
 並進6・指2・管理2・回転6・台車4の20候補を実装。閉指待機（20 step）と上空姿勢切替により
