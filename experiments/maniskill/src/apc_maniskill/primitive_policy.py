@@ -150,6 +150,28 @@ class PickPlaceSelector:
         return 2 * axis + int(delta_root[axis] < 0)
 
 
+class StagedPitchPickSelector(PickPlaceSelector):
+    """Hand-designed pose schedule, latched from measured descent geometry."""
+
+    def __init__(self, approach_pitch_deg, descend_pitch_deg, grasp_height_m=.012):
+        super().__init__(use_rotation=True, desired_pitch_deg=approach_pitch_deg, grasp_height_m=grasp_height_m)
+        if not np.isfinite([approach_pitch_deg, descend_pitch_deg]).all():
+            raise ValueError("Pitch schedule must be finite")
+        self.approach_pitch_deg = approach_pitch_deg
+        self.descend_pitch_deg = descend_pitch_deg
+
+    def reset(self):
+        self.descending = False
+        self.desired_pitch_deg = self.approach_pitch_deg
+
+    def select(self, step, observation):
+        delta = np.asarray(observation["measured_hand_position"]) - observation["cube_position"]
+        self.descending = self.descending or observation["grasped"] or (
+            np.linalg.norm(delta[:2]) < .012 and delta[2] <= .08)
+        self.desired_pitch_deg = self.descend_pitch_deg if self.descending else self.approach_pitch_deg
+        return super().select(step, observation)
+
+
 class BaseThenPickSelector:
     """Manual same-scene chain: one safe base advance, then physical pick teacher."""
 
@@ -234,12 +256,22 @@ class BaseReadyPickSelector:
     metadata = dict(base_switch_measured_x_m=0.195, base_ready_error_m=0.001,
                     base_ready_min_age_steps=15)
 
-    def __init__(self, desired_pitch_deg=15, base_switch_x_m=0.195):
+    def __init__(self, desired_pitch_deg=15, base_switch_x_m=0.195, descend_pitch_deg=None,
+                 grasp_height_m=.012):
         if not np.isfinite(base_switch_x_m) or base_switch_x_m < 0:
             raise ValueError("base switch position must be finite and nonnegative")
-        self.pick = PickPlaceSelector(use_rotation=True, desired_pitch_deg=desired_pitch_deg)
+        if not np.isfinite(grasp_height_m) or grasp_height_m < 0:
+            raise ValueError("Grasp height must be finite and nonnegative")
+        self.pick = (PickPlaceSelector(use_rotation=True, desired_pitch_deg=desired_pitch_deg,
+                                      grasp_height_m=grasp_height_m)
+                     if descend_pitch_deg is None else StagedPitchPickSelector(
+                         desired_pitch_deg, descend_pitch_deg, grasp_height_m))
         self.metadata = dict(type(self).metadata, desired_pitch_deg=desired_pitch_deg,
-                             base_switch_measured_x_m=base_switch_x_m)
+                             base_switch_measured_x_m=base_switch_x_m,
+                             descend_pitch_deg=descend_pitch_deg,
+                             grasp_height_m=grasp_height_m,
+                             pitch_switch_geometry={"horizontal_m": .012, "height_above_cube_m": .08,
+                                                    "latched": True} if descend_pitch_deg is not None else None)
 
     def reset(self):
         self.pick.reset()
@@ -333,12 +365,16 @@ class BaseReadySettledPickSelector(BaseReadyPickSelector):
 
 class PrimitivePolicy(ArmIKPolicy):
     def __init__(self, env, output, *, config: PrimitiveConfig | None = None, selector=None,
-                 allow_rotation=False, allow_base=False, query_teacher=False, ik_reset_seed=False):
+                 allow_rotation=False, allow_base=False, query_teacher=False, ik_reset_seed=False,
+                 translation_backoff=False):
         self.primitive_config = config or PrimitiveConfig()
         self.primitive_config.validate()
         self.selector = selector or ManualSelector()
         self.allow_rotation = allow_rotation
         self.allow_base = allow_base
+        self.translation_backoff = translation_backoff
+        if translation_backoff and self.primitive_config.translation_m / 2 <= self.primitive_config.position_tolerance_m:
+            raise ValueError("Half translation must exceed tracking tolerance")
         if allow_base and not allow_rotation:
             raise ValueError("Base candidates extend the stable 16-ID bank")
         if allow_base and query_teacher and "start_back_m" not in env.unwrapped.experiment_metadata():
@@ -350,6 +386,7 @@ class PrimitivePolicy(ArmIKPolicy):
         if tuple(self.env.agent.controller.action_mapping["base"]) != (11, 13):
             raise ValueError("Fetch base channels must be action[11:13]")
         self.metadata.update(source="primitive selector and persistent IK target executor",
+                             translation_failure_retry_fraction=0.5 if translation_backoff else None,
                              primitive_version=("fetch20_v1" if allow_base else
                                                 "fetch16_v1" if allow_rotation else "fetch10_v1"),
                              primitive_names=list(NAMES20 if allow_base else
@@ -517,6 +554,17 @@ class PrimitivePolicy(ArmIKPolicy):
         attempted_quaternion = self.target.q.tolist()
         control_start = time.perf_counter()
         command = self._base_action(qpos) if self.mode == 1 else super().action()
+        backoff_initial_solver = None
+        backoff_used = False
+        if (self.translation_backoff and executed < 6 and self.mode == 0
+                and not (self.last_solver["ik_success"] and self.last_solver["ik_within_limits"]
+                         and self.last_solver["ik_table_clear"])):
+            backoff_initial_solver = dict(self.last_solver)
+            self.target = sapien.Pose(actual.p + .5 * (self.target.p - actual.p), self.target.q)
+            command = super().action()
+            backoff_used = bool(self.last_solver["ik_success"] and self.last_solver["ik_within_limits"]
+                                and self.last_solver["ik_table_clear"])
+        retried_target = self.target.p.tolist() if backoff_initial_solver is not None else None
         control_seconds = time.perf_counter() - control_start
         if self.mode == 1 and not self.last_solver["base_step_clear"]:
             reason = 3
@@ -539,6 +587,9 @@ class PrimitivePolicy(ArmIKPolicy):
                                base_target_after=self.base_target.tolist(),
                                attempted_target_position=attempted_target,
                                attempted_target_quaternion=attempted_quaternion,
+                               translation_backoff_initial_solver=backoff_initial_solver,
+                               translation_backoff_target=retried_target,
+                               translation_backoff_used=backoff_used,
                                target_after_update=self.target.p.tolist(),
                                gripper_target_after_update_m=self.gripper_target,
                                selector_seconds=selection_seconds,
@@ -549,6 +600,9 @@ class PrimitivePolicy(ArmIKPolicy):
             self.pre_action["base_path_clearance_m"] = base_path_clearance
         if hasattr(self.selector, "last_scores"):
             self.pre_action["selector_logits"] = self.selector.last_scores
+        if isinstance(getattr(self.selector, "pick", None), StagedPitchPickSelector):
+            self.pre_action.update(pitch_schedule_descending=self.selector.pick.descending,
+                                   pitch_schedule_desired_deg=self.selector.pick.desired_pitch_deg)
         if hasattr(self.selector, "probe_applied"):
             self.pre_action.update(probe_applied=self.selector.probe_applied,
                                    probe_raw_id=self.selector.probe_raw_id)

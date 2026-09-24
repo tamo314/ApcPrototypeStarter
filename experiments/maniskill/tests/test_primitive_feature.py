@@ -200,6 +200,29 @@ def test_primitive_to_saved_rollout_and_selector(tmp_path):
                for d in recovered)
     assert all(d["ik_position_error_m"] < .001 for d in recovered)
 
+    adapt_out, adapt_rows = run("translation_backoff_pitch_schedule", 1, 800,
+        lambda env, output: PrimitivePolicy(env, output,
+            selector=BaseReadyPickSelector(desired_pitch_deg=0, descend_pitch_deg=5,
+                                          base_switch_x_m=.215, grasp_height_m=.02),
+            allow_rotation=True, allow_base=True, translation_backoff=True),
+        seed=2802, env_id="APC-FetchPickCubeFar-v1")
+    adapted = [r["info"]["diagnostic"] for r in adapt_rows]
+    recovered = [d for d in adapted if d["translation_backoff_used"]]
+    assert recovered
+    for d in recovered:
+        initial = d["translation_backoff_initial_solver"]
+        assert not (initial["ik_success"] and initial["ik_within_limits"] and initial["ik_table_clear"])
+        assert d["override_reason_code"] == 0 and d["ik_success"] and d["ik_table_clear"]
+        hand = np.asarray(d["pre_action_state"]["measured_hand_position"])
+        np.testing.assert_allclose(np.asarray(d["translation_backoff_target"]) - hand,
+                                   .5 * (np.asarray(d["attempted_target_position"]) - hand), atol=1e-7)
+        np.testing.assert_allclose(d["target_after_update"], d["translation_backoff_target"])
+    phases = [d["pitch_schedule_descending"] for d in adapted]
+    assert any(phases) and not phases[0] and phases == sorted(phases)
+    assert all(d["pitch_schedule_desired_deg"] == (5 if d["pitch_schedule_descending"] else 0)
+               for d in adapted)
+    assert json.loads((adapt_out / "manifest.json").read_text())["policy_details"]["grasp_height_m"] == .02
+
     def probe_factory(env, output):
         learned_selector = LearnedSelector(tree_train / "selector.pt", env.unwrapped.experiment_metadata(),
                                           float(env.unwrapped.sim_config.control_freq))

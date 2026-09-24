@@ -36,8 +36,16 @@ def analyze(run):
             # These flags can overlap; they are not mutually exclusive causes.
             ik_failure_steps=sum(not d["ik_success"] for d in rejects),
             joint_limit_failure_steps=sum(not d["ik_within_limits"] for d in rejects),
-            ik_reset_seed_attempts=sum(d.get("ik_reset_seed_attempts", 0) for d in rows),
+            ik_solver_attempts=sum(d.get("ik_attempts", 0) +
+                                   (d.get("translation_backoff_initial_solver") or {}).get("ik_attempts", 0)
+                                   for d in rows),
+            ik_reset_seed_attempts=sum(d.get("ik_reset_seed_attempts", 0) +
+                                       (d.get("translation_backoff_initial_solver") or {}).get("ik_reset_seed_attempts", 0)
+                                       for d in rows),
             ik_reset_seed_recovered_steps=sum(d.get("ik_reset_seed_used", False) for d in rows),
+            translation_backoff_attempts=sum(d.get("translation_backoff_initial_solver") is not None for d in rows),
+            translation_backoff_recovered_steps=sum(d.get("translation_backoff_used", False) for d in rows),
+            pitch_schedule_descending_steps=sum(d.get("pitch_schedule_descending", False) for d in rows),
             table_path_failure_steps=sum(not d["ik_table_clear"] for d in rejects),
             base_rejections=sum(d["override_reason_code"] == 3 for d in rows),
             retreat_choices=sum(d["proposed_id"] == 17 for d in rows),
