@@ -223,6 +223,19 @@ def test_primitive_to_saved_rollout_and_selector(tmp_path):
                for d in adapted)
     assert json.loads((adapt_out / "manifest.json").read_text())["policy_details"]["grasp_height_m"] == .02
 
+    stable_out, stable_rows = run("stable_pre_rotate_recover", 1, 700,
+        lambda env, output: PrimitivePolicy(env, output,
+            selector=BaseReadyPickSelector(desired_pitch_deg=10, descend_pitch_deg=10,
+                                          base_switch_x_m=.215, grasp_height_m=.02,
+                                          recover_grasp=True, pre_rotate=True),
+            allow_rotation=True, allow_base=True, translation_backoff=True),
+        seed=2801, env_id="APC-FetchPickCubeFar-v1")
+    stable = [r["info"]["diagnostic"] for r in stable_rows]
+    assert any(d["post_action_state"]["grasped"] for d in stable)
+    assert all(d["table_contact_force_norm_sum_n"] == 0 for d in stable)
+    assert json.loads((stable_out / "manifest.json").read_text())["policy_details"]["recover_grasp"]
+    assert json.loads((stable_out / "manifest.json").read_text())["policy_details"]["pre_rotate"]
+
     def probe_factory(env, output):
         learned_selector = LearnedSelector(tree_train / "selector.pt", env.unwrapped.experiment_metadata(),
                                           float(env.unwrapped.sim_config.control_freq))

@@ -34,6 +34,8 @@ def main():
     parser.add_argument("--translation-backoff", action="store_true")
     parser.add_argument("--descend-pitch-deg", type=float)
     parser.add_argument("--grasp-height-m", type=float, default=.012)
+    parser.add_argument("--recover-lost-grasp", action="store_true")
+    parser.add_argument("--pre-rotate", action="store_true")
     args = parser.parse_args()
     if args.pitch_deg != 15 and args.selector != "base_ready_pick":
         parser.error("pitch diagnostic is supported only by base_ready_pick")
@@ -43,6 +45,10 @@ def main():
         parser.error("pitch schedule requires base_ready_pick")
     if args.grasp_height_m != .012 and args.selector != "base_ready_pick":
         parser.error("grasp height diagnostic requires base_ready_pick")
+    if args.recover_lost_grasp and args.selector != "base_ready_pick":
+        parser.error("recover-lost-grasp requires base_ready_pick")
+    if args.pre_rotate and args.selector != "base_ready_pick":
+        parser.error("pre-rotate requires base_ready_pick")
     if (args.selector in ("mlp", "tree", "tree_probe", "mlp_pitch_guard")) != (args.checkpoint is not None):
         parser.error("learned selectors require --checkpoint, other selectors do not")
     if args.selector in ("mlp", "tree", "tree_probe", "mlp_pitch_guard") and not args.rotations:
@@ -97,7 +103,9 @@ def main():
                         else BaseReadyPickSelector(desired_pitch_deg=args.pitch_deg,
                                                    descend_pitch_deg=args.descend_pitch_deg,
                                                    grasp_height_m=args.grasp_height_m,
-                                                   base_switch_x_m=args.base_switch_x_m) if args.selector == "base_ready_pick"
+                                                   base_switch_x_m=args.base_switch_x_m,
+                                                   recover_grasp=args.recover_lost_grasp,
+                                                   pre_rotate=args.pre_rotate) if args.selector == "base_ready_pick"
                         else BaseReadyAxisRetryPickSelector() if args.selector == "base_ready_axis_retry_pick"
                         else BaseReadyRecoverPickSelector() if args.selector == "base_ready_recover_pick"
                         else BaseReadySettledPickSelector() if args.selector == "base_ready_settled_pick"

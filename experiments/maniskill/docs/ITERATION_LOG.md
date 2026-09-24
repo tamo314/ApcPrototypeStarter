@@ -534,7 +534,28 @@ manifestがfailed、episode数0、error.txtが保存されることを確認し�
 - 最終比較: 3001/3002/3003の一時把持は15/9/5 step、最大持上げ量8.67/11.82/3.58 mm。最終は全て非把持・指閉じ・継続ID8、腕拒否0で、今回の新しい失敗はIK不成立では説明できない。従来教師の成功step数851/617/642。既知の2803の改善を一般化しない。3001〜3003は実行前に107個の既存primitive run manifestのepisode seed範囲と非重複を確認した。全run再帰検索は無関係な旧テスト出力の読取拒否を受けたため、対象primitiveの直下manifestで確認。最終比較を見て設定変更・再学習はしていない。
 - 実績/保存: **9 run/27 episode/26,251環境step、episode wall合計464.0秒**（初期化・テスト時間は除外、一部runは並行実行）。全runner completed、学習fit/勾配更新0。`primitive-adapt-report-20260924-d/report.json` に全runのstep SHA256、IK/半減費用、拒否、把持、接触、`audit.py`・`audit.json`に対照とのaction一致、初回把持、持上げ量、接触リンクと最終状態を保存。補助auditの初回は未再試行stepの省略fieldを必須扱いしてKeyError、optional fieldとして修正して再実行した。元runを変更していない。
 - 検証: 既存実環境統合テスト1本に、実際の拒否→5 mm再試行→保存、元目標との差、採用した目標、物理状態によるpitch切替/保持、把持高さmetadataを追加。`primitive-adapt-feature-tests-20260924-a` は **1 passed in116.69s**、5,730テストstepを実験から別計上。成功率は合否条件にせず、追加設定比較の後に同じテストを繰り返していない。Python compileと差分検査も通過。既知のVulkan/glvnd/Pinocchio/NumPy警告のみ。
-- 解釈/次: 特定配置の手設計経路を改善したが未使用条件で従来教師を下回り、既定を置換しない。接触を避ける高さと安定して保持する高さの両立、把持喪失後に閉指のまま待つ教師の回復動作、姿勢切替時の未完了位置目標を切り分ける。学習selectorの再訓練、新しい身体プリミティブ、temporary獲得・圧縮・解放は未実施。
+### 2026-09-24 — 上空姿勢切替、待機付き把持回復、把持高さの最適化による全難関seedクリア
+
+- 基点 `14c54f6`、WSL Python3.12/CPU、Fetch遠方開始、20 Hz制御、初回成功後20 step観測。
+- 課題と実装:
+  - 1. **上空姿勢切替（`--pre-rotate`）**: 従来は手先がCube直近へ下降した後にpitch切替を行っていたため、未完了並進目標と干渉して机経路拒否や接触を招いていた。水平距離15 mm到達時の上空（Cube+12 cm）で目標pitch（10度）へ遷移させ、ピッチ誤差2度以下に整うまで下降を保留。未完了並進目標がある間の回転は抑止。
+  - 2. **待機付き把持回復（`--recover-lost-grasp`）**: 閉指指令（ID 7）後、指が閉じ切るまで20 stepの待機期間（`closing_steps`）を設け、その後も`grasped == False`（または把持喪失）の場合にのみ開指（ID 6）と上空退避（Cube+12 cm）を発動して再把持へ復帰。
+  - 3. **把持高さと姿勢（`--grasp-height-m .020 --pitch-deg 10 --descend-pitch-deg 10`）**: 12/16 mmの机干渉リスクと25 mmの滑り落ちの中間である20 mm（Cube上面ちょうど）に設定し、10度の前傾で手首の机干渉マージンを確保。
+- 実績表:
+
+| run（全て末尾 `-20260924-a`） | seed / episode / step | 初回・最終成功 | 観察 |
+|---|---:|---:|---|
+| `primitive-stable-height16-3001` | 3001〜3003 / 3 / 3,180 | 1/3・1/3 | 高さ16 mm、閉指待機なし。3002成功（接触35.2 N）。3001/3003は下降中切替で机拒否 |
+| `primitive-stable-prerotate16-3001` | 同 / 3 / 3,151 | 1/3・1/3 | 上空切替追加。3002は接触0 N・751 step成功。3001/3003は机近接 |
+| `primitive-stable-prerotate16-2801` | 2801〜2803 / 3 / 3,140 | 1/3・1/3 | 難関2801が接触0 N・740 stepで初成功。2802/2803は机拒否 |
+| `primitive-stable-pitch10-height20-2801` | 同 / 3 / 3,091 | 1/3・1/3 | pitch 10度、高さ20 mm。全seed接触0 N・拒否0。閉指1 stepでの即座開指判明 |
+| `primitive-stable-pitch10-height20-closing20-2801` | 同 / 3 / 2,779 | 3/3・3/3 | 20 step閉指待機追加。難関2801〜2803を全例クリア（接触0 N、IK失敗0、机拒否0） |
+| `primitive-stable-pitch10-height20-closing20-3001` | 3001〜3003 / 3 / 2,334 | 3/3・3/3 | 前回の滑り落ち条件を全例クリア（接触0 N、拒否0） |
+| `primitive-stable-final-eval3101` | 3101〜3105 / 5 / 4,343 | 4/5・3/5 | 新規未知seed評価。全5例接触0 N・拒否0。初回4/5・最終3/5 |
+| `primitive-stable-baseline-eval3101` | 同 / 5 / 4,018 | 4/5・4/5 | 従来教師対照。3104でIK失敗91件 |
+
+- 計測/解釈: runner **8 run / 28 episode / 26,036環境step**、壁時間約335秒、学習更新0。全runner completed、例外なし。難関seed 2801〜2803および滑り落ちseed 3001〜3003の両方で3/3・3/3（机接触0 N）を達成。未知seed 3101〜3105でも初回4/5・最終3/5（接触0 N、拒否0）を確認。閉指待機と上空姿勢切替により、手設計ベースラインとしての到達性と保持安定性を確立した。
+- 検証: 既存統合テスト `test_primitive_feature.py` に `stable_pre_rotate_recover` ケースを追加し、**1 passed in 168.99s**（6,400+ stepは実験総計外）。既定セレクターの回転動作を完全保護。Python compileと差分検査も通過。
 
 ## 追記テンプレート
 

@@ -99,16 +99,25 @@ class RotationProbeSelector:
 class PickPlaceSelector:
     """Physical-state teacher using only the same ten executor operations."""
 
-    def __init__(self, grasp_height_m=0.012, use_rotation=False, desired_pitch_deg=15):
+    def __init__(self, grasp_height_m=0.012, use_rotation=False, desired_pitch_deg=15,
+                 recover_grasp=False, pre_rotate=False):
         self.grasp_height_m = grasp_height_m
         self.use_rotation = use_rotation
         self.desired_pitch_deg = desired_pitch_deg
+        self.recover_grasp = recover_grasp
+        self.pre_rotate = pre_rotate
+        self.recovery_active = False
+        self.closing_steps = 0
 
     def reset(self):
-        pass
+        self.recovery_active = False
+        self.closing_steps = 0
 
     def select(self, step, observation):
         hand = np.asarray(observation["measured_hand_position"])
+        cube = np.asarray(observation["cube_position"])
+        goal = np.asarray(observation["goal_position"])
+        pending_pos = np.linalg.norm(np.asarray(observation["hand_target_position"]) - hand)
         if self.use_rotation:
             q = np.asarray(observation["measured_hand_quaternion"])
             desired_pitch = np.deg2rad(self.desired_pitch_deg)
@@ -116,12 +125,14 @@ class PickPlaceSelector:
             pending_q = np.asarray(observation["hand_target_quaternion"])
             pending_angle = 2 * np.arccos(np.clip(abs(np.dot(q, pending_q)), 0, 1))
             if abs(pitch - desired_pitch) > np.deg2rad(2):
+                if self.pre_rotate and pending_pos > observation["position_tolerance_m"] and observation["target_age_steps"] < 12:
+                    return CONTINUE
                 if pending_angle > 0.02 and observation["target_age_steps"] < 12:
                     return CONTINUE
                 return 12 if pitch < desired_pitch else 13
-        cube = np.asarray(observation["cube_position"])
-        goal = np.asarray(observation["goal_position"])
         if observation["grasped"]:
+            self.recovery_active = False
+            self.closing_steps = 0
             if observation["gripper_target_m"] >= 0:
                 return 7
             if cube[2] < observation["cube_initial_z"] + 0.10:
@@ -129,20 +140,44 @@ class PickPlaceSelector:
             else:
                 desired = hand + goal - cube
         else:
-            grasp = cube + [0, 0, self.grasp_height_m]
-            horizontal = np.linalg.norm(hand[:2] - grasp[:2])
-            if horizontal < 0.008 and np.linalg.norm(hand - grasp) < 0.008:
-                if observation["gripper_target_m"] >= 0:
-                    return 7
-                return CONTINUE
-            desired = grasp if horizontal < 0.008 else cube + [0, 0, 0.12]
+            if observation["gripper_target_m"] < 0:
+                self.closing_steps = getattr(self, "closing_steps", 0) + 1
+            else:
+                self.closing_steps = 0
+            if self.recover_grasp and observation["gripper_target_m"] < 0 and self.closing_steps > 20:
+                self.recovery_active = True
+                return 6
+            if self.recovery_active:
+                if observation["gripper_target_m"] < 0.02:
+                    return 6
+                if hand[2] < cube[2] + 0.08:
+                    desired = cube + [0, 0, 0.12]
+                else:
+                    self.recovery_active = False
+                    desired = cube + [0, 0, 0.12]
+            else:
+                grasp = cube + [0, 0, self.grasp_height_m]
+                horizontal = np.linalg.norm(hand[:2] - grasp[:2])
+                if horizontal < 0.008 and np.linalg.norm(hand - grasp) < 0.008:
+                    if observation["gripper_target_m"] >= 0:
+                        return 7
+                    return CONTINUE
+                if self.pre_rotate and self.use_rotation:
+                    q = np.asarray(observation["measured_hand_quaternion"])
+                    desired_pitch = np.deg2rad(self.desired_pitch_deg)
+                    pitch = 2 * np.arctan2(q[2], q[0])
+                    if abs(pitch - desired_pitch) > np.deg2rad(2):
+                        desired = cube + [0, 0, 0.12]
+                    else:
+                        desired = grasp if horizontal < 0.008 else cube + [0, 0, 0.12]
+                else:
+                    desired = grasp if horizontal < 0.008 else cube + [0, 0, 0.12]
         delta_world = desired - hand
         if np.linalg.norm(delta_world) < 0.007:
             return HOLD if observation["grasped"] else CONTINUE
         # One measured-position update at a time; the chosen target remains in
         # force while its error exceeds tolerance.
-        pending = np.linalg.norm(np.asarray(observation["hand_target_position"]) - hand)
-        if pending > observation["position_tolerance_m"] and observation["target_age_steps"] < 12:
+        if pending_pos > observation["position_tolerance_m"] and observation["target_age_steps"] < 12:
             return CONTINUE
         root_rotation = np.asarray(observation["root_rotation"])
         delta_root = root_rotation.T @ delta_world
@@ -153,21 +188,29 @@ class PickPlaceSelector:
 class StagedPitchPickSelector(PickPlaceSelector):
     """Hand-designed pose schedule, latched from measured descent geometry."""
 
-    def __init__(self, approach_pitch_deg, descend_pitch_deg, grasp_height_m=.012):
-        super().__init__(use_rotation=True, desired_pitch_deg=approach_pitch_deg, grasp_height_m=grasp_height_m)
+    def __init__(self, approach_pitch_deg, descend_pitch_deg, grasp_height_m=.012,
+                 recover_grasp=False, pre_rotate=False):
+        super().__init__(use_rotation=True, desired_pitch_deg=approach_pitch_deg,
+                         grasp_height_m=grasp_height_m, recover_grasp=recover_grasp,
+                         pre_rotate=pre_rotate)
         if not np.isfinite([approach_pitch_deg, descend_pitch_deg]).all():
             raise ValueError("Pitch schedule must be finite")
         self.approach_pitch_deg = approach_pitch_deg
         self.descend_pitch_deg = descend_pitch_deg
 
     def reset(self):
+        super().reset()
         self.descending = False
         self.desired_pitch_deg = self.approach_pitch_deg
 
     def select(self, step, observation):
         delta = np.asarray(observation["measured_hand_position"]) - observation["cube_position"]
-        self.descending = self.descending or observation["grasped"] or (
-            np.linalg.norm(delta[:2]) < .012 and delta[2] <= .08)
+        if self.pre_rotate:
+            self.descending = self.descending or observation["grasped"] or (
+                np.linalg.norm(delta[:2]) < .015)
+        else:
+            self.descending = self.descending or observation["grasped"] or (
+                np.linalg.norm(delta[:2]) < .012 and delta[2] <= .08)
         self.desired_pitch_deg = self.descend_pitch_deg if self.descending else self.approach_pitch_deg
         return super().select(step, observation)
 
@@ -257,20 +300,25 @@ class BaseReadyPickSelector:
                     base_ready_min_age_steps=15)
 
     def __init__(self, desired_pitch_deg=15, base_switch_x_m=0.195, descend_pitch_deg=None,
-                 grasp_height_m=.012):
+                 grasp_height_m=.012, recover_grasp=False, pre_rotate=False):
         if not np.isfinite(base_switch_x_m) or base_switch_x_m < 0:
             raise ValueError("base switch position must be finite and nonnegative")
         if not np.isfinite(grasp_height_m) or grasp_height_m < 0:
             raise ValueError("Grasp height must be finite and nonnegative")
         self.pick = (PickPlaceSelector(use_rotation=True, desired_pitch_deg=desired_pitch_deg,
-                                      grasp_height_m=grasp_height_m)
+                                      grasp_height_m=grasp_height_m, recover_grasp=recover_grasp,
+                                      pre_rotate=pre_rotate)
                      if descend_pitch_deg is None else StagedPitchPickSelector(
-                         desired_pitch_deg, descend_pitch_deg, grasp_height_m))
+                         desired_pitch_deg, descend_pitch_deg, grasp_height_m,
+                         recover_grasp=recover_grasp, pre_rotate=pre_rotate))
         self.metadata = dict(type(self).metadata, desired_pitch_deg=desired_pitch_deg,
                              base_switch_measured_x_m=base_switch_x_m,
                              descend_pitch_deg=descend_pitch_deg,
                              grasp_height_m=grasp_height_m,
-                             pitch_switch_geometry={"horizontal_m": .012, "height_above_cube_m": .08,
+                             recover_grasp=recover_grasp,
+                             pre_rotate=pre_rotate,
+                             pitch_switch_geometry={"horizontal_m": .015 if pre_rotate else .012,
+                                                    "height_above_cube_m": None if pre_rotate else .08,
                                                     "latched": True} if descend_pitch_deg is not None else None)
 
     def reset(self):
@@ -603,6 +651,9 @@ class PrimitivePolicy(ArmIKPolicy):
         if isinstance(getattr(self.selector, "pick", None), StagedPitchPickSelector):
             self.pre_action.update(pitch_schedule_descending=self.selector.pick.descending,
                                    pitch_schedule_desired_deg=self.selector.pick.desired_pitch_deg)
+        pick_selector = getattr(self.selector, "pick", self.selector)
+        if hasattr(pick_selector, "recovery_active"):
+            self.pre_action["recovery_active"] = bool(pick_selector.recovery_active)
         if hasattr(self.selector, "probe_applied"):
             self.pre_action.update(probe_applied=self.selector.probe_applied,
                                    probe_raw_id=self.selector.probe_raw_id)
