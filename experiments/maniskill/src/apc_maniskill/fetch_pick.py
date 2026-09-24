@@ -72,3 +72,49 @@ class FetchPlaceCubeFar(FetchPickCubeFar):
         return dict(super().experiment_metadata(), goal_offset_y_m=self.goal_offset_y_m,
                     task_kind="place_cube_far")
 
+
+@register_env("APC-FetchTruePlaceFar-v1", max_episode_steps=50)
+class FetchTruePlaceFar(FetchPickCubeFar):
+    """True place: deliver cube to table goal, open gripper to release, and verify static resting."""
+
+    goal_offset_y_m = 0.15
+
+    def _initialize_episode(self, env_idx, options):
+        super()._initialize_episode(env_idx, options)
+        from .runner import array
+
+        original = self.goal_site.pose
+        position = array(original.p)[0]
+        position[1] += self.goal_offset_y_m
+        position[2] = 0.02
+        self.goal_site.set_pose(sapien.Pose(position, array(original.q)[0]))
+
+    def evaluate(self):
+        info = super().evaluate()
+        # Measure cube velocity
+        cube_vel = self.cube.linear_velocity
+        cube_angvel = self.cube.angular_velocity
+        cube_speed = torch.linalg.norm(cube_vel, dim=-1)
+        cube_angspeed = torch.linalg.norm(cube_angvel, dim=-1)
+
+        # Distance between cube and table surface goal
+        cube_pos = self.cube.pose.p
+        goal_pos = self.goal_site.pose.p
+        dist = torch.linalg.norm(cube_pos - goal_pos, dim=-1)
+
+        is_placed = dist <= 0.04
+        is_released = ~info["is_grasped"]
+        is_obj_static = (cube_speed <= 0.05) & (cube_angspeed <= 0.5)
+
+        info["is_obj_placed_surface"] = is_placed
+        info["is_released"] = is_released
+        info["is_obj_static"] = is_obj_static
+        info["success"] = is_placed & is_released & is_obj_static & info["is_robot_static"]
+        return info
+
+    def experiment_metadata(self):
+        return dict(super().experiment_metadata(), goal_offset_y_m=self.goal_offset_y_m,
+                    task_kind="true_place_far", release_required=True,
+                    object_static_threshold=0.05)
+
+

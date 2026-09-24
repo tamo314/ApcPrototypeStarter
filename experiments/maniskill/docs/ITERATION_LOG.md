@@ -694,6 +694,27 @@ manifestがfailed、episode数0、error.txtが保存されることを確認し�
   - 測定事実: 実モデル（MLP → CART）による銀行ライフサイクル（定着・100%物理解放・台帳整合）が一貫して自動完走した。
   - 分岐判断（第8節）: 「Temporaryで改善しCandidateで退行」および「過去タスクの忘却」を実測。単一エピソードの教師行動のみから小さな決定木を直接学習すると、自律実行時の誤差累積と過去能力の破滅的忘却が生じる。Candidateの定着にはBaseモデルデータとの合成（局所パッチ蒸留）または生徒自身が訪れる状態の追加収集（DAgger的再ラベル）が不可欠であることが実証された。
 
+### 2026-09-25 — 次期研究計画 P5 実証（真の配置課題: 手放し・支持面静止の実装と完全成功）
+
+- 問い/今回変えた点:
+  - `docs/APC_NEXT_RESEARCH_PLAN.md` P5 に従い、単なる目標位置変更ではなく、支持面への運搬・グリッパー開指手放し・物体静止を要求する新環境 `APC-FetchTruePlaceFar-v1` を設計・実装（既存Place成績は一切上書きせず新設）。
+  - 教師方策 `PickPlaceSelector` / `BaseReadyPickSelector` に `true_place` モードを導入（Goal面到達時に指を開き手放す動作）。
+- commit / config / robot・controller / seed・split:
+  - Fetch Mobile Manipulator、20身体性プリミティブ、新環境 `APC-FetchTruePlaceFar-v1`、WSL2 Python 3.12。
+  - 評価seed: 3001, 3002, 3003。
+- 環境step・episode・学習step・wall time等の予算と実績:
+  - 3 episodes / 2,558 steps（壁時間約40秒）、学習更新0。
+- runパス / 実データの観測 / 失敗した条件:
+  - `runs/p5-true-place-eval3001-20260925-a/`:
+    - Seed 3001: 871 steps、**完全成功（机接触 0.00 N）**
+    - Seed 3002: 831 steps、**完全成功（机接触 0.00 N）**
+    - Seed 3003: 856 steps、**完全成功（机接触 0.00 N）**
+    - 成功判定内訳: `is_obj_placed_surface: True`（誤差 < 4cm）、`is_released: True`（非把持）、`is_obj_static: True`（物体静止）、`is_robot_static: True`（ロボット静止）、20 step連続維持。
+- 解釈（測定と推測を分ける）:
+  - 測定事実: 既存の有限20身体性プリミティブ（ID 0〜19）の範囲内だけで、高水準マクロの追加なしに、Cubeをテーブル目標地点へ運搬・手放し・静止させる「真の配置課題」が **3/3（100%完全成功）** した。机接触力も 0.00 N を維持。
+- 機能テストを実行した場合の結果:
+  - `APC_RUN_MANISKILL_TEST=1 pytest -q tests/test_primitive_feature.py` が通過（3 passed in 194s）。
+
 ## 追記テンプレート
 
 ### YYYY-MM-DD — 変更点の短い名前

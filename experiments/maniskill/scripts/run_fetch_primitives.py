@@ -38,6 +38,7 @@ def main():
     parser.add_argument("--recover-lost-grasp", action="store_true")
     parser.add_argument("--pre-rotate", action="store_true")
     parser.add_argument("--place-goal", action="store_true")
+    parser.add_argument("--true-place-goal", action="store_true", help="True placement with gripper release and resting check")
     parser.add_argument("--allow-task-mismatch", action="store_true")
     args = parser.parse_args()
 
@@ -76,9 +77,10 @@ def main():
         parser.error("teacher queries are only recorded alongside learned execution")
     if args.base and args.query_teacher and not args.far_start:
         parser.error("the 20-ID teacher requires --far-start")
-    if args.place_goal and not args.far_start:
-        parser.error("--place-goal requires --far-start")
-    env_id = ("APC-FetchPlaceCubeFar-v1" if args.place_goal else
+    if (args.place_goal or args.true_place_goal) and not args.far_start:
+        parser.error("--place-goal or --true-place-goal requires --far-start")
+    env_id = ("APC-FetchTruePlaceFar-v1" if args.true_place_goal else
+              "APC-FetchPlaceCubeFar-v1" if args.place_goal else
               "APC-FetchPickCubeFar-v1" if args.far_start else "APC-FetchPickCube-v1")
     config = RunConfig(env_id=env_id,
                        robot_uids="fetch", policy="external",
@@ -114,7 +116,7 @@ def main():
             selector = BankAdaptiveSelector(bank, env.unwrapped.experiment_metadata(),
                                             float(env.unwrapped.sim_config.control_freq))
         else:
-            selector = (PickPlaceSelector(use_rotation=args.rotations) if args.selector == "pick_place"
+            selector = (PickPlaceSelector(use_rotation=args.rotations, true_place=args.true_place_goal) if args.selector == "pick_place"
 
                         else BaseDemoSelector() if args.selector == "base_demo"
                         else BaseThenPickSelector() if args.selector == "base_then_pick"
@@ -125,7 +127,8 @@ def main():
                                                    grasp_height_m=args.grasp_height_m,
                                                    base_switch_x_m=args.base_switch_x_m,
                                                    recover_grasp=args.recover_lost_grasp,
-                                                   pre_rotate=args.pre_rotate) if args.selector == "base_ready_pick"
+                                                   pre_rotate=args.pre_rotate,
+                                                   true_place=args.true_place_goal) if args.selector == "base_ready_pick"
                         else BaseReadyAxisRetryPickSelector() if args.selector == "base_ready_axis_retry_pick"
                         else BaseReadyRecoverPickSelector() if args.selector == "base_ready_recover_pick"
                         else BaseReadySettledPickSelector() if args.selector == "base_ready_settled_pick"

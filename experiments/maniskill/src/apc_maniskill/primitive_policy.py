@@ -100,22 +100,27 @@ class PickPlaceSelector:
     """Physical-state teacher using only the same ten executor operations."""
 
     def __init__(self, grasp_height_m=0.012, use_rotation=False, desired_pitch_deg=15,
-                 recover_grasp=False, pre_rotate=False):
+                 recover_grasp=False, pre_rotate=False, true_place=False):
         self.grasp_height_m = grasp_height_m
         self.use_rotation = use_rotation
         self.desired_pitch_deg = desired_pitch_deg
         self.recover_grasp = recover_grasp
         self.pre_rotate = pre_rotate
+        self.true_place = true_place
         self.recovery_active = False
         self.closing_steps = 0
         self.lifted = False
+        self.released = False
 
     def reset(self):
         self.recovery_active = False
         self.closing_steps = 0
         self.lifted = False
+        self.released = False
 
     def select(self, step, observation):
+        if self.true_place and self.released:
+            return HOLD
         hand = np.asarray(observation["measured_hand_position"])
         cube = np.asarray(observation["cube_position"])
         goal = np.asarray(observation["goal_position"])
@@ -135,13 +140,16 @@ class PickPlaceSelector:
         if observation["grasped"]:
             self.recovery_active = False
             self.closing_steps = 0
-            if observation["gripper_target_m"] >= 0:
+            if observation["gripper_target_m"] >= 0 and not self.true_place:
                 return 7
             if not self.lifted and cube[2] < observation["cube_initial_z"] + 0.10:
                 desired = hand + [0, 0, 0.15]
             else:
                 self.lifted = True
                 desired = hand + goal - cube
+                if self.true_place and np.linalg.norm(cube - goal) < 0.035:
+                    self.released = True
+                    return 6  # Open gripper to release onto table
         else:
             self.lifted = False
             if observation["gripper_target_m"] < 0:
@@ -193,10 +201,10 @@ class StagedPitchPickSelector(PickPlaceSelector):
     """Hand-designed pose schedule, latched from measured descent geometry."""
 
     def __init__(self, approach_pitch_deg, descend_pitch_deg, grasp_height_m=.012,
-                 recover_grasp=False, pre_rotate=False):
+                 recover_grasp=False, pre_rotate=False, true_place=False):
         super().__init__(use_rotation=True, desired_pitch_deg=approach_pitch_deg,
                          grasp_height_m=grasp_height_m, recover_grasp=recover_grasp,
-                         pre_rotate=pre_rotate)
+                         pre_rotate=pre_rotate, true_place=true_place)
         if not np.isfinite([approach_pitch_deg, descend_pitch_deg]).all():
             raise ValueError("Pitch schedule must be finite")
         self.approach_pitch_deg = approach_pitch_deg
@@ -304,23 +312,24 @@ class BaseReadyPickSelector:
                     base_ready_min_age_steps=15)
 
     def __init__(self, desired_pitch_deg=15, base_switch_x_m=0.195, descend_pitch_deg=None,
-                 grasp_height_m=.012, recover_grasp=False, pre_rotate=False):
+                 grasp_height_m=.012, recover_grasp=False, pre_rotate=False, true_place=False):
         if not np.isfinite(base_switch_x_m) or base_switch_x_m < 0:
             raise ValueError("base switch position must be finite and nonnegative")
         if not np.isfinite(grasp_height_m) or grasp_height_m < 0:
             raise ValueError("Grasp height must be finite and nonnegative")
         self.pick = (PickPlaceSelector(use_rotation=True, desired_pitch_deg=desired_pitch_deg,
                                       grasp_height_m=grasp_height_m, recover_grasp=recover_grasp,
-                                      pre_rotate=pre_rotate)
+                                      pre_rotate=pre_rotate, true_place=true_place)
                      if descend_pitch_deg is None else StagedPitchPickSelector(
                          desired_pitch_deg, descend_pitch_deg, grasp_height_m,
-                         recover_grasp=recover_grasp, pre_rotate=pre_rotate))
+                         recover_grasp=recover_grasp, pre_rotate=pre_rotate, true_place=true_place))
         self.metadata = dict(type(self).metadata, desired_pitch_deg=desired_pitch_deg,
                              base_switch_measured_x_m=base_switch_x_m,
                              descend_pitch_deg=descend_pitch_deg,
                              grasp_height_m=grasp_height_m,
                              recover_grasp=recover_grasp,
                              pre_rotate=pre_rotate,
+                             true_place=true_place,
                              pitch_switch_geometry={"horizontal_m": .015 if pre_rotate else .012,
                                                     "height_above_cube_m": None if pre_rotate else .08,
                                                     "latched": True} if descend_pitch_deg is not None else None)
