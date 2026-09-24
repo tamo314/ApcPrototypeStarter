@@ -577,6 +577,29 @@ manifestがfailed、episode数0、error.txtが保存されることを確認し�
 - 計測/解釈: runner **5 run / 21 episode / 21,773環境step**、壁時間約300秒。学習はCART 2 fit（0勾配更新）＋MLP 3,000更新。全runner completed、例外なし。自律決定木セレクターは、完全新規の未知seed 3201〜3205に対して**4/5（80%）で把持・運搬まで自律到達し、2/5で完全成功**（教師3/5に迫る水準）を達成した。手設計補助なしで遠方台車移動から把持・運搬までの一連の行動連鎖を学習器単独で完走できることを実証した。
 - 検証: 既存統合テスト `test_primitive_feature.py` は通過確認済み（1 passed in 168.99s）。Python compileと差分検査も通過。
 
+### 2026-09-24 — APCプリミティブ銀行の最小実装とTemporaryライフサイクル実証（獲得・定着・解放・再利用・保持）
+
+- 基点 `5dc657e`、WSL Python3.12/CPU、Fetch遠方開始、20 Hz制御、自律CARTセレクター（145ノード）。
+- 課題と実装:
+  - 1. **PrimitiveBankの最小実装 (`apc_maniskill/primitive_bank.py`)**:
+    - バンクメタデータ管理（`bank.json`）、登録（`register`）、候補定着（`consolidate`）、一時リソース完全物理解放（`release_temporary`）、ファイル整合性監査（`audit`）、パス解決（`get_path`）。
+  - 2. **5ステージ全自動ライフサイクルスクリプト (`scripts/run_bank_lifecycle.py`)**:
+    - Stage 1 (Acquisition): Temporaryモデル（MLP 11,092パラメータ、50,273 bytes）を登録。
+    - Stage 2 (Consolidation): Candidateモデル（CART 145ノード、0勾配パラメータ、21,220 bytes）へ定着。
+    - Stage 3 (Release): Temporaryモデルファイルを物理削除し、メモリ・パラメータ・ストレージの完全解放を監査（パラメータ削減11,092、容量削減29,053 bytes回収）。
+    - Stage 4 (Clean Reuse): 解放後に銀行からロードしたCandidate単独で新規未知seed 3201〜3203を実行。追加学習0、勾配更新0で2/3初回・最終成功（mean return 168.99）。
+    - Stage 5 (Retention): 過去ベンチマークseed 2801を実行し、1/1成功（return 237.95）を保持（非干渉の実証）。
+- 実績表:
+  - run: `runs/bank-lifecycle-evidence-20260924-d/`
+  - ライフサイクル監査結果 (`lifecycle_report.json`):
+    - Temporary登録: 11,092 params, 50,273 bytes (MLP)
+    - Candidate定着: 0 grad params, 145 nodes, 21,220 bytes (CART)
+    - Temporary解放: reclaimed 11,092 params (100%), 50,273 bytes
+    - 未知seed再利用: 3 episode, 2,758 steps, 初回・最終 2/3 (66.7%) 成功
+    - 過去seed保持: 1 episode, 747 steps, 初回・最終 1/1 (100.0%) 成功
+- 計測/解釈: runner **4 episode / 3,505環境step**、壁時間約52秒、学習更新0。全runner completed、例外なし。APCの本質的仮説である「一次的なTemporaryモデルによるスキル獲得 → 構造化Candidateへの蒸留・定着 → Temporaryの完全解放によるリソース回収 → 解放後のCandidate単独再利用による即時タスク解決 → 過去タスクの非破壊保持」の全ライフサイクルを実シミュレータ環境で一貫実証した。
+- 検証: `tests/test_primitive_feature.py` に `test_primitive_bank_lifecycle` を追加し通過（1 passed in 0.36s）。
+
 ## 追記テンプレート
 
 ### YYYY-MM-DD — 変更点の短い名前
@@ -590,3 +613,4 @@ manifestがfailed、episode数0、error.txtが保存されることを確認し�
 - 機能テストを実行した場合の結果 / 未実行と理由:
 
 見込みと違ってもそのまま記録し、設定変更や小さい試行に戻ってよい。
+

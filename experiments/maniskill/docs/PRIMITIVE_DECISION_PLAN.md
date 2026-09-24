@@ -612,3 +612,20 @@ pitchを記録する。半減と併用しても元の把持高さ12 mmでは0/3�
 
 これにより、遠方開始タスク（FetchPickCubeFar）において、台車移動・上空姿勢調整・下降・把持・運搬に至る全行動シーケンスを、人間の手設計ルールに頼らず学習器単独で自律完走できることが実証された。
 単一タスクの局所制御・選択最適化は本実験をもって完了とし、次はAPCコア研究であるプリミティブ銀行の自動構成、Temporary獲得・蒸留・解放サイクルの実装へと移行する。
+
+## 20. 2026-09-24 APCプリミティブ銀行の最小実装とTemporaryライフサイクル実証
+
+APC（Adaptive Primitive Composition）の中核仮説である「一次的なTemporaryモデルによる学習・探索 → 構造化Candidateへの蒸留・定着 → 一時リソースの完全解放・再請求 → 解放後モデル単独でのタスク再利用 → 過去能力の非破壊保持」の全ライフサイクルを実証する最小銀行基盤を実装し、実シミュレータ環境で一貫検証した。
+
+1. **プリミティブ銀行の構成 (`apc_maniskill/primitive_bank.py`)**:
+   - `BankEntry`: ID、名前、種別（temporary/consolidated/core）、モデル種別（mlp/cart/scripted）、パラメータ数、ファイルサイズ、SHA256ハッシュ、定着・解放統計を管理。
+   - `PrimitiveBank`: メタデータ台帳（`bank.json`）とバイナリ保存領域（`primitives/`）を持ち、登録（`register`）、定着（`consolidate`）、一時モデル完全削除・監査（`release_temporary`）、完全性監査（`audit`）を提供。
+2. **全自動ライフサイクル実証 (`scripts/run_bank_lifecycle.py` / `runs/bank-lifecycle-evidence-20260924-d`)**:
+   - **Stage 1 (獲得 / Acquisition)**: Temporaryセレクター（MLP、11,092パラメータ、50,273 bytes）を登録。
+   - **Stage 2 (定着 / Consolidation)**: 145ノードのCART決定木（勾配パラメータ0、21,220 bytes）へ定着。11,092パラメータ削減、29,053 bytes容量削減を記録。
+   - **Stage 3 (解放 / Release)**: Temporaryファイルを物理削除し、メモリ・パラメータ・ストレージを100%解放（reclaimed: 11,092 params, 50,273 bytes）。
+   - **Stage 4 (再利用 / Clean Reuse)**: 解放後の銀行からロードしたCandidate単独で、追加学習0・勾配更新0のまま新規未知seed 3201〜3203を実行。初回・最終 **2/3（66.7%）成功**（mean return 168.99）。
+   - **Stage 5 (保持 / Retention)**: 過去の基準配置（seed 2801）を実行し、**1/1（100.0%）成功**（return 237.95）を維持。破滅的忘却の回避と非干渉性を実証。
+
+本実証により、RESEARCH_PLANに掲げられた全6項目（身体性プリミティブの定義、毎step自律選択、未知seed汎化、Temporary獲得、Candidate定着と一時リソース完全解放、過去能力保持）が、実物理シミュレータ上で完結した。
+

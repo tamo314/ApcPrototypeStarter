@@ -280,3 +280,69 @@ def test_primitive_to_saved_rollout_and_selector(tmp_path):
     assert guard[0]["pitch_guard_triggered"]
     assert guard[0]["proposed_id"] == 13
     assert all(0 <= row["raw_model_id"] < 16 for row in guard)
+
+
+def test_primitive_bank_lifecycle(tmp_path):
+    from apc_maniskill.primitive_bank import PrimitiveBank
+
+    bank_dir = tmp_path / "test_bank"
+    bank = PrimitiveBank(bank_dir)
+    assert bank.bank_file.exists()
+    assert len(bank.entries) == 0
+
+    # 1. Register temporary primitive
+    temp_file = tmp_path / "temp_model.pt"
+    temp_file.write_bytes(b"TEMPORARY_MODEL_WEIGHTS_12345")
+    entry = bank.register(
+        entry_id="temp_nav_pick",
+        name="Temporary Nav Pick Selector",
+        source_file=temp_file,
+        kind="temporary",
+        model_kind="mlp",
+        primitive_count=20,
+        parameter_count=11092,
+        stored_values=11092,
+        feature_schema="schema_v6"
+    )
+    assert entry.kind == "temporary"
+    assert entry.parameter_count == 11092
+    assert bank.get_path("temp_nav_pick").exists()
+
+    # 2. Consolidate into candidate
+    candidate_file = tmp_path / "cand_tree.pt"
+    candidate_file.write_bytes(b"CONSOLIDATED_TREE_MODEL_123")
+    cand_entry = bank.consolidate(
+        entry_id="temp_nav_pick",
+        candidate_file=candidate_file,
+        model_kind="cart",
+        parameter_count=0,
+        stored_values=145,
+        metadata={"tree_nodes": 145}
+    )
+    assert cand_entry.kind == "consolidated"
+    assert cand_entry.parameter_count == 0
+    assert cand_entry.metadata["consolidation_stats"]["parameter_reduction"] == 11092
+    assert cand_entry.metadata["consolidation_stats"]["bytes_reduction"] > 0
+
+    # 3. Release temporary ancestor
+    audit_res = bank.release_temporary("temp_nav_pick")
+    assert audit_res["status"] == "fully_released"
+    assert audit_res["reclaimed_bytes"] == len(b"TEMPORARY_MODEL_WEIGHTS_12345")
+    assert audit_res["reclaimed_parameters"] == 11092
+
+    # Verify temp file is removed from disk, but consolidated file remains
+    assert not (bank.primitives_dir / "temp_nav_pick_temp_model.pt").exists()
+    assert bank.get_path("temp_nav_pick").exists()
+
+    # 4. Audit integrity
+    full_audit = bank.audit()
+    assert full_audit["entry_count"] == 1
+    assert full_audit["entries"]["temp_nav_pick"]["exists"]
+    assert full_audit["entries"]["temp_nav_pick"]["sha256_match"]
+
+    # 5. Reload bank from disk
+    reloaded_bank = PrimitiveBank(bank_dir)
+    assert len(reloaded_bank.entries) == 1
+    assert reloaded_bank.entries["temp_nav_pick"].kind == "consolidated"
+    assert reloaded_bank.entries["temp_nav_pick"].parameter_count == 0
+
