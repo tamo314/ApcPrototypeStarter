@@ -315,9 +315,10 @@ MLPSelector = LearnedSelector
 
 
 class PlacePatchCondition:
-    """Latch activation when grasped object is within horizontal distance of goal."""
-    def __init__(self, threshold_m=0.025):
-        self.threshold_m = threshold_m
+    """Latch activation when grasped object is within horizontal distance of goal and on table surface."""
+    def __init__(self, threshold_xy_m=0.025, threshold_z_m=0.015, threshold_m=None):
+        self.threshold_xy_m = threshold_m if threshold_m is not None else threshold_xy_m
+        self.threshold_z_m = threshold_z_m
         self.latched = False
 
     def reset(self):
@@ -330,7 +331,9 @@ class PlacePatchCondition:
             return False
         grasped = observation.get("grasped", False)
         cube = np.asarray(observation["cube_position"])
-        if grasped and np.linalg.norm(cube[:2] - goal[:2]) < self.threshold_m:
+        d_xy = np.linalg.norm(cube[:2] - goal[:2])
+        d_z = abs(cube[2] - goal[2])
+        if grasped and d_xy < self.threshold_xy_m and d_z < self.threshold_z_m:
             self.latched = True
         return self.latched
 

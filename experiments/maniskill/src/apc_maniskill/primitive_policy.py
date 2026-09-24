@@ -72,6 +72,47 @@ class PitchGuardSelector:
         return 12 if pitch < desired else 13
 
 
+class TransitGuardSelector:
+    """Diagnostic hybrid: redirect spurious upward drift during transit toward horizontal goal approach."""
+
+    def __init__(self, base_selector):
+        self.base_selector = base_selector
+        self.metadata = dict(base_selector.metadata, hybrid=True, transit_guard=True)
+        self.last_scores = []
+        self.last_guard_triggered = False
+
+    @property
+    def primitive_count(self):
+        return self.base_selector.primitive_count
+
+    def reset(self):
+        self.base_selector.reset()
+        self.last_scores = []
+        self.last_guard_triggered = False
+
+    def select(self, step, observation):
+        raw_id = self.base_selector.select(step, observation)
+        self.last_scores = getattr(self.base_selector, "last_scores", [])
+        grasped = observation.get("grasped", False)
+        if not grasped:
+            self.last_guard_triggered = False
+            return raw_id
+        cube = np.asarray(observation["cube_position"])
+        goal = np.asarray(observation["goal_position"])
+        cube_init_z = observation.get("cube_initial_z", 0.02)
+        # If cube is already lifted above initial height + 8cm and above goal + 2cm:
+        # spurious hand_z_plus (4) is redirected toward horizontal goal approach
+        if raw_id == 4 and cube[2] > cube_init_z + 0.08 and cube[2] > goal[2] + 0.02:
+            self.last_guard_triggered = True
+            root = np.asarray(observation["root_rotation"])
+            delta_world = goal - cube
+            delta_root = root.T @ delta_world
+            axis = int(np.argmax(np.abs(delta_root[:2])))
+            return 2 * axis + int(delta_root[axis] < 0)
+        self.last_guard_triggered = False
+        return raw_id
+
+
 class RotationProbeSelector:
     """Explicit exploration: perturb rotation while retaining the learned selector elsewhere."""
 
@@ -675,6 +716,8 @@ class PrimitivePolicy(ArmIKPolicy):
         if hasattr(self.selector, "probe_applied"):
             self.pre_action.update(probe_applied=self.selector.probe_applied,
                                    probe_raw_id=self.selector.probe_raw_id)
+        if hasattr(self.selector, "patch_applied"):
+            self.pre_action.update(patch_applied=self.selector.patch_applied)
         if hasattr(self.selector, "last_raw_id"):
             self.pre_action.update(raw_model_id=self.selector.last_raw_id,
                                    pitch_guard_triggered=self.selector.last_guard_triggered,

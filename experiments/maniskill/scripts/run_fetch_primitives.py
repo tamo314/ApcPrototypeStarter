@@ -21,7 +21,7 @@ def main():
     parser.add_argument("--selector", choices=["manual", "pick_place", "mlp", "tree", "tree_probe", "mlp_pitch_guard",
                                                "base_demo", "base_then_pick", "base_recover_pick", "base_approach_pick",
                                                "base_ready_pick", "base_ready_recover_pick", "base_ready_axis_retry_pick", "base_ready_settled_pick",
-                                               "wait_then_pick", "bank_adaptive", "composite_patch"], default="manual")
+                                               "wait_then_pick", "bank_adaptive", "composite_patch", "teacher_assisted_patch"], default="manual")
     parser.add_argument("--rotations", action="store_true")
     parser.add_argument("--base", action="store_true")
     parser.add_argument("--far-start", action="store_true")
@@ -42,6 +42,10 @@ def main():
     parser.add_argument("--true-place-goal", action="store_true", help="True placement with gripper release and resting check")
     parser.add_argument("--patch-mode", choices=["pick", "place"], default="place",
                         help="Activation condition for composite patch selector")
+    parser.add_argument("--patch-threshold-xy", type=float, default=0.025,
+                        help="Horizontal distance threshold for place patch activation")
+    parser.add_argument("--transit-guard", action="store_true",
+                        help="Guard against spurious upward transit drift during placement")
     parser.add_argument("--allow-task-mismatch", action="store_true")
     args = parser.parse_args()
 
@@ -50,37 +54,40 @@ def main():
     if args.selector == "composite_patch":
         if args.checkpoint is None or args.patch_checkpoint is None:
             parser.error("composite_patch requires both --checkpoint and --patch-checkpoint")
-    if args.pitch_deg != 15 and args.selector != "base_ready_pick":
-        parser.error("pitch diagnostic is supported only by base_ready_pick")
-    if args.base_switch_x_m != 0.195 and args.selector != "base_ready_pick":
-        parser.error("base switch diagnostic is supported only by base_ready_pick")
-    if args.descend_pitch_deg is not None and args.selector != "base_ready_pick":
-        parser.error("pitch schedule requires base_ready_pick")
-    if args.grasp_height_m != .012 and args.selector != "base_ready_pick":
-        parser.error("grasp height diagnostic requires base_ready_pick")
-    if args.recover_lost_grasp and args.selector != "base_ready_pick":
-        parser.error("recover-lost-grasp requires base_ready_pick")
-    if args.pre_rotate and args.selector != "base_ready_pick":
-        parser.error("pre-rotate requires base_ready_pick")
+    if args.selector == "teacher_assisted_patch":
+        if args.patch_checkpoint is None:
+            parser.error("teacher_assisted_patch requires --patch-checkpoint")
+    if args.pitch_deg != 15 and args.selector not in ("base_ready_pick", "teacher_assisted_patch"):
+        parser.error("pitch diagnostic is supported only by base_ready_pick and teacher_assisted_patch")
+    if args.base_switch_x_m != 0.195 and args.selector not in ("base_ready_pick", "teacher_assisted_patch"):
+        parser.error("base switch diagnostic is supported only by base_ready_pick and teacher_assisted_patch")
+    if args.descend_pitch_deg is not None and args.selector not in ("base_ready_pick", "teacher_assisted_patch"):
+        parser.error("pitch schedule requires base_ready_pick or teacher_assisted_patch")
+    if args.grasp_height_m != .012 and args.selector not in ("base_ready_pick", "teacher_assisted_patch"):
+        parser.error("grasp height diagnostic requires base_ready_pick or teacher_assisted_patch")
+    if args.recover_lost_grasp and args.selector not in ("base_ready_pick", "teacher_assisted_patch"):
+        parser.error("recover-lost-grasp requires base_ready_pick or teacher_assisted_patch")
+    if args.pre_rotate and args.selector not in ("base_ready_pick", "teacher_assisted_patch"):
+        parser.error("pre-rotate requires base_ready_pick or teacher_assisted_patch")
     if args.selector in ("mlp", "tree", "tree_probe", "mlp_pitch_guard"):
         if args.checkpoint is None:
             parser.error("learned selectors require --checkpoint")
-    elif args.selector != "composite_patch" and args.checkpoint is not None:
+    elif args.selector not in ("composite_patch", "teacher_assisted_patch") and args.checkpoint is not None:
         parser.error("other selectors do not use --checkpoint")
-    if args.selector in ("mlp", "tree", "tree_probe", "mlp_pitch_guard", "bank_adaptive", "composite_patch") and not args.rotations:
+    if args.selector in ("mlp", "tree", "tree_probe", "mlp_pitch_guard", "bank_adaptive", "composite_patch", "teacher_assisted_patch") and not args.rotations:
         parser.error("learned checkpoints require --rotations")
     if args.selector == "wait_then_pick" and not args.rotations:
         parser.error("wait_then_pick requires --rotations")
     if args.base and not args.rotations:
         parser.error("base candidates require --rotations to preserve IDs 0..15")
-    if args.base and args.selector not in ("base_demo", "base_then_pick", "base_recover_pick", "base_approach_pick", "base_ready_pick", "base_ready_recover_pick", "base_ready_axis_retry_pick", "base_ready_settled_pick", "mlp", "tree", "tree_probe", "mlp_pitch_guard", "bank_adaptive", "composite_patch"):
+    if args.base and args.selector not in ("base_demo", "base_then_pick", "base_recover_pick", "base_approach_pick", "base_ready_pick", "base_ready_recover_pick", "base_ready_axis_retry_pick", "base_ready_settled_pick", "mlp", "tree", "tree_probe", "mlp_pitch_guard", "bank_adaptive", "composite_patch", "teacher_assisted_patch"):
         parser.error("the 20-ID manual selectors require a base selector")
 
     if args.selector in ("base_demo", "base_then_pick", "base_recover_pick", "base_approach_pick", "base_ready_pick", "base_ready_recover_pick", "base_ready_axis_retry_pick", "base_ready_settled_pick") and not args.base:
         parser.error("20-ID manual selectors require --base")
     if args.base and args.selector == "mlp_pitch_guard" and not args.far_start:
         parser.error("the 20-ID pitch diagnostic requires --far-start")
-    if args.selector in ("base_approach_pick", "base_ready_pick", "base_ready_recover_pick", "base_ready_axis_retry_pick", "base_ready_settled_pick") and not args.far_start:
+    if args.selector in ("base_approach_pick", "base_ready_pick", "base_ready_recover_pick", "base_ready_axis_retry_pick", "base_ready_settled_pick", "teacher_assisted_patch") and not args.far_start:
         parser.error("base approach selectors require --far-start")
     if args.query_teacher and args.selector not in ("mlp", "tree", "tree_probe", "mlp_pitch_guard", "composite_patch"):
         parser.error("teacher queries are only recorded alongside learned execution")
@@ -131,10 +138,30 @@ def main():
                                         float(env.unwrapped.sim_config.control_freq),
                                         strict_task=not args.allow_task_mismatch)
             if args.patch_mode == "place":
-                cond_fn = PlacePatchCondition(threshold_m=0.025)
+                cond_fn = PlacePatchCondition(threshold_m=args.patch_threshold_xy)
             else:
                 cond_fn = None  # uses default near-table descent condition
+            if args.transit_guard:
+                from apc_maniskill.primitive_policy import TransitGuardSelector
+                base_sel = TransitGuardSelector(base_sel)
             selector = CompositePatchSelector(base_sel, patch_sel, patch_condition_fn=cond_fn)
+        elif args.selector == "teacher_assisted_patch":
+            from apc_maniskill.primitive_learning import LearnedSelector, CompositePatchSelector, PlacePatchCondition
+            copied_patch = output / "patch_selector.pt"
+            shutil.copy2(args.patch_checkpoint, copied_patch)
+            patch_sel = LearnedSelector(copied_patch, env.unwrapped.experiment_metadata(),
+                                        float(env.unwrapped.sim_config.control_freq),
+                                        strict_task=not args.allow_task_mismatch)
+            teacher_base = (BaseReadyPickSelector(desired_pitch_deg=args.pitch_deg,
+                                                  descend_pitch_deg=args.descend_pitch_deg,
+                                                  grasp_height_m=args.grasp_height_m,
+                                                  base_switch_x_m=args.base_switch_x_m,
+                                                  recover_grasp=args.recover_lost_grasp,
+                                                  pre_rotate=args.pre_rotate,
+                                                  true_place=False) if args.base
+                            else PickPlaceSelector(use_rotation=args.rotations, true_place=False))
+            cond_fn = PlacePatchCondition(threshold_m=args.patch_threshold_xy)
+            selector = CompositePatchSelector(teacher_base, patch_sel, patch_condition_fn=cond_fn)
         elif args.selector == "bank_adaptive":
             from apc_maniskill.primitive_bank import PrimitiveBank, BankAdaptiveSelector
             bank = PrimitiveBank(args.bank_dir)
