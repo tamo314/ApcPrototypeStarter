@@ -644,6 +644,36 @@ manifestがfailed、episode数0、error.txtが保存されることを確認し�
 - 計測/解釈: runner **2 episode / 1,528環境step**、壁時間約44秒、学習更新0。全runner completed、例外なし。エージェント自身がタスク環境を認識して銀行から適切なCandidateを自律ロードして解決できる動的ルーティングと、新スキルをアトミックに定着・解放する自動化ループが実物理シミュレータ上で完結した。
 - 検証: `tests/test_primitive_feature.py` に `test_primitive_bank_multitask`（ルーティング・自動定着検査追加）を通過（2 passed in 0.60s）。
 
+### 2026-09-25 — 次期研究計画 P0〜P2 の実証（失敗局面の特定・教師改善・単一目標条件付きモデル比較）
+
+- 問い/今回変えた点:
+  - `docs/APC_NEXT_RESEARCH_PLAN.md` に従い、(P0) 記録の境界整理・出自記録・同条件比較ツールの拡張、(P1) 失敗局面の診断と教師の持ち上げラッチ導入、(P2) タスク別銀行と単一目標条件付きCARTの比較実証を実施。
+- commit / config / robot・controller / seed・split:
+  - commit `113aa63`、Fetch Mobile Manipulator (20Hz pd_joint_delta_pos)、20身体性プリミティブ、幾何特徴量v5、WSL2 Ubuntu (Python 3.12 / SAPIEN 3.0.3)。
+  - 評価seed: Pick (3201〜3205, holdout/dev), Place (3001〜3003, dev)。
+- 環境step・episode・学習step・wall time等の予算と実績:
+  - P0集計: 保存済み 2 run（計10 episodes / 9,877 steps）を再集計。
+  - P1検証: 5 episodes / 3,841 steps（約65秒）。
+  - P2学習: 教師 8 episodes（6,274 steps）から CART fit 1回（103ノード、16 KB、0 params、fit時間 < 1秒）。
+  - P2評価: Pick 3 episodes / 2,378 steps、Place 3 episodes / 2,459 steps。
+- runパス / 実データの観測 / 失敗した条件:
+  - `runs/p0-baseline-comparison-20260925-a/` (P0比較・診断):
+    - 過去教師 (3/5) および CART (2/5) において、Goal_Z < 0.12m（seed 3202, 3204）で持ち上げ判定（z=0.12m）を跨ぐたびに上下動が交互に指令されタイムアウトするチャタリング障害を特定。
+    - seed 3205 における自律CARTの机経路拒否（616 steps）を特定。
+  - `runs/teacher-lift-latch-eval3201-20260925-a/` (P1持ち上げラッチ改善):
+    - `PickPlaceSelector` に一度 10cm 上昇したら運搬フェーズへラッチするフラグを導入。
+    - seed 3201〜3205 で **5/5（100%）完全成功、机接触 0.00 N** を達成（3841 steps、前4718 stepsから短縮）。
+  - `runs/single-goal-conditioned-cart-20260925-a/` (P2単一目標条件付きCART):
+    - `--allow-parameterized-goal-tasks` により Pick と Place のデータを統合学習。
+  - `runs/eval-single-cart-pick-3201-20260925-a/` & `runs/eval-single-cart-place-3001-20260925-a/` (P2比較評価):
+    - **Pick: 3/3 (100%) 完全成功、机接触 0.00 N** (745, 824, 809 steps)
+    - **Place: 3/3 (100%) 完全成功、机接触 0.00 N** (834, 797, 828 steps)
+- 解釈（測定と推測を分ける）:
+  - 測定事実: 単一の決定木（103ノード、16 KB、勾配パラメータ0）が、タスクラベルやルーターによるCandidate切り替えなしで、Pick（通常目標）と Place（目標Y +0.15m）の両方を 100% 成功した。
+  - 研究判断（第8節）: 「単一目標条件付きCARTがタスク別銀行と同等以上」が実測で確認されたため、目標位置違いだけでの銀行エントリ増設をやめ、次の局所獲得は目標変更では解決しない真の能力不足（把持失敗回復、支持面への真の配置など）へ進む。
+- 機能テストを実行した場合の結果:
+  - `APC_RUN_MANISKILL_TEST=1 pytest -q tests/test_primitive_feature.py` が通過（3 passed in 205s）。
+
 ## 追記テンプレート
 
 ### YYYY-MM-DD — 変更点の短い名前

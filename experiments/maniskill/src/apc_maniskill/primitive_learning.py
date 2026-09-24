@@ -83,12 +83,20 @@ def network(input_dim, output_dim=16):
                          nn.Linear(64, 64), nn.ReLU(), nn.Linear(64, output_dim))
 
 
+def is_compatible_parameterized_task(t1: dict, t2: dict) -> bool:
+    """Verify shared physical robot and dynamics, permitting parameterized goal distributions."""
+    keys = ("upstream_task", "robot_uid", "static_rule", "body_velocity_threshold",
+            "base_velocity_threshold", "start_back_m")
+    return all(t1.get(k) == t2.get(k) for k in keys)
+
+
 def train(source: Path, output: Path, *, updates=3000, seed=0,
           dagger_source: Path | list[Path] | None = None,
           sampling="uniform", std_floor=1e-4, feature_schema=SCHEMA_V1,
           train_all=False, extra_teacher_sources: list[Path] | None = None,
           dagger_strides: list[int] | None = None, model_kind="mlp",
-          max_depth=12, min_leaf=2, partition_grasp=False):
+          max_depth=12, min_leaf=2, partition_grasp=False,
+          allow_parameterized_goal_tasks=False):
     if updates < 1:
         raise ValueError("updates must be positive")
     if not np.isfinite(std_floor) or std_floor <= 0:
@@ -123,7 +131,10 @@ def train(source: Path, output: Path, *, updates=3000, seed=0,
         raise ValueError("Base-state features require the 20-ID bank")
     for index, teacher_path in enumerate(teacher_paths[1:], start=1):
         teacher_manifest = json.loads((teacher_path / "manifest.json").read_text(encoding="utf-8"))
-        if (teacher_manifest["status"] != "completed" or teacher_manifest["task"] != source_manifest["task"]
+        task_match = (teacher_manifest["task"] == source_manifest["task"]) or (
+            allow_parameterized_goal_tasks and is_compatible_parameterized_task(source_manifest["task"], teacher_manifest["task"])
+        )
+        if (teacher_manifest["status"] != "completed" or not task_match
                 or teacher_manifest["control_freq"] != source_manifest["control_freq"]
                 or teacher_manifest["policy_details"]["primitive_names"] != names
                 or teacher_manifest["policy_details"]["learned"]):
@@ -134,7 +145,10 @@ def train(source: Path, output: Path, *, updates=3000, seed=0,
         rows.extend(json.loads(line) for line in teacher_steps.read_text(encoding="utf-8").splitlines())
     for dagger_path, stride in zip(dagger_sources, dagger_strides):
         dagger_manifest = json.loads((dagger_path / "manifest.json").read_text(encoding="utf-8"))
-        if (dagger_manifest["status"] != "completed" or dagger_manifest["task"] != source_manifest["task"]
+        task_match = (dagger_manifest["task"] == source_manifest["task"]) or (
+            allow_parameterized_goal_tasks and is_compatible_parameterized_task(source_manifest["task"], dagger_manifest["task"])
+        )
+        if (dagger_manifest["status"] != "completed" or not task_match
                 or dagger_manifest["policy_details"]["primitive_names"] != names):
             raise ValueError("DAgger source task or primitive schema mismatch")
         dagger_steps = dagger_path / "steps.jsonl"
@@ -211,6 +225,7 @@ def train(source: Path, output: Path, *, updates=3000, seed=0,
                       updates=updates, seed=seed)
     checkpoint["sampling"] = sampling
     checkpoint["std_floor"] = std_floor
+    checkpoint["allow_parameterized_goal_tasks"] = allow_parameterized_goal_tasks
     model_details = dict(model_kind=model_kind,
                          partition_grasp=partition_grasp,
                          tree_nodes=len(model.feature) if model_kind == "cart" else None,
@@ -225,6 +240,7 @@ def train(source: Path, output: Path, *, updates=3000, seed=0,
                teacher_steps_sha256=teacher_digests,
                dagger_sources=[str(path.resolve()) for path in dagger_sources],
                dagger_source_strides=dagger_strides,
+               allow_parameterized_goal_tasks=allow_parameterized_goal_tasks,
                source_environment_steps=sum(row["steps"] for path in teacher_paths for row in
                    [json.loads(line) for line in (path / "episodes.jsonl").read_text().splitlines()]),
                dagger_environment_steps=sum(row["steps"] for path in dagger_sources for row in
@@ -246,9 +262,12 @@ def train(source: Path, output: Path, *, updates=3000, seed=0,
 class LearnedSelector:
     def __init__(self, checkpoint: Path, task, control_freq, strict_task: bool = True):
         saved = torch.load(checkpoint, map_location="cpu", weights_only=False)
+        task_match = (saved["task"] == task) or (
+            saved.get("allow_parameterized_goal_tasks", False) and is_compatible_parameterized_task(saved["task"], task)
+        )
         if (saved["schema"] not in (SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6)
                 or saved["primitive_names"] not in (list(NAMES), list(NAMES20))
-                or (strict_task and saved["task"] != task) or saved["control_freq"] != control_freq):
+                or (strict_task and not task_match) or saved["control_freq"] != control_freq):
             raise ValueError("Primitive selector checkpoint schema or task mismatch")
 
         self.primitive_count = len(saved["primitive_names"])
@@ -313,13 +332,16 @@ def main():
     parser.add_argument("--min-leaf", type=int, default=2)
     parser.add_argument("--partition-grasp", action="store_true",
                         help="CART structural prior: split measured grasp state before fitting decisions")
+    parser.add_argument("--allow-parameterized-goal-tasks", action="store_true",
+                        help="Permit mixing sources across tasks with shared robot/dynamics but parameterized goals")
     args = parser.parse_args()
     train(args.source, args.out, updates=args.updates, seed=args.seed,
           dagger_source=args.dagger_source, sampling=args.sampling,
           std_floor=args.std_floor, feature_schema=args.feature_schema,
           train_all=args.train_all, extra_teacher_sources=args.extra_teacher_source,
           dagger_strides=args.dagger_stride, model_kind=args.model_kind,
-          max_depth=args.max_depth, min_leaf=args.min_leaf, partition_grasp=args.partition_grasp)
+          max_depth=args.max_depth, min_leaf=args.min_leaf, partition_grasp=args.partition_grasp,
+          allow_parameterized_goal_tasks=args.allow_parameterized_goal_tasks)
 
 
 if __name__ == "__main__":

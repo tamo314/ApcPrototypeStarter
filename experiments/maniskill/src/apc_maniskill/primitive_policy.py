@@ -108,10 +108,12 @@ class PickPlaceSelector:
         self.pre_rotate = pre_rotate
         self.recovery_active = False
         self.closing_steps = 0
+        self.lifted = False
 
     def reset(self):
         self.recovery_active = False
         self.closing_steps = 0
+        self.lifted = False
 
     def select(self, step, observation):
         hand = np.asarray(observation["measured_hand_position"])
@@ -135,11 +137,13 @@ class PickPlaceSelector:
             self.closing_steps = 0
             if observation["gripper_target_m"] >= 0:
                 return 7
-            if cube[2] < observation["cube_initial_z"] + 0.10:
+            if not self.lifted and cube[2] < observation["cube_initial_z"] + 0.10:
                 desired = hand + [0, 0, 0.15]
             else:
+                self.lifted = True
                 desired = hand + goal - cube
         else:
+            self.lifted = False
             if observation["gripper_target_m"] < 0:
                 self.closing_steps = getattr(self, "closing_steps", 0) + 1
             else:
