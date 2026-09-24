@@ -21,12 +21,13 @@ def main():
     parser.add_argument("--selector", choices=["manual", "pick_place", "mlp", "tree", "tree_probe", "mlp_pitch_guard",
                                                "base_demo", "base_then_pick", "base_recover_pick", "base_approach_pick",
                                                "base_ready_pick", "base_ready_recover_pick", "base_ready_axis_retry_pick", "base_ready_settled_pick",
-                                               "wait_then_pick", "bank_adaptive"], default="manual")
+                                               "wait_then_pick", "bank_adaptive", "composite_patch"], default="manual")
     parser.add_argument("--rotations", action="store_true")
     parser.add_argument("--base", action="store_true")
     parser.add_argument("--far-start", action="store_true")
     parser.add_argument("--post-success-steps", type=int, default=0)
     parser.add_argument("--checkpoint", type=Path)
+    parser.add_argument("--patch-checkpoint", type=Path)
     parser.add_argument("--bank-dir", type=Path)
     parser.add_argument("--query-teacher", action="store_true")
     parser.add_argument("--pitch-deg", type=float, default=15)
@@ -39,11 +40,16 @@ def main():
     parser.add_argument("--pre-rotate", action="store_true")
     parser.add_argument("--place-goal", action="store_true")
     parser.add_argument("--true-place-goal", action="store_true", help="True placement with gripper release and resting check")
+    parser.add_argument("--patch-mode", choices=["pick", "place"], default="place",
+                        help="Activation condition for composite patch selector")
     parser.add_argument("--allow-task-mismatch", action="store_true")
     args = parser.parse_args()
 
     if (args.selector == "bank_adaptive") != (args.bank_dir is not None):
         parser.error("bank_adaptive requires --bank-dir and no other selector uses it")
+    if args.selector == "composite_patch":
+        if args.checkpoint is None or args.patch_checkpoint is None:
+            parser.error("composite_patch requires both --checkpoint and --patch-checkpoint")
     if args.pitch_deg != 15 and args.selector != "base_ready_pick":
         parser.error("pitch diagnostic is supported only by base_ready_pick")
     if args.base_switch_x_m != 0.195 and args.selector != "base_ready_pick":
@@ -56,15 +62,18 @@ def main():
         parser.error("recover-lost-grasp requires base_ready_pick")
     if args.pre_rotate and args.selector != "base_ready_pick":
         parser.error("pre-rotate requires base_ready_pick")
-    if (args.selector in ("mlp", "tree", "tree_probe", "mlp_pitch_guard")) != (args.checkpoint is not None):
-        parser.error("learned selectors require --checkpoint, other selectors do not")
-    if args.selector in ("mlp", "tree", "tree_probe", "mlp_pitch_guard", "bank_adaptive") and not args.rotations:
+    if args.selector in ("mlp", "tree", "tree_probe", "mlp_pitch_guard"):
+        if args.checkpoint is None:
+            parser.error("learned selectors require --checkpoint")
+    elif args.selector != "composite_patch" and args.checkpoint is not None:
+        parser.error("other selectors do not use --checkpoint")
+    if args.selector in ("mlp", "tree", "tree_probe", "mlp_pitch_guard", "bank_adaptive", "composite_patch") and not args.rotations:
         parser.error("learned checkpoints require --rotations")
     if args.selector == "wait_then_pick" and not args.rotations:
         parser.error("wait_then_pick requires --rotations")
     if args.base and not args.rotations:
         parser.error("base candidates require --rotations to preserve IDs 0..15")
-    if args.base and args.selector not in ("base_demo", "base_then_pick", "base_recover_pick", "base_approach_pick", "base_ready_pick", "base_ready_recover_pick", "base_ready_axis_retry_pick", "base_ready_settled_pick", "mlp", "tree", "tree_probe", "mlp_pitch_guard", "bank_adaptive"):
+    if args.base and args.selector not in ("base_demo", "base_then_pick", "base_recover_pick", "base_approach_pick", "base_ready_pick", "base_ready_recover_pick", "base_ready_axis_retry_pick", "base_ready_settled_pick", "mlp", "tree", "tree_probe", "mlp_pitch_guard", "bank_adaptive", "composite_patch"):
         parser.error("the 20-ID manual selectors require a base selector")
 
     if args.selector in ("base_demo", "base_then_pick", "base_recover_pick", "base_approach_pick", "base_ready_pick", "base_ready_recover_pick", "base_ready_axis_retry_pick", "base_ready_settled_pick") and not args.base:
@@ -73,7 +82,7 @@ def main():
         parser.error("the 20-ID pitch diagnostic requires --far-start")
     if args.selector in ("base_approach_pick", "base_ready_pick", "base_ready_recover_pick", "base_ready_axis_retry_pick", "base_ready_settled_pick") and not args.far_start:
         parser.error("base approach selectors require --far-start")
-    if args.query_teacher and args.selector not in ("mlp", "tree", "tree_probe", "mlp_pitch_guard"):
+    if args.query_teacher and args.selector not in ("mlp", "tree", "tree_probe", "mlp_pitch_guard", "composite_patch"):
         parser.error("teacher queries are only recorded alongside learned execution")
     if args.base and args.query_teacher and not args.far_start:
         parser.error("the 20-ID teacher requires --far-start")
@@ -86,7 +95,6 @@ def main():
                        robot_uids="fetch", policy="external",
                        episodes=args.episodes, seed=args.seed, max_steps=args.max_steps,
                        env_max_steps=args.max_steps,
-
                        post_success_steps=args.post_success_steps,
                        task_label=args.selector + ("_fetch20_primitives" if args.base else
                                                    "_fetch16_primitives" if args.rotations else
@@ -110,6 +118,33 @@ def main():
                 selector = RotationProbeSelector(selector)
             if args.selector == "mlp_pitch_guard":
                 selector = PitchGuardSelector(selector)
+        elif args.selector == "composite_patch":
+            import numpy as np
+            from apc_maniskill.primitive_learning import LearnedSelector, CompositePatchSelector
+            copied_base = output / "base_selector.pt"
+            shutil.copy2(args.checkpoint, copied_base)
+            base_sel = LearnedSelector(copied_base, env.unwrapped.experiment_metadata(),
+                                       float(env.unwrapped.sim_config.control_freq),
+                                       strict_task=not args.allow_task_mismatch)
+            copied_patch = output / "patch_selector.pt"
+            shutil.copy2(args.patch_checkpoint, copied_patch)
+            patch_sel = LearnedSelector(copied_patch, env.unwrapped.experiment_metadata(),
+                                        float(env.unwrapped.sim_config.control_freq),
+                                        strict_task=not args.allow_task_mismatch)
+            if args.patch_mode == "place":
+                latched = False
+                def place_condition(step, obs):
+                    nonlocal latched
+                    grasped = obs.get("grasped", False)
+                    cube = np.asarray(obs["cube_position"])
+                    goal = np.asarray(obs["goal_position"])
+                    if grasped and np.linalg.norm(cube[:2] - goal[:2]) < 0.025:
+                        latched = True
+                    return latched
+                cond_fn = place_condition
+            else:
+                cond_fn = None  # uses default near-table descent condition
+            selector = CompositePatchSelector(base_sel, patch_sel, patch_condition_fn=cond_fn)
         elif args.selector == "bank_adaptive":
             from apc_maniskill.primitive_bank import PrimitiveBank, BankAdaptiveSelector
             bank = PrimitiveBank(args.bank_dir)

@@ -333,11 +333,23 @@ def collect(config: RunConfig, output: Path, *, env_factory: Callable = make_env
                     success=np.asarray(successes, dtype=np.int8),
                 )
                 known = [s for s in successes if s != -1]
+                # Exact consecutive success tracking
+                cur_consec = 0
+                max_consec = 0
+                for s in successes:
+                    if s == 1:
+                        cur_consec += 1
+                        if cur_consec > max_consec:
+                            max_consec = cur_consec
+                    else:
+                        cur_consec = 0
                 row = {
                     "episode": episode, "seed": seed, "steps": len(actions),
                     "return": sum(rewards),
                     "success_ever": bool(max(known)) if known else None,
                     "success_final": bool(successes[-1]) if successes[-1] != -1 else None,
+                    "max_consecutive_success": max_consec,
+                    "consecutive_success_final_20": (cur_consec >= 20),
                     "terminated": terminations[-1], "truncated": truncations[-1],
                     "runner_truncated": not (terminations[-1] or truncations[-1]),
                     "wall_seconds": time.monotonic() - episode_start,

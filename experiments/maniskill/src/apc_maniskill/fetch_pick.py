@@ -97,15 +97,20 @@ class FetchTruePlaceFar(FetchPickCubeFar):
         cube_speed = torch.linalg.norm(cube_vel, dim=-1)
         cube_angspeed = torch.linalg.norm(cube_angvel, dim=-1)
 
-        # Distance between cube and table surface goal
+        # Exact height and horizontal position on table surface (table height ~ 0.02m)
         cube_pos = self.cube.pose.p
         goal_pos = self.goal_site.pose.p
-        dist = torch.linalg.norm(cube_pos - goal_pos, dim=-1)
+        cube_height = cube_pos[:, 2]
+        dist_xy = torch.linalg.norm(cube_pos[:, :2] - goal_pos[:, :2], dim=-1)
 
-        is_placed = dist <= 0.04
+        is_on_surface = (cube_height >= 0.012) & (cube_height <= 0.035)
+        is_placed = (dist_xy <= 0.04) & is_on_surface
         is_released = ~info["is_grasped"]
         is_obj_static = (cube_speed <= 0.05) & (cube_angspeed <= 0.5)
 
+        info["cube_height_m"] = cube_height
+        info["cube_goal_dist_xy_m"] = dist_xy
+        info["is_on_surface"] = is_on_surface
         info["is_obj_placed_surface"] = is_placed
         info["is_released"] = is_released
         info["is_obj_static"] = is_obj_static

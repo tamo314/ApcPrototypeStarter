@@ -111,15 +111,20 @@ class PickPlaceSelector:
         self.closing_steps = 0
         self.lifted = False
         self.released = False
+        self.released_steps = 0
 
     def reset(self):
         self.recovery_active = False
         self.closing_steps = 0
         self.lifted = False
         self.released = False
+        self.released_steps = 0
 
     def select(self, step, observation):
         if self.true_place and self.released:
+            if self.released_steps < 15:
+                self.released_steps += 1
+                return 6
             return HOLD
         hand = np.asarray(observation["measured_hand_position"])
         cube = np.asarray(observation["cube_position"])
