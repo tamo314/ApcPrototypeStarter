@@ -621,6 +621,29 @@ manifestがfailed、episode数0、error.txtが保存されることを確認し�
 - 計測/解釈: runner **3 episode / 2,351環境step**、壁時間約70秒、学習更新0。全runner completed、例外なし。単一タスクの獲得・解放にとどまらず、身体性プリミティブを共有しながら「タスクごとにTemporary獲得 → 定着 → 解放」を順次行い、過去のスキルを破壊することなく銀行内に複数タスク（PickとPlace）のCandidateを蓄積・即時再利用できることが実証された。
 - 検証: `tests/test_primitive_feature.py` に `test_primitive_bank_multitask` を追加し通過（2 passed in 0.36s）。
 
+### 2026-09-24 — 連続適応トリガー（動的セレクタールーティングと自動定着・解放）の実装と実証
+
+- 基点 `68f8e1a`、WSL Python3.12/CPU、Fetch遠方開始、20 Hz制御、自律CARTセレクター。
+- 課題と実装:
+  - 1. **動的セレクタールーティング (`BankAdaptiveSelector`)**:
+    - 環境のタスクメタデータ（`task_kind` 等）を観測し、銀行内の最適な定着済みCandidate（Pick または Place）を自動選択して推論する機構を実装。
+    - `scripts/run_fetch_primitives.py` に `--selector bank_adaptive --bank-dir <dir>` を追加。
+  - 2. **自動定着・解放トリガー (`auto_consolidate_and_release`)**:
+    - Temporary獲得後のCandidate定着と一時リソース物理解放（100%回収）を一括アトミックに実行するインターフェースを実装。
+  - 3. **自律適応ループの全自動実証 (`scripts/run_bank_adaptive.py`)**:
+    - Task A（Pick）の環境においてチェックポイント指定なしで `--selector bank_adaptive` を実行 → 自動で `fetch_pick_v1` をロードし、**1/1（100.0%）完全成功**（691 steps、return 87.89）。
+    - Task B（Place）の環境において同様に実行 → 自動で `fetch_place_v1` をロードし、**1/1（100.0%）完全成功**（837 steps、return 134.22）。
+    - Auto-Consolidation & Auto-Release: Temporary（8,500 params）から Candidate（0 params）への定着と物理解放（8,500 params 100%回収）を一発検証。
+- 実績表:
+  - run: `runs/bank-adaptive-evidence-20260924-a/`
+  - 監査結果 (`adaptive_report.json`):
+    - Task A ルーティング成功: `fetch_pick_v1` (1/1 100%成功)
+    - Task B ルーティング成功: `fetch_place_v1` (1/1 100%成功)
+    - 自動定着・解放: reclaimed: 8,500 params, status: fully_released
+    - 最終銀行エントリ数: 3（全件Candidate、0勾配パラメータ、SHA256ハッシュ完全一致）
+- 計測/解釈: runner **2 episode / 1,528環境step**、壁時間約44秒、学習更新0。全runner completed、例外なし。エージェント自身がタスク環境を認識して銀行から適切なCandidateを自律ロードして解決できる動的ルーティングと、新スキルをアトミックに定着・解放する自動化ループが実物理シミュレータ上で完結した。
+- 検証: `tests/test_primitive_feature.py` に `test_primitive_bank_multitask`（ルーティング・自動定着検査追加）を通過（2 passed in 0.60s）。
+
 ## 追記テンプレート
 
 ### YYYY-MM-DD — 変更点の短い名前
@@ -632,6 +655,7 @@ manifestがfailed、episode数0、error.txtが保存されることを確認し�
 - 解釈（測定と推測を分ける）:
 - 次に変える一点:
 - 機能テストを実行した場合の結果 / 未実行と理由:
+
 
 見込みと違ってもそのまま記録し、設定変更や小さい試行に戻ってよい。
 

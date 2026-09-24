@@ -22,18 +22,25 @@ CART決定木（145ノード、検証精度99.11%）を学習し、完全新規�
   - 共通の20身体性プリミティブを用い、運搬先が+15 cmオフセットされた異種タスク `APC-FetchPlaceCubeFar-v1` を獲得・定着・解放。
   - 銀行台帳（`bank.json`）に Task A（Pick 21,220 bytes）と Task B（Place 11,300 bytes）を同時に蓄積。
   - 追加学習0で Task B（1/1 100%成功）および Task A（1/1 100%成功）を相互干渉なしに両立実行。
-これにより、RESEARCH_PLANに掲げられた全項目および多タスク拡張が実シミュレータ上で完結した。
+- **動的ルーティングと連続適応 (`runs/bank-adaptive-evidence-20260924-a`)**:
+  - チェックポイント指定なしで `--selector bank_adaptive --bank-dir <dir>` を与えるだけで、環境メタデータを認識して適切なCandidateを自動選択・完走（Pick 1/1、Place 1/1）。
+  - `auto_consolidate_and_release()` によるアトミックな新スキル定着と一時リソース完全解放（100%回収）を確認。
+これにより、RESEARCH_PLANに掲げられた全項目および多タスク拡張・自律運用が実シミュレータ上で完結した。
 
 学習済み決定木・銀行の実行例（既存WSL環境）:
 
 ```bash
-# 多タスク銀行ライフサイクルの全自動実行と監査
-python scripts/run_bank_multitask.py \
-  --pick-candidate runs/primitive-augmented-tree-train-20260924-a/selector.pt \
-  --place-temp runs/temp-place-train-20260924-a/selector.pt \
-  --place-candidate runs/cand-place-train-20260924-a/selector.pt \
-  --out runs/my-multitask-bank-run
+# 銀行からの動的セレクタールーティング実行（チェックポイント指定不要）
+python scripts/run_fetch_primitives.py --selector bank_adaptive \
+  --bank-dir runs/bank-multitask-evidence-20260924-b/primitive_bank \
+  --far-start --rotations --base --episodes 1 --seed 2801 --out runs/my-adaptive-run
+
+# 自律適応・動的ルーティング実験の実行
+python scripts/run_bank_adaptive.py \
+  --bank-source runs/bank-multitask-evidence-20260924-b/primitive_bank \
+  --out runs/my-adaptive-audit-run
 ```
+
 
 
 

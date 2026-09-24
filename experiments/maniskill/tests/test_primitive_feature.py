@@ -414,4 +414,26 @@ def test_primitive_bank_multitask(tmp_path):
     assert audit["entries"]["fetch_place_v1"]["exists"]
     assert audit["entries"]["fetch_place_v1"]["sha256_match"]
 
+    # 6. Test find_candidate routing
+    cand_pick = bank.find_candidate({"task_kind": "pick_cube_far"})
+    assert cand_pick is not None and cand_pick.id == "fetch_pick_v1"
+    cand_place = bank.find_candidate({"task_kind": "place_cube_far"})
+    assert cand_place is not None and cand_place.id == "fetch_place_v1"
+
+    # 7. Test atomic auto-consolidation and release
+    dummy_temp = tmp_path / "dummy_temp.pt"
+    dummy_temp.write_bytes(b"TEMP_AUTO_BYTES")
+    dummy_cand = tmp_path / "dummy_cand.pt"
+    dummy_cand.write_bytes(b"CAND_AUTO_BYTES")
+    bank.register("auto_entry", "Auto Test", dummy_temp, kind="temporary",
+                  model_kind="mlp", primitive_count=20, parameter_count=500, stored_values=500)
+    auto_res = bank.auto_consolidate_and_release("auto_entry", dummy_cand,
+                                                model_kind="cart", parameter_count=0, stored_values=10)
+    assert auto_res["status"] == "auto_consolidated_and_released"
+    assert auto_res["release_audit"]["reclaimed_parameters"] == 500
+    assert bank.entries["auto_entry"].kind == "consolidated"
+    assert not (bank.primitives_dir / "auto_entry_dummy_temp.pt").exists()
+    assert (bank.primitives_dir / "auto_entry_consolidated_dummy_cand.pt").exists()
+
+
 

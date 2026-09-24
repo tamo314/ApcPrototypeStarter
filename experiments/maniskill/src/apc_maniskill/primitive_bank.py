@@ -169,6 +169,42 @@ class PrimitiveBank:
             raise KeyError(f"Entry {entry_id} not in bank")
         return self.root / self.entries[entry_id].relative_path
 
+    def find_candidate(self, task_metadata: dict[str, Any] | None = None) -> BankEntry | None:
+        """Find the best matching consolidated candidate for a task."""
+        candidates = [e for e in self.entries.values() if e.kind == "consolidated"]
+        if not candidates:
+            return None
+        if not task_metadata:
+            return candidates[0]
+        
+        target_kind = task_metadata.get("task_kind", "pick_cube_far")
+        # Match by task_kind in metadata or ID heuristics
+        for e in candidates:
+            meta = e.metadata or {}
+            if meta.get("task_kind") == target_kind:
+                return e
+            if target_kind == "place_cube_far" and "place" in e.id:
+                return e
+            if target_kind == "pick_cube_far" and "pick" in e.id:
+                return e
+        # Fallback to first candidate
+        return candidates[0]
+
+    def auto_consolidate_and_release(self, entry_id: str, candidate_file: Path, *,
+                                     model_kind: str, parameter_count: int, stored_values: int,
+                                     metadata: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Atomically consolidate a temporary skill and release temporary artifacts."""
+        self.consolidate(entry_id, candidate_file, model_kind=model_kind,
+                         parameter_count=parameter_count, stored_values=stored_values,
+                         metadata=metadata)
+        release_audit = self.release_temporary(entry_id)
+        return {
+            "entry_id": entry_id,
+            "status": "auto_consolidated_and_released",
+            "release_audit": release_audit,
+            "bank_audit": self.audit()
+        }
+
     def audit(self) -> dict[str, Any]:
         """Audit physical integrity of all registered primitives."""
         results = {}
@@ -189,3 +225,33 @@ class PrimitiveBank:
             "audit_timestamp": utc_now(),
             "entries": results
         }
+
+
+class BankAdaptiveSelector:
+    """Dynamically routes decisions to the best matching consolidated primitive in a bank."""
+
+    def __init__(self, bank: PrimitiveBank, task_metadata: dict[str, Any], control_freq: float):
+        self.bank = bank
+        self.task_metadata = task_metadata
+        self.control_freq = control_freq
+        self.active_entry = bank.find_candidate(task_metadata=task_metadata)
+        if self.active_entry is None:
+            raise KeyError(f"No consolidated candidate found in bank for task: {task_metadata}")
+        checkpoint_path = bank.get_path(self.active_entry.id)
+        from .primitive_learning import LearnedSelector
+        self.selector = LearnedSelector(checkpoint_path, task_metadata, control_freq, strict_task=False)
+
+    @property
+    def model_kind(self):
+        return self.selector.model_kind
+
+    @property
+    def primitive_count(self):
+        return self.selector.primitive_count
+
+    def reset(self):
+        self.selector.reset()
+
+    def select(self, step, observation):
+        return self.selector.select(step, observation)
+

@@ -21,12 +21,13 @@ def main():
     parser.add_argument("--selector", choices=["manual", "pick_place", "mlp", "tree", "tree_probe", "mlp_pitch_guard",
                                                "base_demo", "base_then_pick", "base_recover_pick", "base_approach_pick",
                                                "base_ready_pick", "base_ready_recover_pick", "base_ready_axis_retry_pick", "base_ready_settled_pick",
-                                               "wait_then_pick"], default="manual")
+                                               "wait_then_pick", "bank_adaptive"], default="manual")
     parser.add_argument("--rotations", action="store_true")
     parser.add_argument("--base", action="store_true")
     parser.add_argument("--far-start", action="store_true")
     parser.add_argument("--post-success-steps", type=int, default=0)
     parser.add_argument("--checkpoint", type=Path)
+    parser.add_argument("--bank-dir", type=Path)
     parser.add_argument("--query-teacher", action="store_true")
     parser.add_argument("--pitch-deg", type=float, default=15)
     parser.add_argument("--base-switch-x-m", type=float, default=0.195)
@@ -40,6 +41,8 @@ def main():
     parser.add_argument("--allow-task-mismatch", action="store_true")
     args = parser.parse_args()
 
+    if (args.selector == "bank_adaptive") != (args.bank_dir is not None):
+        parser.error("bank_adaptive requires --bank-dir and no other selector uses it")
     if args.pitch_deg != 15 and args.selector != "base_ready_pick":
         parser.error("pitch diagnostic is supported only by base_ready_pick")
     if args.base_switch_x_m != 0.195 and args.selector != "base_ready_pick":
@@ -54,14 +57,15 @@ def main():
         parser.error("pre-rotate requires base_ready_pick")
     if (args.selector in ("mlp", "tree", "tree_probe", "mlp_pitch_guard")) != (args.checkpoint is not None):
         parser.error("learned selectors require --checkpoint, other selectors do not")
-    if args.selector in ("mlp", "tree", "tree_probe", "mlp_pitch_guard") and not args.rotations:
+    if args.selector in ("mlp", "tree", "tree_probe", "mlp_pitch_guard", "bank_adaptive") and not args.rotations:
         parser.error("learned checkpoints require --rotations")
     if args.selector == "wait_then_pick" and not args.rotations:
         parser.error("wait_then_pick requires --rotations")
     if args.base and not args.rotations:
         parser.error("base candidates require --rotations to preserve IDs 0..15")
-    if args.base and args.selector not in ("base_demo", "base_then_pick", "base_recover_pick", "base_approach_pick", "base_ready_pick", "base_ready_recover_pick", "base_ready_axis_retry_pick", "base_ready_settled_pick", "mlp", "tree", "tree_probe", "mlp_pitch_guard"):
+    if args.base and args.selector not in ("base_demo", "base_then_pick", "base_recover_pick", "base_approach_pick", "base_ready_pick", "base_ready_recover_pick", "base_ready_axis_retry_pick", "base_ready_settled_pick", "mlp", "tree", "tree_probe", "mlp_pitch_guard", "bank_adaptive"):
         parser.error("the 20-ID manual selectors require a base selector")
+
     if args.selector in ("base_demo", "base_then_pick", "base_recover_pick", "base_approach_pick", "base_ready_pick", "base_ready_recover_pick", "base_ready_axis_retry_pick", "base_ready_settled_pick") and not args.base:
         parser.error("20-ID manual selectors require --base")
     if args.base and args.selector == "mlp_pitch_guard" and not args.far_start:
@@ -104,8 +108,14 @@ def main():
                 selector = RotationProbeSelector(selector)
             if args.selector == "mlp_pitch_guard":
                 selector = PitchGuardSelector(selector)
+        elif args.selector == "bank_adaptive":
+            from apc_maniskill.primitive_bank import PrimitiveBank, BankAdaptiveSelector
+            bank = PrimitiveBank(args.bank_dir)
+            selector = BankAdaptiveSelector(bank, env.unwrapped.experiment_metadata(),
+                                            float(env.unwrapped.sim_config.control_freq))
         else:
             selector = (PickPlaceSelector(use_rotation=args.rotations) if args.selector == "pick_place"
+
                         else BaseDemoSelector() if args.selector == "base_demo"
                         else BaseThenPickSelector() if args.selector == "base_then_pick"
                         else BaseRecoverPickSelector() if args.selector == "base_recover_pick"

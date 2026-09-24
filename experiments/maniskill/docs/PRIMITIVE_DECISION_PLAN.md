@@ -647,4 +647,22 @@ APC（Adaptive Primitive Composition）の中核仮説である「一次的なTe
 
 これにより、APCが複数タスクに対しても「身体性プリミティブを基盤とした逐次Temporary獲得 → 構造化Candidate定着 → リソース完全解放 → 複数スキルの銀行蓄積と非破壊即時再利用」というスケーラブルな適応サイクルを完全に実現できることが実証された。
 
+## 22. 2026-09-24 連続適応トリガー（動的セレクタールーティングと自動定着・解放）の実装と実証
+
+銀行に蓄積された複数のCandidateプリミティブを、人間によるチェックポイント指定なしにタスク環境の観測から自律的に選択・実行する「動的ルーティング機構」と、新スキルをアトミックに定着・解放する「自動定着トリガー」を導入した。
+
+1. **動的セレクタールーティング (`BankAdaptiveSelector`)**:
+   - `PrimitiveBank.find_candidate()` により、環境のメタデータ（`task_kind` 等）を照合して銀行内の最適な定着済みCandidate（Pick または Place）を自動選択。
+   - `scripts/run_fetch_primitives.py` に `--selector bank_adaptive --bank-dir <dir>` を追加。チェックポイントパスを一切与えず、銀行ディレクトリのみを渡すことで、タスクに応じた推論器が自律バインドされる。
+2. **自動定着・解放トリガー (`auto_consolidate_and_release`)**:
+   - TemporaryモデルからCandidateへの定着（パラメータ・容量削減）と一時リソース物理解放（100%回収）を一括してアトミックに実行するインターフェースを実装。
+3. **自律ルーティング・適応ループの実証 (`scripts/run_bank_adaptive.py` / `runs/bank-adaptive-evidence-20260924-a`)**:
+   - **Task A 自律ルーティング**: Pick環境で `--selector bank_adaptive` 実行 → 自動で `fetch_pick_v1` をロードし、**1/1（100.0%）完全成功**（691 steps、return 87.89）。
+   - **Task B 自律ルーティング**: Place環境で同様に実行 → 自動で `fetch_place_v1` をロードし、**1/1（100.0%）完全成功**（837 steps、return 134.22）。
+   - **Auto-Consolidation & Release**: 新スキル（8,500 params）の登録後、一発でCandidate化および一時物理解放（reclaimed: 8,500 params, status: fully_released）を達成。
+   - **銀行健全性**: 全3エントリが0勾配パラメータ、SHA256ハッシュ完全一致で健全性を確認。
+
+これにより、外部指示によるモデル差し替えを排し、ロボット自身が銀行台帳と環境状態に基づいて最適な身体操作判断器を動的選択・適応できる、APCの自律運用アーキテクチャが完成した。
+
+
 
