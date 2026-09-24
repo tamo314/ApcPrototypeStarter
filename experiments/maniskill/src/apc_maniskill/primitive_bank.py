@@ -169,13 +169,17 @@ class PrimitiveBank:
             raise KeyError(f"Entry {entry_id} not in bank")
         return self.root / self.entries[entry_id].relative_path
 
-    def find_candidate(self, task_metadata: dict[str, Any] | None = None) -> BankEntry | None:
-        """Find the best matching consolidated candidate for a task."""
+    def find_candidate(self, task_metadata: dict[str, Any] | None = None,
+                       fallback_first: bool = False) -> BankEntry | None:
+        """Find the best matching consolidated candidate for a task.
+        
+        Returns None for unknown tasks unless fallback_first is explicitly True.
+        """
         candidates = [e for e in self.entries.values() if e.kind == "consolidated"]
         if not candidates:
             return None
         if not task_metadata:
-            return candidates[0]
+            return candidates[0] if fallback_first else None
         
         target_kind = task_metadata.get("task_kind", "pick_cube_far")
         # Match by task_kind in metadata or ID heuristics
@@ -187,8 +191,8 @@ class PrimitiveBank:
                 return e
             if target_kind == "pick_cube_far" and "pick" in e.id:
                 return e
-        # Fallback to first candidate
-        return candidates[0]
+        # Unknown condition: abstain/return None unless fallback requested
+        return candidates[0] if fallback_first else None
 
     def auto_consolidate_and_release(self, entry_id: str, candidate_file: Path, *,
                                      model_kind: str, parameter_count: int, stored_values: int,

@@ -674,6 +674,26 @@ manifestがfailed、episode数0、error.txtが保存されることを確認し�
 - 機能テストを実行した場合の結果:
   - `APC_RUN_MANISKILL_TEST=1 pytest -q tests/test_primitive_feature.py` が通過（3 passed in 205s）。
 
+### 2026-09-25 — 次期研究計画 P3/P4 実証（自動ライフサイクル実走と局所定着・忘却の観測）
+
+- 問い/今回変えた点:
+  - `docs/APC_NEXT_RESEARCH_PLAN.md` P3/P4 に従い、失敗局面の自律検知から局所Temporary獲得（MLP）、Candidate定着（CART）、一時物理解放（100%回収）、新プロセス自律評価・保持検証を一貫実行する自動化ランナー `scripts/run_apc_cycle.py` を実装・実走。
+  - `primitive_bank.py` の `find_candidate()` を未知時に `None`（abstain）を返す安全設計に改修。
+- commit / config / robot・controller / seed・split:
+  - Fetch Mobile Manipulator、20身体性プリミティブ、幾何特徴量v5、WSL2 Python 3.12。
+  - 対象seed: 3205（局所獲得対象）、3201（保持検証対象）。
+- 環境step・episode・学習step・wall time等の予算と実績:
+  - 全5ステージ実走: 総環境ステップ 3,989 steps、教師呼出し 782 steps、MLP勾配更新 2,000 steps、CART fit 1回、総壁時間 90.6秒。
+- runパス / 実データの観測 / 失敗した条件:
+  - `runs/p3-apc-cycle-evidence-20260925-a/`:
+    - Stage 0 (Base評価): 持ち上げラッチ導入済みBase CARTで seed 3205 完走（807 steps）。
+    - Stage 1 (Temporary獲得): 教師軌跡から局所MLP（11,092 params, 50,081 bytes）を銀行登録。
+    - Stage 3 (定着と解放): CART（0 params, 9,060 bytes）へ定着し、Temporaryを物理解放（11,092 params 100%回収、50,081 bytes回収）。
+    - Stage 4/5 (Candidate・保持評価): 単一エピソード（782 steps）のみから学習したCandidate CARTは分布シフトにより seed 3205 (1200 steps timeout) および seed 3201 (1200 steps timeout) で退行。
+- 解釈（測定と推測を分ける）:
+  - 測定事実: 実モデル（MLP → CART）による銀行ライフサイクル（定着・100%物理解放・台帳整合）が一貫して自動完走した。
+  - 分岐判断（第8節）: 「Temporaryで改善しCandidateで退行」および「過去タスクの忘却」を実測。単一エピソードの教師行動のみから小さな決定木を直接学習すると、自律実行時の誤差累積と過去能力の破滅的忘却が生じる。Candidateの定着にはBaseモデルデータとの合成（局所パッチ蒸留）または生徒自身が訪れる状態の追加収集（DAgger的再ラベル）が不可欠であることが実証された。
+
 ## 追記テンプレート
 
 ### YYYY-MM-DD — 変更点の短い名前

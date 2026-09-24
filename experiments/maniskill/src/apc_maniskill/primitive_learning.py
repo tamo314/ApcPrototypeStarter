@@ -158,7 +158,7 @@ def train(source: Path, output: Path, *, updates=3000, seed=0,
             raise ValueError("DAgger rows require explicit valid teacher labels")
         dagger_rows.extend(row for row in new_rows if row["step"] % stride == 0)
     episodes = sorted({row["episode"] for row in rows[:primary_rows]})
-    if len(episodes) < 2:
+    if not train_all and len(episodes) < 2:
         raise ValueError("Need at least two episodes for episode-level validation")
     x = np.stack([features(row["info"]["diagnostic"]["pre_action_state"], feature_schema, len(names))
                   for row in rows + dagger_rows])
@@ -312,6 +312,61 @@ class LearnedSelector:
 
 # Preserve the existing public import used by earlier scripts and saved sources.
 MLPSelector = LearnedSelector
+
+
+class CompositePatchSelector:
+    """Combines a frozen base selector with a local temporary patch selector.
+    
+    The temporary selector intervenes when the patch condition is met
+    (e.g., table approach or following IK/path rejection).
+    """
+    def __init__(self, base_selector, patch_selector, patch_condition_fn=None):
+        self.base_selector = base_selector
+        self.patch_selector = patch_selector
+        self.patch_condition_fn = patch_condition_fn
+        self.metadata = dict(
+            base_selector.metadata,
+            selector=f"composite_{base_selector.metadata.get('selector', 'base')}_{patch_selector.metadata.get('selector', 'patch')}",
+            learned=True,
+            composite=True,
+            base_selector_name=base_selector.metadata.get("selector"),
+            patch_selector_name=patch_selector.metadata.get("selector"),
+        )
+        self.last_scores = []
+        self.patch_applied = False
+
+    @property
+    def primitive_count(self):
+        return self.base_selector.primitive_count
+
+    def reset(self):
+        self.base_selector.reset()
+        self.patch_selector.reset()
+        self.last_scores = []
+        self.patch_applied = False
+
+    def select(self, step, observation):
+        use_patch = False
+        if self.patch_condition_fn is not None:
+            use_patch = self.patch_condition_fn(step, observation)
+        else:
+            # Default local patch condition: ungrasped near table/cube or following rejection
+            cube = np.asarray(observation["cube_position"])
+            hand = np.asarray(observation["measured_hand_position"])
+            grasped = observation.get("grasped", False)
+            last_reject = observation.get("last_override_reason_code", 0) == 2
+            use_patch = (not grasped and (hand[2] - cube[2] < 0.12 or last_reject))
+
+        if use_patch:
+            action = self.patch_selector.select(step, observation)
+            self.last_scores = getattr(self.patch_selector, "last_scores", [])
+            self.patch_applied = True
+            return action
+        else:
+            action = self.base_selector.select(step, observation)
+            self.last_scores = getattr(self.base_selector, "last_scores", [])
+            self.patch_applied = False
+            return action
 
 
 def main():
