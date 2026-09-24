@@ -29,9 +29,13 @@ def main():
     parser.add_argument("--checkpoint", type=Path)
     parser.add_argument("--query-teacher", action="store_true")
     parser.add_argument("--pitch-deg", type=float, default=15)
+    parser.add_argument("--base-switch-x-m", type=float, default=0.195)
+    parser.add_argument("--ik-reset-seed", action="store_true")
     args = parser.parse_args()
     if args.pitch_deg != 15 and args.selector != "base_ready_pick":
         parser.error("pitch diagnostic is supported only by base_ready_pick")
+    if args.base_switch_x_m != 0.195 and args.selector != "base_ready_pick":
+        parser.error("base switch diagnostic is supported only by base_ready_pick")
     if (args.selector in ("mlp", "tree", "tree_probe", "mlp_pitch_guard")) != (args.checkpoint is not None):
         parser.error("learned selectors require --checkpoint, other selectors do not")
     if args.selector in ("mlp", "tree", "tree_probe", "mlp_pitch_guard") and not args.rotations:
@@ -83,13 +87,15 @@ def main():
                         else BaseThenPickSelector() if args.selector == "base_then_pick"
                         else BaseRecoverPickSelector() if args.selector == "base_recover_pick"
                         else BaseApproachPickSelector() if args.selector == "base_approach_pick"
-                        else BaseReadyPickSelector(desired_pitch_deg=args.pitch_deg) if args.selector == "base_ready_pick"
+                        else BaseReadyPickSelector(desired_pitch_deg=args.pitch_deg,
+                                                   base_switch_x_m=args.base_switch_x_m) if args.selector == "base_ready_pick"
                         else BaseReadyAxisRetryPickSelector() if args.selector == "base_ready_axis_retry_pick"
                         else BaseReadyRecoverPickSelector() if args.selector == "base_ready_recover_pick"
                         else BaseReadySettledPickSelector() if args.selector == "base_ready_settled_pick"
                         else WaitThenPickSelector() if args.selector == "wait_then_pick" else None)
         return PrimitivePolicy(env, output, allow_rotation=args.rotations, allow_base=args.base,
-                               selector=selector, query_teacher=args.query_teacher)
+                               selector=selector, query_teacher=args.query_teacher,
+                               ik_reset_seed=args.ik_reset_seed)
 
     collect(config, args.out, policy_factory=factory)
     json_write(args.out / "summary.json", summarize(args.out))

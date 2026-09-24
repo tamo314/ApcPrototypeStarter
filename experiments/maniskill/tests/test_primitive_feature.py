@@ -1,6 +1,8 @@
 """One real-simulator path: target operations, teacher data, train, reload, rollout."""
 import json
 import os
+from pathlib import Path
+import runpy
 
 import numpy as np
 import pytest
@@ -164,6 +166,39 @@ def test_primitive_to_saved_rollout_and_selector(tmp_path):
         seed=2802, env_id="APC-FetchPickCubeFar-v1")
     assert any(r["info"]["diagnostic"]["pre_action_state"]["last_override_reason_code"] == 2
                and r["info"]["diagnostic"]["proposed_id"] in (3, 5) for r in axis_retry)
+
+    # Probe the live first rejection; kinematic queries must leave the replay
+    # unchanged. The existing axis-retry comparison differs only after it.
+    probe_class = runpy.run_path(str(Path(__file__).resolve().parents[1]
+                                    / "scripts/probe_primitive_reachability.py"))["ReachabilityProbe"]
+    reach_out, reach_rows = run("reachability", 1, 475, probe_class,
+                                seed=2802, env_id="APC-FetchPickCubeFar-v1")
+    reach = json.loads((reach_out / "reachability_000.json").read_text())
+    stop = reach["step"] + 1
+    assert [r["info"]["diagnostic"]["submitted_action"] for r in reach_rows[:stop]] == [
+        r["info"]["diagnostic"]["submitted_action"] for r in axis_retry[:stop]]
+    assert reach["candidates"] and all(np.isfinite(c["residual"]) for c in reach["candidates"])
+    assert all(c["success"] and c["within_limits"] and c["path_clearance_m"] >= .002
+               for c in reach["candidates"] if c["feasible"])
+
+    _, forward_rows = run("forward_switch", 1, 240, lambda env, output: PrimitivePolicy(
+        env, output, selector=BaseReadyPickSelector(base_switch_x_m=.215),
+        allow_rotation=True, allow_base=True), seed=2802, env_id="APC-FetchPickCubeFar-v1")
+    assert any(r["info"]["diagnostic"]["interruption_reason_code"] == 2
+               and r["info"]["diagnostic"]["pre_action_state"]["base_pose"][0] >= .215
+               for r in forward_rows)
+
+    _, reseed_rows = run("ik_reseed", 1, 675, lambda env, output: PrimitivePolicy(
+        env, output, selector=BaseReadyPickSelector(desired_pitch_deg=0, base_switch_x_m=.215),
+        allow_rotation=True, allow_base=True, ik_reset_seed=True),
+        seed=2803, env_id="APC-FetchPickCubeFar-v1")
+    recovered = [r["info"]["diagnostic"] for r in reseed_rows
+                 if r["info"]["diagnostic"].get("ik_reset_seed_used")]
+    assert recovered
+    assert all(d["ik_success"] and d["ik_within_limits"] and d["ik_table_clear"]
+               and d["ik_reset_seed_attempts"] == 5 and d["override_reason_code"] == 0
+               for d in recovered)
+    assert all(d["ik_position_error_m"] < .001 for d in recovered)
 
     def probe_factory(env, output):
         learned_selector = LearnedSelector(tree_train / "selector.pt", env.unwrapped.experiment_metadata(),

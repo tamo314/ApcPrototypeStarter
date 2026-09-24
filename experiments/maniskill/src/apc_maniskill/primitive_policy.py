@@ -234,16 +234,19 @@ class BaseReadyPickSelector:
     metadata = dict(base_switch_measured_x_m=0.195, base_ready_error_m=0.001,
                     base_ready_min_age_steps=15)
 
-    def __init__(self, desired_pitch_deg=15):
+    def __init__(self, desired_pitch_deg=15, base_switch_x_m=0.195):
+        if not np.isfinite(base_switch_x_m) or base_switch_x_m < 0:
+            raise ValueError("base switch position must be finite and nonnegative")
         self.pick = PickPlaceSelector(use_rotation=True, desired_pitch_deg=desired_pitch_deg)
-        self.metadata = dict(type(self).metadata, desired_pitch_deg=desired_pitch_deg)
+        self.metadata = dict(type(self).metadata, desired_pitch_deg=desired_pitch_deg,
+                             base_switch_measured_x_m=base_switch_x_m)
 
     def reset(self):
         self.pick.reset()
 
     def select(self, step, observation):
         error = np.linalg.norm(np.asarray(observation["base_target"]) - observation["base_pose"])
-        if observation["base_pose"][0] >= 0.195:
+        if observation["base_pose"][0] >= self.metadata["base_switch_measured_x_m"]:
             return self.pick.select(step, observation)
         if observation["mode_code"] == 0:
             return 16
@@ -330,7 +333,7 @@ class BaseReadySettledPickSelector(BaseReadyPickSelector):
 
 class PrimitivePolicy(ArmIKPolicy):
     def __init__(self, env, output, *, config: PrimitiveConfig | None = None, selector=None,
-                 allow_rotation=False, allow_base=False, query_teacher=False):
+                 allow_rotation=False, allow_base=False, query_teacher=False, ik_reset_seed=False):
         self.primitive_config = config or PrimitiveConfig()
         self.primitive_config.validate()
         self.selector = selector or ManualSelector()
@@ -343,7 +346,7 @@ class PrimitivePolicy(ArmIKPolicy):
         self.teacher = (BaseReadyPickSelector() if allow_base else
                         PickPlaceSelector(use_rotation=allow_rotation)) if query_teacher else None
         super().__init__(env, output, protocol="track", torso_ik=True, table_clearance=True,
-                         offset=(0, 0, 0))
+                         offset=(0, 0, 0), ik_reset_seed=ik_reset_seed)
         if tuple(self.env.agent.controller.action_mapping["base"]) != (11, 13):
             raise ValueError("Fetch base channels must be action[11:13]")
         self.metadata.update(source="primitive selector and persistent IK target executor",

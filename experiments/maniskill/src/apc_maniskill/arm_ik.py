@@ -13,7 +13,7 @@ def physical_pose(pose):
 
 class ArmIKPolicy:
     def __init__(self, env, output, *, offset=(0, 0, 0.02), protocol="track", pitch_deg=90,
-                 torso_ik=False, grasp_height=0.0, table_clearance=False):
+                 torso_ik=False, grasp_height=0.0, table_clearance=False, ik_reset_seed=False):
         self.env = env.unwrapped
         self.space = env.action_space
         self.offset = np.asarray(offset, dtype=float)
@@ -28,6 +28,7 @@ class ArmIKPolicy:
             raise ValueError("grasp_height must be finite and nonnegative")
         self.grasp_height = grasp_height
         self.table_clearance = table_clearance
+        self.ik_reset_seed = ik_reset_seed
         if self.offset.shape != (3,) or not np.isfinite(self.offset).all():
             raise ValueError("offset must be three finite metres")
         if (self.env.agent.uid != "fetch" or self.env.control_mode != "pd_joint_delta_pos"
@@ -46,6 +47,7 @@ class ArmIKPolicy:
                                      if protocol == "pick_place" else
                                      ["approach", "descend", "close", "lift", "hold"] if protocol == "pick" else ["track"]))
         self.metadata["torso_fallback_anchors_m"] = [0.1, 0.2, 0.3, 0.386] if torso_ik else []
+        self.metadata["ik_reset_arm_seed_fallback"] = ik_reset_seed
         self.metadata["action_mapping"] = self.env.agent.controller.action_mapping
         self.metadata["arm_indices"] = array(self.env.agent.controller.controllers["arm"].active_joint_indices).tolist()
         self.metadata["body_indices"] = array(self.env.agent.controller.controllers["body"].active_joint_indices).tolist()
@@ -175,11 +177,38 @@ class ArmIKPolicy:
                 _, solution, error = min(candidates, key=lambda item: item[0])
                 success = within_limits = True
                 clear = True
+        reset_seed_used = False
+        reset_seed_attempts = 0
+        if self.ik_reset_seed and not (success and within_limits and clear):
+            candidates = []
+            for height in [None] + self.metadata["torso_fallback_anchors_m"]:
+                initial = qpos.copy()
+                initial[self.arm_indices] = self.initial_qpos[self.arm_indices]
+                mask = self.mask.copy()
+                if height is not None:
+                    initial[self.torso_index] = height
+                    mask[self.torso_index] = 0
+                candidate, valid, residual = self.model.compute_inverse_kinematics(
+                    self.link_index, local_target, initial_qpos=initial,
+                    active_qmask=mask, eps=1e-4, max_iterations=500)
+                attempts += 1
+                reset_seed_attempts += 1
+                if not np.isfinite(candidate).all() or not np.isfinite(residual):
+                    raise ValueError("Nonfinite reset-seed IK result")
+                if valid and ((candidate[self.ik_indices] >= limits[self.ik_indices, 0])
+                              & (candidate[self.ik_indices] <= limits[self.ik_indices, 1])).all():
+                    if not self.table_clearance or self.path_clearance(qpos, candidate, root) >= .002:
+                        candidates.append((np.linalg.norm(candidate - qpos), candidate, residual))
+            if candidates:
+                _, solution, error = min(candidates, key=lambda item: item[0])
+                success = within_limits = clear = reset_seed_used = True
         self.model.compute_forward_kinematics(solution)
         achieved = root * self.model.get_link_pose(self.link_index)
         self.last_solver = dict(ik_success=bool(success), ik_within_limits=within_limits,
                                ik_table_clear=bool(clear),
                                ik_attempts=attempts, ik_se3_error=float(error),
+                               ik_reset_seed_attempts=reset_seed_attempts,
+                               ik_reset_seed_used=reset_seed_used,
                                ik_position_error_m=float(np.linalg.norm(achieved.p - self.target.p)),
                                solution_qpos=solution.tolist(), pre_action_qpos=qpos.tolist())
         action = np.zeros(self.space.shape, dtype=self.space.dtype)
