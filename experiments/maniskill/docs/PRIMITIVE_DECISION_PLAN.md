@@ -629,3 +629,22 @@ APC（Adaptive Primitive Composition）の中核仮説である「一次的なTe
 
 本実証により、RESEARCH_PLANに掲げられた全6項目（身体性プリミティブの定義、毎step自律選択、未知seed汎化、Temporary獲得、Candidate定着と一時リソース完全解放、過去能力保持）が、実物理シミュレータ上で完結した。
 
+## 21. 2026-09-24 多タスクプリミティブ銀行の拡張と異種タスク（Place）ライフサイクル実証
+
+単一タスクのライフサイクル実証に続き、共通の20身体性プリミティブを用いつつ、異種タスク（運搬目標が+15 cmオフセットされた `APC-FetchPlaceCubeFar-v1`）を追加獲得し、銀行内に複数タスクのスキルを共存・保持させる多タスク実証を行った。
+
+1. **環境拡張と対照実験**:
+   - `APC-FetchPlaceCubeFar-v1`: Cubeの持ち上げ後、テーブル横方向（Y軸 +15 cm）のオフセット地点へ運搬・配置して静止するタスク。
+   - 対照実験: Task A（Pick）のCandidateをTask B（Place）へ投入。幾何特徴によるアプローチ・把持は再利用されるものの、タスク特化の運搬目標への適応を検証（`--allow-task-mismatch` で測定）。
+2. **Task B のTemporary獲得・定着・解放**:
+   - 教師データ（seed 3001〜3003、2,433 steps、3/3成功）から、Task B 用のTemporary MLP（9,812パラメータ、44,769 bytes）を学習・銀行登録。
+   - 57ノードのCART決定木（0パラメータ、11,300 bytes、検証精度96.6%）へ定着（9,812パラメータ削減、33,469 bytes容量削減）。
+   - Temporaryモデルを物理削除し、メモリ・パラメータ・ストレージを100%解放（reclaimed: 9,812 params, 44,769 bytes）。
+3. **多タスク自律実行と非破壊保持 (`scripts/run_bank_multitask.py` / `runs/bank-multitask-evidence-20260924-b`)**:
+   - **Task B 解決**: 銀行から `fetch_place_v1` をロードし、追加学習0で seed 3001 を実行して **1/1（100.0%）完全成功**（837 steps、mean return 134.22）。
+   - **Task A 保持**: 銀行から `fetch_pick_v1` をロードし、Task A（PickCubeFar, seed 2801）を実行して **1/1（100.0%）完全成功**（691 steps、mean return 87.89）を維持。
+   - **銀行監査**: 銀行台帳（`bank.json`）に2つの定着済みスキル（Pick 21,220 bytes、Place 11,300 bytes）が共存し、SHA256ハッシュ完全一致で完全性を確認。
+
+これにより、APCが複数タスクに対しても「身体性プリミティブを基盤とした逐次Temporary獲得 → 構造化Candidate定着 → リソース完全解放 → 複数スキルの銀行蓄積と非破壊即時再利用」というスケーラブルな適応サイクルを完全に実現できることが実証された。
+
+

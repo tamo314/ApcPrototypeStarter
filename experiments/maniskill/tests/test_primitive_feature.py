@@ -346,3 +346,72 @@ def test_primitive_bank_lifecycle(tmp_path):
     assert reloaded_bank.entries["temp_nav_pick"].kind == "consolidated"
     assert reloaded_bank.entries["temp_nav_pick"].parameter_count == 0
 
+
+def test_primitive_bank_multitask(tmp_path):
+    from apc_maniskill.primitive_bank import PrimitiveBank
+
+    bank_dir = tmp_path / "multitask_bank"
+    bank = PrimitiveBank(bank_dir)
+
+    # 1. Register Task A Candidate
+    pick_file = tmp_path / "cand_pick.pt"
+    pick_file.write_bytes(b"PICK_CART_MODEL_145_NODES")
+    bank.register(
+        entry_id="fetch_pick_v1",
+        name="Task A: Pick",
+        source_file=pick_file,
+        kind="consolidated",
+        model_kind="cart",
+        primitive_count=20,
+        parameter_count=0,
+        stored_values=145,
+        metadata={"task": "APC-FetchPickCubeFar-v1"}
+    )
+    assert len(bank.entries) == 1
+
+    # 2. Register Task B Temporary
+    place_temp_file = tmp_path / "temp_place.pt"
+    place_temp_file.write_bytes(b"PLACE_MLP_MODEL_9812_PARAMS")
+    bank.register(
+        entry_id="fetch_place_v1",
+        name="Task B: Place (Temporary)",
+        source_file=place_temp_file,
+        kind="temporary",
+        model_kind="mlp",
+        primitive_count=20,
+        parameter_count=9812,
+        stored_values=9812,
+        metadata={"task": "APC-FetchPlaceCubeFar-v1"}
+    )
+    assert len(bank.entries) == 2
+    assert bank.entries["fetch_pick_v1"].kind == "consolidated"
+    assert bank.entries["fetch_place_v1"].kind == "temporary"
+
+    # 3. Consolidate Task B into Candidate
+    place_cand_file = tmp_path / "cand_place.pt"
+    place_cand_file.write_bytes(b"PLACE_CART_MODEL_57_NODES")
+    bank.consolidate(
+        entry_id="fetch_place_v1",
+        candidate_file=place_cand_file,
+        model_kind="cart",
+        parameter_count=0,
+        stored_values=57,
+        metadata={"tree_nodes": 57}
+    )
+    assert bank.entries["fetch_place_v1"].kind == "consolidated"
+    assert bank.entries["fetch_place_v1"].metadata["consolidation_stats"]["parameter_reduction"] == 9812
+
+    # 4. Release Task B Temporary
+    audit_res = bank.release_temporary("fetch_place_v1")
+    assert audit_res["status"] == "fully_released"
+    assert audit_res["reclaimed_parameters"] == 9812
+
+    # 5. Verify both Task A and Task B Candidates are retained
+    audit = bank.audit()
+    assert audit["entry_count"] == 2
+    assert audit["entries"]["fetch_pick_v1"]["exists"]
+    assert audit["entries"]["fetch_pick_v1"]["sha256_match"]
+    assert audit["entries"]["fetch_place_v1"]["exists"]
+    assert audit["entries"]["fetch_place_v1"]["sha256_match"]
+
+

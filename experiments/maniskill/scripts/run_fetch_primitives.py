@@ -36,7 +36,10 @@ def main():
     parser.add_argument("--grasp-height-m", type=float, default=.012)
     parser.add_argument("--recover-lost-grasp", action="store_true")
     parser.add_argument("--pre-rotate", action="store_true")
+    parser.add_argument("--place-goal", action="store_true")
+    parser.add_argument("--allow-task-mismatch", action="store_true")
     args = parser.parse_args()
+
     if args.pitch_deg != 15 and args.selector != "base_ready_pick":
         parser.error("pitch diagnostic is supported only by base_ready_pick")
     if args.base_switch_x_m != 0.195 and args.selector != "base_ready_pick":
@@ -69,10 +72,15 @@ def main():
         parser.error("teacher queries are only recorded alongside learned execution")
     if args.base and args.query_teacher and not args.far_start:
         parser.error("the 20-ID teacher requires --far-start")
-    config = RunConfig(env_id="APC-FetchPickCubeFar-v1" if args.far_start else "APC-FetchPickCube-v1",
+    if args.place_goal and not args.far_start:
+        parser.error("--place-goal requires --far-start")
+    env_id = ("APC-FetchPlaceCubeFar-v1" if args.place_goal else
+              "APC-FetchPickCubeFar-v1" if args.far_start else "APC-FetchPickCube-v1")
+    config = RunConfig(env_id=env_id,
                        robot_uids="fetch", policy="external",
                        episodes=args.episodes, seed=args.seed, max_steps=args.max_steps,
                        env_max_steps=args.max_steps,
+
                        post_success_steps=args.post_success_steps,
                        task_label=args.selector + ("_fetch20_primitives" if args.base else
                                                    "_fetch16_primitives" if args.rotations else
@@ -85,7 +93,9 @@ def main():
             copied = output / "selector.pt"
             shutil.copy2(args.checkpoint, copied)
             selector = LearnedSelector(copied, env.unwrapped.experiment_metadata(),
-                                   float(env.unwrapped.sim_config.control_freq))
+                                       float(env.unwrapped.sim_config.control_freq),
+                                       strict_task=not args.allow_task_mismatch)
+
             if (args.selector in ("tree", "tree_probe")) != (selector.model_kind == "cart"):
                 raise ValueError("Runner selector kind does not match checkpoint model")
             if selector.primitive_count != (20 if args.base else 16):

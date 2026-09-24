@@ -244,12 +244,13 @@ def train(source: Path, output: Path, *, updates=3000, seed=0,
 
 
 class LearnedSelector:
-    def __init__(self, checkpoint: Path, task, control_freq):
+    def __init__(self, checkpoint: Path, task, control_freq, strict_task: bool = True):
         saved = torch.load(checkpoint, map_location="cpu", weights_only=False)
         if (saved["schema"] not in (SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6)
                 or saved["primitive_names"] not in (list(NAMES), list(NAMES20))
-                or saved["task"] != task or saved["control_freq"] != control_freq):
+                or (strict_task and saved["task"] != task) or saved["control_freq"] != control_freq):
             raise ValueError("Primitive selector checkpoint schema or task mismatch")
+
         self.primitive_count = len(saved["primitive_names"])
         if (saved["schema"] in (SCHEMA_V3, SCHEMA_V4, SCHEMA_V5, SCHEMA_V6)) != (self.primitive_count == 20):
             raise ValueError("Primitive bank and feature schema mismatch")

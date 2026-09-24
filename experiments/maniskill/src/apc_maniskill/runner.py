@@ -111,7 +111,7 @@ class RunConfig:
         if type(self.post_success_steps) is not int or self.post_success_steps < 0:
             raise ValueError("post_success_steps must be a nonnegative integer")
         if self.post_success_steps and self.env_id not in ("APC-FetchReachGoal-v1", "APC-FetchPickCube-v1",
-                                                           "APC-FetchPickCubeFar-v1"):
+                                                           "APC-FetchPickCubeFar-v1", "APC-FetchPlaceCubeFar-v1"):
             raise ValueError("Post-success diagnostics require a local Fetch task")
         for name in ("episodes", "max_steps"):
             value = getattr(self, name)
@@ -147,8 +147,9 @@ def make_env(config: RunConfig, output: Path) -> Any:
     import mani_skill.envs  # noqa: F401 -- registers tasks
     if config.env_id == "APC-FetchReachGoal-v1":
         from . import fetch_reach  # noqa: F401 -- registers local task
-    if config.env_id in ("APC-FetchPickCube-v1", "APC-FetchPickCubeFar-v1"):
+    if config.env_id in ("APC-FetchPickCube-v1", "APC-FetchPickCubeFar-v1", "APC-FetchPlaceCubeFar-v1"):
         from . import fetch_pick  # noqa: F401 -- registers corrected task
+
 
     if not config.video:
         from .headless import install_headless_compat

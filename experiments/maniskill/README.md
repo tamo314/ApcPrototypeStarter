@@ -13,22 +13,28 @@ WindowsとWSLの専用venvでCPU実行を確認した。
 CART決定木（145ノード、検証精度99.11%）を学習し、完全新規未知seed 3201〜3205において
 手設計補助なしで**4/5（80%）把持・運搬到達、2/5完全成功（接触0.0 N）**を達成した。
 
-**2026-09-24 APCプリミティブ銀行とTemporaryライフサイクル実証:**
-`apc_maniskill.primitive_bank` と `scripts/run_bank_lifecycle.py` を実装し、
-実物理シミュレータ環境で5ステージの全自動ライフサイクルを一貫実証（`runs/bank-lifecycle-evidence-20260924-d`）。
-- **Stage 1 (Acquisition)**: Temporaryセレクター（MLP 11,092 params, 50,273 bytes）を登録。
-- **Stage 2 (Consolidation)**: Candidateセレクター（CART 145 nodes, 0 grad params, 21,220 bytes）へ定着（11,092 params削減）。
-- **Stage 3 (Release)**: Temporaryファイルを物理削除し、メモリ・パラメータ・ストレージを100%解放（reclaimed: 11,092 params, 50,273 bytes）。
-- **Stage 4 (Clean Reuse)**: 銀行からロードしたCandidate単独で未知seed 3201〜3203を実行。追加学習0で初回・最終 2/3 成功（return 168.99）。
-- **Stage 5 (Retention)**: 過去基準seed 2801を実行し、1/1成功（return 237.95）を非干渉に保持。
-これにより、RESEARCH_PLANに掲げられた全6項目が実シミュレータ上で完結した。
+**2026-09-24 APCプリミティブ銀行と多タスク・Temporaryライフサイクル実証:**
+`apc_maniskill.primitive_bank` と全自動ライフサイクルスクリプトを実装し、
+実物理シミュレータ環境で単一タスクおよび多タスク（PickとPlace）の一貫実証を完了。
+- **ライフサイクル実証 (`runs/bank-lifecycle-evidence-20260924-d`)**:
+  - Temporary獲得（MLP 11,092 params）→ Candidate定着（CART 145 nodes, 0 params）→ 一時モデル完全物理解放（11,092 params 100%解放）→ 未知seed再利用（2/3成功）→ 過去能力保持（1/1成功）。
+- **多タスク銀行蓄積実証 (`runs/bank-multitask-evidence-20260924-b`)**:
+  - 共通の20身体性プリミティブを用い、運搬先が+15 cmオフセットされた異種タスク `APC-FetchPlaceCubeFar-v1` を獲得・定着・解放。
+  - 銀行台帳（`bank.json`）に Task A（Pick 21,220 bytes）と Task B（Place 11,300 bytes）を同時に蓄積。
+  - 追加学習0で Task B（1/1 100%成功）および Task A（1/1 100%成功）を相互干渉なしに両立実行。
+これにより、RESEARCH_PLANに掲げられた全項目および多タスク拡張が実シミュレータ上で完結した。
 
 学習済み決定木・銀行の実行例（既存WSL環境）:
 
 ```bash
-# 銀行ライフサイクルの全自動実行と監査
-python scripts/run_bank_lifecycle.py --bank-dir runs/my-bank --out runs/my-lifecycle-run
+# 多タスク銀行ライフサイクルの全自動実行と監査
+python scripts/run_bank_multitask.py \
+  --pick-candidate runs/primitive-augmented-tree-train-20260924-a/selector.pt \
+  --place-temp runs/temp-place-train-20260924-a/selector.pt \
+  --place-candidate runs/cand-place-train-20260924-a/selector.pt \
+  --out runs/my-multitask-bank-run
 ```
+
 
 
 ## 1. セットアップ

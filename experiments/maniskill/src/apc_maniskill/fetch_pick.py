@@ -51,3 +51,24 @@ class FetchPickCubeFar(FetchPickCube):
     def experiment_metadata(self):
         return dict(super().experiment_metadata(), start_back_m=self.start_back_m,
                     placement_distribution="same as APC-FetchPickCube-v1")
+
+
+@register_env("APC-FetchPlaceCubeFar-v1", max_episode_steps=50)
+class FetchPlaceCubeFar(FetchPickCubeFar):
+    """Same far start, with goal placed at an offset location on the table."""
+
+    goal_offset_y_m = 0.15
+
+    def _initialize_episode(self, env_idx, options):
+        super()._initialize_episode(env_idx, options)
+        from .runner import array
+
+        original = self.goal_site.pose
+        position = array(original.p)[0]
+        position[1] += self.goal_offset_y_m
+        self.goal_site.set_pose(sapien.Pose(position, array(original.q)[0]))
+
+    def experiment_metadata(self):
+        return dict(super().experiment_metadata(), goal_offset_y_m=self.goal_offset_y_m,
+                    task_kind="place_cube_far")
+

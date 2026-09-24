@@ -597,8 +597,29 @@ manifestがfailed、episode数0、error.txtが保存されることを確認し�
     - Temporary解放: reclaimed 11,092 params (100%), 50,273 bytes
     - 未知seed再利用: 3 episode, 2,758 steps, 初回・最終 2/3 (66.7%) 成功
     - 過去seed保持: 1 episode, 747 steps, 初回・最終 1/1 (100.0%) 成功
-- 計測/解釈: runner **4 episode / 3,505環境step**、壁時間約52秒、学習更新0。全runner completed、例外なし。APCの本質的仮説である「一次的なTemporaryモデルによるスキル獲得 → 構造化Candidateへの蒸留・定着 → Temporaryの完全解放によるリソース回収 → 解放後のCandidate単独再利用による即時タスク解決 → 過去タスクの非破壊保持」の全ライフサイクルを実シミュレータ環境で一貫実証した。
 - 検証: `tests/test_primitive_feature.py` に `test_primitive_bank_lifecycle` を追加し通過（1 passed in 0.36s）。
+
+### 2026-09-24 — 多タスクプリミティブ銀行の拡張と異種タスク（Place）ライフサイクル実証
+
+- 基点 `a47ef2b`、WSL Python3.12/CPU、Fetch遠方開始、20 Hz制御、自律CARTセレクター。
+- 課題と実装:
+  - 1. **異種タスク `APC-FetchPlaceCubeFar-v1` の導入**: テーブル上のゴール位置を横方向（Y軸 +15 cm）へオフセットしたPlaceタスク環境を定義。
+  - 2. **クロス転移・対照実験**: Task A（Pick）のCandidateモデルをTask B（Place）に投入し、目標オフセット下での動作と成否を検証（`--allow-task-mismatch` オプション追加）。
+  - 3. **Task B 用のTemporary獲得とCandidate定着**:
+    - 教師データ収集: seed 3001〜3003で3/3（100.0%）初回成功・hold_completeを達成（2,433 steps）。
+    - Temporary獲得: MLP（9,812 params, 44,769 bytes, 検証精度85.5%）を学習・銀行登録。
+    - Candidate定着: CART決定木（57 nodes, 0 grad params, 11,300 bytes, 検証精度96.6%）へ定着（9,812 params削減、33,469 bytes容量削減）。
+    - Temporary解放: Temporaryモデルを物理削除（reclaimed: 9,812 params, 44,769 bytes, 100%解放）。
+  - 4. **多タスク共存と非破壊保持の実証 (`scripts/run_bank_multitask.py`)**:
+    - Task B 解決: 銀行から `fetch_place_v1` をロードし、追加学習0で seed 3001 を実行して **1/1（100.0%）完全成功**（mean return 134.22, 837 steps）。
+    - Task A 保持: 同時に銀行から `fetch_pick_v1` をロードし、Task A（PickCubeFar, seed 2801）を実行して **1/1（100.0%）完全成功**（mean return 87.89, 691 steps）を維持。
+- 実績表:
+  - run: `runs/bank-multitask-evidence-20260924-b/`
+  - 銀行監査結果 (`multitask_report.json`):
+    - 登録エントリ数: 2（`fetch_pick_v1`: 21,220 bytes, `fetch_place_v1`: 11,300 bytes）
+    - 両モデルとも0勾配パラメータ、SHA256ハッシュ完全一致で健全性を確認。
+- 計測/解釈: runner **3 episode / 2,351環境step**、壁時間約70秒、学習更新0。全runner completed、例外なし。単一タスクの獲得・解放にとどまらず、身体性プリミティブを共有しながら「タスクごとにTemporary獲得 → 定着 → 解放」を順次行い、過去のスキルを破壊することなく銀行内に複数タスク（PickとPlace）のCandidateを蓄積・即時再利用できることが実証された。
+- 検証: `tests/test_primitive_feature.py` に `test_primitive_bank_multitask` を追加し通過（2 passed in 0.36s）。
 
 ## 追記テンプレート
 
@@ -613,4 +634,5 @@ manifestがfailed、episode数0、error.txtが保存されることを確認し�
 - 機能テストを実行した場合の結果 / 未実行と理由:
 
 見込みと違ってもそのまま記録し、設定変更や小さい試行に戻ってよい。
+
 
