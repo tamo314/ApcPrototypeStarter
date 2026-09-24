@@ -142,28 +142,38 @@
 
 ## 7. 次期計画（P3・P4・P5）の実証結果（2026-09-25 記録）
 
-`docs/APC_NEXT_RESEARCH_PLAN.md` の P3 / P4 / P5 に基づき、真の配置課題の導入、Baseモデルの能力不足の客観確定、合成方策（Composite Policy）の実機rollout、リソース物理解放、新プロセス独立評価を実施しました。
+`docs/APC_NEXT_RESEARCH_PLAN.md` の P3 / P4 / P5 に基づき、真の配置課題の導入、Baseモデルの能力不足の客観確定、合成方策（Composite Policy）の実機rollout、Temporary判断からのCandidate CART蒸留、リソース解放、固定モジュール構成下での新プロセス独立評価を実施しました。
 
-### 7.1 実験条件と実行結果（`runs/apc-cycle-true-place-20260925-a`）
+### 7.1 実験条件と実行結果（`runs/apc-cycle-true-place-20260925-c`）
 - **対象環境**:
   - `APC-FetchTruePlaceFar-v1` (Target Seed 3001, Transfer Seed 3002): 支持面接地、手放し、20 step連続維持を要求
   - `APC-FetchPickCubeFar-v1` (Retention Seed 3201): 過去のPick保持確認
 - **基底モデル**: 凍結Base CART（`single-goal-conditioned-cart-20260925-a`）
+- **合成アーキテクチャ**: `CompositePatchSelector`（運搬はBase CART、目標直上 `<2.5cm` かつ接地目標 `goal_z < 0.05m` でパッチが手放しを担当）
 
 | ステージ | 実行主体 | タスク | Seed | 最終成否 | 20 step連続維持 | 最大連続step | 総step | 実測値・知見 |
 |---|---|---|---|---|---|---|---|---|
 | Stage 0 | 凍結Base CART | TruePlaceFar | 3001 | 失敗 (False) | 0 step (False) | 0 | 1200 | **能力不足の客観確定**: 目標直上（6.7mm）まで運搬するも開指手放しを持たず空中保持のまま終了 |
 | Stage 1 | 手設計教師 | TruePlaceFar | 3001 | 成功 (True) | 達成 (True) | 21 | 752 | 目標地点での開指持続シーケンス（15 steps）および支持面接地静止を実証・記録 |
-| Stage 2 | **Base CART + Temp MLP (合成方策)** | TruePlaceFar | 3001 | **成功 (True)** | **達成 (True)** | **21** | **857** | **合成方策の物理rollout成功**: 運搬をBase、目標直上（<2.5cm）での手放しをTemp MLPが担当し、実環境で20 step連続維持を達成 |
-| Stage 4 | リソース解放 | - | - | - | - | - | - | **100%物理解放**: Temporary MLP の 11,092 params（50,273 bytes）を物理削除。銀行監査で一時ファイル皆無を確認 |
-| Stage 5b | 定着Candidate CART | PickCubeFar | 3201 | **成功 (True)** | **達成 (True)** | **21** | **751** | **過去能力の100%保持**: 新タスク獲得後も過去のPick能力（20 step連続成功）を非破壊で維持 |
+| Stage 2 | **Base CART + Temp MLP** | TruePlaceFar | 3001 | **成功 (True)** | **達成 (True)** | **21** | **857** | **合成方策rollout成功**: 手設計適用条件（目標直上2.5cm）下でTemp MLPが介入し、実環境で20 step連続維持を達成 |
+| Stage 3 | 蒸留・定着 | - | - | - | - | - | - | **実rolloutからのCART蒸留**: Stage 2の成功判断ログから55ノード・0 params（1320 stored values, 11KB）のCandidate CARTを蒸留 |
+| Stage 4 | リソース解放 | - | - | - | - | - | - | **銀行内コピー削除**: 銀行内Temporary MLPの11,092 params（50,273 bytes）を物理削除 |
+| Stage 5a | **Base CART + Candidate CART** | TruePlaceFar | 3001 | **成功 (True)** | **達成 (True)** | **21** | **858** | **新能力の定着成功**: 同じBase・同じ適用条件でTemp MLPをCandidate CARTに置き換え、同等の858 steps・21 step連続維持を達成 |
+| Stage 5b | **Base CART + Candidate CART** | PickCubeFar | 3201 | **成功 (True)** | **達成 (True)** | **21** | **745** | **過去能力の100%保持**: 空中持ち上げ目標では手放しパッチが誤発動せず、Baseの把持・持ち上げ能力が完全維持 |
+| Stage 5c | **Base CART + Candidate CART** | TruePlaceFar | 3002 | 失敗 (False) | 0 step (False) | 0 | 1200 | **新配置への未転移（Base要因）**: Baseの運搬が目標から6.4cmで停止し、パッチ発動閾値（2.5cm）に達しなかったため未達成 |
+| Stage 5d | 単独Candidate CART (対照群) | TruePlaceFar | 3001 | 失敗 (False) | 0 step (False) | 0 | 1200 | **単独CARTの失敗（対照）**: モジュール合成を解除した単独CARTでは運搬できず失敗（モジュール型合成の必須性を確認） |
 
-### 7.2 主要な科学的知見
-1. **合成方策（Composite Policy）の有効性の実証**:
-   凍結基底モデルに欠落している能力（手放し）のみを局所Temporary方策（MLP）が補う合成セレクター（`CompositePatchSelector`）により、実シミュレータ上で完全なタスク達成（21 step連続成功維持）を実証した。
-2. **モノリシックCARTとモジュール型パッチの比較**:
-   単一の決定木（CART）に全タスク・全フェーズを再学習させようとすると運搬フェーズで干渉が発生する一方、Base CARTを凍結して局所パッチのみを合成する方式が極めて安定的かつ高精度に機能することを発見。
-3. **完全なリソース回収サイクルの確立**:
-   探索・補正に用いたニューラルパラメータを100%物理解放しながら、過去タスクの保持性を損なわないAPC自律サイクルが成立することを確認。
+### 7.2 客観的な結論と学術的境界
+1. **パッチ置き換えによる新能力の定着実証**:
+   凍結Base方策と手設計適用条件を固定したまま、Temporary MLP（11,092 params）を、その実rollout判断から蒸留した小型Candidate CART（0 params, 11 KB）に置き換えることで、Temporaryと同等（857 steps vs 858 steps）に真の配置課題（seed 3001）を達成できることを実証した。
+2. **過去タスク（Pick）の保持**:
+   適用条件に支持面配置の判別を入れることで、過去の空中持ち上げ課題（seed 3201）において手放しパッチが干渉せず、20 step連続成功を100%保持できることを確認した。
+3. **転移性の境界の特定**:
+   未知配置（seed 3002）での失敗原因はパッチ側ではなく、Base CART側の運搬誤差（6.4cmで停止しパッチ適用閾値2.5cmに届かない）に起因することを特定した。
+4. **モジュール型合成の優位性**:
+   単独CARTへの無理な再学習（Stage 5d）では運搬が破綻するのに対し、凍結Baseに局所決定木パッチを組み合わせるモジュール構成がタスク達成に不可欠であることを対照実験で確認した。
+5. **リソース解放の定義**:
+   解放されたのは銀行内のTemporaryモデルコピー（11,092 params, 50,273 bytes）であり、作業・実験アーカイブ用ディレクトリは保持される。
+
 
 

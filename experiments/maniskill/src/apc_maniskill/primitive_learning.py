@@ -314,6 +314,27 @@ class LearnedSelector:
 MLPSelector = LearnedSelector
 
 
+class PlacePatchCondition:
+    """Latch activation when grasped object is within horizontal distance of goal."""
+    def __init__(self, threshold_m=0.025):
+        self.threshold_m = threshold_m
+        self.latched = False
+
+    def reset(self):
+        self.latched = False
+
+    def __call__(self, step, observation):
+        goal = np.asarray(observation["goal_position"])
+        if goal[2] > 0.05:
+            # Lift goal in mid-air (pick task); do not release
+            return False
+        grasped = observation.get("grasped", False)
+        cube = np.asarray(observation["cube_position"])
+        if grasped and np.linalg.norm(cube[:2] - goal[:2]) < self.threshold_m:
+            self.latched = True
+        return self.latched
+
+
 class CompositePatchSelector:
     """Combines a frozen base selector with a local temporary patch selector.
     
@@ -342,6 +363,8 @@ class CompositePatchSelector:
     def reset(self):
         self.base_selector.reset()
         self.patch_selector.reset()
+        if hasattr(self.patch_condition_fn, "reset"):
+            self.patch_condition_fn.reset()
         self.last_scores = []
         self.patch_applied = False
 

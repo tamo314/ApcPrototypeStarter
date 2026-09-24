@@ -1,4 +1,4 @@
-"""Complete APC Lifecycle: detect failure, train local temporary, composite rollout, consolidate to CART, release, and verify."""
+"""Complete APC Lifecycle: detect deficit, acquire temporary patch, composite rollout, distill to candidate CART patch, release, and verify."""
 from __future__ import annotations
 
 import argparse
@@ -99,8 +99,17 @@ def main():
     }
     print(f"Base result: success_final={stage0_success}, max_consec={stage0_max_consec}, consec_20={stage0_consec_20}, steps={ep0['steps']}")
     if stage0_consec_20:
-        raise RuntimeError("Base model unexpectedly succeeded on TruePlace! Capability deficit not present.")
+        print("-> Base model already succeeds on this task. Adaptation not needed.")
+        metrics["adaptation_needed"] = False
+        metrics["costs"]["wall_seconds"] = time.time() - t_start
+        metrics["completed_at"] = utc_now()
+        json_write(out_dir / "cycle_report.json", metrics)
+        md = f"""# APC Autonomous Lifecycle Report\n\n- Base model succeeded without adaptation. Steps: {ep0['steps']}\n"""
+        (out_dir / "cycle_summary.md").write_text(md, encoding="utf-8")
+        return
+
     print("-> Deficit confirmed: Base model lacks true place (release/settle) capability.")
+    metrics["adaptation_needed"] = True
 
     # -------------------------------------------------------------
     # Stage 1: Collect Teacher Guidance & Train Local Temporary MLP
@@ -205,13 +214,13 @@ def main():
     print(f"Composite Policy result: success_final={ep2['success_final']}, consec_20={ep2.get('consecutive_success_final_20')}, steps={ep2['steps']}")
 
     # -------------------------------------------------------------
-    # Stage 3: Distill into Compact Candidate CART and Consolidate
+    # Stage 3: Distill from Composite Rollout into Candidate CART Patch
     # -------------------------------------------------------------
-    print("\n=== Stage 3: Distilling Policy into Compact Candidate CART ===")
+    print("\n=== Stage 3: Distilling Composite Policy Rollout into Candidate CART ===")
     stage3_cand_dir = out_dir / "stage3_cand_train"
     cmd3_c = [
         py, "-m", "apc_maniskill.primitive_learning",
-        "--source", str(stage1_teacher_dir),
+        "--source", str(stage2_comp_dir),
         "--out", str(stage3_cand_dir),
         "--model-kind", "cart",
         "--feature-schema", "fetch_primitive_geometry_features_v5",
@@ -219,17 +228,6 @@ def main():
         "--train-all",
         "--allow-parameterized-goal-tasks",
     ]
-    # Include base teacher runs if available to preserve prior multi-task knowledge
-    base_t1 = repo_dir / "runs" / "teacher-lift-latch-eval3201-20260925-a"
-    base_t2 = repo_dir / "runs" / "place-teacher-3001"
-    extra_sources = []
-    if base_t1.exists() and (base_t1 / "steps.jsonl").exists():
-        extra_sources.append(str(base_t1))
-    if base_t2.exists() and (base_t2 / "steps.jsonl").exists():
-        extra_sources.append(str(base_t2))
-    for src in extra_sources:
-        cmd3_c.extend(["--extra-teacher-source", src])
-
     run_command(cmd3_c, cwd=repo_dir)
     train3_meta = json.loads((stage3_cand_dir / "training.json").read_text(encoding="utf-8"))
     metrics["costs"]["tree_fits"] += 1
@@ -244,14 +242,15 @@ def main():
             "tree_nodes": train3_meta["tree_nodes"],
             "tree_fits": 1,
             "target_seed": args.target_seed,
-            "extra_sources": extra_sources,
+            "distillation_source": "stage2_composite_rollout",
+            "temporary_mlp_sha256": metrics["stages"]["stage1_temporary_acquired"]["sha256"],
         },
     )
 
     # -------------------------------------------------------------
-    # Stage 4: Physically Release Temporary Artifacts
+    # Stage 4: Physically Release Temporary Artifacts from Bank
     # -------------------------------------------------------------
-    print("\n=== Stage 4: Physically Releasing Temporary Artifacts ===")
+    print("\n=== Stage 4: Releasing Temporary Artifacts from Bank ===")
     release_audit = bank.release_temporary(temp_entry.id)
     bank_audit = bank.audit()
 
@@ -267,12 +266,12 @@ def main():
     }
 
     # -------------------------------------------------------------
-    # Stage 5: Independent Process Evaluation (Target, Retention, Transfer)
+    # Stage 5: Evaluate with Candidate CART in Fixed Modular Composite Architecture
     # -------------------------------------------------------------
     cand_checkpoint = bank.get_path(cand_entry.id)
 
-    # 5a: Target TruePlace seed (seed 3001)
-    print("\n=== Stage 5a: Independent Candidate CART Execution on Target Seed ===")
+    # 5a: Target TruePlace seed (seed 3001) - Base + Candidate CART Patch
+    print("\n=== Stage 5a: Target Seed Evaluation (Base CART + Candidate CART Patch) ===")
     stage5a_dir = out_dir / "stage5a_target_eval"
     cmd5a = [
         py, str(repo_dir / "scripts" / "run_fetch_primitives.py"),
@@ -281,8 +280,10 @@ def main():
         "--seed", str(args.target_seed),
         "--max-steps", str(args.max_steps),
         "--post-success-steps", "20",
-        "--selector", "tree",
-        "--checkpoint", str(cand_checkpoint),
+        "--selector", "composite_patch",
+        "--checkpoint", str(args.base_checkpoint),
+        "--patch-checkpoint", str(cand_checkpoint),
+        "--patch-mode", "place",
         "--true-place-goal",
         "--rotations", "--base", "--far-start",
         "--allow-task-mismatch",
@@ -299,8 +300,8 @@ def main():
         "consecutive_success_final_20": ep5a.get("consecutive_success_final_20", False),
     }
 
-    # 5b: Retention on prior Pick seed (seed 3201)
-    print("\n=== Stage 5b: Verifying Non-Interference / Retention on Prior Pick Seed ===")
+    # 5b: Retention on prior Pick seed (seed 3201) - Base + Candidate CART Patch
+    print("\n=== Stage 5b: Retention Evaluation on Prior Pick Seed (Base CART + Candidate CART Patch) ===")
     stage5b_dir = out_dir / "stage5b_retention_eval"
     cmd5b = [
         py, str(repo_dir / "scripts" / "run_fetch_primitives.py"),
@@ -309,8 +310,10 @@ def main():
         "--seed", str(args.retention_seed),
         "--max-steps", str(args.max_steps),
         "--post-success-steps", "20",
-        "--selector", "tree",
-        "--checkpoint", str(cand_checkpoint),
+        "--selector", "composite_patch",
+        "--checkpoint", str(args.base_checkpoint),
+        "--patch-checkpoint", str(cand_checkpoint),
+        "--patch-mode", "place",
         "--rotations", "--base", "--far-start",
         "--allow-task-mismatch",
     ]
@@ -326,8 +329,8 @@ def main():
         "consecutive_success_final_20": ep5b.get("consecutive_success_final_20", False),
     }
 
-    # 5c: Transfer on unseen TruePlace seed (seed 3002)
-    print("\n=== Stage 5c: Evaluating Transfer on Unseen TruePlace Seed ===")
+    # 5c: Transfer on unseen TruePlace seed (seed 3002) - Base + Candidate CART Patch
+    print("\n=== Stage 5c: Transfer Evaluation on Unseen TruePlace Seed (Base CART + Candidate CART Patch) ===")
     stage5c_dir = out_dir / "stage5c_transfer_eval"
     cmd5c = [
         py, str(repo_dir / "scripts" / "run_fetch_primitives.py"),
@@ -336,8 +339,10 @@ def main():
         "--seed", str(args.transfer_seed),
         "--max-steps", str(args.max_steps),
         "--post-success-steps", "20",
-        "--selector", "tree",
-        "--checkpoint", str(cand_checkpoint),
+        "--selector", "composite_patch",
+        "--checkpoint", str(args.base_checkpoint),
+        "--patch-checkpoint", str(cand_checkpoint),
+        "--patch-mode", "place",
         "--true-place-goal",
         "--rotations", "--base", "--far-start",
         "--allow-task-mismatch",
@@ -354,12 +359,43 @@ def main():
         "consecutive_success_final_20": ep5c.get("consecutive_success_final_20", False),
     }
 
+    # 5d: Baseline Control: Single Candidate CART (No Composite Architecture)
+    print("\n=== Stage 5d: Control Baseline: Single Candidate CART Alone ===")
+    stage5d_dir = out_dir / "stage5d_control_single_cart_eval"
+    cmd5d = [
+        py, str(repo_dir / "scripts" / "run_fetch_primitives.py"),
+        "--out", str(stage5d_dir),
+        "--episodes", "1",
+        "--seed", str(args.target_seed),
+        "--max-steps", str(args.max_steps),
+        "--post-success-steps", "20",
+        "--selector", "tree",
+        "--checkpoint", str(cand_checkpoint),
+        "--true-place-goal",
+        "--rotations", "--base", "--far-start",
+        "--allow-task-mismatch",
+    ]
+    run_command(cmd5d, cwd=repo_dir)
+    ep5d = json.loads((stage5d_dir / "episodes.jsonl").read_text(encoding="utf-8").splitlines()[0])
+    metrics["costs"]["environment_steps"] += ep5d["steps"]
+    metrics["stages"]["stage5d_control_single_cart_eval"] = {
+        "task": "APC-FetchTruePlaceFar-v1",
+        "seed": args.target_seed,
+        "steps": ep5d["steps"],
+        "success_final": ep5d["success_final"],
+        "max_consecutive_success": ep5d.get("max_consecutive_success", 0),
+        "consecutive_success_final_20": ep5d.get("consecutive_success_final_20", False),
+    }
+
     # Wrap up metrics
     metrics["costs"]["wall_seconds"] = time.time() - t_start
     metrics["completed_at"] = utc_now()
 
     # Save reports
     json_write(out_dir / "cycle_report.json", metrics)
+
+    temp_params = metrics["stages"]["stage1_temporary_acquired"]["parameters"]
+    temp_bytes = metrics["stages"]["stage1_temporary_acquired"]["bytes"]
 
     md = f"""# APC Autonomous Lifecycle Report
 
@@ -370,9 +406,9 @@ def main():
 - **Total Wall Time**: {metrics['costs']['wall_seconds']:.1f} s
 
 ## Resource Reclamation & Consolidation
-- **Temporary MLP**: {temp_entry.parameter_count} params, {temp_entry.file_bytes} bytes
+- **Temporary MLP**: {temp_params} params, {temp_bytes} bytes
 - **Candidate CART**: 0 gradient params ({cand_entry.stored_values} stored values), {cand_entry.file_bytes} bytes
-- **Reclaimed**: {release_audit['reclaimed_parameters']} params (100%), {release_audit['reclaimed_bytes']} bytes released
+- **Reclaimed**: {release_audit['reclaimed_parameters']} params (100%), {release_audit['reclaimed_bytes']} bytes released from bank copy
 - **Integrity**: Physical files verified by SHA256 in bank ledger
 
 ## Cost Accounting
@@ -386,10 +422,11 @@ def main():
 |---|---|---|---|---|---|---|---|---|
 | Stage 0 | Frozen Base CART | TruePlaceFar | {args.target_seed} | {metrics['stages']['stage0_base_eval']['success_final']} | {metrics['stages']['stage0_base_eval']['consecutive_success_final_20']} | {metrics['stages']['stage0_base_eval']['max_consecutive_success']} | {metrics['stages']['stage0_base_eval']['steps']} | Deficit confirmed (cannot release/settle) |
 | Stage 1 (Teacher) | Hand-crafted Teacher | TruePlaceFar | {args.target_seed} | {metrics['stages']['stage1_teacher_rollout']['success_final']} | {metrics['stages']['stage1_teacher_rollout']['consecutive_success_final_20']} | {metrics['stages']['stage1_teacher_rollout']['max_consecutive_success']} | {metrics['stages']['stage1_teacher_rollout']['steps']} | Teacher demonstration collected |
-| Stage 2 (Composite) | Base CART + Temp MLP | TruePlaceFar | {args.target_seed} | {metrics['stages']['stage2_composite_rollout']['success_final']} | {metrics['stages']['stage2_composite_rollout']['consecutive_success_final_20']} | {metrics['stages']['stage2_composite_rollout']['max_consecutive_success']} | {metrics['stages']['stage2_composite_rollout']['steps']} | Physical composite rollout |
-| Stage 5a (Target) | Consolidated CART | TruePlaceFar | {args.target_seed} | {metrics['stages']['stage5a_target_eval']['success_final']} | {metrics['stages']['stage5a_target_eval']['consecutive_success_final_20']} | {metrics['stages']['stage5a_target_eval']['max_consecutive_success']} | {metrics['stages']['stage5a_target_eval']['steps']} | Post-release independent rollout |
-| Stage 5b (Retention) | Consolidated CART | PickCubeFar | {args.retention_seed} | {metrics['stages']['stage5b_retention_eval']['success_final']} | {metrics['stages']['stage5b_retention_eval']['consecutive_success_final_20']} | {metrics['stages']['stage5b_retention_eval']['max_consecutive_success']} | {metrics['stages']['stage5b_retention_eval']['steps']} | Prior capability retention check |
-| Stage 5c (Transfer) | Consolidated CART | TruePlaceFar | {args.transfer_seed} | {metrics['stages']['stage5c_transfer_eval']['success_final']} | {metrics['stages']['stage5c_transfer_eval']['consecutive_success_final_20']} | {metrics['stages']['stage5c_transfer_eval']['max_consecutive_success']} | {metrics['stages']['stage5c_transfer_eval']['steps']} | Unseen placement transfer check |
+| Stage 2 (Composite Temp) | Base CART + Temp MLP | TruePlaceFar | {args.target_seed} | {metrics['stages']['stage2_composite_rollout']['success_final']} | {metrics['stages']['stage2_composite_rollout']['consecutive_success_final_20']} | {metrics['stages']['stage2_composite_rollout']['max_consecutive_success']} | {metrics['stages']['stage2_composite_rollout']['steps']} | Hand-designed patch condition rollout |
+| Stage 5a (Composite Cand) | Base CART + Candidate CART | TruePlaceFar | {args.target_seed} | {metrics['stages']['stage5a_target_eval']['success_final']} | {metrics['stages']['stage5a_target_eval']['consecutive_success_final_20']} | {metrics['stages']['stage5a_target_eval']['max_consecutive_success']} | {metrics['stages']['stage5a_target_eval']['steps']} | Same composite architecture, Temp replaced by CART patch |
+| Stage 5b (Retention) | Base CART + Candidate CART | PickCubeFar | {args.retention_seed} | {metrics['stages']['stage5b_retention_eval']['success_final']} | {metrics['stages']['stage5b_retention_eval']['consecutive_success_final_20']} | {metrics['stages']['stage5b_retention_eval']['max_consecutive_success']} | {metrics['stages']['stage5b_retention_eval']['steps']} | Prior capability retention check in composite architecture |
+| Stage 5c (Transfer) | Base CART + Candidate CART | TruePlaceFar | {args.transfer_seed} | {metrics['stages']['stage5c_transfer_eval']['success_final']} | {metrics['stages']['stage5c_transfer_eval']['consecutive_success_final_20']} | {metrics['stages']['stage5c_transfer_eval']['max_consecutive_success']} | {metrics['stages']['stage5c_transfer_eval']['steps']} | Unseen placement transfer check in composite architecture |
+| Stage 5d (Control Baseline) | Candidate CART Alone | TruePlaceFar | {args.target_seed} | {metrics['stages']['stage5d_control_single_cart_eval']['success_final']} | {metrics['stages']['stage5d_control_single_cart_eval']['consecutive_success_final_20']} | {metrics['stages']['stage5d_control_single_cart_eval']['max_consecutive_success']} | {metrics['stages']['stage5d_control_single_cart_eval']['steps']} | Control: single monolithic CART without Base composition |
 """
     (out_dir / "cycle_summary.md").write_text(md, encoding="utf-8")
     print(f"\nAPC Cycle Completed! Summary saved to {out_dir / 'cycle_summary.md'}")

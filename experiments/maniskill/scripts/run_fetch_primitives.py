@@ -119,8 +119,7 @@ def main():
             if args.selector == "mlp_pitch_guard":
                 selector = PitchGuardSelector(selector)
         elif args.selector == "composite_patch":
-            import numpy as np
-            from apc_maniskill.primitive_learning import LearnedSelector, CompositePatchSelector
+            from apc_maniskill.primitive_learning import LearnedSelector, CompositePatchSelector, PlacePatchCondition
             copied_base = output / "base_selector.pt"
             shutil.copy2(args.checkpoint, copied_base)
             base_sel = LearnedSelector(copied_base, env.unwrapped.experiment_metadata(),
@@ -132,16 +131,7 @@ def main():
                                         float(env.unwrapped.sim_config.control_freq),
                                         strict_task=not args.allow_task_mismatch)
             if args.patch_mode == "place":
-                latched = False
-                def place_condition(step, obs):
-                    nonlocal latched
-                    grasped = obs.get("grasped", False)
-                    cube = np.asarray(obs["cube_position"])
-                    goal = np.asarray(obs["goal_position"])
-                    if grasped and np.linalg.norm(cube[:2] - goal[:2]) < 0.025:
-                        latched = True
-                    return latched
-                cond_fn = place_condition
+                cond_fn = PlacePatchCondition(threshold_m=0.025)
             else:
                 cond_fn = None  # uses default near-table descent condition
             selector = CompositePatchSelector(base_sel, patch_sel, patch_condition_fn=cond_fn)
