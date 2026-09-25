@@ -453,6 +453,31 @@ resetなしの手動2目標連鎖は前方・横・戻りの各3例で完了し�
 現在の学習済み操作を完成スキル・自動銀行・移動から把持への連鎖の実績とはしない。
 GPU物理・動画・APCの自動銀行は未検証。
 
+### T32補完〜T38（2026-09-26、クラウドCPU）
+
+改訂計画 `../../docs/APC_POST_T32_REVISED_TASKS_20260926.md` に基づく実行記録は
+[T32R_T38_EVIDENCE.md](docs/T32R_T38_EVIDENCE.md)、自動集計値は
+[T32R_T38_RESULTS.json](docs/T32R_T38_RESULTS.json) にある。
+
+```bash
+# 実遷移の記録（終端stepを含む）とオンライン検出イベント
+python scripts/run_t32r1_transitions.py --out runs/<new> --episode true_place:3014
+# 同一状態からの分岐比較（prefix再実行）
+python scripts/run_t32r2_branch_diagnosis.py --out runs/<new> --seed 3014 --state 660
+# イベントJSON → option探索 → Candidate/Router学習 → 新銀行版（拡張設計）
+python scripts/run_t32r3_acquire.py --out runs/<new> --event runs/<r1>/events/EVT-*.json \
+    --replay runs/<r1> --registry runs/<registry>.json
+# 銀行版 × 条件の行列評価（name=bank_dir[@place_gate]）
+python scripts/run_bank_matrix.py --out runs/<new> --bank old=dist_autonomous_bundle_v1 \
+    --bank full=runs/<acq>/bank_A_full --episode true_place:3014
+```
+
+要点：
+- 拡張銀行（candidate_A、ルーターv2）：29条件で初期18 → 20成功、既知成功をすべて保持。独立seedでのA効果は未確認。
+- candidate_C：独立条件3023で成功。
+- 配置開始ゲート：B型を得るが既知成功とトレードオフがある。
+- 共有モデル基準（T29最小版）：未成立。
+
 ## 上流資料（2026-09-22確認）
 
 - [S1: インストール・対応OS](https://maniskill.readthedocs.io/en/latest/user_guide/getting_started/installation.html)

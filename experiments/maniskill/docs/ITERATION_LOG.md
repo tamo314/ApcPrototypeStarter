@@ -715,6 +715,34 @@ manifestがfailed、episode数0、error.txtが保存されることを確認し�
 - 機能テストを実行した場合の結果:
   - `APC_RUN_MANISKILL_TEST=1 pytest -q tests/test_primitive_feature.py` が通過（3 passed in 194s）。
 
+### 2026-09-26 — T32補完（R1〜R4）・T29最小版・T33-B/C・T34予備・T38
+
+- 問い/今回変えた点:
+  - 改訂計画 `docs/APC_POST_T32_REVISED_TASKS_20260926.md`（ルート）に従った。
+  - 実遷移の記録経路（`experience_loop.py`）、prefix再実行による分岐診断、イベント起動のoption探索獲得（`acquisition.py`）を実装。
+  - Candidateは決定時点で「既存ID＋保持」を選ぶ方式。ルーターv2（停滞履歴・ロボット座標系での目標方向・直前拒否）を導入し、銀行を置換ではなく拡張する設計にした。
+- commit / config / robot・controller / seed・split:
+  - 基点 `0b6d04e`。Fetch 20 ID、`dist_autonomous_bundle_v1` を親銀行とする。
+  - 学習イベント：3014, 3020（A）、3026（C）。配置分岐：3013/3019/3025＋既知成功7。独立評価：3050〜3065。保留3040〜3042は未使用。
+- 環境step・episode・学習step・wall time等の予算と実績:
+  - 合計1,229,157環境step（失敗・置換runを含む。`docs/T32R_T38_RESULTS.json` の `ledger`）。学習fitは各数秒（共有MLPのみ106秒）。
+- runパス / 実データの観測 / 失敗した条件:
+  - 詳細は `docs/T32R_T38_EVIDENCE.md`。
+  - 3014の拒否413回はすべてIK非収束（残差0.2〜0.7 mm）。完全snapshot復元は不成立で、prefix再実行は完全一致。
+  - 獲得A：3014は後退・ピッチの列、3020は前進の列で成功。
+  - 拡張銀行：29条件で初期18 → 20、既知成功をすべて保持。独立条件ではcandidate_A起動0回。
+  - 獲得C：把持前の台車後退。独立条件3023で成功。
+  - 配置ゲート：B型を得るが既知成功を2件失う。
+  - 共有基準（T29最小版）：13条件で0〜2成功。
+  - 失敗run：探索評価の振動（min距離評価）、置換設計による保持破壊、行列スクリプトの `seed` 重複（run_error）、把持喪失判定の不具合。すべて `-failed-*` として保存。
+- 解釈（測定と推測を分ける）:
+  - 測定：A・Cの局所判断は同じ獲得器から得られ、学習条件（A）と独立条件1件（C）で機能した。
+  - 推測：candidate_Aは決定行4行で、汎化は未確認。配置開始の成否要因はルーター特徴では観測できていない可能性がある。
+- 次に変える一点:
+  - 独立A型イベント（3065の再遭遇など）を追加し、既存決定行と合わせてCandidateを再fitする。
+- 機能テストを実行した場合の結果 / 未実行と理由:
+  - `APC_RUN_MANISKILL_TEST=1 pytest -q tests/test_experience_loop_feature.py` が1 passed（132.6秒）。
+
 ## 追記テンプレート
 
 ### YYYY-MM-DD — 変更点の短い名前
