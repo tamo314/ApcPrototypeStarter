@@ -1,0 +1,63 @@
+{
+  "schema_version": "apc_initial_assets_manifest_v1",
+  "created_at": "2026-09-25T09:58:00Z",
+  "base_commit": "6b008f353c2882187e860b1d1a0104e3a467e54f",
+  "description": "Declared initial assets inherited from Phase W0-W8 consolidation for the T27-T44 research cycle.",
+  "bundle_dir": "dist_autonomous_bundle_v1",
+  "models": {
+    "base_selector.pt": {
+      "role": "base_policy",
+      "model_kind": "cart",
+      "file_size_bytes": 16420,
+      "tree_nodes": 103,
+      "gradient_parameters": 0,
+      "sha256": "c6ff880641a6a3d8b974ffd886f336b9176b30b64f018627fc1bdacc93ec4a1a"
+    },
+    "place_candidate.pt": {
+      "role": "place_candidate",
+      "model_kind": "cart",
+      "file_size_bytes": 11236,
+      "tree_nodes": 55,
+      "gradient_parameters": 0,
+      "sha256": "158709706b8e1b91586f07f8cb5df595fa67dc6c3c50c94cc674198dd9a12c5a"
+    },
+    "transit_candidate.pt": {
+      "role": "transit_candidate",
+      "model_kind": "cart",
+      "file_size_bytes": 8164,
+      "tree_nodes": 25,
+      "gradient_parameters": 0,
+      "sha256": "d75b4662f1ec3c5e102756475f41d2c9cd647bb362abc46b5e813dd153161918"
+    },
+    "unified_router.pt": {
+      "role": "router",
+      "model_kind": "cart",
+      "file_size_bytes": 3997,
+      "tree_nodes": 17,
+      "gradient_parameters": 0,
+      "sha256": "b97b4bef0bf5d7839fed60cb3e6b70df74a869e59fde9ee4c75cb3798387cd8c"
+    }
+  },
+  "summary": {
+    "total_models": 4,
+    "total_model_file_size_bytes": 39817,
+    "total_model_file_size_kb": 38.88,
+    "total_tree_nodes": 200,
+    "total_stored_values": 3728,
+    "total_gradient_parameters": 0
+  },
+  "shared_safety_layer": {
+    "name": "GraspRecoveryGuardSelector",
+    "kind": "hand_crafted_state_machine",
+    "description": "Failsafe retreat and regrasp state machine triggering upon grasp loss or ungrasped status during lift/transit phases."
+  },
+  "feature_schema": {
+    "router_inputs": [
+      "cube_x", "cube_y", "cube_z",
+      "goal_x", "goal_y", "goal_z",
+      "ee_x", "ee_y", "ee_z",
+      "is_grasped", "dist_xy_to_goal"
+    ],
+    "input_dimension": 11
+  }
+}

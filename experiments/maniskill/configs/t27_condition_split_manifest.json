@@ -1,0 +1,55 @@
+{
+  "schema_version": "apc_condition_split_manifest_v1",
+  "created_at": "2026-09-25T09:58:00Z",
+  "description": "Rigorous partition of task conditions across known development history, new adaptation candidates, and held-out test combinations.",
+  "partitions": {
+    "known_development_set": {
+      "description": "Conditions evaluated, analyzed, or included in router training during Phase W0-W8.",
+      "subgroups": {
+        "known_success_pick": [
+          {"task": "APC-FetchPickCubeFar-v1", "seed": 3201, "notes": "Development baseline"},
+          {"task": "APC-FetchPickCubeFar-v1", "seed": 3202, "notes": "W8 T25 success"},
+          {"task": "APC-FetchPickCubeFar-v1", "seed": 3203, "notes": "W8 T25 success"}
+        ],
+        "known_success_place": [
+          {"task": "APC-FetchPlaceCubeFar-v1", "seed": 3001, "notes": "Development baseline"},
+          {"task": "APC-FetchPlaceCubeFar-v1", "seed": 3002, "notes": "W8 T25 success (router training overlap)"},
+          {"task": "APC-FetchPlaceCubeFar-v1", "seed": 3003, "notes": "W8 T25 success"},
+          {"task": "APC-FetchPlaceCubeFar-v1", "seed": 3004, "notes": "W8 T25 success"}
+        ],
+        "known_success_true_place_coverage": [
+          {"task": "APC-FetchTruePlaceFar-v1", "seed": 3011, "notes": "Development transit test"},
+          {"task": "APC-FetchTruePlaceFar-v1", "seed": 3012, "notes": "Known development transfer"},
+          {"task": "APC-FetchTruePlaceFar-v1", "seed": 3010, "notes": "W8 T25 success (router training overlap)"},
+          {"task": "APC-FetchTruePlaceFar-v1", "seed": 3015, "notes": "W8 T25 success"},
+          {"task": "APC-FetchTruePlaceFar-v1", "seed": 3016, "notes": "W8 T25 boundary success"},
+          {"task": "APC-FetchTruePlaceFar-v1", "seed": 3017, "notes": "W8 T25 trivial start success"}
+        ],
+        "known_failure_analyzed": [
+          {"task": "APC-FetchPickCubeFar-v1", "seed": 3204, "failure_mode": "base_grasp_contact_timeout", "notes": "Base grasp physical limit"},
+          {"task": "APC-FetchTruePlaceFar-v1", "seed": 3014, "failure_mode": "transit_untriggered_extrapolation", "goal_y": 0.212, "notes": "Transit untriggered extrapolation failure"},
+          {"task": "APC-FetchTruePlaceFar-v1", "seed": 3013, "failure_mode": "latched_place_premature_stall", "goal_y": 0.187, "notes": "Premature place entry and latch stall at 2.4cm offset"}
+        ]
+      }
+    },
+    "adaptation_exploration_candidates": {
+      "description": "Unseen conditions earmarked for exploring deficits A (extended transit) and B (place entry offset recovery).",
+      "deficit_A_transit_recovery": [
+        {"task": "APC-FetchTruePlaceFar-v1", "seed": 3020, "description": "Candidate for deficit A exploration (far goal extrapolation)"},
+        {"task": "APC-FetchTruePlaceFar-v1", "seed": 3021, "description": "Candidate for deficit A exploration (far goal extrapolation)"}
+      ],
+      "deficit_B_place_offset_recovery": [
+        {"task": "APC-FetchTruePlaceFar-v1", "seed": 3030, "description": "Candidate for deficit B exploration (place latch offset recovery)"},
+        {"task": "APC-FetchTruePlaceFar-v1", "seed": 3031, "description": "Candidate for deficit B exploration (place latch offset recovery)"}
+      ]
+    },
+    "held_out_test_set": {
+      "description": "Strictly reserved for zero-shot compositional evaluation; never seen in training, router fit, or parameter tuning.",
+      "conditions": [
+        {"task": "APC-FetchTruePlaceFar-v1", "seed": 3040, "factor_profile": {"extended_transit": true, "place_recovery": false}},
+        {"task": "APC-FetchTruePlaceFar-v1", "seed": 3041, "factor_profile": {"extended_transit": false, "place_recovery": true}},
+        {"task": "APC-FetchTruePlaceFar-v1", "seed": 3042, "factor_profile": {"extended_transit": true, "place_recovery": true}}
+      ]
+    }
+  }
+}
