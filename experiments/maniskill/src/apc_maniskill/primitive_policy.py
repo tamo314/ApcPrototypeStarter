@@ -82,6 +82,7 @@ class TransitGuardSelector:
         self.last_guard_triggered = False
         self.last_raw_id = None
         self.last_guarded_id = None
+        self.active_module = "base"
 
     @property
     def primitive_count(self):
@@ -93,6 +94,7 @@ class TransitGuardSelector:
         self.last_guard_triggered = False
         self.last_raw_id = None
         self.last_guarded_id = None
+        self.active_module = "base"
 
     def select(self, step, observation):
         raw_id = self.base_selector.select(step, observation)
@@ -102,6 +104,7 @@ class TransitGuardSelector:
         if not grasped:
             self.last_guard_triggered = False
             self.last_guarded_id = raw_id
+            self.active_module = getattr(self.base_selector, "active_module", "base")
             return raw_id
         cube = np.asarray(observation["cube_position"])
         goal = np.asarray(observation["goal_position"])
@@ -110,6 +113,7 @@ class TransitGuardSelector:
         # spurious hand_z_plus (4) is redirected toward horizontal goal approach
         if raw_id == 4 and cube[2] > cube_init_z + 0.08 and cube[2] > goal[2] + 0.02:
             self.last_guard_triggered = True
+            self.active_module = "transit"
             root = np.asarray(observation["root_rotation"])
             delta_world = goal - cube
             delta_root = root.T @ delta_world
@@ -119,6 +123,7 @@ class TransitGuardSelector:
             return guarded_id
         self.last_guard_triggered = False
         self.last_guarded_id = raw_id
+        self.active_module = getattr(self.base_selector, "active_module", "base")
         return raw_id
 
 
@@ -722,11 +727,13 @@ class PrimitivePolicy(ArmIKPolicy):
         pick_selector = getattr(self.selector, "pick", self.selector)
         if hasattr(pick_selector, "recovery_active"):
             self.pre_action["recovery_active"] = bool(pick_selector.recovery_active)
+        active_mod = getattr(self.selector, "active_module", "base")
+        self.pre_action.update(active_module=active_mod,
+                               patch_applied=(active_mod == "place"),
+                               transit_applied=(active_mod == "transit"))
         if hasattr(self.selector, "probe_applied"):
             self.pre_action.update(probe_applied=self.selector.probe_applied,
                                    probe_raw_id=self.selector.probe_raw_id)
-        if hasattr(self.selector, "patch_applied"):
-            self.pre_action.update(patch_applied=self.selector.patch_applied)
         if hasattr(self.selector, "transit_guard_triggered"):
             self.pre_action.update(transit_guard_triggered=self.selector.transit_guard_triggered)
         if hasattr(self.selector, "base_raw_id") and self.selector.base_raw_id is not None:

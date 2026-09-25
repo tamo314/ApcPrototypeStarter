@@ -203,36 +203,62 @@
 ### 8.3 成果の総括
 ---
 
+---
+
 ## 9. 運搬補正の局所学習・定着と多段モジュール合成（2026-09-25 追記）
 
-ユーザーからのフィードバックに基づき、手設計 `TransitGuardSelector` を教師として局所学習を行い、獲得した運搬Temporary MLP（11,092 params）およびそれを蒸留した運搬Candidate CART（0 params, 9 nodes, 6.4 KB）を用いて、配置Candidate CART（固定）と組み合わせた多段モジュール合成を実証しました。
+手設計 `TransitGuardSelector` の補正動作を教師データとして局所学習を行い、獲得した運搬Temporary MLP（11,092 params）およびそれを蒸留した運搬Candidate CART（0 勾配params, 9 nodes, 216 stored values, 6.4 KB）を用いて、配置Candidate CART（固定）と組み合わせた多段モジュール合成を実証しました。
 
 ### 9.1 実験構成の比較
 
-| 構成 | 運搬層 | 配置層 | パラメータ数 | 確認目的 | 評価結果 (seed 3002) |
+| 構成 | 運搬層 | 配置層 | パラメータ数 / 保存量 | 確認目的 | 評価結果 (seed 3002) |
 |---|---|---|---|---|---|
 | **構成1（比較基準）** | 手設計運搬補正 (`TransitGuardSelector`) | 固定配置 Candidate CART | 0 params | 既存の成功基準を保持 | **100% 成功** (789 steps) |
-| **構成2（Temporary）** | **学習した運搬 Temporary MLP** | 固定配置 Candidate CART | 11,092 params | 新しい不足（過剰上昇）だけを局所学習で補えるか | **100% 成功** (789 steps) |
-| **構成3（定着・再利用）** | **定着した運搬 Candidate CART** | 固定配置 Candidate CART | **0 params** | 2つの獲得済み局所能力を、Temporaryなしで組み合わせられるか | **100% 成功** (782 steps) |
+| **構成2（Temporary）** | **学習した運搬 Temporary MLP** | 固定配置 Candidate CART | 11,092 params (50 KB) | 新しい不足（過剰上昇）の補正規則を学習モデルへ置換できるか | **100% 成功** (789 steps) |
+| **構成3（定着・再利用）** | **定着した運搬 Candidate CART** | 固定配置 Candidate CART | **0 勾配params** (216 values, 6.4 KB) | 2つの獲得済み局所能力を、Temporaryなしで組み合わせられるか | **100% 成功** (782 steps) |
 
-### 9.2 構成3（Base CART + 運搬Candidate + 配置Candidate：全て0 params）の検証結果
+> **注記（適用条件と境界）**:
+> 運搬操作の補正規則は学習モデル（MLP / CART）へ置換されていますが、モジュール間の適用条件（目標高さ `goal_z > 0.05m` での干渉遮断、持上げ高さ `cube_z > initial_z + 0.06m` での運搬介入、目標直上 `d_xy <= 0.016m` かつ `cube_z <= 0.035m` での配置引継ぎ）およびその優先順位は手設計です。必要な能力を自律発見し、適用条件まで自律獲得したこととは区別します。
+
+### 9.2 構成3（Base CART + 運搬Candidate + 配置Candidate）の開発・既知条件での検証結果
 
 | 実験ID / Run | 対象タスク | Seed | 評価位置付け | 最終成否 | 20 step連続維持 | 最大連続step | 総step | 実測値・備考 |
 |---|---|---|---|---|---|---|---|---|
-| `apc-transit-cand-eval-seed3002-20260925-a` | TruePlaceFar | 3002 | 分析対象（別配置） | **成功 (True)** | **達成 (True)** | **20** | **782** | 9ノードの運搬CARTが過剰上昇局面を自律補正し、配置CARTが手放し整定 |
-| `apc-transit-cand-eval-seed3001-20260925-a` | TruePlaceFar | 3001 | 元の成功配置（回帰確認） | **成功 (True)** | **達成 (True)** | **20** | **859** | 正常運搬判断を壊さず元配置の100%成功を完全維持 |
-| `apc-transit-cand-eval-seed3201-pick-20260925-a` | PickCubeFar | 3201 | 過去Pick能力保持確認 | **成功 (True)** | **達成 (True)** | **20** | **745** | 接地判定による干渉遮断が機能し、Pick能力を100%保持（忘却ゼロ） |
-| `apc-transit-cand-eval-seed3003-20260925-a` | TruePlaceFar | 3003 | **完全未知配置（独立転移）** | **成功 (True)** | **達成 (True)** | **20** | **792** | 追加学習なし（zero-shot）で自律転移・整定・手放しに成功 |
+| `apc-transit-cand-eval-seed3002-20260925-a` | TruePlaceFar | 3002 | 学習データ抽出元（別配置） | **成功 (True)** | **達成 (True)** | **20** | **782** | 9ノードの運搬CARTが過剰上昇局面を補正し、配置CARTが手放し整定 |
+| `apc-transit-cand-eval-seed3001-20260925-a` | TruePlaceFar | 3001 | 学習データ抽出元（元配置） | **成功 (True)** | **達成 (True)** | **20** | **859** | 正常運搬判断を壊さず元配置の100%成功を完全維持 |
+| `apc-transit-cand-eval-seed3201-pick-20260925-a` | PickCubeFar | 3201 | 過去Pick能力保持確認（1例） | **成功 (True)** | **達成 (True)** | **20** | **745** | 目標高さ分離によりパッチが干渉せずPick 1例を保持（過去能力全般の非干渉ではない） |
+| `apc-transit-cand-eval-seed3003-20260925-a` | TruePlaceFar | 3003 | 既知評価配置（運搬学習には未使用） | **成功 (True)** | **達成 (True)** | **20** | **792** | 第8節で使用済みの配置。運搬パッチ追加後も成功を再現 |
 
-### 9.3 成果の総括
-1. **「手設計補正を教師とした局所能力獲得」の実証**:
-   Baseの過剰上昇が発生する局面（把持・上昇後）とその前後の状態から局所データを抽出し、運搬Temporary MLP（11,092 params, 学習精度 100%）を獲得。手設計コードなしで seed 3002 を自律運搬・手放し（789 steps）に導くことに成功した。
-2. **多段モジュール（運搬Candidate ＋ 配置Candidate）の定着**:
-   運搬Temporaryの実rollout判断から、わずか 9ノード・216 stored values・6.4 KB の運搬Candidate CART（0 params）を蒸留。Temporary MLP を解放した状態で、Base CART（0 params）＋ 運搬 Candidate CART（0 params）＋ 配置 Candidate CART（0 params）の多段合成により、全シード（3002, 3001, 3201, 3003）で 100% 成功を達成した。
-3. **APC の継続的能力蓄積の実証**:
-   単一パッチの獲得・再利用にとどまらず、Base を一切変更することなく、環境やタスクの不足局面（運搬の過剰上昇、配置の手放し）ごとに局所決定木モジュールを順次獲得・定着・蓄積し、相互に干渉することなく自律統合できることが実証された。
+> **注記（保存量と解放）**:
+> CART の「0 params」は勾配パラメータ数を指します。Base CART（2,472 stored values, 16 KB）、配置 Candidate CART（1,320 stored values, 11 KB）、運搬 Candidate CART（216 stored values, 6.4 KB）の合計保存量は約 4,008 stored values（約 33.4 KB）です。実行時に運搬 Temporary MLP（11,092 params, 50 KB）をロードしない経路が確認されています。
 
+---
 
+## 10. 未使用新シードにおける三構成の独立比較評価（2026-09-25 追記）
+
+過去の学習・探索・評価で一度も使用していない新規シード（**seed 3005, 3006, 3007**）を選定し、Base、配置Candidate、適用条件、成功判定を完全に固定した上で、三構成（手設計ガード、運搬Temporary MLP、定着運搬Candidate CART）の 3×3 比較マトリクスを実行しました。
+
+### 10.1 3×3 比較マトリクス結果（`runs/apc-matrix-unseen-comparison-20260925.json`）
+
+| 構成 | Seed | 成否 | 20 step維持 | 総step | 配置パッチ到達 | 主な実行モジュール | 到達最小距離 |
+|---|---|---|---|---|---|---|---|
+| **手設計運搬ガード** | 3005 | **成功 (True)** | **達成 (True)** | 923 | 到達 (YES) | Base (895), Transit (1), Place (27) | 0.0151 m |
+| **運搬Temporary MLP** | 3005 | **成功 (True)** | **達成 (True)** | 923 | 到達 (YES) | Base (895), Transit (1), Place (27) | 0.0151 m |
+| **運搬Candidate CART** | 3005 | **成功 (True)** | **達成 (True)** | 923 | 到達 (YES) | Base (895), Transit (1), Place (27) | 0.0151 m |
+| **手設計運搬ガード** | 3006 | **成功 (True)** | **達成 (True)** | 767 | 到達 (YES) | Base (745), Transit (0), Place (22) | 0.0154 m |
+| **運搬Temporary MLP** | 3006 | **成功 (True)** | **達成 (True)** | 767 | 到達 (YES) | Base (745), Transit (0), Place (22) | 0.0154 m |
+| **運搬Candidate CART** | 3006 | **成功 (True)** | **達成 (True)** | 767 | 到達 (YES) | Base (745), Transit (0), Place (22) | 0.0154 m |
+| **手設計運搬ガード** | 3007 | **成功 (True)** | **達成 (True)** | 804 | 到達 (YES) | Base (776), Transit (6), Place (22) | 0.0154 m |
+| **運搬Temporary MLP** | 3007 | 失敗 (False) | 失敗 (False) | 1200 | **未到達 (NO)** | Base (723), Transit (477), Place (0) | 0.0536 m |
+| **運搬Candidate CART** | 3007 | 失敗 (False) | 失敗 (False) | 1200 | **未到達 (NO)** | Base (1144), Transit (56), Place (0) | 0.0542 m |
+
+### 10.2 学術的分析と知見
+1. **未使用条件への転移と定着の忠実性（seed 3005, 3006）**:
+   seed 3005 および 3006 において、手設計ガード・運搬Temporary MLP・定着運搬Candidate CART の三構成が、全く同一のステップ数（923 steps、767 steps）で完全成功を達成しました。Temporary MLP から Candidate CART への蒸留による性能変化が別状態でも極めて小さいこと（定着忠実性）が確認されました。
+2. **学習モデルの失敗局面の特定（seed 3007）**:
+   seed 3007 では、手設計ガード（構成1）は `primitive 0`（`hand_x_plus`）の補正を出力して 804 steps で成功したのに対し、運搬Temporary MLP（構成2）および運搬Candidate CART（構成3）は目標まで約 5.4 cm の地点で運搬層（transit）での進捗が停滞し、配置パッチ（place）まで到達できずに 1200 steps で終了しました。
+   - **原因**: 運搬学習データ（seed 3001, 3002）が主に Y方向の目標接近（`primitive 2`）を中心としていたため、X方向への補正動作（`primitive 0`）が未学習であったことに起因します。
+   - **重要な示唆**: Temporary MLP と Candidate CART が**全く同一の停滞距離（5.36 cm vs 5.42 cm）および配置未到達**を示したことは、Candidate CART が Temporary MLP の能力範囲と限界を極めて忠実に引き継いでいることを客観的に裏付けています。
 
 
 

@@ -365,10 +365,12 @@ class CompositePatchSelector:
     The temporary selector intervenes when the patch condition is met
     (e.g., table approach or following IK/path rejection).
     """
-    def __init__(self, base_selector, patch_selector, patch_condition_fn=None):
+    def __init__(self, base_selector, patch_selector, patch_condition_fn=None, module_name="patch"):
         self.base_selector = base_selector
         self.patch_selector = patch_selector
         self.patch_condition_fn = patch_condition_fn
+        self.module_name = module_name
+        self.active_module = "base"
         self.metadata = dict(
             base_selector.metadata,
             selector=f"composite_{base_selector.metadata.get('selector', 'base')}_{patch_selector.metadata.get('selector', 'patch')}",
@@ -403,6 +405,7 @@ class CompositePatchSelector:
             self.patch_condition_fn.reset()
         self.last_scores = []
         self.patch_applied = False
+        self.active_module = "base"
 
     def select(self, step, observation):
         use_patch = False
@@ -420,11 +423,13 @@ class CompositePatchSelector:
             action = self.patch_selector.select(step, observation)
             self.last_scores = getattr(self.patch_selector, "last_scores", [])
             self.patch_applied = True
+            self.active_module = self.module_name
             return action
         else:
             action = self.base_selector.select(step, observation)
             self.last_scores = getattr(self.base_selector, "last_scores", [])
             self.patch_applied = False
+            self.active_module = getattr(self.base_selector, "active_module", "base")
             return action
 
 

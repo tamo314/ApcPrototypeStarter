@@ -150,11 +150,11 @@ def main():
                                              float(env.unwrapped.sim_config.control_freq),
                                              strict_task=not args.allow_task_mismatch)
                 from apc_maniskill.primitive_learning import TransitPatchCondition
-                base_sel = CompositePatchSelector(base_sel, transit_sel, patch_condition_fn=TransitPatchCondition())
+                base_sel = CompositePatchSelector(base_sel, transit_sel, patch_condition_fn=TransitPatchCondition(), module_name="transit")
             elif args.transit_guard:
                 from apc_maniskill.primitive_policy import TransitGuardSelector
                 base_sel = TransitGuardSelector(base_sel)
-            selector = CompositePatchSelector(base_sel, patch_sel, patch_condition_fn=cond_fn)
+            selector = CompositePatchSelector(base_sel, patch_sel, patch_condition_fn=cond_fn, module_name="place")
         elif args.selector == "teacher_assisted_patch":
             from apc_maniskill.primitive_learning import LearnedSelector, CompositePatchSelector, PlacePatchCondition
             copied_patch = output / "patch_selector.pt"
