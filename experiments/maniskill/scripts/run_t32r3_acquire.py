@@ -94,6 +94,9 @@ def main(argv=None):
     p.add_argument("--candidate-name", default="candidate_A",
                    help="router class / bank role of the new candidate (extend design)")
     p.add_argument("--outcome-weight", type=float, default=50.0)
+    p.add_argument("--prior-acquisition", type=Path, action="append", default=[],
+                   help="earlier acquisition runs whose decision rows for the same candidate "
+                        "name are refit together with the new ones")
     p.add_argument("--reuse", type=Path, default=None,
                    help="refit from a previous acquisition run's search results (no new search)")
     args = p.parse_args(argv)
@@ -193,6 +196,24 @@ def main(argv=None):
         exclude[(event["task"], event["environment_seed"])] = onset
         entry["learning"] = dict(candidate_rows=len(acq["decision_steps"]), router_outcome_rows=len(window),
                                  router_after_handoff_rows=len(after))
+
+    prior_rows = 0
+    for prior in args.prior_acquisition:
+        summary = json.loads((prior / "acquisition_summary.json").read_text())
+        cand = summary.get("candidate", {}).get("path", "")
+        if Path(cand).stem != args.candidate_name:
+            continue
+        for e in summary["events"]:
+            acq_p = e.get("acquisition")
+            if not acq_p or not acq_p.get("chosen_options"):
+                continue
+            by_step = {r["control_step"]: r for r in read_jsonl(prior / e["event_id"] / "acquired_trajectory.jsonl")}
+            for step, choice in zip(acq_p["decision_steps"], acq_p["chosen_options"]):
+                if tuple(choice) in options:
+                    xs_c.append(by_step[step]["candidate_x"])
+                    ys_c.append(options.index(tuple(choice)))
+                    prior_rows += 1
+    log["prior_candidate_rows"] = prior_rows
 
     if not xs_c:
         log["result"] = "no_candidate"

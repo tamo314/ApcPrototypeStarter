@@ -66,7 +66,7 @@ def _policy_for(task: str, bank: Bank, out: Path):
 
 def evaluate_option(job: EvalJob) -> dict:
     """Replay prefix, apply option, run the unchanged bank policy for the horizon."""
-    bank = Bank(**{k: Path(v) for k, v in job.bank.items()})
+    bank = Bank.from_roles(Path("."), job.bank)
     env, policy = _policy_for(job.task, bank, Path(job.out))
     script = list(job.prefix) + ([] if job.option is None else option_ids(job.option))
     start = len(job.prefix)

@@ -55,6 +55,13 @@ LEDGER = [
     ("t33c-acquire-20260926-b", "T33-C acquisition (candidate_C)", "acq"),
     ("t34-matrix-20260926-a", "T34 bank sequence matrix old/A/AC/AC+gate", "matrix"),
     ("t38-release-20260926-a", "T38 fresh-process release check", "t38"),
+    ("t34-detect-AC-20260926-g3058", "T34 re-detection under bank A+C", "r1"),
+    ("t34-detect-AC-20260926-g3061", "T34 re-detection under bank A+C", "r1"),
+    ("t34-detect-AC-20260926-g3065", "T34 re-detection under bank A+C", "r1"),
+    ("t34-replay-bankAC-20260926-a", "T34 parent (bank A+C) replay", "matrix"),
+    ("t34-acquire-A2-20260926-a-failed-bankroles", "T34 candidate_A refit (failed: Bank roles bug, no steps)", "acq_partial"),
+    ("t34-acquire-A2-20260926-b", "T34 candidate_A refit with 3058/3063/3065 events", "acq"),
+    ("t34-matrix-20260926-b", "T34 old/AC/AC2 incl. 24 unused seeds 3066-3089", "matrix"),
 ]
 
 
@@ -112,7 +119,7 @@ def main():
                            wall_seconds=None if wall is None else round(wall, 1)))
     acq = {}
     for run in ("t32r3-acquire-20260926-c", "t32r3-acquire-20260926-d", "t32r3-acquire-20260926-e",
-                "t33c-acquire-20260926-b"):
+                "t33c-acquire-20260926-b", "t34-acquire-A2-20260926-b"):
         d = json.loads((RUNS / run / "acquisition_summary.json").read_text())
         acq[run] = dict(
             result=d["result"], cost=d.get("cost"),
@@ -139,7 +146,7 @@ def main():
         matrices={r: table(r) for r in ("t32r4-matrix-20260926-b", "t32r4-matrix-20260926-c",
                                         "t32r4-matrix-20260926-d", "t33b-matrix-20260926-b",
                                         "t33b-matrix-20260926-c", "t33b-matrix-20260926-d",
-                                        "t34-matrix-20260926-a")},
+                                        "t34-matrix-20260926-a", "t34-matrix-20260926-b")},
         r2=[{k: r[k] for k in ("branch", "state", "dist_before", "dist_after_window", "min_dist_window",
                                "grasped_after_window", "rejections", "forced_steps", "scripted_steps")}
             | dict(terminal_success=r["terminal"]["success"],

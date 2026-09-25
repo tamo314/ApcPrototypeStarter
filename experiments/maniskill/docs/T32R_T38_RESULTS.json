@@ -234,9 +234,51 @@
    "phase": "T38 fresh-process release check",
    "env_steps": 2111,
    "wall_seconds": null
+  },
+  {
+   "run": "t34-detect-AC-20260926-g3058",
+   "phase": "T34 re-detection under bank A+C",
+   "env_steps": 2400,
+   "wall_seconds": 59.8
+  },
+  {
+   "run": "t34-detect-AC-20260926-g3061",
+   "phase": "T34 re-detection under bank A+C",
+   "env_steps": 2400,
+   "wall_seconds": 72.9
+  },
+  {
+   "run": "t34-detect-AC-20260926-g3065",
+   "phase": "T34 re-detection under bank A+C",
+   "env_steps": 1200,
+   "wall_seconds": 44.5
+  },
+  {
+   "run": "t34-replay-bankAC-20260926-a",
+   "phase": "T34 parent (bank A+C) replay",
+   "env_steps": 16910,
+   "wall_seconds": 104.4
+  },
+  {
+   "run": "t34-acquire-A2-20260926-a-failed-bankroles",
+   "phase": "T34 candidate_A refit (failed: Bank roles bug, no steps)",
+   "env_steps": 0,
+   "wall_seconds": null
+  },
+  {
+   "run": "t34-acquire-A2-20260926-b",
+   "phase": "T34 candidate_A refit with 3058/3063/3065 events",
+   "env_steps": 176291,
+   "wall_seconds": 1416.6
+  },
+  {
+   "run": "t34-matrix-20260926-b",
+   "phase": "T34 old/AC/AC2 incl. 24 unused seeds 3066-3089",
+   "env_steps": 121757,
+   "wall_seconds": 862.6
   }
  ],
- "env_steps_total": 1229157,
+ "env_steps_total": 1550115,
  "matrices": {
   "t32r4-matrix-20260926-b": {
    "table": {
@@ -839,6 +881,144 @@
     "A": 20,
     "AC": 21,
     "AC_gate": 20
+   }
+  },
+  "t34-matrix-20260926-b": {
+   "table": {
+    "old": {
+     "true_place:3014": false,
+     "true_place:3020": false,
+     "true_place:3026": false,
+     "true_place:3058": false,
+     "true_place:3063": false,
+     "true_place:3065": false,
+     "true_place:3023": false,
+     "pick:3201": true,
+     "place:3001": true,
+     "true_place:3011": true,
+     "true_place:3012": true,
+     "true_place:3114": true,
+     "true_place:3021": true,
+     "true_place:3022": true,
+     "true_place:3024": true,
+     "true_place:3028": true,
+     "true_place:3029": true,
+     "true_place:3066": true,
+     "true_place:3067": false,
+     "true_place:3068": true,
+     "true_place:3069": false,
+     "true_place:3070": false,
+     "true_place:3071": false,
+     "true_place:3072": false,
+     "true_place:3073": true,
+     "true_place:3074": true,
+     "true_place:3075": false,
+     "true_place:3076": true,
+     "true_place:3077": true,
+     "true_place:3078": false,
+     "true_place:3079": false,
+     "true_place:3080": false,
+     "true_place:3081": false,
+     "true_place:3082": true,
+     "true_place:3083": true,
+     "true_place:3084": false,
+     "true_place:3085": false,
+     "true_place:3086": true,
+     "true_place:3087": true,
+     "true_place:3088": true,
+     "true_place:3089": true
+    },
+    "AC": {
+     "true_place:3014": true,
+     "true_place:3020": true,
+     "true_place:3026": false,
+     "true_place:3058": false,
+     "true_place:3063": false,
+     "true_place:3065": false,
+     "true_place:3023": true,
+     "pick:3201": true,
+     "place:3001": true,
+     "true_place:3011": true,
+     "true_place:3012": true,
+     "true_place:3114": true,
+     "true_place:3021": true,
+     "true_place:3022": true,
+     "true_place:3024": true,
+     "true_place:3028": true,
+     "true_place:3029": true,
+     "true_place:3066": true,
+     "true_place:3067": false,
+     "true_place:3068": true,
+     "true_place:3069": false,
+     "true_place:3070": false,
+     "true_place:3071": false,
+     "true_place:3072": true,
+     "true_place:3073": true,
+     "true_place:3074": true,
+     "true_place:3075": false,
+     "true_place:3076": true,
+     "true_place:3077": true,
+     "true_place:3078": false,
+     "true_place:3079": true,
+     "true_place:3080": true,
+     "true_place:3081": false,
+     "true_place:3082": false,
+     "true_place:3083": true,
+     "true_place:3084": true,
+     "true_place:3085": false,
+     "true_place:3086": true,
+     "true_place:3087": true,
+     "true_place:3088": true,
+     "true_place:3089": true
+    },
+    "AC2": {
+     "true_place:3014": true,
+     "true_place:3020": true,
+     "true_place:3026": false,
+     "true_place:3058": true,
+     "true_place:3063": true,
+     "true_place:3065": false,
+     "true_place:3023": false,
+     "pick:3201": true,
+     "place:3001": true,
+     "true_place:3011": true,
+     "true_place:3012": true,
+     "true_place:3114": true,
+     "true_place:3021": true,
+     "true_place:3022": true,
+     "true_place:3024": true,
+     "true_place:3028": true,
+     "true_place:3029": true,
+     "true_place:3066": true,
+     "true_place:3067": false,
+     "true_place:3068": true,
+     "true_place:3069": false,
+     "true_place:3070": false,
+     "true_place:3071": false,
+     "true_place:3072": false,
+     "true_place:3073": true,
+     "true_place:3074": true,
+     "true_place:3075": false,
+     "true_place:3076": true,
+     "true_place:3077": false,
+     "true_place:3078": false,
+     "true_place:3079": false,
+     "true_place:3080": true,
+     "true_place:3081": false,
+     "true_place:3082": false,
+     "true_place:3083": true,
+     "true_place:3084": true,
+     "true_place:3085": false,
+     "true_place:3086": true,
+     "true_place:3087": true,
+     "true_place:3088": true,
+     "true_place:3089": true
+    }
+   },
+   "successes": {
+    "old": 22,
+    "AC": 28,
+    "AC2": 26
    }
   }
  },
@@ -1697,6 +1877,116 @@
      2
     ],
     "train_accuracy": 1.0
+   }
+  },
+  "t34-acquire-A2-20260926-b": {
+   "result": "learned",
+   "cost": {
+    "search_env_steps": 173245,
+    "replay_env_steps": 3046,
+    "search_wall_seconds": 1342.8938354410002,
+    "fit_seconds": 1.7750619090002147,
+    "parent_replay_source_steps": 16910,
+    "total_wall_seconds": 1416.5697671159996
+   },
+   "events": [
+    {
+     "event_id": "EVT-4dd69033f557",
+     "seed": 3058,
+     "status": "accepted",
+     "history": "recurrence_of_known_kind",
+     "chosen_options": [
+      [
+       4,
+       1
+      ],
+      [
+       1,
+       1
+      ]
+     ],
+     "decision_steps": [
+      807,
+      815
+     ],
+     "acquired_replay_success": true,
+     "acquired_replay_steps": 898
+    },
+    {
+     "event_id": "EVT-34e11daa8f35",
+     "seed": 3063,
+     "status": "accepted",
+     "history": "recurrence_of_known_kind",
+     "chosen_options": [
+      [
+       0,
+       3
+      ]
+     ],
+     "decision_steps": [
+      791
+     ],
+     "acquired_replay_success": true,
+     "acquired_replay_steps": 948
+    },
+    {
+     "event_id": "EVT-615193d59b6e",
+     "seed": 3065,
+     "status": "accepted",
+     "history": "new_kind",
+     "chosen_options": [
+      [
+       16,
+       1
+      ],
+      [
+       13,
+       1
+      ],
+      [
+       1,
+       1
+      ]
+     ],
+     "decision_steps": [
+      936,
+      961,
+      969
+     ],
+     "acquired_replay_success": false,
+     "acquired_replay_steps": 1200
+    }
+   ],
+   "candidate": {
+    "sha256": "fa61446f73404d5a07c53d9bf842238b66e934748b8d23cf88225b209abdd116",
+    "bytes": 5445,
+    "tree_nodes": 11,
+    "rows": 10,
+    "train_accuracy": 1.0,
+    "label_counts": {
+     "[1, 1]": 2,
+     "[4, 1]": 1,
+     "[13, 1]": 2,
+     "[16, 1]": 1,
+     "[0, 3]": 2,
+     "[1, 3]": 2
+    }
+   },
+   "router": {
+    "sha256": "49c1039effa9183c7c8097532233f8c12f04dbb20fb0af672930c838ae7e73e9",
+    "tree_nodes": 87,
+    "rows": 17347,
+    "parent_replay_rows": 16910,
+    "outcome_rows": 437,
+    "class_counts": [
+     15814,
+     2,
+     570,
+     909,
+     43,
+     9
+    ],
+    "train_accuracy": 0.9995388251570877
    }
   }
  },
