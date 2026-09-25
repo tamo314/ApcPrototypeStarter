@@ -1,4 +1,5 @@
-"""Run 3x3 comparison matrix on unseen seeds (3005, 3006, 3007) across 3 configurations."""
+"""Run comparison matrix across 3 configurations with rigorous metrics logging."""
+import argparse
 import json
 import subprocess
 import sys
@@ -8,21 +9,24 @@ PYTHON_BIN = "/home/tamot/.venvs/apc-maniskill-wsl-py312/bin/python"
 
 BASE_CKPT = "runs/single-goal-conditioned-cart-20260925-a/selector.pt"
 PLACE_CKPT = "runs/apc-cycle-true-place-20260925-c/primitive_bank/primitives/fetch_true_place_patch_v1_consolidated_selector.pt"
-TRANSIT_TEMP_CKPT = "runs/apc-transit-temp-train-20260925-a/selector.pt"
-TRANSIT_CAND_CKPT = "runs/apc-transit-cand-cart-20260925-a/selector.pt"
+DEFAULT_TRANSIT_TEMP_CKPT = "runs/apc-transit-temp-train-20260925-a/selector.pt"
+DEFAULT_TRANSIT_CAND_CKPT = "runs/apc-transit-cand-cart-20260925-a/selector.pt"
 
-SEEDS = [3005, 3006, 3007]
-CONFIGS = [
-    ("config1_guard", ["--transit-guard"]),
-    ("config2_temp_mlp", ["--transit-checkpoint", TRANSIT_TEMP_CKPT]),
-    ("config3_cand_cart", ["--transit-checkpoint", TRANSIT_CAND_CKPT]),
-]
 
-def run_experiment(config_name, extra_args, seed):
-    out_dir = Path(f"runs/apc-matrix-{config_name}-seed{seed}-20260925-a")
-    if out_dir.exists() and (out_dir / "summary.json").exists():
-        print(f"Skipping existing run: {out_dir}")
-        return out_dir
+def run_experiment(config_name, extra_args, seed, out_prefix, force=False):
+    out_dir = Path(f"runs/{out_prefix}-{config_name}-seed{seed}-20260925-a")
+    summary_path = out_dir / "summary.json"
+    episodes_path = out_dir / "episodes.jsonl"
+    steps_path = out_dir / "steps.jsonl"
+
+    if not force and summary_path.exists() and episodes_path.exists() and steps_path.exists():
+        try:
+            summary = json.loads(summary_path.read_text(encoding="utf-8"))
+            if summary.get("status") == "completed" and summary.get("steps", 0) > 0:
+                print(f"Reusing verified completed run: {out_dir}")
+                return out_dir
+        except Exception:
+            pass
 
     cmd = [
         PYTHON_BIN, "scripts/run_fetch_primitives.py",
@@ -51,64 +55,139 @@ def run_experiment(config_name, extra_args, seed):
         print(f"Completed {out_dir}")
     return out_dir
 
-def main():
-    results = []
-    for seed in SEEDS:
-        for config_name, extra_args in CONFIGS:
-            out_dir = run_experiment(config_name, extra_args, seed)
-            
-            # Read summary and final info
-            summary_path = out_dir / "summary.json"
-            episodes_path = out_dir / "episodes.jsonl"
-            
-            if summary_path.exists() and episodes_path.exists():
-                summary = json.loads(summary_path.read_text(encoding="utf-8"))
-                ep_data = json.loads(episodes_path.read_text(encoding="utf-8").strip())
-                final_info = ep_data.get("final_info", {})
-                diag = final_info.get("diagnostic", {})
-                
-                # Check active modules in steps
-                active_modules = set()
-                with open(out_dir / "steps.jsonl", encoding="utf-8") as f:
-                    for line in f:
-                        step_data = json.loads(line)
-                        step_diag = step_data.get("info", {}).get("diagnostic", {})
-                        mod = step_diag.get("active_module")
-                        if mod:
-                            active_modules.add(mod)
-                
-                results.append({
-                    "config": config_name,
-                    "seed": seed,
-                    "success": summary.get("success_rate_over_observed", 0) == 1.0,
-                    "hold_complete": summary.get("hold_complete_episodes", 0) == 1,
-                    "steps": summary.get("steps", 0),
-                    "dist_xy_m": final_info.get("cube_goal_dist_xy_m", None),
-                    "active_modules": sorted(active_modules),
-                    "place_reached": "place" in active_modules or final_info.get("diagnostic", {}).get("patch_applied", False),
-                })
+
+def analyze_run(out_dir, config_name, seed):
+    summary_path = out_dir / "summary.json"
+    episodes_path = out_dir / "episodes.jsonl"
+    steps_path = out_dir / "steps.jsonl"
+
+    if not (summary_path.exists() and episodes_path.exists() and steps_path.exists()):
+        return {
+            "config": config_name,
+            "seed": seed,
+            "success_final": False,
+            "error": "Run incomplete or missing output files",
+        }
+
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    ep_data = json.loads(episodes_path.read_text(encoding="utf-8").strip())
+    final_info = ep_data.get("final_info", {})
+
+    # Detailed metrics directly from episodes.jsonl / summary
+    success_final = bool(ep_data.get("success_final", False))
+    hold_complete = bool(ep_data.get("hold_complete", False))
+    consecutive_success_final_20 = bool(ep_data.get("consecutive_success_final_20", False))
+    max_consecutive_success = int(ep_data.get("max_consecutive_success", 0))
+    total_steps = int(summary.get("steps", 0))
+
+    final_dist_raw = final_info.get("cube_goal_dist_xy_m")
+    if isinstance(final_dist_raw, list) and len(final_dist_raw) > 0:
+        final_dist_xy_m = float(final_dist_raw[0])
+    elif isinstance(final_dist_raw, (int, float)):
+        final_dist_xy_m = float(final_dist_raw)
+    else:
+        final_dist_xy_m = None
+
+    # Step-by-step analysis: min distance and module step counts
+    module_counts = {"base": 0, "transit": 0, "place": 0, "other": 0}
+    min_dist_xy_m = float("inf")
+
+    with open(steps_path, encoding="utf-8") as f:
+        for line in f:
+            if not line.strip():
+                continue
+            sdata = json.loads(line)
+            info = sdata.get("info", {})
+            diag = info.get("diagnostic", {})
+
+            mod = diag.get("active_module")
+            if not mod:
+                if diag.get("patch_applied", False):
+                    mod = "place"
+                elif diag.get("transit_applied", False) or diag.get("transit_guard_triggered", False):
+                    mod = "transit"
+                else:
+                    mod = "base"
+
+            if mod in module_counts:
+                module_counts[mod] += 1
             else:
-                results.append({
-                    "config": config_name,
-                    "seed": seed,
-                    "success": False,
-                    "error": "Run failed or missing summary",
-                })
+                module_counts["other"] += 1
+
+            d_raw = info.get("cube_goal_dist_xy_m")
+            if isinstance(d_raw, list) and len(d_raw) > 0:
+                d = float(d_raw[0])
+                if d < min_dist_xy_m:
+                    min_dist_xy_m = d
+            elif isinstance(d_raw, (int, float)):
+                d = float(d_raw)
+                if d < min_dist_xy_m:
+                    min_dist_xy_m = d
+
+    if min_dist_xy_m == float("inf"):
+        min_dist_xy_m = None
+
+    place_reached = module_counts["place"] > 0 or bool(final_info.get("diagnostic", {}).get("patch_applied", False))
+
+    return {
+        "config": config_name,
+        "seed": seed,
+        "success_final": success_final,
+        "hold_complete": hold_complete,
+        "consecutive_success_final_20": consecutive_success_final_20,
+        "max_consecutive_success": max_consecutive_success,
+        "steps": total_steps,
+        "min_dist_xy_m": min_dist_xy_m,
+        "final_dist_xy_m": final_dist_xy_m,
+        "module_steps": module_counts,
+        "place_reached": place_reached,
+    }
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--seeds", type=int, nargs="+", default=[3005, 3006, 3007])
+    parser.add_argument("--out-prefix", type=str, default="apc-matrix")
+    parser.add_argument("--transit-temp-ckpt", type=str, default=DEFAULT_TRANSIT_TEMP_CKPT)
+    parser.add_argument("--transit-cand-ckpt", type=str, default=DEFAULT_TRANSIT_CAND_CKPT)
+    parser.add_argument("--out-json", type=str, default="runs/apc-matrix-comparison-summary.json")
+    parser.add_argument("--force", action="store_true")
+    args = parser.parse_args()
+
+    configs = [
+        ("config1_guard", ["--transit-guard"]),
+        ("config2_temp_mlp", ["--transit-checkpoint", args.transit_temp_ckpt]),
+        ("config3_cand_cart", ["--transit-checkpoint", args.transit_cand_ckpt]),
+    ]
+
+    results = []
+    for seed in args.seeds:
+        for config_name, extra_args in configs:
+            out_dir = run_experiment(config_name, extra_args, seed, args.out_prefix, force=args.force)
+            res = analyze_run(out_dir, config_name, seed)
+            results.append(res)
 
     print("\n\n=================== COMPARISON MATRIX RESULTS ===================")
-    print(f"{'Config':<20} | {'Seed':<6} | {'Success':<8} | {'Hold20':<8} | {'Steps':<6} | {'PlaceReached':<12} | {'Modules':<25}")
-    print("-" * 95)
+    header = f"{'Config':<18} | {'Seed':<5} | {'SuccFin':<8} | {'Hold20':<7} | {'Steps':<6} | {'MinDist(m)':<11} | {'FinDist(m)':<11} | {'Base/Trans/Place':<18}"
+    print(header)
+    print("-" * len(header))
     for r in results:
-        succ = "TRUE" if r.get("success") else "FALSE"
-        hold = "TRUE" if r.get("hold_complete") else "FALSE"
-        steps = str(r.get("steps", "-"))
-        reached = "YES" if r.get("place_reached") else "NO"
-        mods = ",".join(r.get("active_modules", []))
-        print(f"{r['config']:<20} | {r['seed']:<6} | {succ:<8} | {hold:<8} | {steps:<6} | {reached:<12} | {mods:<25}")
+        if "error" in r:
+            print(f"{r['config']:<18} | {r['seed']:<5} | ERROR: {r['error']}")
+            continue
+        succ = "TRUE" if r["success_final"] else "FALSE"
+        hold = "TRUE" if r["hold_complete"] else "FALSE"
+        steps = str(r["steps"])
+        min_d = f"{r['min_dist_xy_m']:.4f}" if r["min_dist_xy_m"] is not None else "-"
+        fin_d = f"{r['final_dist_xy_m']:.4f}" if r["final_dist_xy_m"] is not None else "-"
+        mods = f"{r['module_steps']['base']}/{r['module_steps']['transit']}/{r['module_steps']['place']}"
+        print(f"{r['config']:<18} | {r['seed']:<5} | {succ:<8} | {hold:<7} | {steps:<6} | {min_d:<11} | {fin_d:<11} | {mods:<18}")
 
-    out_json = Path("runs/apc-matrix-unseen-comparison-20260925.json")
-    out_json.write_text(json.dumps(results, indent=2), encoding="utf-8")
-    print(f"\nSaved structured results to {out_json}")
+    out_path = Path(args.out_json)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(results, indent=2), encoding="utf-8")
+    print(f"\nSaved structured results to {out_path}")
+
 
 if __name__ == "__main__":
     main()
