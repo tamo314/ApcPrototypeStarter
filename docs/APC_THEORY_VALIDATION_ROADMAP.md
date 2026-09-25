@@ -2,10 +2,10 @@
 
 作成日：2026-09-25（JST）  
 対象：tamo314/ApcPrototypeStarter  
-ステータス：**W0〜W8 全検証タスク（T00〜T26）完遂・理論検証完了**  
-最終総括報告書：[APC_THEORY_VALIDATION_FINAL_REPORT.md](../experiments/maniskill/docs/APC_THEORY_VALIDATION_FINAL_REPORT.md)  
+ステータス：**W0〜W8 機構実証・客観的境界特定・残存課題の同定完了（検証継続中）**  
+中間総括報告書：[APC_THEORY_VALIDATION_FINAL_REPORT.md](../experiments/maniskill/docs/APC_THEORY_VALIDATION_FINAL_REPORT.md)  
 主対象：`experiments/maniskill/`  
-位置付け：本ロードマップで計画された全27タスク（W0〜W8 / T00〜T26）の物理シミュレーション実験・同一ルーター除去対照・実解放・自律運用・実測継続学習ベンチマーク・条件付き理論命題定式化・勝敗交互作用分析・未使用条件独立再現を完全完遂。局所獲得・実解放・忘却防止等の基本機構を実証し、真の未学習保留条件における幾何的破綻境界や手設計安全ガードへの依存境界を客観的に同定した。各フェーズの実証記録は `experiments/maniskill/docs/` 下の EVIDENCE ドキュメント群に保存されている。
+位置付け：本ロードマップで計画された全27タスク（W0〜W8 / T00〜T26）の実験・対照・分析を通じて、「小型の局所モデル群による補正・選択・再利用の実行可能性」を実証。一方で、未知の不足に対する新規獲得の継続閉ループ、独立した保留組合せへの合成転移、および同一総予算での費用優位性は未決着・検証中であることを客観的に同定した。各フェーズの実証記録は `experiments/maniskill/docs/` 下の EVIDENCE ドキュメント群に保存されている。
 
 ---
 
