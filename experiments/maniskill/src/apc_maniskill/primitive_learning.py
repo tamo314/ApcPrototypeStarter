@@ -338,6 +338,27 @@ class PlacePatchCondition:
         return self.latched
 
 
+class TransitPatchCondition:
+    """Intervene during lifted transit phase when cube is carried toward goal."""
+    def __init__(self, lift_threshold_m=0.06):
+        self.lift_threshold_m = lift_threshold_m
+
+    def reset(self):
+        pass
+
+    def __call__(self, step, observation):
+        goal = np.asarray(observation["goal_position"])
+        if goal[2] > 0.05:
+            # Lift goal in mid-air (pick task); no transit patch intervention
+            return False
+        grasped = observation.get("grasped", False)
+        if not grasped:
+            return False
+        cube = np.asarray(observation["cube_position"])
+        cube_init_z = observation.get("cube_initial_z", 0.02)
+        return bool(cube[2] > cube_init_z + self.lift_threshold_m)
+
+
 class CompositePatchSelector:
     """Combines a frozen base selector with a local temporary patch selector.
     
@@ -362,6 +383,18 @@ class CompositePatchSelector:
     @property
     def primitive_count(self):
         return self.base_selector.primitive_count
+
+    @property
+    def base_raw_id(self):
+        return getattr(self.base_selector, "last_raw_id", None)
+
+    @property
+    def transit_id(self):
+        return getattr(self.base_selector, "last_guarded_id", None)
+
+    @property
+    def transit_guard_triggered(self):
+        return getattr(self.base_selector, "last_guard_triggered", False)
 
     def reset(self):
         self.base_selector.reset()

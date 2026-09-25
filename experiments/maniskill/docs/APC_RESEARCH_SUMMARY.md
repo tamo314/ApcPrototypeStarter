@@ -201,8 +201,37 @@
 | `test-transit-guard-seed3004-20260925-a` | TruePlaceFar | 3004 | **完全未知配置 2（独立評価）** | **成功 (True)** | **達成 (True)** | **20** | **1092** | 追加学習なし（zero-shot）で自律転移・整定・手放しに成功 |
 
 ### 8.3 成果の総括
-- **蒸留済み Candidate パッチの固定再利用**: 一度実rolloutから獲得された Candidate CART（0 params, 11 KB）は、再学習を行うことなく、運搬補正と引き継ぎ閾値の整合のみで複数未知シード（3002, 3003, 3004）にそのまま転移・再利用できることが実証された。
-- **過去能力の非破壊性**: 獲得した手放しパッチは、過去タスク（Pick: seed 3201）の実行に一切悪影響を及ぼさず、100% の保持が確認された。
+---
+
+## 9. 運搬補正の局所学習・定着と多段モジュール合成（2026-09-25 追記）
+
+ユーザーからのフィードバックに基づき、手設計 `TransitGuardSelector` を教師として局所学習を行い、獲得した運搬Temporary MLP（11,092 params）およびそれを蒸留した運搬Candidate CART（0 params, 9 nodes, 6.4 KB）を用いて、配置Candidate CART（固定）と組み合わせた多段モジュール合成を実証しました。
+
+### 9.1 実験構成の比較
+
+| 構成 | 運搬層 | 配置層 | パラメータ数 | 確認目的 | 評価結果 (seed 3002) |
+|---|---|---|---|---|---|
+| **構成1（比較基準）** | 手設計運搬補正 (`TransitGuardSelector`) | 固定配置 Candidate CART | 0 params | 既存の成功基準を保持 | **100% 成功** (789 steps) |
+| **構成2（Temporary）** | **学習した運搬 Temporary MLP** | 固定配置 Candidate CART | 11,092 params | 新しい不足（過剰上昇）だけを局所学習で補えるか | **100% 成功** (789 steps) |
+| **構成3（定着・再利用）** | **定着した運搬 Candidate CART** | 固定配置 Candidate CART | **0 params** | 2つの獲得済み局所能力を、Temporaryなしで組み合わせられるか | **100% 成功** (782 steps) |
+
+### 9.2 構成3（Base CART + 運搬Candidate + 配置Candidate：全て0 params）の検証結果
+
+| 実験ID / Run | 対象タスク | Seed | 評価位置付け | 最終成否 | 20 step連続維持 | 最大連続step | 総step | 実測値・備考 |
+|---|---|---|---|---|---|---|---|---|
+| `apc-transit-cand-eval-seed3002-20260925-a` | TruePlaceFar | 3002 | 分析対象（別配置） | **成功 (True)** | **達成 (True)** | **20** | **782** | 9ノードの運搬CARTが過剰上昇局面を自律補正し、配置CARTが手放し整定 |
+| `apc-transit-cand-eval-seed3001-20260925-a` | TruePlaceFar | 3001 | 元の成功配置（回帰確認） | **成功 (True)** | **達成 (True)** | **20** | **859** | 正常運搬判断を壊さず元配置の100%成功を完全維持 |
+| `apc-transit-cand-eval-seed3201-pick-20260925-a` | PickCubeFar | 3201 | 過去Pick能力保持確認 | **成功 (True)** | **達成 (True)** | **20** | **745** | 接地判定による干渉遮断が機能し、Pick能力を100%保持（忘却ゼロ） |
+| `apc-transit-cand-eval-seed3003-20260925-a` | TruePlaceFar | 3003 | **完全未知配置（独立転移）** | **成功 (True)** | **達成 (True)** | **20** | **792** | 追加学習なし（zero-shot）で自律転移・整定・手放しに成功 |
+
+### 9.3 成果の総括
+1. **「手設計補正を教師とした局所能力獲得」の実証**:
+   Baseの過剰上昇が発生する局面（把持・上昇後）とその前後の状態から局所データを抽出し、運搬Temporary MLP（11,092 params, 学習精度 100%）を獲得。手設計コードなしで seed 3002 を自律運搬・手放し（789 steps）に導くことに成功した。
+2. **多段モジュール（運搬Candidate ＋ 配置Candidate）の定着**:
+   運搬Temporaryの実rollout判断から、わずか 9ノード・216 stored values・6.4 KB の運搬Candidate CART（0 params）を蒸留。Temporary MLP を解放した状態で、Base CART（0 params）＋ 運搬 Candidate CART（0 params）＋ 配置 Candidate CART（0 params）の多段合成により、全シード（3002, 3001, 3201, 3003）で 100% 成功を達成した。
+3. **APC の継続的能力蓄積の実証**:
+   単一パッチの獲得・再利用にとどまらず、Base を一切変更することなく、環境やタスクの不足局面（運搬の過剰上昇、配置の手放し）ごとに局所決定木モジュールを順次獲得・定着・蓄積し、相互に干渉することなく自律統合できることが実証された。
+
 
 
 

@@ -28,6 +28,8 @@ def main():
     parser.add_argument("--post-success-steps", type=int, default=0)
     parser.add_argument("--checkpoint", type=Path)
     parser.add_argument("--patch-checkpoint", type=Path)
+    parser.add_argument("--transit-checkpoint", type=Path,
+                        help="Learned transit selector patch (MLP or CART)")
     parser.add_argument("--bank-dir", type=Path)
     parser.add_argument("--query-teacher", action="store_true")
     parser.add_argument("--pitch-deg", type=float, default=15)
@@ -141,7 +143,15 @@ def main():
                 cond_fn = PlacePatchCondition(threshold_m=args.patch_threshold_xy)
             else:
                 cond_fn = None  # uses default near-table descent condition
-            if args.transit_guard:
+            if args.transit_checkpoint:
+                copied_transit = output / "transit_selector.pt"
+                shutil.copy2(args.transit_checkpoint, copied_transit)
+                transit_sel = LearnedSelector(copied_transit, env.unwrapped.experiment_metadata(),
+                                             float(env.unwrapped.sim_config.control_freq),
+                                             strict_task=not args.allow_task_mismatch)
+                from apc_maniskill.primitive_learning import TransitPatchCondition
+                base_sel = CompositePatchSelector(base_sel, transit_sel, patch_condition_fn=TransitPatchCondition())
+            elif args.transit_guard:
                 from apc_maniskill.primitive_policy import TransitGuardSelector
                 base_sel = TransitGuardSelector(base_sel)
             selector = CompositePatchSelector(base_sel, patch_sel, patch_condition_fn=cond_fn)

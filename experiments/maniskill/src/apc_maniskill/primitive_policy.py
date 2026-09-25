@@ -80,6 +80,8 @@ class TransitGuardSelector:
         self.metadata = dict(base_selector.metadata, hybrid=True, transit_guard=True)
         self.last_scores = []
         self.last_guard_triggered = False
+        self.last_raw_id = None
+        self.last_guarded_id = None
 
     @property
     def primitive_count(self):
@@ -89,13 +91,17 @@ class TransitGuardSelector:
         self.base_selector.reset()
         self.last_scores = []
         self.last_guard_triggered = False
+        self.last_raw_id = None
+        self.last_guarded_id = None
 
     def select(self, step, observation):
         raw_id = self.base_selector.select(step, observation)
+        self.last_raw_id = raw_id
         self.last_scores = getattr(self.base_selector, "last_scores", [])
         grasped = observation.get("grasped", False)
         if not grasped:
             self.last_guard_triggered = False
+            self.last_guarded_id = raw_id
             return raw_id
         cube = np.asarray(observation["cube_position"])
         goal = np.asarray(observation["goal_position"])
@@ -108,8 +114,11 @@ class TransitGuardSelector:
             delta_world = goal - cube
             delta_root = root.T @ delta_world
             axis = int(np.argmax(np.abs(delta_root[:2])))
-            return 2 * axis + int(delta_root[axis] < 0)
+            guarded_id = int(2 * axis + int(delta_root[axis] < 0))
+            self.last_guarded_id = guarded_id
+            return guarded_id
         self.last_guard_triggered = False
+        self.last_guarded_id = raw_id
         return raw_id
 
 
@@ -718,7 +727,13 @@ class PrimitivePolicy(ArmIKPolicy):
                                    probe_raw_id=self.selector.probe_raw_id)
         if hasattr(self.selector, "patch_applied"):
             self.pre_action.update(patch_applied=self.selector.patch_applied)
-        if hasattr(self.selector, "last_raw_id"):
+        if hasattr(self.selector, "transit_guard_triggered"):
+            self.pre_action.update(transit_guard_triggered=self.selector.transit_guard_triggered)
+        if hasattr(self.selector, "base_raw_id") and self.selector.base_raw_id is not None:
+            self.pre_action.update(base_raw_id=self.selector.base_raw_id)
+        if hasattr(self.selector, "transit_id") and self.selector.transit_id is not None:
+            self.pre_action.update(transit_id=self.selector.transit_id)
+        if hasattr(self.selector, "last_raw_id") and not hasattr(self.selector, "transit_guard_triggered"):
             self.pre_action.update(raw_model_id=self.selector.last_raw_id,
                                    pitch_guard_triggered=self.selector.last_guard_triggered,
                                    pitch_guard_changed_id=selected != self.selector.last_raw_id)
