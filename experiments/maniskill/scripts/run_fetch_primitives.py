@@ -48,6 +48,8 @@ def main():
                         help="Horizontal distance threshold for place patch activation")
     parser.add_argument("--transit-guard", action="store_true",
                         help="Guard against spurious upward transit drift during placement")
+    parser.add_argument("--transit-mode", choices=["patch", "guard"], default="patch",
+                        help="Execution mode for transit model: patch (continuous) or guard (limited condition)")
     parser.add_argument("--allow-task-mismatch", action="store_true")
     args = parser.parse_args()
 
@@ -149,8 +151,12 @@ def main():
                 transit_sel = LearnedSelector(copied_transit, env.unwrapped.experiment_metadata(),
                                              float(env.unwrapped.sim_config.control_freq),
                                              strict_task=not args.allow_task_mismatch)
-                from apc_maniskill.primitive_learning import TransitPatchCondition
-                base_sel = CompositePatchSelector(base_sel, transit_sel, patch_condition_fn=TransitPatchCondition(), module_name="transit")
+                if args.transit_mode == "guard":
+                    from apc_maniskill.primitive_policy import LearnedTransitGuardSelector
+                    base_sel = LearnedTransitGuardSelector(base_sel, transit_sel)
+                else:
+                    from apc_maniskill.primitive_learning import TransitPatchCondition
+                    base_sel = CompositePatchSelector(base_sel, transit_sel, patch_condition_fn=TransitPatchCondition(), module_name="transit")
             elif args.transit_guard:
                 from apc_maniskill.primitive_policy import TransitGuardSelector
                 base_sel = TransitGuardSelector(base_sel)

@@ -127,6 +127,72 @@ class TransitGuardSelector:
         return raw_id
 
 
+class LearnedTransitGuardSelector:
+    """Intervenes ONLY on the exact same condition as TransitGuardSelector, delegating to a learned model.
+
+    Condition: raw_id == 4 and cube_z > cube_initial_z + 0.08 and cube_z > goal_z + 0.02
+    Action choice: Provided by the learned transit selector (MLP or CART) instead of a hand-designed formula.
+    All other steps remain executed by the base selector.
+    """
+
+    def __init__(self, base_selector, transit_selector):
+        self.base_selector = base_selector
+        self.transit_selector = transit_selector
+        self.metadata = dict(
+            base_selector.metadata,
+            hybrid=True,
+            learned_transit_guard=True,
+            transit_model=transit_selector.metadata.get("selector"),
+        )
+        self.last_scores = []
+        self.last_guard_triggered = False
+        self.last_raw_id = None
+        self.last_guarded_id = None
+        self.active_module = "base"
+
+    @property
+    def primitive_count(self):
+        return self.base_selector.primitive_count
+
+    def reset(self):
+        self.base_selector.reset()
+        self.transit_selector.reset()
+        self.last_scores = []
+        self.last_guard_triggered = False
+        self.last_raw_id = None
+        self.last_guarded_id = None
+        self.active_module = "base"
+
+    def select(self, step, observation):
+        raw_id = self.base_selector.select(step, observation)
+        self.last_raw_id = raw_id
+        self.last_scores = getattr(self.base_selector, "last_scores", [])
+        grasped = observation.get("grasped", False)
+        if not grasped:
+            self.last_guard_triggered = False
+            self.last_guarded_id = raw_id
+            self.active_module = getattr(self.base_selector, "active_module", "base")
+            return raw_id
+
+        cube = np.asarray(observation["cube_position"])
+        goal = np.asarray(observation["goal_position"])
+        cube_init_z = observation.get("cube_initial_z", 0.02)
+
+        # Exact same condition as TransitGuardSelector:
+        if raw_id == 4 and cube[2] > cube_init_z + 0.08 and cube[2] > goal[2] + 0.02:
+            self.last_guard_triggered = True
+            self.active_module = "transit"
+            guarded_id = self.transit_selector.select(step, observation)
+            self.last_scores = getattr(self.transit_selector, "last_scores", [])
+            self.last_guarded_id = guarded_id
+            return guarded_id
+
+        self.last_guard_triggered = False
+        self.last_guarded_id = raw_id
+        self.active_module = getattr(self.base_selector, "active_module", "base")
+        return raw_id
+
+
 class RotationProbeSelector:
     """Explicit exploration: perturb rotation while retaining the learned selector elsewhere."""
 
