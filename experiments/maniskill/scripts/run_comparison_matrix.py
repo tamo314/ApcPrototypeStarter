@@ -7,7 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-PYTHON_BIN = "/home/tamot/.venvs/apc-maniskill-wsl-py312/bin/python"
+PYTHON_BIN = sys.executable
 
 BASE_CKPT = "runs/single-goal-conditioned-cart-20260925-a/selector.pt"
 PLACE_CKPT = "runs/apc-cycle-true-place-20260925-c/primitive_bank/primitives/fetch_true_place_patch_v1_consolidated_selector.pt"
@@ -52,7 +52,7 @@ def check_run_compatibility(out_dir, expected_args):
         return False
 
 
-def run_experiment(config_name, extra_args, seed, out_prefix, force=False):
+def run_experiment(config_name, extra_args, seed, out_prefix, force=False, consecutive_success=False):
     out_dir = Path(f"runs/{out_prefix}-{config_name}-seed{seed}-20260925-a")
 
     if not force and check_run_compatibility(out_dir, extra_args):
@@ -63,6 +63,7 @@ def run_experiment(config_name, extra_args, seed, out_prefix, force=False):
         print(f"Cleaning existing directory for force rerun: {out_dir}")
         shutil.rmtree(out_dir, ignore_errors=True)
 
+    hold_args = ["--consecutive-success-steps", "20"] if consecutive_success else ["--post-success-steps", "20"]
     cmd = [
         PYTHON_BIN, "scripts/run_fetch_primitives.py",
         "--episodes", "1",
@@ -72,7 +73,7 @@ def run_experiment(config_name, extra_args, seed, out_prefix, force=False):
         "--base",
         "--far-start",
         "--true-place-goal",
-        "--post-success-steps", "20",
+    ] + hold_args + [
         "--selector", "composite_patch",
         "--patch-mode", "place",
         "--patch-threshold-xy", "0.016",
@@ -195,7 +196,8 @@ def analyze_run(out_dir, config_name, seed):
         "success_final": success_final,
         "hold_complete": hold_complete,
         "consecutive_success_final_20": consecutive_success_final_20,
-        "hold_20": consecutive_success_final_20,
+        "consecutive_success_achieved": bool(ep_data.get("consecutive_success_achieved", consecutive_success_final_20)),
+        "hold_20": bool(ep_data.get("consecutive_success_achieved", consecutive_success_final_20)),
         "max_consecutive_success": max_consecutive_success,
         "steps": total_steps,
         "min_dist_xy_m": min_dist_xy_m,
@@ -215,6 +217,8 @@ def main():
     parser.add_argument("--comparison-mode", choices=["3way", "scope_ablation"], default="3way",
                         help="3way (guard vs temp vs cand) or scope_ablation (continuous vs guarded intervention)")
     parser.add_argument("--force", action="store_true")
+    parser.add_argument("--consecutive-success", action="store_true",
+                        help="Use HoldContinuousSuccess protocol (target 20 consecutive success steps)")
     args = parser.parse_args()
 
     if args.comparison_mode == "scope_ablation":
@@ -235,7 +239,8 @@ def main():
     results = []
     for seed in args.seeds:
         for config_name, extra_args in configs:
-            out_dir = run_experiment(config_name, extra_args, seed, args.out_prefix, force=args.force)
+            out_dir = run_experiment(config_name, extra_args, seed, args.out_prefix, force=args.force,
+                                     consecutive_success=args.consecutive_success)
             res = analyze_run(out_dir, config_name, seed)
             results.append(res)
 

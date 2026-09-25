@@ -95,6 +95,8 @@ class RunConfig:
     task_label: str = "instrumentation"
     checkpoint: str | None = None
     post_success_steps: int = 0
+    target_consecutive_success_steps: int = 0
+    max_post_success_steps: int | None = None
     next_goal_offset: list[float] | None = None
     env_max_steps: int | None = None
 
@@ -173,7 +175,14 @@ def make_env(config: RunConfig, output: Path) -> Any:
     if config.next_goal_offset is not None:
         from .protocols import TwoGoalSequence
         env = TwoGoalSequence(env, config.next_goal_offset)
-    if config.post_success_steps:
+    if config.target_consecutive_success_steps > 0:
+        from .protocols import HoldContinuousSuccess
+        env = HoldContinuousSuccess(
+            env,
+            target_consecutive=config.target_consecutive_success_steps,
+            max_observation_steps=config.max_post_success_steps,
+        )
+    elif config.post_success_steps:
         from .protocols import HoldAfterSuccess
         env = HoldAfterSuccess(env, config.post_success_steps)
     if config.video:
@@ -222,7 +231,8 @@ def collect(config: RunConfig, output: Path, *, env_factory: Callable = make_env
         "schema_version": 1, "status": "running", "started_at": utc_now(),
         "config": asdict(config), "num_envs": 1, "obs_mode": "state",
         "provenance": provenance(), "completed_episodes": 0,
-        "episode_protocol": ("hold_after_first_success" if config.post_success_steps
+        "episode_protocol": ("hold_continuous_success" if config.target_consecutive_success_steps > 0
+                             else "hold_after_first_success" if config.post_success_steps
                              else "terminate_on_task_done"),
         "goal_protocol": ("manually_ordered_two_goals_world_offset"
                           if config.next_goal_offset is not None else "single_sampled_goal"),
@@ -356,10 +366,12 @@ def collect(config: RunConfig, output: Path, *, env_factory: Callable = make_env
                     "trajectory": trajectory,
                     "reset_info": saved_reset_info, "final_info": json_info(info),
                 }
-                if config.post_success_steps:
-                    row.update(first_success_step=info["first_success_step"],
-                               post_success_steps=info["post_success_steps"],
-                               hold_complete=info["hold_complete"])
+                if config.post_success_steps or config.target_consecutive_success_steps > 0:
+                    row.update(first_success_step=info.get("first_success_step", -1),
+                               post_success_steps=info.get("post_success_steps", 0),
+                               hold_complete=info.get("hold_complete", False))
+                    if "consecutive_success_achieved" in info:
+                        row["consecutive_success_achieved"] = info["consecutive_success_achieved"]
                 if config.next_goal_offset is not None:
                     row["completed_goals"] = info["completed_goals"]
                 episodes_file.write(json.dumps(row, allow_nan=False) + "\n")

@@ -1,0 +1,47 @@
+{
+  "manifest_version": "1.0",
+  "created_at": "2026-09-25T13:50:00+09:00",
+  "provenance_note": "Rigorous split protocol partitioning development, regression, monitoring, and sealed confirmation seeds.",
+  "splits": {
+    "development": {
+      "description": "Initial policy design, hyperparameter tuning, and error diagnosis",
+      "seeds": [3001, 3002, 3005, 3006, 3007],
+      "roles": {
+        "3001": "Initial successful true-place configuration",
+        "3002": "Place patch development and regression benchmark",
+        "3005": "Early multi-task evaluation",
+        "3006": "Early multi-task evaluation",
+        "3007": "Transit diagnosis baseline (hand-guard / learned model aligned)"
+      }
+    },
+    "historical_ablation": {
+      "description": "Used in 2026-09-25 morning ablation experiments for transit scope analysis",
+      "seeds": [3008, 3009, 3010, 3011, 3012, 3013],
+      "roles": {
+        "3008": "Upstream grasp drop diagnosis (cube fell before transit)",
+        "3009": "Upstream missed grasp diagnosis (cube never picked)",
+        "3010": "Unseen multi-module autonomous success (MLP + CART)",
+        "3011": "Data deficiency diagnosis (-Y correction missing)",
+        "3012": "Scope ablation proof (excessive vs guarded intervention)",
+        "3013": "Unseen multi-module autonomous success (MLP + CART)"
+      }
+    },
+    "retention_regression": {
+      "description": "Evaluated after every new capability addition to verify zero forgetting / non-interference",
+      "seeds": [3001, 3002, 3201],
+      "roles": {
+        "3001": "TruePlaceFar baseline retention",
+        "3002": "TruePlaceFar development retention",
+        "3201": "PickCubeFar baseline capability retention"
+      }
+    },
+    "monitoring": {
+      "description": "Used during training loop to detect overfitting or regression",
+      "seeds": [3020, 3021, 3022, 3023, 3024]
+    },
+    "sealed_confirmation": {
+      "description": "Strictly reserved for final independent validation (T25). NEVER used in training, development, or tuning",
+      "seeds": [3101, 3102, 3103, 3104, 3105, 3106, 3107, 3108, 3109, 3110]
+    }
+  }
+}

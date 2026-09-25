@@ -88,3 +88,65 @@ class TwoGoalSequence(gym.Wrapper):
             info["switch_observation_before"] = before
         terminated = (terminated & ~task_info["success"]) | info["success"]
         return obs, reward, terminated, truncated, info
+
+
+class HoldContinuousSuccess(gym.Wrapper):
+    """Delay episode termination until continuous N steps of task success are achieved.
+
+    Unlike HoldAfterSuccess (which unconditionally terminates after N steps from first success),
+    HoldContinuousSuccess tracks unbroken consecutive success. Brief release bounces or transient
+    finger contact reset the consecutive streak, but do not abort the episode if the policy can
+    settle and sustain continuous success within the remaining environment step budget.
+    """
+
+    def __init__(self, env, target_consecutive=20, max_observation_steps=None):
+        super().__init__(env)
+        self.target_consecutive = target_consecutive
+        self.max_observation_steps = max_observation_steps
+        self.elapsed = 0
+        self.first_success = None
+        self.current_consecutive = 0
+        self.max_consecutive = 0
+
+    def reset(self, **kwargs):
+        self.elapsed = 0
+        self.first_success = None
+        self.current_consecutive = 0
+        self.max_consecutive = 0
+        return self.env.reset(**kwargs)
+
+    def step(self, action):
+        obs, reward, terminated, truncated, info = self.env.step(action)
+        self.elapsed += 1
+        is_succ = bool(scalar(info.get("success", False)))
+        if self.first_success is None and is_succ:
+            self.first_success = self.elapsed
+
+        if is_succ:
+            self.current_consecutive += 1
+            if self.current_consecutive > self.max_consecutive:
+                self.max_consecutive = self.current_consecutive
+        else:
+            self.current_consecutive = 0
+
+        after = 0 if self.first_success is None else self.elapsed - self.first_success
+        consecutive_achieved = self.current_consecutive >= self.target_consecutive
+        obs_timeout = (self.max_observation_steps is not None
+                       and self.first_success is not None
+                       and after >= self.max_observation_steps)
+        complete = consecutive_achieved or obs_timeout
+
+        info = dict(
+            info,
+            task_terminated=info.get("task_terminated", terminated.clone()),
+            hold_input_terminated=terminated.clone(),
+            first_success_step=-1 if self.first_success is None else self.first_success,
+            post_success_steps=after,
+            current_consecutive_success=self.current_consecutive,
+            max_consecutive_success=self.max_consecutive,
+            hold_complete=complete,
+            consecutive_success_achieved=consecutive_achieved,
+        )
+        terminated = (terminated & ~info["success"]) | terminated.new_full(terminated.shape, complete)
+        return obs, reward, terminated, truncated, info
+

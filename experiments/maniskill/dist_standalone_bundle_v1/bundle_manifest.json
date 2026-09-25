@@ -1,0 +1,54 @@
+{
+  "bundle_name": "apc_standalone_cart_suite_v1",
+  "description": "Minimal release artifact containing only frozen Base CART and Candidate CARTs (zero gradient params). No Temporary MLP, optimizer, or training data included.",
+  "models": {
+    "base_selector.pt": {
+      "sha256": "c6ff880641a6a3d8b974ffd886f336b9176b30b64f018627fc1bdacc93ec4a1a",
+      "size_bytes": 16420,
+      "model_kind": "cart",
+      "tree_nodes": 103,
+      "score_shape": [
+        103,
+        20
+      ],
+      "stored_values": 2060,
+      "requires_grad": false,
+      "has_optimizer_state": false
+    },
+    "place_candidate.pt": {
+      "sha256": "158709706b8e1b91586f07f8cb5df595fa67dc6c3c50c94cc674198dd9a12c5a",
+      "size_bytes": 11236,
+      "model_kind": "cart",
+      "tree_nodes": 55,
+      "score_shape": [
+        55,
+        20
+      ],
+      "stored_values": 1100,
+      "requires_grad": false,
+      "has_optimizer_state": false
+    },
+    "transit_candidate.pt": {
+      "sha256": "d75b4662f1ec3c5e102756475f41d2c9cd647bb362abc46b5e813dd153161918",
+      "size_bytes": 8164,
+      "model_kind": "cart",
+      "tree_nodes": 25,
+      "score_shape": [
+        25,
+        20
+      ],
+      "stored_values": 500,
+      "requires_grad": false,
+      "has_optimizer_state": false
+    }
+  },
+  "summary": {
+    "total_models": 3,
+    "total_size_bytes": 35820,
+    "total_size_kb": 34.98,
+    "total_tree_nodes": 183,
+    "total_stored_values": 3660,
+    "total_gradient_parameters": 0,
+    "temporary_dependency_free": true
+  }
+}

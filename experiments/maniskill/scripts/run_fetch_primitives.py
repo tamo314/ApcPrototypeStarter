@@ -21,15 +21,23 @@ def main():
     parser.add_argument("--selector", choices=["manual", "pick_place", "mlp", "tree", "tree_probe", "mlp_pitch_guard",
                                                "base_demo", "base_then_pick", "base_recover_pick", "base_approach_pick",
                                                "base_ready_pick", "base_ready_recover_pick", "base_ready_axis_retry_pick", "base_ready_settled_pick",
-                                               "wait_then_pick", "bank_adaptive", "composite_patch", "teacher_assisted_patch"], default="manual")
+                                               "wait_then_pick", "bank_adaptive", "composite_patch", "teacher_assisted_patch", "unified_router"], default="manual")
     parser.add_argument("--rotations", action="store_true")
     parser.add_argument("--base", action="store_true")
     parser.add_argument("--far-start", action="store_true")
     parser.add_argument("--post-success-steps", type=int, default=0)
+    parser.add_argument("--consecutive-success-steps", type=int, default=0,
+                        help="Hold episode until continuous N steps of task success are achieved")
+    parser.add_argument("--max-post-success-steps", type=int, default=None,
+                        help="Max observation window after first success for continuous hold")
     parser.add_argument("--checkpoint", type=Path)
     parser.add_argument("--patch-checkpoint", type=Path)
     parser.add_argument("--transit-checkpoint", type=Path,
                         help="Learned transit selector patch (MLP or CART)")
+    parser.add_argument("--transit-gate-checkpoint", type=Path,
+                        help="Learned transit gate selector model (CART)")
+    parser.add_argument("--router-checkpoint", type=Path,
+                        help="Learned unified router model (CART)")
     parser.add_argument("--bank-dir", type=Path)
     parser.add_argument("--query-teacher", action="store_true")
     parser.add_argument("--pitch-deg", type=float, default=15)
@@ -48,8 +56,10 @@ def main():
                         help="Horizontal distance threshold for place patch activation")
     parser.add_argument("--transit-guard", action="store_true",
                         help="Guard against spurious upward transit drift during placement")
-    parser.add_argument("--transit-mode", choices=["patch", "guard"], default="patch",
-                        help="Execution mode for transit model: patch (continuous) or guard (limited condition)")
+    parser.add_argument("--grasp-guard", action="store_true",
+                        help="Guard against missed grasps and dropped cubes during pick")
+    parser.add_argument("--transit-mode", choices=["patch", "guard", "gate"], default="patch",
+                        help="Execution mode for transit model: patch (continuous), guard (limited condition), or gate (learned CART gate)")
     parser.add_argument("--allow-task-mismatch", action="store_true")
     args = parser.parse_args()
 
@@ -76,15 +86,15 @@ def main():
     if args.selector in ("mlp", "tree", "tree_probe", "mlp_pitch_guard"):
         if args.checkpoint is None:
             parser.error("learned selectors require --checkpoint")
-    elif args.selector not in ("composite_patch", "teacher_assisted_patch") and args.checkpoint is not None:
+    elif args.selector not in ("composite_patch", "teacher_assisted_patch", "unified_router") and args.checkpoint is not None:
         parser.error("other selectors do not use --checkpoint")
-    if args.selector in ("mlp", "tree", "tree_probe", "mlp_pitch_guard", "bank_adaptive", "composite_patch", "teacher_assisted_patch") and not args.rotations:
+    if args.selector in ("mlp", "tree", "tree_probe", "mlp_pitch_guard", "bank_adaptive", "composite_patch", "teacher_assisted_patch", "unified_router") and not args.rotations:
         parser.error("learned checkpoints require --rotations")
     if args.selector == "wait_then_pick" and not args.rotations:
         parser.error("wait_then_pick requires --rotations")
     if args.base and not args.rotations:
         parser.error("base candidates require --rotations to preserve IDs 0..15")
-    if args.base and args.selector not in ("base_demo", "base_then_pick", "base_recover_pick", "base_approach_pick", "base_ready_pick", "base_ready_recover_pick", "base_ready_axis_retry_pick", "base_ready_settled_pick", "mlp", "tree", "tree_probe", "mlp_pitch_guard", "bank_adaptive", "composite_patch", "teacher_assisted_patch"):
+    if args.base and args.selector not in ("base_demo", "base_then_pick", "base_recover_pick", "base_approach_pick", "base_ready_pick", "base_ready_recover_pick", "base_ready_axis_retry_pick", "base_ready_settled_pick", "mlp", "tree", "tree_probe", "mlp_pitch_guard", "bank_adaptive", "composite_patch", "teacher_assisted_patch", "unified_router"):
         parser.error("the 20-ID manual selectors require a base selector")
 
     if args.selector in ("base_demo", "base_then_pick", "base_recover_pick", "base_approach_pick", "base_ready_pick", "base_ready_recover_pick", "base_ready_axis_retry_pick", "base_ready_settled_pick") and not args.base:
@@ -107,6 +117,8 @@ def main():
                        episodes=args.episodes, seed=args.seed, max_steps=args.max_steps,
                        env_max_steps=args.max_steps,
                        post_success_steps=args.post_success_steps,
+                       target_consecutive_success_steps=args.consecutive_success_steps,
+                       max_post_success_steps=args.max_post_success_steps,
                        task_label=args.selector + ("_fetch20_primitives" if args.base else
                                                    "_fetch16_primitives" if args.rotations else
                                                    "_fetch10_primitives"))
@@ -145,13 +157,22 @@ def main():
                 cond_fn = PlacePatchCondition(threshold_m=args.patch_threshold_xy)
             else:
                 cond_fn = None  # uses default near-table descent condition
+            if args.grasp_guard:
+                from apc_maniskill.primitive_policy import GraspRecoveryGuardSelector
+                base_sel = GraspRecoveryGuardSelector(base_sel, grasp_height_m=args.grasp_height_m)
             if args.transit_checkpoint:
                 copied_transit = output / "transit_selector.pt"
                 shutil.copy2(args.transit_checkpoint, copied_transit)
                 transit_sel = LearnedSelector(copied_transit, env.unwrapped.experiment_metadata(),
                                              float(env.unwrapped.sim_config.control_freq),
                                              strict_task=not args.allow_task_mismatch)
-                if args.transit_mode == "guard":
+                if args.transit_mode == "gate" or args.transit_gate_checkpoint:
+                    from apc_maniskill.primitive_policy import LearnedTransitGateSelector
+                    gate_ckpt = args.transit_gate_checkpoint or Path("runs/learned_transit_gate_v1/transit_gate_cart.pt")
+                    copied_gate = output / "transit_gate.pt"
+                    shutil.copy2(gate_ckpt, copied_gate)
+                    base_sel = LearnedTransitGateSelector(base_sel, transit_sel, copied_gate)
+                elif args.transit_mode == "guard":
                     from apc_maniskill.primitive_policy import LearnedTransitGuardSelector
                     base_sel = LearnedTransitGuardSelector(base_sel, transit_sel)
                 else:
@@ -183,6 +204,33 @@ def main():
             bank = PrimitiveBank(args.bank_dir)
             selector = BankAdaptiveSelector(bank, env.unwrapped.experiment_metadata(),
                                             float(env.unwrapped.sim_config.control_freq))
+        elif args.selector == "unified_router":
+            from apc_maniskill.primitive_learning import LearnedSelector
+            from apc_maniskill.primitive_policy import UnifiedRouterSelector, GraspRecoveryGuardSelector
+            copied_base = output / "base_selector.pt"
+            shutil.copy2(args.checkpoint, copied_base)
+            base_sel = LearnedSelector(copied_base, env.unwrapped.experiment_metadata(),
+                                       float(env.unwrapped.sim_config.control_freq),
+                                       strict_task=not args.allow_task_mismatch)
+            grasp_sel = GraspRecoveryGuardSelector(base_sel, grasp_height_m=args.grasp_height_m)
+            transit_sel = None
+            if args.transit_checkpoint:
+                copied_transit = output / "transit_selector.pt"
+                shutil.copy2(args.transit_checkpoint, copied_transit)
+                transit_sel = LearnedSelector(copied_transit, env.unwrapped.experiment_metadata(),
+                                             float(env.unwrapped.sim_config.control_freq),
+                                             strict_task=not args.allow_task_mismatch)
+            place_sel = None
+            if args.patch_checkpoint:
+                copied_patch = output / "patch_selector.pt"
+                shutil.copy2(args.patch_checkpoint, copied_patch)
+                place_sel = LearnedSelector(copied_patch, env.unwrapped.experiment_metadata(),
+                                           float(env.unwrapped.sim_config.control_freq),
+                                           strict_task=not args.allow_task_mismatch)
+            router_ckpt = args.router_checkpoint or Path("runs/learned_unified_router_v1/unified_router_cart.pt")
+            copied_router = output / "unified_router.pt"
+            shutil.copy2(router_ckpt, copied_router)
+            selector = UnifiedRouterSelector(base_sel, grasp_sel, transit_sel, place_sel, copied_router)
         else:
             selector = (PickPlaceSelector(use_rotation=args.rotations, true_place=args.true_place_goal) if args.selector == "pick_place"
 

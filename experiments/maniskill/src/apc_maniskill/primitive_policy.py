@@ -127,6 +127,138 @@ class TransitGuardSelector:
         return raw_id
 
 
+class GraspRecoveryGuardSelector:
+    """Diagnostic hybrid: recover from missed grasps and dropped cubes during the pick phase.
+
+    Condition 1 (Missed grasp): Gripper is open, hand is precisely aligned with cube at grasp height,
+    but base policy fails to close the gripper.
+    Action: 7 (close_gripper).
+
+    Condition 2 (Lost grasp): Gripper is closed, cube is on the table, and grasped is False for > 15 steps.
+    Action: 6 (open_gripper) then 4 (hand_z_plus) to clear and re-approach.
+    """
+
+    def __init__(self, base_selector, grasp_height_m=0.012):
+        self.base_selector = base_selector
+        self.grasp_height_m = grasp_height_m
+        self.metadata = dict(base_selector.metadata, hybrid=True, grasp_recovery_guard=True)
+        self.last_scores = []
+        self.last_guard_triggered = False
+        self.last_raw_id = None
+        self.last_guarded_id = None
+        self.active_module = "base"
+        self.closing_steps = 0
+        self.recovery_mode = None  # None, "opening", "clearing"
+
+    @property
+    def primitive_count(self):
+        return self.base_selector.primitive_count
+
+    def reset(self):
+        self.base_selector.reset()
+        self.last_scores = []
+        self.last_guard_triggered = False
+        self.last_raw_id = None
+        self.last_guarded_id = None
+        self.active_module = "base"
+        self.closing_steps = 0
+        self.recovery_mode = None
+
+    def select(self, step, observation):
+        raw_id = self.base_selector.select(step, observation)
+        self.last_raw_id = raw_id
+        self.last_scores = getattr(self.base_selector, "last_scores", [])
+        grasped = observation.get("grasped", False)
+
+        if grasped:
+            self.closing_steps = 0
+            self.recovery_mode = None
+            self.last_guard_triggered = False
+            self.last_guarded_id = raw_id
+            self.active_module = getattr(self.base_selector, "active_module", "base")
+            return raw_id
+
+        cube = np.asarray(observation["cube_position"])
+        hand = np.asarray(observation["measured_hand_position"])
+        goal = np.asarray(observation["goal_position"])
+        cube_init_z = observation.get("cube_initial_z", 0.02)
+        gripper_target = observation.get("gripper_target_m", 0.05)
+
+        # Do not intervene if cube is already near goal (protecting place phase)
+        dist_to_goal = np.linalg.norm(cube[:2] - goal[:2])
+        if dist_to_goal < 0.05:
+            self.last_guard_triggered = False
+            self.last_guarded_id = raw_id
+            self.active_module = getattr(self.base_selector, "active_module", "base")
+            return raw_id
+
+        # Track closed-gripper duration while cube is not grasped
+        if gripper_target < 0:
+            self.closing_steps += 1
+        else:
+            self.closing_steps = 0
+
+        # Case 2: Lost Grasp recovery
+        # Gripper is closed for a while without holding the cube, and cube is resting on the table
+        if self.recovery_mode is not None or (self.closing_steps > 15 and cube[2] < cube_init_z + 0.03):
+            self.last_guard_triggered = True
+            self.active_module = "grasp_recovery"
+            if gripper_target < 0.02:
+                self.recovery_mode = "opening"
+                self.last_guarded_id = 6  # open_gripper
+                return 6
+
+            d_xy = np.linalg.norm(hand[:2] - cube[:2])
+            grasp_z = cube[2] + self.grasp_height_m
+
+            # Step 1: Clear above cube
+            if hand[2] < cube[2] + 0.08 and d_xy > 0.010:
+                self.recovery_mode = "clearing"
+                self.last_guarded_id = 4  # hand_z_plus
+                return 4
+
+            # Step 2: Align XY directly above cube
+            if d_xy > 0.008:
+                self.recovery_mode = "aligning"
+                root = np.asarray(observation["root_rotation"])
+                delta_world = cube - hand
+                delta_root = root.T @ delta_world
+                axis = int(np.argmax(np.abs(delta_root[:2])))
+                act_id = int(2 * axis + int(delta_root[axis] < 0))
+                self.last_guarded_id = act_id
+                return act_id
+
+            # Step 3: Descend toward grasp height
+            if hand[2] > grasp_z + 0.006:
+                self.recovery_mode = "descending"
+                self.last_guarded_id = 5  # hand_z_minus
+                return 5
+
+            # Cleared and aligned! Close gripper or return control
+            self.recovery_mode = None
+            self.closing_steps = 0
+            self.last_guarded_id = 7  # close_gripper
+            return 7
+
+        # Case 1: Missed Grasp rescue
+        # Only intervene when base selector has stalled (not descending/closing)
+        # while hand is precisely aligned at grasp height with open fingers.
+        d_xy = np.linalg.norm(hand[:2] - cube[:2])
+        grasp_z = cube[2] + self.grasp_height_m
+        d_z = abs(hand[2] - grasp_z)
+        if gripper_target >= 0 and raw_id not in (5, 7) and d_xy < 0.012 and d_z < 0.010:
+            self.last_guard_triggered = True
+            self.active_module = "grasp_recovery"
+            self.last_guarded_id = 7  # close_gripper
+            return 7
+
+        self.last_guard_triggered = False
+        self.last_guarded_id = raw_id
+        self.active_module = getattr(self.base_selector, "active_module", "base")
+        return raw_id
+
+
+
 class LearnedTransitGuardSelector:
     """Intervenes ONLY on the exact same condition as TransitGuardSelector, delegating to a learned model.
 
@@ -191,6 +323,265 @@ class LearnedTransitGuardSelector:
         self.last_guarded_id = raw_id
         self.active_module = getattr(self.base_selector, "active_module", "base")
         return raw_id
+
+
+class LearnedTransitGateSelector:
+    """Intervenes when a learned CART gate predicts intervention (class 1).
+    
+    The gate model evaluates state features + base proposed raw_id, replacing
+    the hand-designed if-condition.
+    """
+
+    def __init__(self, base_selector, transit_selector, gate_checkpoint):
+        self.base_selector = base_selector
+        self.transit_selector = transit_selector
+        self.metadata = dict(
+            base_selector.metadata,
+            hybrid=True,
+            learned_transit_gate=True,
+            transit_model=transit_selector.metadata.get("selector"),
+            gate_checkpoint=str(gate_checkpoint),
+        )
+        self._load_gate(gate_checkpoint)
+        self.last_scores = []
+        self.last_guard_triggered = False
+        self.last_raw_id = None
+        self.last_guarded_id = None
+        self.active_module = "base"
+
+    def _load_gate(self, checkpoint_path):
+        import torch
+        from .primitive_tree import CART
+        ckpt = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+        self.gate_tree = CART(ckpt["n_nodes"], 2)
+        self.gate_tree.load_state_dict(ckpt["state_dict"])
+        self.gate_tree.eval()
+        self.feature_names = ckpt.get("feature_names", [])
+
+    def _extract_gate_features(self, state, raw_id):
+        cube = np.asarray(state["cube_position"], dtype=np.float32)
+        goal = np.asarray(state["goal_position"], dtype=np.float32)
+        cube_init_z = float(state.get("cube_initial_z", 0.02))
+        grasped = float(state.get("grasped", False))
+        raw_is_4 = float(raw_id == 4)
+        lift_z = float(cube[2] - cube_init_z)
+        rel_goal_z = float(cube[2] - goal[2])
+        dist_xy = float(np.linalg.norm(cube[:2] - goal[:2]))
+        dist_z = float(abs(cube[2] - goal[2]))
+        return np.array([
+            raw_is_4,
+            grasped,
+            lift_z,
+            rel_goal_z,
+            goal[2],
+            dist_xy,
+            dist_z,
+            cube[2]
+        ], dtype=np.float32)
+
+    @property
+    def primitive_count(self):
+        return self.base_selector.primitive_count
+
+    def reset(self):
+        self.base_selector.reset()
+        self.transit_selector.reset()
+        self.last_scores = []
+        self.last_guard_triggered = False
+        self.last_raw_id = None
+        self.last_guarded_id = None
+        self.active_module = "base"
+
+    def select(self, step, observation):
+        raw_id = self.base_selector.select(step, observation)
+        self.last_raw_id = raw_id
+        self.last_scores = getattr(self.base_selector, "last_scores", [])
+        grasped = observation.get("grasped", False)
+        if not grasped:
+            self.last_guard_triggered = False
+            self.last_guarded_id = raw_id
+            self.active_module = getattr(self.base_selector, "active_module", "base")
+            return raw_id
+
+        feat = self._extract_gate_features(observation, raw_id)
+        import torch
+        with torch.no_grad():
+            gate_logits = self.gate_tree(torch.from_numpy(feat))
+            gate_pred = int(gate_logits.argmax())
+
+        if gate_pred == 1:
+            self.last_guard_triggered = True
+            self.active_module = "transit"
+            guarded_id = self.transit_selector.select(step, observation)
+            self.last_scores = getattr(self.transit_selector, "last_scores", [])
+            self.last_guarded_id = guarded_id
+            return guarded_id
+
+        self.last_guard_triggered = False
+        self.last_guarded_id = raw_id
+        self.active_module = getattr(self.base_selector, "active_module", "base")
+        return raw_id
+
+
+class UnifiedRouterSelector:
+    """Selects among base, grasp_recovery, transit, and place modules using a single learned CART router.
+
+    Classes:
+    0: base
+    1: grasp_recovery
+    2: transit
+    3: place
+    """
+
+    def __init__(self, base_selector, grasp_recovery_selector, transit_selector, place_selector, router_checkpoint):
+        self.base_selector = base_selector
+        self.grasp_recovery_selector = grasp_recovery_selector
+        self.transit_selector = transit_selector
+        self.place_selector = place_selector
+        self._load_router(router_checkpoint)
+        self.metadata = dict(
+            base_selector.metadata,
+            learned=True,
+            selector="unified_router_v1",
+            router_nodes=self.router_tree.feature.shape[0],
+            router_checkpoint=str(router_checkpoint),
+        )
+        self.last_scores = []
+        self.active_module = "base"
+        self.last_raw_id = None
+        self.last_guarded_id = None
+        self.transit_guard_triggered = False
+        self.patch_applied = False
+        self.latched_place = False
+
+    def _load_router(self, checkpoint_path):
+        import torch
+        from .primitive_tree import CART
+        ckpt = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+        self.router_tree = CART(ckpt["n_nodes"], 4)
+        self.router_tree.load_state_dict(ckpt["state_dict"])
+        self.router_tree.eval()
+        self.feature_names = ckpt.get("feature_names", [])
+
+    def _extract_router_features(self, state, raw_id):
+        cube = np.asarray(state["cube_position"], dtype=np.float32)
+        goal = np.asarray(state["goal_position"], dtype=np.float32)
+        hand = np.asarray(state["measured_hand_position"], dtype=np.float32)
+        cube_init_z = float(state.get("cube_initial_z", 0.02))
+        grasped = float(state.get("grasped", False))
+        raw_is_4 = float(raw_id == 4)
+        lift_z = float(cube[2] - cube_init_z)
+        rel_goal_z = float(cube[2] - goal[2])
+        dist_xy = float(np.linalg.norm(cube[:2] - goal[:2]))
+        dist_z = float(abs(cube[2] - goal[2]))
+        hand_cube_xy = float(np.linalg.norm(hand[:2] - cube[:2]))
+        hand_cube_z = float(abs(hand[2] - (cube[2] + 0.012)))
+        gripper_target = float(state.get("gripper_target_m", 0.05))
+        raw_not_5_or_7 = float(raw_id not in (5, 7))
+
+        return np.array([
+            raw_is_4,
+            grasped,
+            lift_z,
+            rel_goal_z,
+            goal[2],
+            dist_xy,
+            dist_z,
+            cube[2],
+            hand_cube_xy,
+            hand_cube_z,
+            gripper_target,
+            raw_not_5_or_7,
+        ], dtype=np.float32)
+
+    @property
+    def primitive_count(self):
+        return self.base_selector.primitive_count
+
+    def reset(self):
+        self.base_selector.reset()
+        if hasattr(self.grasp_recovery_selector, "reset"):
+            self.grasp_recovery_selector.reset()
+        if hasattr(self.transit_selector, "reset"):
+            self.transit_selector.reset()
+        if hasattr(self.place_selector, "reset"):
+            self.place_selector.reset()
+        self.last_scores = []
+        self.active_module = "base"
+        self.last_raw_id = None
+        self.last_guarded_id = None
+        self.transit_guard_triggered = False
+        self.patch_applied = False
+        self.latched_place = False
+
+    def select(self, step, observation):
+        raw_id = self.base_selector.select(step, observation)
+        self.last_raw_id = raw_id
+        self.last_scores = getattr(self.base_selector, "last_scores", [])
+
+        # Maintain place latch once initiated
+        if self.latched_place and self.place_selector is not None:
+            self.active_module = "place"
+            self.patch_applied = True
+            self.transit_guard_triggered = False
+            action = self.place_selector.select(step, observation)
+            self.last_scores = getattr(self.place_selector, "last_scores", [])
+            return action
+
+        grasped = observation.get("grasped", False)
+
+        # Shared safety / grasp recovery layer during ungrasped phase
+        if not grasped and self.grasp_recovery_selector is not None:
+            recovery_act = self.grasp_recovery_selector.select(step, observation)
+            if getattr(self.grasp_recovery_selector, "last_guard_triggered", False):
+                self.active_module = "grasp_recovery"
+                self.patch_applied = False
+                self.transit_guard_triggered = False
+                self.last_guarded_id = recovery_act
+                self.last_scores = getattr(self.grasp_recovery_selector, "last_scores", [])
+                return recovery_act
+
+        # Extract features and query unified router CART for transit/place
+        feat = self._extract_router_features(observation, raw_id)
+        import torch
+        with torch.no_grad():
+            logits = self.router_tree(torch.from_numpy(feat))
+            pred = int(logits.argmax())
+
+        if pred == 3 and self.place_selector is not None:
+            self.active_module = "place"
+            self.patch_applied = True
+            self.latched_place = True
+            self.transit_guard_triggered = False
+            action = self.place_selector.select(step, observation)
+            self.last_scores = getattr(self.place_selector, "last_scores", [])
+            return action
+
+        elif pred == 2 and self.transit_selector is not None:
+            self.active_module = "transit"
+            self.transit_guard_triggered = True
+            self.patch_applied = False
+            guarded_id = self.transit_selector.select(step, observation)
+            self.last_scores = getattr(self.transit_selector, "last_scores", [])
+            self.last_guarded_id = guarded_id
+            return guarded_id
+
+        elif pred == 1 and self.grasp_recovery_selector is not None:
+            self.active_module = "grasp_recovery"
+            self.patch_applied = False
+            self.transit_guard_triggered = False
+            action = self.grasp_recovery_selector.select(step, observation)
+            self.last_scores = getattr(self.grasp_recovery_selector, "last_scores", [])
+            return action
+
+        # Default: Base policy
+        self.active_module = "base"
+        self.patch_applied = False
+        self.transit_guard_triggered = False
+        self.last_guarded_id = raw_id
+        return raw_id
+
+
 
 
 class RotationProbeSelector:
@@ -796,7 +1187,8 @@ class PrimitivePolicy(ArmIKPolicy):
         active_mod = getattr(self.selector, "active_module", "base")
         self.pre_action.update(active_module=active_mod,
                                patch_applied=(active_mod == "place"),
-                               transit_applied=(active_mod == "transit"))
+                               transit_applied=(active_mod == "transit"),
+                               recovery_applied=(active_mod == "grasp_recovery"))
         if hasattr(self.selector, "probe_applied"):
             self.pre_action.update(probe_applied=self.selector.probe_applied,
                                    probe_raw_id=self.selector.probe_raw_id)
