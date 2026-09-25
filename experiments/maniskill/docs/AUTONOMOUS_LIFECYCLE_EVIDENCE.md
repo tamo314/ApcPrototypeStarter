@@ -16,17 +16,24 @@ W5 / T15 では、これまでW0〜W4で段階的に検証してきた全コン�
 
 ---
 
-## 2. 自律閉ループの実行パイプライン（7ステージ）
+## 2. 自律閉ループの実行パイプライン（実効経路と構造）
+
+本実装における実効的な学習経路は、以下の通りである：
 
 ```mermaid
 flowchart TD
-    S1["1. 不足検出 (T14 Deficit Detector)<br/>FetchTruePlaceFar seed 3011 実行<br/>Step 848: 運搬停滞を自律検知"] --> S2["2. 局所Temporary適応 (MLP)<br/>3,000 updates, 11,092 params (50.3 KB)"]
-    S2 --> S3["3. 物理合成ロールアウト検証<br/>819 steps, 20連続成功達成"]
-    S3 --> S4["4. Candidate定着蒸留 (CART)<br/>25 nodes, 0 params (8.2 KB)"]
+    S1["1. 不足検出 (T14 Deficit Detector)<br/>FetchTruePlaceFar seed 3011 完走ログ<br/>Step 848: 運搬停滞を自律検知"] --> S2["2. 事前指定教師データ読み込み<br/>--transit-teacher-source 指定データ"]
+    S2 --> S3["3. 局所Temporary適応 (MLP)<br/>3,000 updates (50.3 KB)<br/>ロールアウト検証: 819 steps 成功"]
+    S2 --> S4["4. 直接Candidate獲得 (CART)<br/>同じ教師データから直接CARTをfit<br/>25 nodes, 0 params (8.2 KB)"]
     S4 --> S5["5. 単一統合ルーター更新 (CART)<br/>19 nodes, 0 params (4.0 KB)"]
-    S5 --> S6["6. 一時資源の実解放 (Real Release)<br/>Temporary完全破棄 (50.3 KB 解放)<br/>独立最小配布物生成 (39.8 KB)"]
+    S3 -.->|一時資源解放| S6["6. 一時資源の実解放 (Real Release)<br/>Temporary完全破棄 (50.3 KB 解放)<br/>独立最小配布物生成 (39.8 KB)"]
+    S5 --> S6
     S6 --> S7["7. 独立別プロセス検証 & 保持確認<br/>Target 3011: 820 steps (成功)<br/>Place 3001: 833 steps (成功)<br/>Pick 3201: 744 steps (成功)"]
 ```
+
+> [!NOTE] 実効的学習経路に関する重要な区別
+> 現在の実装では、Temporary MLP のロールアウト軌跡や判断結果から Candidate CART を蒸留するのではなく、同一の教師データ（`transit_teacher_source`）から直接 Candidate CART を fit する「直接Candidate獲得（Direct Candidate Fitting）」が実効経路となっている。局所運搬補正においては、Temporary を挟まずとも高精度な小型非線形決定木（CART）を直接獲得できることが実証された。
+> また、自律性の範囲としては、物理実行中にその場でオンライン介入・データ収集を行うものではなく、先行エピソードの保存ログから不足を検知し、事前指定データセットを用いて人手を介さず一連の獲得・定着・統合・解放・検証を自動完遂する「自動化ライフサイクル」である。
 
 ---
 
@@ -39,7 +46,7 @@ flowchart TD
 | **Step 1: 不足検出** | 未適応Baseで難関タスク（True Place 3011）を実行 | 検出成否 / 検出Step | **Step 848 で自律検出**（キューブ運搬中の水平進捗停滞） |
 | **Step 2: 局所適応** | 運搬不足領域のデータを収集しTemporary MLPを局所学習 | パラメータ数 / ファイル容量 | **11,092 params (50,273 bytes)** |
 | **Step 3: 合成検証** | Temporaryを組み込んだ物理シミュレータ閉ループ実行 | 完遂Step / 20連続成功 | **819 steps で成功達成** |
-| **Step 4: 定着蒸留** | Temporaryの軌跡・決定境界からCandidate CARTへ蒸留 | ノード数 / パラメータ数 / 容量 | **25 nodes, 0 params (8,164 bytes)** |
+| **Step 4: 直接Candidate獲得** | 運搬データから直接Candidate CARTをfit（直接Candidate方式） | ノード数 / パラメータ数 / 容量 | **25 nodes, 0 params (8,164 bytes)** |
 | **Step 5: ルーター更新** | Base/回復/運搬/配置の4クラス統合ルーターCARTを再学習 | ノード数 / 容量 | **19 nodes, 0 params (3,997 bytes)** |
 | **Step 6: 一時資源解放** | Temporary・オプティマイザ・教師データを完全に破棄 | 解放容量 / 最小配布物容量 | **50,273 bytes 解放**, 配布物 **39,817 bytes** |
 | **Step 7: 独立検証** | 最小配布物のみを参照する独立別プロセスで全課題を実行 | 新課題 3011<br/>保持 Place 3001<br/>保持 Pick 3201 | **820 steps (成功)<br/>833 steps (成功)<br/>744 steps (成功)** |

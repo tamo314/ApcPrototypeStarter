@@ -60,6 +60,8 @@ def main():
                         help="Guard against missed grasps and dropped cubes during pick")
     parser.add_argument("--transit-mode", choices=["patch", "guard", "gate"], default="patch",
                         help="Execution mode for transit model: patch (continuous), guard (limited condition), or gate (learned CART gate)")
+    parser.add_argument("--disable-recovery", action="store_true",
+                        help="Disable grasp recovery module in unified router for ablation")
     parser.add_argument("--allow-task-mismatch", action="store_true")
     args = parser.parse_args()
 
@@ -212,7 +214,9 @@ def main():
             base_sel = LearnedSelector(copied_base, env.unwrapped.experiment_metadata(),
                                        float(env.unwrapped.sim_config.control_freq),
                                        strict_task=not args.allow_task_mismatch)
-            grasp_sel = GraspRecoveryGuardSelector(base_sel, grasp_height_m=args.grasp_height_m)
+            grasp_sel = None
+            if not args.disable_recovery:
+                grasp_sel = GraspRecoveryGuardSelector(base_sel, grasp_height_m=args.grasp_height_m)
             transit_sel = None
             if args.transit_checkpoint:
                 copied_transit = output / "transit_selector.pt"

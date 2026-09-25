@@ -26,13 +26,17 @@ APC（Adaptive Primitive Consolidation）の中核仮説の一つは、学習フ
 
 配布ディレクトリ: `experiments/maniskill/dist_standalone_bundle_v1`
 
-| ファイル | 種別 | モデル形式 | ファイルサイズ | ノード数 | 格納値数 (Values) | 勾配パラメータ | SHA256 (先頭8桁) |
+| ファイル | 種別 | モデル形式 | ファイルサイズ | ノード数 | スコア配列値数 | 勾配パラメータ | SHA256 (先頭8桁) |
 |---|---|---|---|---|---|---|---|
-| `base_selector.pt` | 最下層基盤方策 | CART | 16,420 bytes (16.4 KB) | 55 | 1,100 | 0 | `ebc9939d` |
-| `place_candidate.pt` | 配置局所 Candidate | CART | 11,236 bytes (11.2 KB) | 55 | 1,100 | 0 | `ae338a06` |
-| `transit_candidate.pt` | 運搬局所 Candidate | CART | 8,164 bytes (8.2 KB) | 73 | 1,460 | 0 | `0015ceeb` |
+| `base_selector.pt` | 最下層基盤方策 | CART | 16,420 bytes (16.4 KB) | 103 | 2,060 | 0 | `c6ff8806` |
+| `place_candidate.pt` | 配置局所 Candidate | CART | 11,236 bytes (11.2 KB) | 55 | 1,100 | 0 | `15870970` |
+| `transit_candidate.pt` | 運搬局所 Candidate | CART | 8,164 bytes (8.2 KB) | 25 | 500 | 0 | `d75b4662` |
 | `bundle_manifest.json` | 構成・整合性定義 | JSON | 1,526 bytes (1.5 KB) | - | - | - | `7a884fa6` |
 | **合計** | - | - | **35,820 bytes (35.8 KB)** | **183** | **3,660** | **0** | - |
+
+> [!NOTE] 資源計測に関する区別
+> - **配布物サイズ**: チェックポイントファイルの合計は 35,820 bytes（約35 KB）。これは配布物ファイル自体の容量であり、Python/PyTorch/SAPIEN シミュレータを含むプロセス実行時のメモリ使用量（常駐セットサイズ: RSS、通常数百MB）とは明確に区別される。
+> - **スコア配列値数 (stored_values)**: 各決定木の葉・中間ノードに格納されたスコア配列の要素数（$\sum \text{nodes} \times 20$）の合計。CART の閾値・特徴番号・子ノードインデックス等の全内部データを含めた計数ではない。
 
 - **一時資源依存度**: 0%（Temporary MLP、データセット、PyTorch学習器への依存なし）
 - **メモリ構造**: 固定配列による決定木推論（深さ最大 8 程度、`threshold`, `feature`, `children` 配列のみ）
