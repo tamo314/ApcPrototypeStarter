@@ -35,6 +35,7 @@ class AutonomousDeficitDetector:
         self.has_grasped = False
         self.min_dist_cube_goal = np.inf
         self.transit_stagnation_counter = 0
+        self.placement_stagnation_counter = 0
         self.rejection_streak = 0
         self.upward_action_streak = 0
         self.pre_grasp_alignment_streak = 0
@@ -67,20 +68,32 @@ class AutonomousDeficitDetector:
             )
 
         # -------------------------------------------------------------------------
-        # Phase 1: Ungrasped (Approach & Grasping)
+        # Phase 1: Ungrasped (Approach, Grasping, or Accidental Drop / Release)
         # -------------------------------------------------------------------------
         if not grasped:
             self.transit_stagnation_counter = 0
             self.upward_action_streak = 0
+            self.placement_stagnation_counter = 0
 
-            # If already grasped in the past, this is the post-placement release phase
+            # Distinguish between intentional placement release and accidental drop
             if self.has_grasped:
-                return DeficitDiagnosis(
-                    status="normal",
-                    streak_steps=0,
-                    reason="Post-placement release phase",
-                    trigger_adaptation=False
-                )
+                dist_cube_goal = np.linalg.norm(cube[:2] - goal[:2])
+                cube_on_table = (cube[2] < 0.025)
+                if dist_cube_goal < 0.025 and cube_on_table:
+                    return DeficitDiagnosis(
+                        status="normal",
+                        streak_steps=0,
+                        reason="Normal post-placement release near goal",
+                        trigger_adaptation=False
+                    )
+                else:
+                    # Premature drop or grasp loss away from goal
+                    return DeficitDiagnosis(
+                        status="transient_recoverable",
+                        streak_steps=self.step,
+                        reason=f"Accidental grasp loss or premature drop away from goal (dist={dist_cube_goal:.3f}m, z={cube[2]:.3f}m)",
+                        trigger_adaptation=False
+                    )
 
             d_xy = np.linalg.norm(hand[:2] - cube[:2])
             d_z = abs(hand[2] - (cube[2] + 0.012))
@@ -120,7 +133,6 @@ class AutonomousDeficitDetector:
             dist_cube_goal = np.linalg.norm(cube[:2] - goal[:2])
 
             # Deficit Indicator 1: Spurious upward drift while carrying cube
-            # (Executing hand_z_plus while already elevated above goal)
             if executed_id == 4 and (cube[2] - goal[2]) > 0.08:
                 self.upward_action_streak += 1
                 if self.upward_action_streak >= 2:
@@ -133,23 +145,37 @@ class AutonomousDeficitDetector:
             else:
                 self.upward_action_streak = 0
 
-            # Deficit Indicator 2: Transit progress stagnation
-            # When near goal (placement phase), small movements are normal
+            # Deficit Indicator 2: Near-goal placement stall
+            # Carrying cube near goal (< 0.035m) but failing to descend/settle/release
             if dist_cube_goal < 0.035:
                 self.transit_stagnation_counter = 0
-            elif dist_cube_goal < self.min_dist_cube_goal - 0.003:
-                self.min_dist_cube_goal = dist_cube_goal
-                self.transit_stagnation_counter = 0
+                if cube[2] > 0.030:  # Still held in air above goal without descending
+                    self.placement_stagnation_counter += 1
+                    if self.placement_stagnation_counter >= 80:
+                        return DeficitDiagnosis(
+                            status="genuine_deficit",
+                            streak_steps=self.placement_stagnation_counter,
+                            reason=f"Near-goal placement stall: held in air above goal without descending (dist={dist_cube_goal:.3f}m, z={cube[2]:.3f}m)",
+                            trigger_adaptation=True
+                        )
+                else:
+                    self.placement_stagnation_counter = 0
+            # Deficit Indicator 3: Far-transit progress stagnation
             else:
-                self.transit_stagnation_counter += 1
+                self.placement_stagnation_counter = 0
+                if dist_cube_goal < self.min_dist_cube_goal - 0.003:
+                    self.min_dist_cube_goal = dist_cube_goal
+                    self.transit_stagnation_counter = 0
+                else:
+                    self.transit_stagnation_counter += 1
 
-            if self.transit_stagnation_counter >= self.max_transit_stagnation_steps:
-                return DeficitDiagnosis(
-                    status="genuine_deficit",
-                    streak_steps=self.transit_stagnation_counter,
-                    reason="Carrying cube but failing to make horizontal progress toward goal",
-                    trigger_adaptation=True
-                )
+                if self.transit_stagnation_counter >= self.max_transit_stagnation_steps:
+                    return DeficitDiagnosis(
+                        status="genuine_deficit",
+                        streak_steps=self.transit_stagnation_counter,
+                        reason=f"Carrying cube but failing to make horizontal progress toward goal (dist={dist_cube_goal:.3f}m)",
+                        trigger_adaptation=True
+                    )
 
         # -------------------------------------------------------------------------
         # Kinodynamic Rejection Check
