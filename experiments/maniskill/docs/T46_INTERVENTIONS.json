@@ -1,0 +1,768 @@
+{
+ "note": "descriptive; open-loop veto counts, closed-loop effect in T47",
+ "runs": [
+  "runs/t42-final-20260926-a:initial",
+  "runs/t34-matrix-20260926-b:old"
+ ],
+ "excluded_seeds": [
+  3114
+ ],
+ "summary": {
+  "loss": {
+   "n": 9,
+   "median_max_p": 1.0,
+   "median_max_stall": 99.0,
+   "median_decisions": 1.0
+  },
+  "both_fail": {
+   "n": 29,
+   "median_max_p": 1.0,
+   "median_max_stall": 142.0,
+   "median_decisions": 2.0
+  },
+  "gain": {
+   "n": 16,
+   "median_max_p": 1.0,
+   "median_max_stall": 120.00000762939453,
+   "median_decisions": 1.0
+  },
+  "both_success": {
+   "n": 8,
+   "median_max_p": 1.0,
+   "median_max_stall": 102.00000381469727,
+   "median_decisions": 1.5
+  }
+ },
+ "tables": {
+  "p": [
+   {
+    "threshold": 0.0,
+    "cells_with_candidate": 62,
+    "gain": 16,
+    "loss": 9,
+    "both_fail": 29,
+    "both_success": 8
+   },
+   {
+    "threshold": 0.5,
+    "cells_with_candidate": 62,
+    "gain": 16,
+    "loss": 9,
+    "both_fail": 29,
+    "both_success": 8
+   },
+   {
+    "threshold": 0.6,
+    "cells_with_candidate": 62,
+    "gain": 16,
+    "loss": 9,
+    "both_fail": 29,
+    "both_success": 8
+   },
+   {
+    "threshold": 0.7,
+    "cells_with_candidate": 62,
+    "gain": 16,
+    "loss": 9,
+    "both_fail": 29,
+    "both_success": 8
+   },
+   {
+    "threshold": 0.8,
+    "cells_with_candidate": 62,
+    "gain": 16,
+    "loss": 9,
+    "both_fail": 29,
+    "both_success": 8
+   },
+   {
+    "threshold": 0.9,
+    "cells_with_candidate": 51,
+    "gain": 15,
+    "loss": 8,
+    "both_fail": 22,
+    "both_success": 6
+   },
+   {
+    "threshold": 0.95,
+    "cells_with_candidate": 51,
+    "gain": 15,
+    "loss": 8,
+    "both_fail": 22,
+    "both_success": 6
+   }
+  ],
+  "stall": [
+   {
+    "threshold": 0,
+    "cells_with_candidate": 62,
+    "gain": 16,
+    "loss": 9,
+    "both_fail": 29,
+    "both_success": 8
+   },
+   {
+    "threshold": 5,
+    "cells_with_candidate": 52,
+    "gain": 14,
+    "loss": 7,
+    "both_fail": 24,
+    "both_success": 7
+   },
+   {
+    "threshold": 10,
+    "cells_with_candidate": 52,
+    "gain": 14,
+    "loss": 7,
+    "both_fail": 24,
+    "both_success": 7
+   },
+   {
+    "threshold": 20,
+    "cells_with_candidate": 52,
+    "gain": 14,
+    "loss": 7,
+    "both_fail": 24,
+    "both_success": 7
+   },
+   {
+    "threshold": 40,
+    "cells_with_candidate": 48,
+    "gain": 13,
+    "loss": 6,
+    "both_fail": 23,
+    "both_success": 6
+   },
+   {
+    "threshold": 80,
+    "cells_with_candidate": 46,
+    "gain": 12,
+    "loss": 6,
+    "both_fail": 23,
+    "both_success": 5
+   }
+  ]
+ },
+ "cells": [
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "AC_manual",
+   "seed": 3097,
+   "outcome": "loss",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 32.0,
+   "n_decisions": 1
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "AC_manual",
+   "seed": 3098,
+   "outcome": "both_fail",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 0.0,
+   "n_decisions": 1
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "AC_manual",
+   "seed": 3107,
+   "outcome": "both_fail",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 0.0,
+   "n_decisions": 1
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "AC_manual",
+   "seed": 3111,
+   "outcome": "gain",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 30.000001907348633,
+   "n_decisions": 1
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "AC_manual",
+   "seed": 3118,
+   "outcome": "both_success",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 69.0,
+   "n_decisions": 2
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "AC_manual",
+   "seed": 3119,
+   "outcome": "both_fail",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 0.0,
+   "n_decisions": 5
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "AC_manual",
+   "seed": 3124,
+   "outcome": "loss",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 196.0,
+   "n_decisions": 1
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "stream_v3",
+   "seed": 3097,
+   "outcome": "loss",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 528.0,
+   "n_decisions": 19
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "stream_v3",
+   "seed": 3098,
+   "outcome": "both_fail",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 356.0,
+   "n_decisions": 25
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "stream_v3",
+   "seed": 3102,
+   "outcome": "both_fail",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 408.0,
+   "n_decisions": 1
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "stream_v3",
+   "seed": 3103,
+   "outcome": "gain",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 127.0,
+   "n_decisions": 2
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "stream_v3",
+   "seed": 3111,
+   "outcome": "both_fail",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 256.0,
+   "n_decisions": 20
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "stream_v3",
+   "seed": 3112,
+   "outcome": "gain",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 142.0,
+   "n_decisions": 1
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "stream_v3",
+   "seed": 3121,
+   "outcome": "loss",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 90.0,
+   "n_decisions": 1
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "stream_v3",
+   "seed": 3124,
+   "outcome": "both_success",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 142.0,
+   "n_decisions": 4
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "stream_v3_distilled",
+   "seed": 3097,
+   "outcome": "both_success",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 84.0,
+   "n_decisions": 1
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "stream_v3_distilled",
+   "seed": 3098,
+   "outcome": "both_fail",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 360.0,
+   "n_decisions": 31
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "stream_v3_distilled",
+   "seed": 3102,
+   "outcome": "both_fail",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 408.0,
+   "n_decisions": 1
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "stream_v3_distilled",
+   "seed": 3103,
+   "outcome": "both_fail",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 239.00001525878906,
+   "n_decisions": 16
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "stream_v3_distilled",
+   "seed": 3111,
+   "outcome": "both_fail",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 248.0,
+   "n_decisions": 13
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "stream_v3_distilled",
+   "seed": 3112,
+   "outcome": "both_fail",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 142.0,
+   "n_decisions": 1
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "stream_v3_distilled",
+   "seed": 3121,
+   "outcome": "loss",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 99.0,
+   "n_decisions": 2
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "stream_v3_distilled",
+   "seed": 3124,
+   "outcome": "loss",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 328.0,
+   "n_decisions": 49
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "sweep_w3d6",
+   "seed": 3090,
+   "outcome": "both_success",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 0.0,
+   "n_decisions": 1
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "sweep_w3d6",
+   "seed": 3095,
+   "outcome": "both_fail",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 622.0,
+   "n_decisions": 57
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "sweep_w3d6",
+   "seed": 3097,
+   "outcome": "both_success",
+   "min_p": 0.8999999761581421,
+   "max_p": 0.8999999761581421,
+   "max_stall": 120.00000762939453,
+   "n_decisions": 1
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "sweep_w3d6",
+   "seed": 3098,
+   "outcome": "both_fail",
+   "min_p": 0.8999999761581421,
+   "max_p": 0.8999999761581421,
+   "max_stall": 120.00000762939453,
+   "n_decisions": 1
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "sweep_w3d6",
+   "seed": 3100,
+   "outcome": "both_fail",
+   "min_p": 0.8999999761581421,
+   "max_p": 0.8999999761581421,
+   "max_stall": 120.00000762939453,
+   "n_decisions": 2
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "sweep_w3d6",
+   "seed": 3102,
+   "outcome": "both_fail",
+   "min_p": 0.8999999761581421,
+   "max_p": 0.8999999761581421,
+   "max_stall": 120.00000762939453,
+   "n_decisions": 1
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "sweep_w3d6",
+   "seed": 3103,
+   "outcome": "both_fail",
+   "min_p": 0.8999999761581421,
+   "max_p": 0.8999999761581421,
+   "max_stall": 120.00000762939453,
+   "n_decisions": 2
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "sweep_w3d6",
+   "seed": 3107,
+   "outcome": "both_fail",
+   "min_p": 0.8999999761581421,
+   "max_p": 0.8999999761581421,
+   "max_stall": 120.00000762939453,
+   "n_decisions": 1
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "sweep_w3d6",
+   "seed": 3111,
+   "outcome": "both_fail",
+   "min_p": 0.8999999761581421,
+   "max_p": 0.8999999761581421,
+   "max_stall": 120.00000762939453,
+   "n_decisions": 1
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "sweep_w3d6",
+   "seed": 3112,
+   "outcome": "gain",
+   "min_p": 0.8999999761581421,
+   "max_p": 0.8999999761581421,
+   "max_stall": 120.00000762939453,
+   "n_decisions": 1
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "sweep_w3d6",
+   "seed": 3117,
+   "outcome": "both_success",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 26.0,
+   "n_decisions": 2
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "sweep_w3d6",
+   "seed": 3120,
+   "outcome": "both_fail",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 510.0,
+   "n_decisions": 16
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "sweep_w3d6",
+   "seed": 3121,
+   "outcome": "both_success",
+   "min_p": 0.8999999761581421,
+   "max_p": 0.8999999761581421,
+   "max_stall": 120.00000762939453,
+   "n_decisions": 1
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "sweep_w3d6",
+   "seed": 3123,
+   "outcome": "both_fail",
+   "min_p": 0.8999999761581421,
+   "max_p": 1.0,
+   "max_stall": 136.0,
+   "n_decisions": 19
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "sweep_w3d6",
+   "seed": 3124,
+   "outcome": "loss",
+   "min_p": 0.8999999761581421,
+   "max_p": 0.8999999761581421,
+   "max_stall": 120.00000762939453,
+   "n_decisions": 1
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "bank": "sweep_w3d6",
+   "seed": 3126,
+   "outcome": "both_fail",
+   "min_p": 0.8999999761581421,
+   "max_p": 0.8999999761581421,
+   "max_stall": 120.00000762939453,
+   "n_decisions": 1
+  },
+  {
+   "run": "t34-matrix-20260926-b",
+   "bank": "AC",
+   "seed": 3014,
+   "outcome": "gain",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 152.0,
+   "n_decisions": 3
+  },
+  {
+   "run": "t34-matrix-20260926-b",
+   "bank": "AC",
+   "seed": 3020,
+   "outcome": "gain",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 120.00000762939453,
+   "n_decisions": 1
+  },
+  {
+   "run": "t34-matrix-20260926-b",
+   "bank": "AC",
+   "seed": 3023,
+   "outcome": "gain",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 0.0,
+   "n_decisions": 1
+  },
+  {
+   "run": "t34-matrix-20260926-b",
+   "bank": "AC",
+   "seed": 3026,
+   "outcome": "both_fail",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 0.0,
+   "n_decisions": 2
+  },
+  {
+   "run": "t34-matrix-20260926-b",
+   "bank": "AC",
+   "seed": 3065,
+   "outcome": "both_fail",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 27.000001907348633,
+   "n_decisions": 2
+  },
+  {
+   "run": "t34-matrix-20260926-b",
+   "bank": "AC",
+   "seed": 3070,
+   "outcome": "both_fail",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 390.0,
+   "n_decisions": 13
+  },
+  {
+   "run": "t34-matrix-20260926-b",
+   "bank": "AC",
+   "seed": 3072,
+   "outcome": "gain",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 82.0,
+   "n_decisions": 2
+  },
+  {
+   "run": "t34-matrix-20260926-b",
+   "bank": "AC",
+   "seed": 3075,
+   "outcome": "both_fail",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 0.0,
+   "n_decisions": 1
+  },
+  {
+   "run": "t34-matrix-20260926-b",
+   "bank": "AC",
+   "seed": 3079,
+   "outcome": "gain",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 0.0,
+   "n_decisions": 1
+  },
+  {
+   "run": "t34-matrix-20260926-b",
+   "bank": "AC",
+   "seed": 3080,
+   "outcome": "gain",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 193.0,
+   "n_decisions": 4
+  },
+  {
+   "run": "t34-matrix-20260926-b",
+   "bank": "AC",
+   "seed": 3082,
+   "outcome": "loss",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 0.0,
+   "n_decisions": 1
+  },
+  {
+   "run": "t34-matrix-20260926-b",
+   "bank": "AC",
+   "seed": 3084,
+   "outcome": "gain",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 43.0,
+   "n_decisions": 2
+  },
+  {
+   "run": "t34-matrix-20260926-b",
+   "bank": "AC2",
+   "seed": 3014,
+   "outcome": "gain",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 152.0,
+   "n_decisions": 3
+  },
+  {
+   "run": "t34-matrix-20260926-b",
+   "bank": "AC2",
+   "seed": 3020,
+   "outcome": "gain",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 120.00000762939453,
+   "n_decisions": 1
+  },
+  {
+   "run": "t34-matrix-20260926-b",
+   "bank": "AC2",
+   "seed": 3026,
+   "outcome": "both_fail",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 144.0,
+   "n_decisions": 2
+  },
+  {
+   "run": "t34-matrix-20260926-b",
+   "bank": "AC2",
+   "seed": 3058,
+   "outcome": "gain",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 128.0,
+   "n_decisions": 2
+  },
+  {
+   "run": "t34-matrix-20260926-b",
+   "bank": "AC2",
+   "seed": 3063,
+   "outcome": "gain",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 120.00000762939453,
+   "n_decisions": 1
+  },
+  {
+   "run": "t34-matrix-20260926-b",
+   "bank": "AC2",
+   "seed": 3065,
+   "outcome": "both_fail",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 144.0,
+   "n_decisions": 2
+  },
+  {
+   "run": "t34-matrix-20260926-b",
+   "bank": "AC2",
+   "seed": 3070,
+   "outcome": "both_fail",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 144.0,
+   "n_decisions": 2
+  },
+  {
+   "run": "t34-matrix-20260926-b",
+   "bank": "AC2",
+   "seed": 3072,
+   "outcome": "both_fail",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 144.0,
+   "n_decisions": 2
+  },
+  {
+   "run": "t34-matrix-20260926-b",
+   "bank": "AC2",
+   "seed": 3076,
+   "outcome": "both_success",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 144.0,
+   "n_decisions": 2
+  },
+  {
+   "run": "t34-matrix-20260926-b",
+   "bank": "AC2",
+   "seed": 3082,
+   "outcome": "loss",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 0.0,
+   "n_decisions": 1
+  },
+  {
+   "run": "t34-matrix-20260926-b",
+   "bank": "AC2",
+   "seed": 3084,
+   "outcome": "gain",
+   "min_p": 1.0,
+   "max_p": 1.0,
+   "max_stall": 120.00000762939453,
+   "n_decisions": 1
+  }
+ ]
+}

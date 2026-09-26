@@ -495,6 +495,23 @@ python scripts/run_t34_stream.py --out runs/<new> --stream true_place:3014 --str
 - 最終独立40条件では、APC各銀行が20〜23/40で、初期の23/40を上回らなかった。
 - 蒸留（H3）と共有基準（H8）は不成立。
 
+### T45〜T50（2026-09-26）
+
+[T45_T50_EVIDENCE.md](docs/T45_T50_EVIDENCE.md) と [T45_T50_RESULTS.json](docs/T45_T50_RESULTS.json)。
+
+```bash
+# 反実仮想ラベル（Candidate決定点ごとに「継続」と「以後拒否」を再実行）とゲート付き銀行
+python scripts/run_t47_counterfactual.py --out runs/<new> --run runs/<matrix run> --bank-name v3 --bank <bank dir>
+# 親委譲拡張（再学習ルーターはCandidateの可否だけを決め、他は親ルーターに従う）
+python scripts/make_deferring_bank.py --bank <acquired bank> --parent dist_autonomous_bundle_v1 --out runs/<new>
+# Candidateを常時拒否する比較
+python scripts/run_bank_matrix.py --out runs/<new> --bank veto=<bank dir>@veto_candidates --episode true_place:3130
+```
+
+要点：
+- 損失の主因は、再学習ルーターが元の判断を置き換えたことだった。親委譲で非干渉を構成的に保証した。
+- 最終独立60条件：初期26、v3 29、親委譲29（失0）、親委譲＋ゲート27。いずれも区間は重なる。
+
 ## 上流資料（2026-09-22確認）
 
 - [S1: インストール・対応OS](https://maniskill.readthedocs.io/en/latest/user_guide/getting_started/installation.html)
