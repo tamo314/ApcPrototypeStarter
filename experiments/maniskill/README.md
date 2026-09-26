@@ -480,6 +480,21 @@ python scripts/run_bank_matrix.py --out runs/<new> --bank old=dist_autonomous_bu
 - 配置開始ゲート：B型を得るが既知成功とトレードオフがある。
 - 共有モデル基準（T29最小版）：未成立。
 
+### T34〜T44（2026-09-26）
+
+[T34_T44_EVIDENCE.md](docs/T34_T44_EVIDENCE.md) と [T34_T44_RESULTS.json](docs/T34_T44_RESULTS.json)。
+
+```bash
+# 課題列での自動継続獲得（検出→獲得→採用判断→S[t,j]）
+python scripts/run_t34_stream.py --out runs/<new> --stream true_place:3014 --stream true_place:3026 \
+    --eval true_place:3014 --retention pick:3202 --replay-set true_place:3011
+```
+
+要点：
+- 課題列での自動継続獲得は、開発規模で単調なS（6→8）と保持を示した（両順序）。
+- 最終独立40条件では、APC各銀行が20〜23/40で、初期の23/40を上回らなかった。
+- 蒸留（H3）と共有基準（H8）は不成立。
+
 ## 上流資料（2026-09-22確認）
 
 - [S1: インストール・対応OS](https://maniskill.readthedocs.io/en/latest/user_guide/getting_started/installation.html)
