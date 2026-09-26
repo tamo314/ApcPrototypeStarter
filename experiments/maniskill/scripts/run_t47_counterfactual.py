@@ -157,7 +157,7 @@ def main(argv=None):
                                                depth=args.depth, min_leaf=args.min_leaf))
         bank = load_bank(args.bank)
         roles = dict(base=bank.base, router=bank.router, transit=bank.transit, place=bank.place,
-                     **bank.candidate_roles(), gate=gate_path)
+                     parent_router=bank.parent_router, **bank.candidate_roles(), gate=gate_path)
         manifest = write_bank(args.out / "bank_gated", {k: v for k, v in roles.items() if v is not None},
                               bank.manifest(), dict(design="extend", gate=args.seed_parity))
         log.update(gate=dict(nodes=int(tree.feature.shape[0]), train_accuracy=acc,

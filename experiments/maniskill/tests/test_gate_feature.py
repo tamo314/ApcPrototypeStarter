@@ -1,4 +1,5 @@
-"""One real-simulator path for T47: candidate decision -> counterfactual branches -> gate -> gated bank.
+"""One real-simulator path for T47/T48: candidate decision -> counterfactual branches -> gate -> gated bank,
+and the parent-deferring extension (candidates vetoed == parent bank).
 
 A synthetic bank whose router always proposes candidate_A (an option candidate
 that only holds) keeps the episode short; only the mechanics are asserted.
@@ -58,3 +59,15 @@ def test_counterfactual_gate_and_veto(tmp_path, monkeypatch):
     rows = [json.loads(line) for line in
             (tmp_path / "m2" / "cells" / "gated__true_place_3112" / "transitions.jsonl").read_text().splitlines()]
     assert any(r["candidate_gate"] is not None for r in rows)
+
+    # parent-deferring extension: with candidates vetoed it must act exactly as its parent
+    import make_deferring_bank
+    make_deferring_bank.main(["--bank", str(tmp_path / "syn"), "--parent", str(bundle), "--out", str(tmp_path / "defer")])
+    run_bank_matrix.main(["--out", str(tmp_path / "m3"), "--bank", f"defer={tmp_path / 'defer'}@veto_candidates",
+                          "--bank", f"parent={bundle}", "--episode", "true_place:3112", "--max-steps", "60",
+                          "--workers", "2"])
+    ids = {}
+    for name in ("defer", "parent"):
+        f = tmp_path / "m3" / "cells" / f"{name}__true_place_3112" / "transitions.jsonl"
+        ids[name] = [json.loads(line)["executed_id"] for line in f.read_text().splitlines()]
+    assert ids["defer"] == ids["parent"]

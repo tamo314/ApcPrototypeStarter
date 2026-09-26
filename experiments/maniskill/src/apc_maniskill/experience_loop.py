@@ -134,13 +134,14 @@ class Bank:
     place: Path | None = None
     candidate_A: Path | None = None
     gate: Path | None = None  # candidate applicability gate (T47); consulted only on candidate proposals
+    parent_router: Path | None = None  # T48: non-candidate routing deferred to the parent bank's router
     candidates: dict = field(default_factory=dict)  # further candidate_* roles
     extra: dict = field(default_factory=dict)
 
     @classmethod
     def from_roles(cls, root: Path, roles: dict) -> "Bank":
         fixed = {k: Path(root) / v for k, v in roles.items()
-                 if k in ("base", "router", "transit", "place", "candidate_A", "gate")}
+                 if k in ("base", "router", "transit", "place", "candidate_A", "gate", "parent_router")}
         more = {k: Path(root) / v for k, v in roles.items() if k.startswith("candidate_") and k != "candidate_A"}
         return cls(**fixed, candidates=more)
 
@@ -151,7 +152,7 @@ class Bank:
     def files(self) -> dict[str, Path]:
         items = {"base": self.base, "router": self.router, "transit": self.transit,
                  "place": self.place, "candidate_A": self.candidate_A, "gate": self.gate,
-                 **self.candidates}
+                 "parent_router": self.parent_router, **self.candidates}
         return {k: Path(v) for k, v in items.items() if v is not None}
 
     def manifest(self) -> dict:
@@ -221,13 +222,18 @@ class RoutedSelector:
       router proposes Place; False keeps Base control for this step (veto/delay).
     * ``place_release(step, state) -> bool``: allow leaving the place latch.
     * ``candidate_gate(router_x2) -> bool``: consulted only when the router proposes a
-      candidate_* module outside option commitment; False keeps Base control (T47).
+      candidate_* module outside option commitment; False keeps Base control (T47),
+      or the parent router's decision when ``parent_router`` is set.
+    * ``parent_router``: when set, the (refit) router only decides "candidate or not";
+      every other decision is the parent router's, so without candidate proposals the
+      bank behaves exactly as its parent (T48 parent-deferring extension).
     """
 
     def __init__(self, base, recovery, modules: dict, router: CART, *, force=None,
-                 place_gate=None, place_release=None, candidate_gate=None):
+                 place_gate=None, place_release=None, candidate_gate=None, parent_router=None):
         self.base_selector = base
         self.candidate_gate = candidate_gate
+        self.parent_router = parent_router
         self.recovery = recovery
         self.modules = dict(modules)
         self.router = router
@@ -271,7 +277,12 @@ class RoutedSelector:
         with torch.no_grad():
             xin = x2 if getattr(self.router, "feature_schema", "router_v1") == "router_v2" else x
             router_class = int(self.router(torch.from_numpy(xin)).argmax())
-        d = dict(base_proposed_id=raw, router_class=router_class, router_x=x.tolist(),
+            parent_class = None
+            if self.parent_router is not None:
+                pin = x2 if getattr(self.parent_router, "feature_schema", "router_v1") == "router_v2" else x
+                parent_class = int(self.parent_router(torch.from_numpy(pin)).argmax())
+        d = dict(base_proposed_id=raw, router_class=router_class, parent_router_class=parent_class,
+                 router_x=x.tolist(),
                  router_x2=x2.tolist(), forced=False, scripted=False, latch_released=False,
                  committed=False)
         self.decision = d
@@ -309,6 +320,17 @@ class RoutedSelector:
                 self.latched_place = True
             return self._finish(d, forced, self._run(forced, step, observation))
         pred = router_class
+        name = self.router.class_names[pred] if pred < len(getattr(self.router, "class_names", MODULES)) else None
+        is_candidate = pred >= 4 and name in self.modules and self.modules[name] is not None
+        if parent_class is not None and not is_candidate:
+            pred = parent_class
+        if is_candidate and self.candidate_gate is not None:
+            allowed = bool(self.candidate_gate(x2))
+            d["candidate_gate"] = allowed
+            if not allowed:
+                if parent_class is None:
+                    return self._finish(d, "base", raw)
+                pred, is_candidate = parent_class, False
         if self.place_gate is not None and pred == 3:
             # Veto-type gate: only when the router proposes Place, decide "enter now"
             # or "keep the existing control" (Base) for this step.
@@ -321,13 +343,7 @@ class RoutedSelector:
             return self._finish(d, "place", self._run("place", step, observation))
         if pred == 2 and self.modules.get("transit") is not None:
             return self._finish(d, "transit", self._run("transit", step, observation))
-        name = self.router.class_names[pred] if pred < len(getattr(self.router, "class_names", MODULES)) else None
-        if pred >= 4 and name in self.modules and self.modules[name] is not None:
-            if self.candidate_gate is not None:
-                allowed = bool(self.candidate_gate(x2))
-                d["candidate_gate"] = allowed
-                if not allowed:
-                    return self._finish(d, "base", raw)
+        if is_candidate:
             return self._finish(d, name, self._run(name, step, observation))
         if pred == 1 and self.recovery is not None:
             act = int(self.recovery.select(step, observation))
@@ -440,7 +456,8 @@ def build_policy(env, out: Path, bank: Bank, *, recovery=True, force=None, place
         candidate_gate = ApplicabilityGate(bank.gate)
     selector = RoutedSelector(base, guard, modules, load_router(bank.router), force=force,
                               place_gate=place_gate, place_release=place_release,
-                              candidate_gate=candidate_gate)
+                              candidate_gate=candidate_gate,
+                              parent_router=load_router(bank.parent_router) if bank.parent_router else None)
     return PrimitivePolicy(env, out, selector=selector, allow_rotation=True, allow_base=True)
 
 
@@ -518,6 +535,7 @@ def transition_record(step: int, report: dict, decision: dict, reward: float, su
         latch_released=decision.get("latch_released", False),
         place_gate=decision.get("place_gate"),
         candidate_gate=decision.get("candidate_gate"),
+        parent_router_class=decision.get("parent_router_class"),
         proposed_id=int(report["proposed_id"]), executed_id=int(report["executed_id"]),
         submitted_action=report["submitted_action"],
         override_reason_code=int(report["override_reason_code"]),
