@@ -121,14 +121,17 @@ def main(argv=None):
                 continue
             # a. parent-router replay with the current bank
             replay_dir = args.out / f"replay_t{t:02d}"
-            rep = matrix(replay_dir, {"parent": bank}, args.replay_set, args.workers,
-                         args.max_steps) if args.replay_set else {"env_steps": 0}
+            # acquired, solved items are replayed too so the refit router keeps its own
+            # decisions there (v-c lost 3014 at every later refit without this)
+            replay_set = sorted(set(args.replay_set + acquired_solved))
+            rep = matrix(replay_dir, {"parent": bank}, replay_set, args.workers,
+                         args.max_steps) if replay_set else {"env_steps": 0}
             # b. acquisition + fit
             acq_dir = args.out / f"acquire_t{t:02d}_{cand}"
             acq_argv = ["--out", str(acq_dir), "--bank", str(bank), "--event", event_file,
                         "--registry", str(registry), "--design", "extend", "--start", "event",
                         "--candidate-name", cand, "--workers", str(args.workers)]
-            for cell in sorted((replay_dir / "cells").glob("*")) if args.replay_set else []:
+            for cell in sorted((replay_dir / "cells").glob("*")) if replay_set else []:
                 acq_argv += ["--replay", str(cell)]
             # the event item's own log (parent labels before the event; later rows are
             # excluded by the acquirer) and earlier items run with this bank version
