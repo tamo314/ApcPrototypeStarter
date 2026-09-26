@@ -133,13 +133,14 @@ class Bank:
     transit: Path | None = None
     place: Path | None = None
     candidate_A: Path | None = None
+    gate: Path | None = None  # candidate applicability gate (T47); consulted only on candidate proposals
     candidates: dict = field(default_factory=dict)  # further candidate_* roles
     extra: dict = field(default_factory=dict)
 
     @classmethod
     def from_roles(cls, root: Path, roles: dict) -> "Bank":
         fixed = {k: Path(root) / v for k, v in roles.items()
-                 if k in ("base", "router", "transit", "place", "candidate_A")}
+                 if k in ("base", "router", "transit", "place", "candidate_A", "gate")}
         more = {k: Path(root) / v for k, v in roles.items() if k.startswith("candidate_") and k != "candidate_A"}
         return cls(**fixed, candidates=more)
 
@@ -149,7 +150,8 @@ class Bank:
 
     def files(self) -> dict[str, Path]:
         items = {"base": self.base, "router": self.router, "transit": self.transit,
-                 "place": self.place, "candidate_A": self.candidate_A, **self.candidates}
+                 "place": self.place, "candidate_A": self.candidate_A, "gate": self.gate,
+                 **self.candidates}
         return {k: Path(v) for k, v in items.items() if v is not None}
 
     def manifest(self) -> dict:
@@ -183,6 +185,28 @@ def save_router(path: Path, tree: CART, *, feature_schema="router_v1", class_nam
                 "n_nodes": int(tree.feature.shape[0]), **meta}, path)
 
 
+class ApplicabilityGate:
+    """Binary CART over router-v2 features: may a proposed Candidate act here? (T47)"""
+
+    def __init__(self, path: Path):
+        ckpt = torch.load(path, map_location="cpu", weights_only=False)
+        self.tree = CART(ckpt["n_nodes"], 2)
+        self.tree.load_state_dict(ckpt["state_dict"])
+        self.tree.eval()
+        self.meta = {k: v for k, v in ckpt.items() if k not in ("state_dict",)}
+
+    def __call__(self, x2) -> bool:
+        with torch.no_grad():
+            return bool(int(self.tree(torch.as_tensor(np.asarray(x2, np.float32))).argmax()) == 1)
+
+
+def save_gate(path: Path, tree: CART, **meta) -> None:
+    torch.save({"schema": "candidate_applicability_gate_v1", "feature_schema": "router_v2",
+                "feature_names": list(ROUTER_FEATURE_NAMES) + list(ROUTER_V2_EXTRA),
+                "classes": ["veto", "allow"], "state_dict": tree.state_dict(),
+                "n_nodes": int(tree.feature.shape[0]), **meta}, path)
+
+
 class RoutedSelector:
     """Unified-router execution with a per-step decision record.
 
@@ -196,11 +220,14 @@ class RoutedSelector:
     * ``place_gate(step, state, features) -> bool | None``: consulted only when the
       router proposes Place; False keeps Base control for this step (veto/delay).
     * ``place_release(step, state) -> bool``: allow leaving the place latch.
+    * ``candidate_gate(router_x2) -> bool``: consulted only when the router proposes a
+      candidate_* module outside option commitment; False keeps Base control (T47).
     """
 
     def __init__(self, base, recovery, modules: dict, router: CART, *, force=None,
-                 place_gate=None, place_release=None):
+                 place_gate=None, place_release=None, candidate_gate=None):
         self.base_selector = base
+        self.candidate_gate = candidate_gate
         self.recovery = recovery
         self.modules = dict(modules)
         self.router = router
@@ -296,6 +323,11 @@ class RoutedSelector:
             return self._finish(d, "transit", self._run("transit", step, observation))
         name = self.router.class_names[pred] if pred < len(getattr(self.router, "class_names", MODULES)) else None
         if pred >= 4 and name in self.modules and self.modules[name] is not None:
+            if self.candidate_gate is not None:
+                allowed = bool(self.candidate_gate(x2))
+                d["candidate_gate"] = allowed
+                if not allowed:
+                    return self._finish(d, "base", raw)
             return self._finish(d, name, self._run(name, step, observation))
         if pred == 1 and self.recovery is not None:
             act = int(self.recovery.select(step, observation))
@@ -391,7 +423,7 @@ def make_task_env(task: str, out: Path, seed: int = 0):
 
 
 def build_policy(env, out: Path, bank: Bank, *, recovery=True, force=None, place_gate=None,
-                 place_release=None, transit_selector=None):
+                 place_release=None, transit_selector=None, candidate_gate=None):
     meta = env.unwrapped.experiment_metadata()
     freq = float(env.unwrapped.sim_config.control_freq)
 
@@ -404,8 +436,11 @@ def build_policy(env, out: Path, bank: Bank, *, recovery=True, force=None, place
                "place": learned(bank.place) if bank.place is not None else None,
                **{name: learned(path) for name, path in bank.candidate_roles().items()}}
     guard = GraspRecoveryGuardSelector(base) if recovery else None
+    if candidate_gate is None and bank.gate is not None:
+        candidate_gate = ApplicabilityGate(bank.gate)
     selector = RoutedSelector(base, guard, modules, load_router(bank.router), force=force,
-                              place_gate=place_gate, place_release=place_release)
+                              place_gate=place_gate, place_release=place_release,
+                              candidate_gate=candidate_gate)
     return PrimitivePolicy(env, out, selector=selector, allow_rotation=True, allow_base=True)
 
 
@@ -482,6 +517,7 @@ def transition_record(step: int, report: dict, decision: dict, reward: float, su
         forced=decision.get("forced", False), scripted=decision.get("scripted", False),
         latch_released=decision.get("latch_released", False),
         place_gate=decision.get("place_gate"),
+        candidate_gate=decision.get("candidate_gate"),
         proposed_id=int(report["proposed_id"]), executed_id=int(report["executed_id"]),
         submitted_action=report["submitted_action"],
         override_reason_code=int(report["override_reason_code"]),

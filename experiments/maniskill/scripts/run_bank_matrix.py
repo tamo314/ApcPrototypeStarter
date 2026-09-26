@@ -48,7 +48,9 @@ def cell(job):
     manifest = bank.manifest()
     cell_dir = Path(out) / "cells" / f"{name}__{task}_{seed}"
     env = make_task_env(task, cell_dir)
-    policy = build_policy(env, cell_dir, bank, place_gate=make_gate(gate_spec or None))
+    veto = gate_spec == "veto_candidates"  # T48/T49 ablation: router refit without Candidate actions
+    policy = build_policy(env, cell_dir, bank, place_gate=None if veto else make_gate(gate_spec or None),
+                          candidate_gate=(lambda x2: False) if veto else None)
     log = EpisodeLog(cell_dir / "transitions.jsonl", run_id=Path(out).name,
                      episode_id=f"{name}-{task}-{seed}", seed=seed, task=task,
                      bank_hash=manifest["bank_hash"], store_states=False)
@@ -71,7 +73,7 @@ def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--bank", action="append", required=True,
-                   help="name=dir or name=dir@gate (gate: thr:<m> or place_gate.pt)")
+                   help="name=dir or name=dir@gate (gate: thr:<m>, place_gate.pt, or veto_candidates)")
     p.add_argument("--episode", action="append", required=True, help="task:seed")
     p.add_argument("--max-steps", type=int, default=1200)
     p.add_argument("--workers", type=int, default=4)
