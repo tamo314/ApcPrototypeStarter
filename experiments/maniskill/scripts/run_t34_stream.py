@@ -69,8 +69,11 @@ def main(argv=None):
     p.add_argument("--replay-set", action="append", default=[],
                    help="conditions replayed with the current bank for router self-labels")
     p.add_argument("--max-steps", type=int, default=1200)
+    p.add_argument("--no-grow-retention", action="store_true",
+                   help="do not add items solved by adopted updates to the retention check")
     p.add_argument("--workers", type=int, default=4)
-    p.add_argument("--acq-args", default="", help="extra args for run_t32r3_acquire (e.g. budget)")
+    p.add_argument("--acq-args", default="--outcome-weight 3 --router-depth 6",
+                   help="extra args for run_t32r3_acquire (default: dev-selected regularization)")
     args = p.parse_args(argv)
     args.out.mkdir(parents=True, exist_ok=False)
     t0 = time.monotonic()
@@ -78,6 +81,7 @@ def main(argv=None):
     bank = args.bank
     versions = [dict(version=0, bank=str(bank), adopted_at_item=None)]
     prior = {}  # candidate name -> list of acquisition dirs
+    acquired_solved = []  # event items solved by adopted updates (added to retention)
     log = dict(run_id=args.out.name, created_at=utc_now(), command=sys.argv, provenance=provenance(),
                stream=args.stream, eval=args.eval, retention=args.retention, items=[], s_matrix=[],
                versions=versions)
@@ -97,6 +101,8 @@ def main(argv=None):
         item_dir = args.out / f"item{t:02d}_{task}_{seed}"
         run_t32r1_transitions.main(["--out", str(item_dir), "--episode", item, "--bundle", str(bank),
                                     "--max-steps", str(args.max_steps), "--no-states"])
+        same_version_items = [args.out / f"item{i['t']:02d}_{i['item'].replace(':', '_')}"
+                              for i in log["items"] if i["bank_version"] == len(versions) - 1]
         summary = json.loads((item_dir / "summary.json").read_text())
         ep = summary["episodes"][0]
         entry = dict(t=t, item=item, bank_version=len(versions) - 1, success=ep["success"],
@@ -124,6 +130,10 @@ def main(argv=None):
                         "--candidate-name", cand, "--workers", str(args.workers)]
             for cell in sorted((replay_dir / "cells").glob("*")) if args.replay_set else []:
                 acq_argv += ["--replay", str(cell)]
+            # the event item's own log (parent labels before the event; later rows are
+            # excluded by the acquirer) and earlier items run with this bank version
+            for d in [item_dir, *same_version_items]:
+                acq_argv += ["--replay", str(d)]
             for d in prior.get(cand, []):
                 acq_argv += ["--prior-acquisition", str(d)]
             acq_argv += args.acq_args.split()
@@ -141,11 +151,12 @@ def main(argv=None):
                 continue
             new_bank = Path(acq["banks"]["bank_A_full"]["dir"])
             # c. adoption check on retention set + the event item
+            retention = sorted(set(args.retention + acquired_solved))
             check = matrix(args.out / f"adopt_t{t:02d}", {"current": bank, "new": new_bank},
-                           sorted(set(args.retention + [item])), args.workers, args.max_steps)
+                           sorted(set(retention + [item])), args.workers, args.max_steps)
             entry["env_steps"] += check["env_steps"]
             cells = {(c["bank"], f"{c['task']}:{c['seed']}"): c for c in check["cells"]}
-            lost = [e for e in args.retention if cells[("current", e)]["success"]
+            lost = [e for e in retention if cells[("current", e)]["success"]
                     and not cells[("new", e)]["success"]]
             d_cur = cells[("current", item)]["final"]["cube_goal_dist_xy_m"]
             d_new = cells[("new", item)]["final"]["cube_goal_dist_xy_m"]
@@ -155,6 +166,8 @@ def main(argv=None):
                 ev["decision"] = "rejected_update"
                 continue
             ev["decision"] = "adopted"
+            if cells[("new", item)]["success"] and not args.no_grow_retention:
+                acquired_solved.append(item)  # keep what this update newly solved
             prior.setdefault(cand, []).append(acq_dir)
             bank = new_bank
             versions.append(dict(version=len(versions), bank=str(bank), adopted_at_item=t,
@@ -169,7 +182,7 @@ def main(argv=None):
     log.update(finished_at=utc_now(), wall_seconds=time.monotonic() - t0,
                env_steps_items=sum(i["env_steps"] for i in log["items"]),
                env_steps_s_matrix=sum(s["env_steps"] for s in log["s_matrix"]),
-               adopted_updates=len(versions) - 1,
+               adopted_updates=len(versions) - 1, grown_retention=acquired_solved,
                rejected_updates=sum(e.get("decision") == "rejected_update"
                                     for i in log["items"] for e in i["events"]),
                missed_failures=[i["item"] for i in log["items"] if not i["success"] and not i["events"]])

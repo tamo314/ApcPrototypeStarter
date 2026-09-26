@@ -499,6 +499,7 @@ def transition_record(step: int, report: dict, decision: dict, reward: float, su
         target_after_update=report["target_after_update"],
         router_x=decision.get("router_x"), router_x2=decision.get("router_x2"),
         committed=decision.get("committed", False),
+        teacher_id=decision.get("teacher_id"),
         candidate_x=candidate_features(s0).tolist(),
         actual_displacements=dict(
             hand_m=(_vec(s1["measured_hand_position"]) - _vec(s0["measured_hand_position"])).tolist(),
