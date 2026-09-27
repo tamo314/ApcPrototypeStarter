@@ -1,5 +1,6 @@
 """One real-simulator path for T47/T48: candidate decision -> counterfactual branches -> gate -> gated bank,
-the parent-deferring extension (candidates vetoed == parent bank) and the candidate budget (T52).
+the parent-deferring extension (candidates vetoed == parent bank), the candidate budget (T52)
+and the role swap (T61).
 
 A synthetic bank whose router always proposes candidate_A (an option candidate
 that only holds) keeps the episode short; only the mechanics are asserted.
@@ -82,3 +83,10 @@ def test_counterfactual_gate_and_veto(tmp_path, monkeypatch):
     starts = [r for r in rows if r["selected_module"].startswith("candidate") and not r["committed"]]
     assert len(starts) == 1
     assert json.loads((tmp_path / "b1" / "bank_manifest.json").read_text())["candidate_budget"] == 1
+
+    # role swap (T61): replacing a role by an identical file keeps the version identity
+    import swap_bank_role
+    m = swap_bank_role.main(["--bank", str(tmp_path / "b1"), "--role", f"candidate_A={tmp_path / 'cand.pt'}",
+                             "--out", str(tmp_path / "swapped")])
+    assert m["bank_hash"] == json.loads((tmp_path / "b1" / "bank_manifest.json").read_text())["bank_hash"]
+    assert m["candidate_budget"] == 1
