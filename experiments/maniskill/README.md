@@ -528,6 +528,14 @@ python scripts/run_t34_stream.py --out runs/<new> --stream true_place:3014 --eva
 - 使用上限1は調整群で+2だったが、独立80条件では±0（初期51、上限1で51）。
 - 親委譲の非干渉は3回目の独立群でも成立した。独立140条件の合算で親委譲は得6・失4。
 
+### T56〜T60（2026-09-27）
+
+[T56_T60_EVIDENCE.md](docs/T56_T60_EVIDENCE.md) と [T56_T60_RESULTS.json](docs/T56_T60_RESULTS.json)。
+
+要点：
+- 獲得イベントを16件に増やしたA′（決定行36行）は、最終独立100条件で初期と同等（49対50）で、旧Aより悪かった（0/−6）。差の多くはルーターの起動判断による。
+- 旧A（親委譲）の独立240条件の合算は、初期127に対して134（得11・失4、p=0.12）。
+
 ## 上流資料（2026-09-22確認）
 
 - [S1: インストール・対応OS](https://maniskill.readthedocs.io/en/latest/user_guide/getting_started/installation.html)
