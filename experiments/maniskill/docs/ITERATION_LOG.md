@@ -807,6 +807,30 @@ manifestがfailed、episode数0、error.txtが保存されることを確認し�
 - 機能テストを実行した場合の結果 / 未実行と理由:
   - `tests/test_gate_feature.py`（新規）と `tests/test_experience_loop_feature.py` が2 passed（342秒、実シミュレータ）。
 
+### 2026-09-27 — T51〜T55（Candidate使用上限・課題列runner v2・最終独立確認）
+
+- 問い/今回変えた点:
+  - 計画 `docs/APC_NEXT_PLAN_T51_T55_20260927.md` を作成し、その順に実行した。
+  - 追加：銀行の `candidate_budget`、`Bank.load`（上限を含めて読み込む）、課題列runnerの `--defer-parent --candidate-budget --validation`、`analyze_t51_budget.py`、`collect_t51_t55.py`。
+- commit / config / robot・controller / seed・split:
+  - 上限の選択は調整群123条件で、事前規則により上限1。
+  - 最終独立群は3400〜3479（80条件、1回のみ評価）。3190〜3269は開発seedと番号が重なるため避けた。
+- 環境step・episode・学習step・wall time等の予算と実績:
+  - 本段で965,633 step（累計5,492,860）。
+- runパス / 実データの観測 / 失敗した条件:
+  - 詳細は `docs/T51_T55_EVIDENCE.md`。
+  - 上限1の閉ループ実行は、反実仮想からの予測と17/17条件で一致した。
+  - 課題列v2の1回目は、項目実行が上限を読まずハッシュが食い違い、2件のイベントが捨てられた（`...-a-failed-budget-not-loaded`）。読み込みを `Bank.load` に統一して再実行した。
+  - v2では採用1・却下2（検証集合で正味−2・−1）。S合計は6→6。
+  - T54：初期51/80、親委譲50、上限1で51、v2の産物50。符号検定はすべてp=1.0。
+- 解釈（測定と推測を分ける）:
+  - 測定：起動判断・使用上限の調整は独立群で効かなかった。親委譲の非干渉は3回目も成立した。
+  - 推測：残るボトルネックはCandidate自身の質（決定行5〜10行）。
+- 次に変える一点:
+  - 調整群のA型イベントから十数件を獲得して決定行を増やし、Candidateを再学習する。独立群は3480以降。
+- 機能テストを実行した場合の結果 / 未実行と理由:
+  - `tests/test_gate_feature.py`（上限の検査を追加）と `tests/test_stream_feature.py` が2 passed（220秒、実シミュレータ）。
+
 ## 追記テンプレート
 
 ### YYYY-MM-DD — 変更点の短い名前

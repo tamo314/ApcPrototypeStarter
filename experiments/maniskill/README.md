@@ -512,6 +512,22 @@ python scripts/run_bank_matrix.py --out runs/<new> --bank veto=<bank dir>@veto_c
 - 損失の主因は、再学習ルーターが元の判断を置き換えたことだった。親委譲で非干渉を構成的に保証した。
 - 最終独立60条件：初期26、v3 29、親委譲29（失0）、親委譲＋ゲート27。いずれも区間は重なる。
 
+### T51〜T55（2026-09-27）
+
+[T51_T55_EVIDENCE.md](docs/T51_T55_EVIDENCE.md) と [T51_T55_RESULTS.json](docs/T51_T55_RESULTS.json)。
+
+```bash
+# 使用上限付きの親委譲銀行（1エピソードあたりのCandidate決定数を制限）
+python scripts/make_deferring_bank.py --bank <acquired bank> --parent dist_autonomous_bundle_v1 --out runs/<new> --candidate-budget 1
+# 課題列runner v2（親委譲・上限・検証集合での対比較による採用判断）
+python scripts/run_t34_stream.py --out runs/<new> --stream true_place:3014 --eval true_place:3014 \
+    --validation true_place:3070 --defer-parent --candidate-budget 1
+```
+
+要点：
+- 使用上限1は調整群で+2だったが、独立80条件では±0（初期51、上限1で51）。
+- 親委譲の非干渉は3回目の独立群でも成立した。独立140条件の合算で親委譲は得6・失4。
+
 ## 上流資料（2026-09-22確認）
 
 - [S1: インストール・対応OS](https://maniskill.readthedocs.io/en/latest/user_guide/getting_started/installation.html)
