@@ -11,6 +11,11 @@ For each stream item (task:seed) in order:
    c. adoption check (local, not a research gate): the new bank is adopted if it
       does not lose any retention-set success of the current bank and the event
       condition's final distance does not get worse; otherwise ``rejected_update``;
+   With ``--validation`` (T53, runner v2) the update must also not lose on the paired
+   comparison over the validation conditions: #(new only succeeds) - #(current only
+   succeeds) >= 0.  With ``--defer-parent`` every new bank routes non-candidate
+   decisions with the stream's starting router (parent-deferring extension), and
+   ``--candidate-budget`` caps candidate decisions per episode.
 3. after every adopted update (and at the start) evaluate S[t, j] over the fixed
    evaluation conditions.
 
@@ -32,6 +37,7 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import make_deferring_bank  # noqa: E402
 import run_bank_matrix  # noqa: E402
 import run_t32r1_transitions  # noqa: E402
 import run_t32r3_acquire  # noqa: E402
@@ -72,6 +78,11 @@ def main(argv=None):
     p.add_argument("--no-grow-retention", action="store_true",
                    help="do not add items solved by adopted updates to the retention check")
     p.add_argument("--workers", type=int, default=4)
+    p.add_argument("--validation", action="append", default=[],
+                   help="T53: paired net-effect adoption conditions (task:seed)")
+    p.add_argument("--defer-parent", action="store_true",
+                   help="T53: new banks defer non-candidate routing to the starting bank's router")
+    p.add_argument("--candidate-budget", type=int, default=None)
     p.add_argument("--acq-args", default="--outcome-weight 3 --router-depth 6",
                    help="extra args for run_t32r3_acquire (default: dev-selected regularization)")
     args = p.parse_args(argv)
@@ -81,6 +92,8 @@ def main(argv=None):
     bank = args.bank
     versions = [dict(version=0, bank=str(bank), adopted_at_item=None)]
     prior = {}  # candidate name -> list of acquisition dirs
+    root = args.bank  # parent for --defer-parent
+    val_cache = {}  # bank dir -> {condition: success}
     acquired_solved = []  # event items solved by adopted updates (added to retention)
     log = dict(run_id=args.out.name, created_at=utc_now(), command=sys.argv, provenance=provenance(),
                stream=args.stream, eval=args.eval, retention=args.retention, items=[], s_matrix=[],
@@ -153,6 +166,12 @@ def main(argv=None):
                 ev["decision"] = acq["result"]
                 continue
             new_bank = Path(acq["banks"]["bank_A_full"]["dir"])
+            if args.defer_parent or args.candidate_budget is not None:
+                make_deferring_bank.main(["--bank", str(new_bank), "--parent", str(root),
+                                          "--out", str(acq_dir / "bank_deferring")]
+                                         + ([] if args.candidate_budget is None
+                                            else ["--candidate-budget", str(args.candidate_budget)]))
+                new_bank = acq_dir / "bank_deferring"
             # c. adoption check on retention set + the event item
             retention = sorted(set(args.retention + acquired_solved))
             check = matrix(args.out / f"adopt_t{t:02d}", {"current": bank, "new": new_bank},
@@ -165,7 +184,23 @@ def main(argv=None):
             d_new = cells[("new", item)]["final"]["cube_goal_dist_xy_m"]
             ev.update(adoption=dict(lost_retention=lost, event_item_success_new=cells[("new", item)]["success"],
                                     event_item_final_dist_current=d_cur, event_item_final_dist_new=d_new))
-            if lost or (d_new > d_cur + 1e-3 and not cells[("new", item)]["success"]):
+            net = 0
+            if args.validation:
+                val = sorted(set(args.validation))
+                banks = {"new": new_bank} | ({} if str(bank) in val_cache else {"current": bank})
+                vm = matrix(args.out / f"validate_t{t:02d}", banks, val, args.workers, args.max_steps)
+                entry["env_steps"] += vm["env_steps"]
+                vc = {(c["bank"], f"{c['task']}:{c['seed']}"): c["success"] for c in vm["cells"]}
+                if str(bank) not in val_cache:
+                    val_cache[str(bank)] = {e: vc[("current", e)] for e in val}
+                cur = val_cache[str(bank)]
+                new_only = [e for e in val if vc[("new", e)] and not cur[e]]
+                cur_only = [e for e in val if cur[e] and not vc[("new", e)]]
+                net = len(new_only) - len(cur_only)
+                val_cache[str(new_bank)] = {e: vc[("new", e)] for e in val}
+                ev["adoption"].update(validation_new_only=new_only, validation_current_only=cur_only,
+                                      validation_net=net, validation_env_steps=vm["env_steps"])
+            if lost or net < 0 or (d_new > d_cur + 1e-3 and not cells[("new", item)]["success"]):
                 ev["decision"] = "rejected_update"
                 continue
             ev["decision"] = "adopted"

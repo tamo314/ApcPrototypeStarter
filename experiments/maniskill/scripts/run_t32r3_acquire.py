@@ -32,10 +32,7 @@ CANDIDATE = MODULES_EXT.index("candidate_A")
 
 
 def load_bank(path: Path) -> Bank:
-    if (path / "bank_manifest.json").exists():
-        m = json.loads((path / "bank_manifest.json").read_text())
-        return Bank.from_roles(path, m["roles"])
-    return Bank.initial(path)
+    return Bank.load(path)
 
 
 def write_bank(dst: Path, roles: dict, parent: dict, notes: dict) -> dict:
@@ -46,8 +43,10 @@ def write_bank(dst: Path, roles: dict, parent: dict, notes: dict) -> dict:
         shutil.copy2(src, dst / name)
         rel[role] = name
     bank = Bank.from_roles(dst, rel)
+    bank.candidate_budget = notes.get("candidate_budget")
     manifest = dict(schema="apc_bank_version_v1", created_at=utc_now(), roles=rel,
-                    parent_bank_hash=parent["bank_hash"], **bank.manifest(), **notes)
+                    parent_bank_hash=parent["bank_hash"], **bank.manifest(),
+                    **{k: v for k, v in notes.items() if k != "candidate_budget"})
     json_write(dst / "bank_manifest.json", manifest)
     return manifest
 

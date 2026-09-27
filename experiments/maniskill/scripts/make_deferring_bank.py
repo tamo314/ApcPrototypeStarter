@@ -6,7 +6,7 @@ decision is the parent's, so without candidate proposals the bank behaves exactl
 like its parent.
 
   python scripts/make_deferring_bank.py --bank <acquired bank> --parent dist_autonomous_bundle_v1 \
-     --out runs/t48-deferring-20260926-a
+     --out runs/t48-deferring-20260926-a [--candidate-budget 1]
 """
 from __future__ import annotations
 
@@ -24,12 +24,15 @@ def main(argv=None):
     p.add_argument("--bank", type=Path, required=True)
     p.add_argument("--parent", type=Path, required=True)
     p.add_argument("--out", type=Path, required=True)
+    p.add_argument("--candidate-budget", type=int, default=None,
+                   help="T52: max non-committed candidate decisions per episode")
     args = p.parse_args(argv)
     bank, parent = load_bank(args.bank), load_bank(args.parent)
     roles = dict(base=bank.base, router=bank.router, transit=bank.transit, place=bank.place,
                  **bank.candidate_roles(), parent_router=parent.router)
     m = write_bank(args.out, {k: v for k, v in roles.items() if v is not None}, bank.manifest(),
-                   dict(design="extend_parent_deferring", parent_router_from=parent.manifest()["bank_hash"]))
+                   dict(design="extend_parent_deferring", parent_router_from=parent.manifest()["bank_hash"],
+                        **({} if args.candidate_budget is None else {"candidate_budget": args.candidate_budget})))
     print(m["bank_hash"])
     return m
 

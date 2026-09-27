@@ -24,10 +24,7 @@ from apc_maniskill.runner import json_write, provenance, utc_now
 
 
 def load_bank(path: Path) -> Bank:
-    if (path / "bank_manifest.json").exists():
-        m = json.loads((path / "bank_manifest.json").read_text())
-        return Bank.from_roles(path, m["roles"])
-    return Bank.initial(path)
+    return Bank.load(path)
 
 
 def make_gate(spec):

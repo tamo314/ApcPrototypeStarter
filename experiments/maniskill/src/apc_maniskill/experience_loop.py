@@ -135,6 +135,7 @@ class Bank:
     candidate_A: Path | None = None
     gate: Path | None = None  # candidate applicability gate (T47); consulted only on candidate proposals
     parent_router: Path | None = None  # T48: non-candidate routing deferred to the parent bank's router
+    candidate_budget: int | None = None  # T52: max non-committed candidate decisions per episode
     candidates: dict = field(default_factory=dict)  # further candidate_* roles
     extra: dict = field(default_factory=dict)
 
@@ -158,9 +159,24 @@ class Bank:
     def manifest(self) -> dict:
         files = {k: {"path": str(v), "sha256": sha256_file(v), "bytes": v.stat().st_size}
                  for k, v in self.files().items()}
-        digest = hashlib.sha256(json.dumps({k: v["sha256"] for k, v in sorted(files.items())},
-                                           sort_keys=True).encode()).hexdigest()
-        return {"bank_hash": digest, "files": files, **self.extra}
+        keyed = {k: v["sha256"] for k, v in sorted(files.items())}
+        budget = {}
+        if self.candidate_budget is not None:  # part of the version identity (behaviour differs)
+            keyed["candidate_budget"] = int(self.candidate_budget)
+            budget = {"candidate_budget": int(self.candidate_budget)}
+        digest = hashlib.sha256(json.dumps(keyed, sort_keys=True).encode()).hexdigest()
+        return {"bank_hash": digest, "files": files, **budget, **self.extra}
+
+    @classmethod
+    def load(cls, path: Path) -> "Bank":
+        """A bank directory with bank_manifest.json, or a legacy bundle directory."""
+        path = Path(path)
+        if (path / "bank_manifest.json").exists():
+            m = json.loads((path / "bank_manifest.json").read_text())
+            bank = cls.from_roles(path, m["roles"])
+            bank.candidate_budget = m.get("candidate_budget")
+            return bank
+        return cls.initial(path)
 
     @classmethod
     def initial(cls, bundle: Path = Path("dist_autonomous_bundle_v1")) -> "Bank":
@@ -224,14 +240,18 @@ class RoutedSelector:
     * ``candidate_gate(router_x2) -> bool``: consulted only when the router proposes a
       candidate_* module outside option commitment; False keeps Base control (T47),
       or the parent router's decision when ``parent_router`` is set.
+    * ``candidate_budget``: at most this many non-committed candidate decisions per
+      episode; later proposals are treated like a gate veto (T52).
     * ``parent_router``: when set, the (refit) router only decides "candidate or not";
       every other decision is the parent router's, so without candidate proposals the
       bank behaves exactly as its parent (T48 parent-deferring extension).
     """
 
     def __init__(self, base, recovery, modules: dict, router: CART, *, force=None,
-                 place_gate=None, place_release=None, candidate_gate=None, parent_router=None):
+                 place_gate=None, place_release=None, candidate_gate=None, parent_router=None,
+                 candidate_budget=None):
         self.base_selector = base
+        self.candidate_budget = candidate_budget
         self.candidate_gate = candidate_gate
         self.parent_router = parent_router
         self.recovery = recovery
@@ -260,6 +280,7 @@ class RoutedSelector:
         self.last_scores = []
         self.decision: dict = {}
         self.script = []
+        self.candidate_uses = 0
 
     def _run(self, module, step, observation):
         selector = self.modules[module]
@@ -324,9 +345,13 @@ class RoutedSelector:
         is_candidate = pred >= 4 and name in self.modules and self.modules[name] is not None
         if parent_class is not None and not is_candidate:
             pred = parent_class
-        if is_candidate and self.candidate_gate is not None:
-            allowed = bool(self.candidate_gate(x2))
-            d["candidate_gate"] = allowed
+        if is_candidate and (self.candidate_gate is not None or self.candidate_budget is not None):
+            allowed = self.candidate_budget is None or self.candidate_uses < self.candidate_budget
+            if not allowed:
+                d["candidate_budget_exhausted"] = True
+            elif self.candidate_gate is not None:
+                allowed = bool(self.candidate_gate(x2))
+                d["candidate_gate"] = allowed
             if not allowed:
                 if parent_class is None:
                     return self._finish(d, "base", raw)
@@ -344,6 +369,7 @@ class RoutedSelector:
         if pred == 2 and self.modules.get("transit") is not None:
             return self._finish(d, "transit", self._run("transit", step, observation))
         if is_candidate:
+            self.candidate_uses += 1
             return self._finish(d, name, self._run(name, step, observation))
         if pred == 1 and self.recovery is not None:
             act = int(self.recovery.select(step, observation))
@@ -457,7 +483,8 @@ def build_policy(env, out: Path, bank: Bank, *, recovery=True, force=None, place
     selector = RoutedSelector(base, guard, modules, load_router(bank.router), force=force,
                               place_gate=place_gate, place_release=place_release,
                               candidate_gate=candidate_gate,
-                              parent_router=load_router(bank.parent_router) if bank.parent_router else None)
+                              parent_router=load_router(bank.parent_router) if bank.parent_router else None,
+                              candidate_budget=bank.candidate_budget)
     return PrimitivePolicy(env, out, selector=selector, allow_rotation=True, allow_base=True)
 
 

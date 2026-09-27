@@ -1,5 +1,5 @@
 """One real-simulator path for T47/T48: candidate decision -> counterfactual branches -> gate -> gated bank,
-and the parent-deferring extension (candidates vetoed == parent bank).
+the parent-deferring extension (candidates vetoed == parent bank) and the candidate budget (T52).
 
 A synthetic bank whose router always proposes candidate_A (an option candidate
 that only holds) keeps the episode short; only the mechanics are asserted.
@@ -71,3 +71,14 @@ def test_counterfactual_gate_and_veto(tmp_path, monkeypatch):
         f = tmp_path / "m3" / "cells" / f"{name}__true_place_3112" / "transitions.jsonl"
         ids[name] = [json.loads(line)["executed_id"] for line in f.read_text().splitlines()]
     assert ids["defer"] == ids["parent"]
+
+    # candidate budget: at most one non-committed candidate decision per episode, then the parent routes
+    make_deferring_bank.main(["--bank", str(tmp_path / "syn"), "--parent", str(bundle), "--out", str(tmp_path / "b1"),
+                              "--candidate-budget", "1"])
+    run_bank_matrix.main(["--out", str(tmp_path / "m4"), "--bank", f"b1={tmp_path / 'b1'}",
+                          "--episode", "true_place:3112", "--max-steps", "60", "--workers", "1"])
+    rows = [json.loads(line) for line in
+            (tmp_path / "m4" / "cells" / "b1__true_place_3112" / "transitions.jsonl").read_text().splitlines()]
+    starts = [r for r in rows if r["selected_module"].startswith("candidate") and not r["committed"]]
+    assert len(starts) == 1
+    assert json.loads((tmp_path / "b1" / "bank_manifest.json").read_text())["candidate_budget"] == 1
