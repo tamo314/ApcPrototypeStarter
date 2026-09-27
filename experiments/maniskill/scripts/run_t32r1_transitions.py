@@ -60,11 +60,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     args.out.mkdir(parents=True, exist_ok=False)
-    if (args.bundle / "bank_manifest.json").exists():
-        roles = json.loads((args.bundle / "bank_manifest.json").read_text())["roles"]
-        bank = Bank.from_roles(args.bundle, roles)
-    else:
-        bank = Bank.initial(args.bundle)
+    bank = Bank.load(args.bundle)  # keeps candidate_budget (T52)
     if args.router is not None:
         bank.router = args.router
     if args.transit is not None:

@@ -48,13 +48,14 @@ class EvalJob:
     option: tuple | None  # None: unchanged bank policy (baseline)
     horizon: int
     out: str
+    candidate_budget: int | None = None  # T52: the bank's cap also applies after the option
 
 
 _CACHE: dict = {}
 
 
 def _policy_for(task: str, bank: Bank, out: Path):
-    key = (task, json.dumps({k: str(v) for k, v in bank.files().items()}, sort_keys=True))
+    key = (task, json.dumps({k: str(v) for k, v in bank.files().items()}, sort_keys=True), bank.candidate_budget)
     if key not in _CACHE:
         for env, _ in _CACHE.values():
             env.close()
@@ -67,6 +68,7 @@ def _policy_for(task: str, bank: Bank, out: Path):
 def evaluate_option(job: EvalJob) -> dict:
     """Replay prefix, apply option, run the unchanged bank policy for the horizon."""
     bank = Bank.from_roles(Path("."), job.bank)
+    bank.candidate_budget = job.candidate_budget
     env, policy = _policy_for(job.task, bank, Path(job.out))
     script = list(job.prefix) + ([] if job.option is None else option_ids(job.option))
     start = len(job.prefix)
@@ -150,7 +152,7 @@ def acquire(event: dict, bank: Bank, out: Path, *, options=DEFAULT_OPTIONS, hori
             # An option that directly undoes the previous choice is not re-evaluated.
             allowed = [o for o in options if not chosen or INVERSE.get(o[0]) != chosen[-1][0]]
             jobs = [EvalJob(event["task"], event["environment_seed"], bank_paths, prefix, o, horizon,
-                            str(out)) for o in (None, *allowed)]
+                            str(out), bank.candidate_budget) for o in (None, *allowed)]
             results = pool.map(evaluate_option, jobs)
             env_steps += sum(r["env_steps"] for r in results)
             for r in results:

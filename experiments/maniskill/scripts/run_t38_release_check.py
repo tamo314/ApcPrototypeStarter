@@ -31,7 +31,7 @@ from apc_maniskill.experience_loop import Bank, build_policy, make_task_env, run
 result = {"mode": mode}
 if mode == "bank":
     m = json.loads((bank_dir / "bank_manifest.json").read_text())
-    bank = Bank.from_roles(bank_dir, m["roles"])
+    bank = Bank.load(bank_dir)
     result["hash_ok"] = all(hashlib.sha256((bank_dir / f).read_bytes()).hexdigest() == m["files"][r]["sha256"]
                             for r, f in m["roles"].items())
     result["files_present"] = sorted(p.name for p in bank_dir.iterdir())
