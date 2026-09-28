@@ -1,0 +1,357 @@
+{
+ "note": "Collected by scripts/collect_t51_t55.py; success = 20 consecutive steps.",
+ "ledger": [
+  {
+   "run": "t52-consistency-20260927-a",
+   "env_steps": 18508
+  },
+  {
+   "run": "t53-stream-v2-20260927-a-failed-budget-not-loaded",
+   "env_steps": 228392
+  },
+  {
+   "run": "t53-stream-v2-20260927-b",
+   "env_steps": 408278
+  },
+  {
+   "run": "t54-final-20260927-a",
+   "env_steps": 310455
+  }
+ ],
+ "env_steps_total": 965633,
+ "t51_budget": {
+  "labels": "runs/t48-cf-defer-20260926-a/labels.jsonl",
+  "matrix": "runs/t48-tune-defer-20260926-a",
+  "rows": [
+   {
+    "budget": 0,
+    "successes": 71,
+    "n": 123,
+    "gained": [],
+    "lost": []
+   },
+   {
+    "budget": 1,
+    "successes": 73,
+    "n": 123,
+    "gained": [
+     3070,
+     3072,
+     3080,
+     3084,
+     3103,
+     3111,
+     3347
+    ],
+    "lost": [
+     3077,
+     3097,
+     3113,
+     3121,
+     3124
+    ]
+   },
+   {
+    "budget": 2,
+    "successes": 70,
+    "n": 123,
+    "gained": [
+     3072,
+     3080,
+     3084,
+     3103
+    ],
+    "lost": [
+     3077,
+     3097,
+     3113,
+     3121,
+     3124
+    ]
+   },
+   {
+    "budget": 3,
+    "successes": 73,
+    "n": 123,
+    "gained": [
+     3072,
+     3084,
+     3103,
+     3111,
+     3319
+    ],
+    "lost": [
+     3077,
+     3121,
+     3124
+    ]
+   },
+   {
+    "budget": 4,
+    "successes": 68,
+    "n": 123,
+    "gained": [
+     3072,
+     3103
+    ],
+    "lost": [
+     3077,
+     3097,
+     3113,
+     3121,
+     3124
+    ]
+   },
+   {
+    "budget": 5,
+    "successes": 69,
+    "n": 123,
+    "gained": [
+     3072,
+     3103
+    ],
+    "lost": [
+     3076,
+     3077,
+     3121,
+     3124
+    ]
+   },
+   {
+    "budget": 6,
+    "successes": 68,
+    "n": 123,
+    "gained": [
+     3072,
+     3103
+    ],
+    "lost": [
+     3076,
+     3077,
+     3097,
+     3121,
+     3124
+    ]
+   }
+  ],
+  "selected_budget": 1
+ },
+ "t53_stream": {
+  "events": [
+   {
+    "t": 2,
+    "item": "true_place:3014",
+    "decision": "adopted",
+    "candidate": "candidate_A",
+    "history": "new_kind",
+    "adoption": {
+     "lost_retention": [],
+     "event_item_success_new": false,
+     "event_item_final_dist_current": 0.13547558208975302,
+     "event_item_final_dist_new": 0.053602596347959997,
+     "validation_new_only": [
+      "true_place:3070",
+      "true_place:3080"
+     ],
+     "validation_current_only": [],
+     "validation_net": 2,
+     "validation_env_steps": 77804
+    }
+   },
+   {
+    "t": 4,
+    "item": "true_place:3013",
+    "decision": "no_acquirer_for_kind",
+    "candidate": null,
+    "history": null,
+    "adoption": null
+   },
+   {
+    "t": 5,
+    "item": "true_place:3026",
+    "decision": "rejected_update",
+    "candidate": "candidate_C",
+    "history": "new_kind",
+    "adoption": {
+     "lost_retention": [],
+     "event_item_success_new": false,
+     "event_item_final_dist_current": 0.10403791962121964,
+     "event_item_final_dist_new": 0.09629129424929664,
+     "validation_new_only": [],
+     "validation_current_only": [
+      "true_place:3070",
+      "true_place:3080"
+     ],
+     "validation_net": -2,
+     "validation_env_steps": 39090
+    }
+   },
+   {
+    "t": 6,
+    "item": "true_place:3020",
+    "decision": "rejected_update",
+    "candidate": "candidate_A",
+    "history": "recurrence_of_known_kind",
+    "adoption": {
+     "lost_retention": [],
+     "event_item_success_new": true,
+     "event_item_final_dist_current": 0.030350656394991994,
+     "event_item_final_dist_new": 0.01232088907309354,
+     "validation_new_only": [
+      "true_place:3072",
+      "true_place:3084"
+     ],
+     "validation_current_only": [
+      "true_place:3077",
+      "true_place:3080",
+      "true_place:3089"
+     ],
+     "validation_net": -1,
+     "validation_env_steps": 39463
+    }
+   }
+  ],
+  "s_matrix": [
+   {
+    "version": 0,
+    "total": 6,
+    "row": {
+     "pick:3202": true,
+     "pick:3203": true,
+     "place:3002": true,
+     "true_place:3011": true,
+     "true_place:3013": false,
+     "true_place:3014": false,
+     "true_place:3020": false,
+     "true_place:3021": true,
+     "true_place:3022": true,
+     "true_place:3023": false,
+     "true_place:3026": false,
+     "true_place:3058": false,
+     "true_place:3063": false
+    }
+   },
+   {
+    "version": 1,
+    "total": 6,
+    "row": {
+     "pick:3202": true,
+     "pick:3203": true,
+     "place:3002": true,
+     "true_place:3011": true,
+     "true_place:3013": false,
+     "true_place:3014": false,
+     "true_place:3020": false,
+     "true_place:3021": true,
+     "true_place:3022": true,
+     "true_place:3023": false,
+     "true_place:3026": false,
+     "true_place:3058": false,
+     "true_place:3063": false
+    }
+   }
+  ],
+  "adopted": 1,
+  "rejected": 2,
+  "missed": [
+   "true_place:3023"
+  ],
+  "wall_seconds": 2819.5758588250005
+ },
+ "t54_final": {
+  "initial": {
+   "successes": 51,
+   "n": 80,
+   "wilson95": [
+    0.528,
+    0.734
+   ],
+   "gained_vs_initial": [],
+   "lost_vs_initial": [],
+   "candidate_invoked": 0,
+   "candidate_invoked_success": 0,
+   "candidate_invoked_failed": [],
+   "run_errors": [],
+   "ik_or_table_rejections": 5945,
+   "sign_test_p_vs_initial": 1.0
+  },
+  "defer": {
+   "successes": 50,
+   "n": 80,
+   "wilson95": [
+    0.515,
+    0.723
+   ],
+   "gained_vs_initial": [
+    3450,
+    3463,
+    3477
+   ],
+   "lost_vs_initial": [
+    3447,
+    3465,
+    3469,
+    3475
+   ],
+   "candidate_invoked": 10,
+   "candidate_invoked_success": 5,
+   "candidate_invoked_failed": [
+    3403,
+    3447,
+    3465,
+    3469,
+    3475
+   ],
+   "run_errors": [],
+   "ik_or_table_rejections": 5697,
+   "sign_test_p_vs_initial": 1.0
+  },
+  "defer_b1": {
+   "successes": 51,
+   "n": 80,
+   "wilson95": [
+    0.528,
+    0.734
+   ],
+   "gained_vs_initial": [
+    3463,
+    3477
+   ],
+   "lost_vs_initial": [
+    3469,
+    3475
+   ],
+   "candidate_invoked": 10,
+   "candidate_invoked_success": 6,
+   "candidate_invoked_failed": [
+    3403,
+    3450,
+    3469,
+    3475
+   ],
+   "run_errors": [],
+   "ik_or_table_rejections": 5611,
+   "sign_test_p_vs_initial": 1.0
+  },
+  "stream_v2": {
+   "successes": 50,
+   "n": 80,
+   "wilson95": [
+    0.515,
+    0.723
+   ],
+   "gained_vs_initial": [],
+   "lost_vs_initial": [
+    3447
+   ],
+   "candidate_invoked": 1,
+   "candidate_invoked_success": 0,
+   "candidate_invoked_failed": [
+    3447
+   ],
+   "run_errors": [],
+   "ik_or_table_rejections": 6118,
+   "sign_test_p_vs_initial": 1.0
+  }
+ }
+}

@@ -453,6 +453,104 @@ resetなしの手動2目標連鎖は前方・横・戻りの各3例で完了し�
 現在の学習済み操作を完成スキル・自動銀行・移動から把持への連鎖の実績とはしない。
 GPU物理・動画・APCの自動銀行は未検証。
 
+### T32補完〜T38（2026-09-26、クラウドCPU）
+
+改訂計画 `../../docs/APC_POST_T32_REVISED_TASKS_20260926.md` に基づく実行記録は
+[T32R_T38_EVIDENCE.md](docs/T32R_T38_EVIDENCE.md)、自動集計値は
+[T32R_T38_RESULTS.json](docs/T32R_T38_RESULTS.json) にある。
+
+```bash
+# 実遷移の記録（終端stepを含む）とオンライン検出イベント
+python scripts/run_t32r1_transitions.py --out runs/<new> --episode true_place:3014
+# 同一状態からの分岐比較（prefix再実行）
+python scripts/run_t32r2_branch_diagnosis.py --out runs/<new> --seed 3014 --state 660
+# イベントJSON → option探索 → Candidate/Router学習 → 新銀行版（拡張設計）
+python scripts/run_t32r3_acquire.py --out runs/<new> --event runs/<r1>/events/EVT-*.json \
+    --replay runs/<r1> --registry runs/<registry>.json
+# 銀行版 × 条件の行列評価（name=bank_dir[@place_gate]）
+python scripts/run_bank_matrix.py --out runs/<new> --bank old=dist_autonomous_bundle_v1 \
+    --bank full=runs/<acq>/bank_A_full --episode true_place:3014
+```
+
+要点：
+- 拡張銀行（candidate_A、ルーターv2）：29条件で初期18 → 20成功、既知成功をすべて保持。
+- A+C：未使用24条件で12 → 15成功（A起動3件・C起動1件で成功を得て、1件を失う）。
+- candidate_C：独立条件3023・3079で成功。
+- 追加イベントでの再学習（A+C2）：未使用24条件で12に戻った（非単調）。
+- 配置開始ゲート：B型を得るが既知成功とトレードオフがある。
+- 共有モデル基準（T29最小版）：未成立。
+
+### T34〜T44（2026-09-26）
+
+[T34_T44_EVIDENCE.md](docs/T34_T44_EVIDENCE.md) と [T34_T44_RESULTS.json](docs/T34_T44_RESULTS.json)。
+
+```bash
+# 課題列での自動継続獲得（検出→獲得→採用判断→S[t,j]）
+python scripts/run_t34_stream.py --out runs/<new> --stream true_place:3014 --stream true_place:3026 \
+    --eval true_place:3014 --retention pick:3202 --replay-set true_place:3011
+```
+
+要点：
+- 課題列での自動継続獲得は、開発規模で単調なS（6→8）と保持を示した（両順序）。
+- 最終独立40条件では、APC各銀行が20〜23/40で、初期の23/40を上回らなかった。
+- 蒸留（H3）と共有基準（H8）は不成立。
+
+### T45〜T50（2026-09-26）
+
+[T45_T50_EVIDENCE.md](docs/T45_T50_EVIDENCE.md) と [T45_T50_RESULTS.json](docs/T45_T50_RESULTS.json)。
+
+```bash
+# 反実仮想ラベル（Candidate決定点ごとに「継続」と「以後拒否」を再実行）とゲート付き銀行
+python scripts/run_t47_counterfactual.py --out runs/<new> --run runs/<matrix run> --bank-name v3 --bank <bank dir>
+# 親委譲拡張（再学習ルーターはCandidateの可否だけを決め、他は親ルーターに従う）
+python scripts/make_deferring_bank.py --bank <acquired bank> --parent dist_autonomous_bundle_v1 --out runs/<new>
+# Candidateを常時拒否する比較
+python scripts/run_bank_matrix.py --out runs/<new> --bank veto=<bank dir>@veto_candidates --episode true_place:3130
+```
+
+要点：
+- 損失の主因は、再学習ルーターが元の判断を置き換えたことだった。親委譲で非干渉を構成的に保証した。
+- 最終独立60条件：初期26、v3 29、親委譲29（失0）、親委譲＋ゲート27。いずれも区間は重なる。
+
+### T51〜T55（2026-09-27）
+
+[T51_T55_EVIDENCE.md](docs/T51_T55_EVIDENCE.md) と [T51_T55_RESULTS.json](docs/T51_T55_RESULTS.json)。
+
+```bash
+# 使用上限付きの親委譲銀行（1エピソードあたりのCandidate決定数を制限）
+python scripts/make_deferring_bank.py --bank <acquired bank> --parent dist_autonomous_bundle_v1 --out runs/<new> --candidate-budget 1
+# 課題列runner v2（親委譲・上限・検証集合での対比較による採用判断）
+python scripts/run_t34_stream.py --out runs/<new> --stream true_place:3014 --eval true_place:3014 \
+    --validation true_place:3070 --defer-parent --candidate-budget 1
+```
+
+要点：
+- 使用上限1は調整群で+2だったが、独立80条件では±0（初期51、上限1で51）。
+- 親委譲の非干渉は3回目の独立群でも成立した。独立140条件の合算で親委譲は得6・失4。
+
+### T56〜T60（2026-09-27）
+
+[T56_T60_EVIDENCE.md](docs/T56_T60_EVIDENCE.md) と [T56_T60_RESULTS.json](docs/T56_T60_RESULTS.json)。
+
+要点：
+- 獲得イベントを16件に増やしたA′（決定行36行）は、最終独立100条件で初期と同等（49対50）で、旧Aより悪かった（0/−6）。差の多くはルーターの起動判断による。
+- 旧A（親委譲）の独立240条件の合算は、初期127に対して134（得11・失4、p=0.12）。
+
+### T61〜T64（2026-09-28）
+
+[T61_T64_EVIDENCE.md](docs/T61_T64_EVIDENCE.md) と [T61_T64_RESULTS.json](docs/T61_T64_RESULTS.json)。
+
+```bash
+# 成功した獲得軌道の行のみでCandidateを学習し直す
+python scripts/refit_candidate.py --acquisition runs/<acq run> --success-only --reference <candidate.pt> --out runs/<new>/candidate_A.pt
+# 銀行の役割を差し替えた版を作る
+python scripts/swap_bank_role.py --bank <bank dir> --role candidate_A=<candidate.pt> --out runs/<new>
+```
+
+要点：
+- ルーター × Candidateの要因分解で、旧A（5行のCandidate）が最良だった。データの増量・選別はいずれも下回った。
+- 旧Aの独立340条件の合算：初期178 → 187（得15・失6、p=0.078）。
+
 ## 上流資料（2026-09-22確認）
 
 - [S1: インストール・対応OS](https://maniskill.readthedocs.io/en/latest/user_guide/getting_started/installation.html)

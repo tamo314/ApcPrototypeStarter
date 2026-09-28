@@ -1,0 +1,448 @@
+{
+ "note": "Collected by scripts/collect_t56_t60.py; success = 20 consecutive steps.",
+ "t56_harvest": {
+  "episodes": 52,
+  "event_kinds": {
+   "Carrying cube but failing to make horizontal progress toward goal": 20,
+   "Near-goal placement stall: held in air above goal without descending": 6,
+   "Pre-grasp approach time budget exceeded without achieving grasp": 2,
+   "Free-space kinodynamic rejection streak": 17
+  }
+ },
+ "t57_acquisition": {
+  "events": [
+   {
+    "seed": 3067,
+    "status": "accepted",
+    "chosen_options": [
+     [
+      16,
+      1
+     ],
+     [
+      2,
+      1
+     ]
+    ],
+    "acquired_success": false
+   },
+   {
+    "seed": 3071,
+    "status": "accepted",
+    "chosen_options": [
+     [
+      3,
+      1
+     ],
+     [
+      4,
+      1
+     ]
+    ],
+    "acquired_success": true
+   },
+   {
+    "seed": 3081,
+    "status": "accepted",
+    "chosen_options": [
+     [
+      16,
+      1
+     ],
+     [
+      1,
+      1
+     ]
+    ],
+    "acquired_success": false
+   },
+   {
+    "seed": 3085,
+    "status": "accepted",
+    "chosen_options": [
+     [
+      16,
+      1
+     ],
+     [
+      4,
+      3
+     ]
+    ],
+    "acquired_success": false
+   },
+   {
+    "seed": 3096,
+    "status": "accepted",
+    "chosen_options": [],
+    "acquired_success": true
+   },
+   {
+    "seed": 3100,
+    "status": "accepted",
+    "chosen_options": [
+     [
+      1,
+      1
+     ]
+    ],
+    "acquired_success": false
+   },
+   {
+    "seed": 3103,
+    "status": "accepted",
+    "chosen_options": [
+     [
+      3,
+      1
+     ]
+    ],
+    "acquired_success": true
+   },
+   {
+    "seed": 3112,
+    "status": "accepted",
+    "chosen_options": [
+     [
+      4,
+      1
+     ]
+    ],
+    "acquired_success": true
+   },
+   {
+    "seed": 3120,
+    "status": "accepted",
+    "chosen_options": [
+     [
+      1,
+      3
+     ],
+     [
+      18,
+      1
+     ],
+     [
+      16,
+      1
+     ],
+     [
+      13,
+      1
+     ],
+     [
+      5,
+      1
+     ]
+    ],
+    "acquired_success": false
+   },
+   {
+    "seed": 3303,
+    "status": "accepted",
+    "chosen_options": [
+     [
+      4,
+      3
+     ]
+    ],
+    "acquired_success": true
+   },
+   {
+    "seed": 3311,
+    "status": "accepted",
+    "chosen_options": [
+     [
+      1,
+      1
+     ]
+    ],
+    "acquired_success": true
+   },
+   {
+    "seed": 3318,
+    "status": "accepted",
+    "chosen_options": [
+     [
+      16,
+      1
+     ],
+     [
+      2,
+      3
+     ],
+     [
+      0,
+      1
+     ]
+    ],
+    "acquired_success": false
+   },
+   {
+    "seed": 3325,
+    "status": "accepted",
+    "chosen_options": [
+     [
+      0,
+      3
+     ],
+     [
+      4,
+      3
+     ],
+     [
+      0,
+      1
+     ],
+     [
+      2,
+      1
+     ]
+    ],
+    "acquired_success": false
+   },
+   {
+    "seed": 3343,
+    "status": "accepted",
+    "chosen_options": [
+     [
+      16,
+      1
+     ],
+     [
+      13,
+      1
+     ],
+     [
+      2,
+      3
+     ]
+    ],
+    "acquired_success": true
+   },
+   {
+    "seed": 3351,
+    "status": "accepted",
+    "chosen_options": [
+     [
+      16,
+      1
+     ],
+     [
+      2,
+      3
+     ]
+    ],
+    "acquired_success": true
+   },
+   {
+    "seed": 3358,
+    "status": "accepted",
+    "chosen_options": [
+     [
+      3,
+      1
+     ]
+    ],
+    "acquired_success": true
+   }
+  ],
+  "candidate": {
+   "tree_nodes": 31,
+   "rows": 36,
+   "train_accuracy": 0.8888888888888888,
+   "label_counts": {
+    "[0, 1]": 3,
+    "[1, 1]": 3,
+    "[2, 1]": 2,
+    "[3, 1]": 3,
+    "[4, 1]": 2,
+    "[5, 1]": 1,
+    "[13, 1]": 3,
+    "[16, 1]": 7,
+    "[18, 1]": 1,
+    "[0, 3]": 1,
+    "[1, 3]": 3,
+    "[2, 3]": 4,
+    "[4, 3]": 3
+   }
+  },
+  "router": {
+   "tree_nodes": 37,
+   "rows": 70604,
+   "outcome_rows": 2878,
+   "class_counts": [
+    66909,
+    367,
+    1706,
+    1591,
+    31
+   ]
+  },
+  "cost": {
+   "search_env_steps": 906432,
+   "replay_env_steps": 17328,
+   "search_wall_seconds": 7017.716743981,
+   "fit_seconds": 9.544150516000627,
+   "parent_replay_source_steps": 72816,
+   "total_wall_seconds": 7434.110659964999
+  }
+ },
+ "t58_precheck": {
+  "initial": {
+   "successes": 77,
+   "n": 140,
+   "wilson95": [
+    0.467,
+    0.63
+   ],
+   "gained_vs_initial": [],
+   "lost_vs_initial": [],
+   "sign_test_p": 1.0
+  },
+  "defer": {
+   "successes": 79,
+   "n": 140,
+   "wilson95": [
+    0.482,
+    0.644
+   ],
+   "gained_vs_initial": [
+    3141,
+    3168,
+    3180,
+    3450,
+    3463,
+    3477
+   ],
+   "lost_vs_initial": [
+    3447,
+    3465,
+    3469,
+    3475
+   ],
+   "sign_test_p": 0.75390625
+  },
+  "Aprime": {
+   "successes": 77,
+   "n": 140,
+   "wilson95": [
+    0.467,
+    0.63
+   ],
+   "gained_vs_initial": [
+    3435
+   ],
+   "lost_vs_initial": [
+    3446
+   ],
+   "sign_test_p": 1.0
+  }
+ },
+ "t59_final": {
+  "initial": {
+   "successes": 50,
+   "n": 100,
+   "wilson95": [
+    0.404,
+    0.596
+   ],
+   "gained_vs_initial": [],
+   "lost_vs_initial": [],
+   "candidate_invoked": 0,
+   "candidate_invoked_success": 0,
+   "candidate_invoked_failed": [],
+   "run_errors": [],
+   "ik_or_table_rejections": 12755,
+   "sign_test_p_vs_initial": 1.0
+  },
+  "defer": {
+   "successes": 55,
+   "n": 100,
+   "wilson95": [
+    0.452,
+    0.644
+   ],
+   "gained_vs_initial": [
+    3503,
+    3508,
+    3520,
+    3536,
+    3570
+   ],
+   "lost_vs_initial": [],
+   "candidate_invoked": 14,
+   "candidate_invoked_success": 6,
+   "candidate_invoked_failed": [
+    3511,
+    3521,
+    3534,
+    3540,
+    3554,
+    3557,
+    3559,
+    3560
+   ],
+   "run_errors": [],
+   "ik_or_table_rejections": 11997,
+   "sign_test_p_vs_initial": 0.0625
+  },
+  "Aprime": {
+   "successes": 49,
+   "n": 100,
+   "wilson95": [
+    0.394,
+    0.587
+   ],
+   "gained_vs_initial": [],
+   "lost_vs_initial": [
+    3517
+   ],
+   "candidate_invoked": 8,
+   "candidate_invoked_success": 2,
+   "candidate_invoked_failed": [
+    3480,
+    3517,
+    3519,
+    3540,
+    3563,
+    3565
+   ],
+   "run_errors": [],
+   "ik_or_table_rejections": 12601,
+   "sign_test_p_vs_initial": 1.0
+  }
+ },
+ "t59_Aprime_vs_defer": {
+  "gained": [],
+  "lost": [
+   3503,
+   3508,
+   3517,
+   3520,
+   3536,
+   3570
+  ],
+  "sign_test_p": 0.03125
+ },
+ "ledger": [
+  {
+   "run": "t56-harvest-20260927-p1..p4",
+   "env_steps": 62400
+  },
+  {
+   "run": "t57-acquire-20260927-a",
+   "env_steps": 923760,
+   "parent_replay_source_steps_reused": 72816
+  },
+  {
+   "run": "t58-precheck-20260927-a",
+   "env_steps": 139356
+  },
+  {
+   "run": "t59-final-20260927-a",
+   "env_steps": 297242
+  }
+ ],
+ "env_steps_total": 1422758
+}

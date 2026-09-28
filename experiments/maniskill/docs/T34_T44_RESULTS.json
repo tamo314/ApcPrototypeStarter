@@ -1,0 +1,1601 @@
+{
+ "note": "Collected by scripts/collect_t34_t44.py from run summaries; success = 20 consecutive steps.",
+ "ledger": [
+  {
+   "run": "t36-heldout-20260926-a",
+   "phase": "T36 held-out 3040-3042",
+   "env_steps": 7260
+  },
+  {
+   "run": "t34-sweep-dev-20260926-a",
+   "phase": "Router regularization sweep (dev)",
+   "env_steps": 219767
+  },
+  {
+   "run": "t34-stream-AC-20260926-a-failed-router-defaults",
+   "phase": "T34 stream a (failed: router defaults, stopped)",
+   "env_steps": 109985
+  },
+  {
+   "run": "t34-stream-AC-20260926-b",
+   "phase": "T34 stream b (A->C, no acquired-item retention)",
+   "env_steps": 291235
+  },
+  {
+   "run": "t34-stream-AC-20260926-c",
+   "phase": "T34 stream c (+retention growth)",
+   "env_steps": 269838
+  },
+  {
+   "run": "t34-stream-AC-20260926-d",
+   "phase": "T34 stream d (+acquired-item replay)",
+   "env_steps": 297047
+  },
+  {
+   "run": "t35-stream-CA-20260926-a",
+   "phase": "T35 reversed stream (C->A)",
+   "env_steps": 293944
+  },
+  {
+   "run": "t37-distill-20260926-a",
+   "phase": "T37 distillation (deploy + Temporary queries)",
+   "env_steps": 212028
+  },
+  {
+   "run": "t39-dagger-20260926-a",
+   "phase": "T39 shared DAgger",
+   "env_steps": 48584
+  },
+  {
+   "run": "t42-final-20260926-a",
+   "phase": "T42 final independent (3090-3129)",
+   "env_steps": 244812
+  }
+ ],
+ "env_steps_total": 1994500,
+ "t36_heldout": {
+  "old": {
+   "true_place:3040": false,
+   "true_place:3041": true,
+   "true_place:3042": false
+  },
+  "A": {
+   "true_place:3040": false,
+   "true_place:3041": true,
+   "true_place:3042": false
+  },
+  "AC": {
+   "true_place:3040": false,
+   "true_place:3041": true,
+   "true_place:3042": false
+  }
+ },
+ "sweep_dev": {
+  "table": {
+   "AC": {
+    "true_place:3014": true,
+    "true_place:3020": true,
+    "true_place:3026": false,
+    "true_place:3058": false,
+    "true_place:3063": false,
+    "true_place:3065": false,
+    "true_place:3023": true,
+    "pick:3202": true,
+    "pick:3203": true,
+    "place:3002": true,
+    "place:3003": true,
+    "true_place:3011": true,
+    "true_place:3012": true,
+    "true_place:3114": true,
+    "true_place:3021": true,
+    "true_place:3022": true,
+    "true_place:3024": true,
+    "true_place:3028": true,
+    "true_place:3029": true,
+    "true_place:3050": true,
+    "true_place:3051": true,
+    "true_place:3052": true,
+    "true_place:3053": true,
+    "true_place:3054": true,
+    "true_place:3055": true,
+    "true_place:3056": false,
+    "true_place:3057": true,
+    "true_place:3059": false,
+    "true_place:3060": false,
+    "true_place:3061": false,
+    "true_place:3062": false,
+    "true_place:3064": true
+   },
+   "w50d10": {
+    "true_place:3014": true,
+    "true_place:3020": true,
+    "true_place:3026": false,
+    "true_place:3058": true,
+    "true_place:3063": true,
+    "true_place:3065": false,
+    "true_place:3023": false,
+    "pick:3202": true,
+    "pick:3203": true,
+    "place:3002": true,
+    "place:3003": true,
+    "true_place:3011": true,
+    "true_place:3012": true,
+    "true_place:3114": true,
+    "true_place:3021": true,
+    "true_place:3022": true,
+    "true_place:3024": true,
+    "true_place:3028": true,
+    "true_place:3029": true,
+    "true_place:3050": false,
+    "true_place:3051": true,
+    "true_place:3052": false,
+    "true_place:3053": true,
+    "true_place:3054": false,
+    "true_place:3055": true,
+    "true_place:3056": false,
+    "true_place:3057": true,
+    "true_place:3059": false,
+    "true_place:3060": false,
+    "true_place:3061": true,
+    "true_place:3062": false,
+    "true_place:3064": true
+   },
+   "w50d6": {
+    "true_place:3014": true,
+    "true_place:3020": true,
+    "true_place:3026": false,
+    "true_place:3058": true,
+    "true_place:3063": true,
+    "true_place:3065": false,
+    "true_place:3023": false,
+    "pick:3202": true,
+    "pick:3203": true,
+    "place:3002": true,
+    "place:3003": true,
+    "true_place:3011": true,
+    "true_place:3012": true,
+    "true_place:3114": true,
+    "true_place:3021": true,
+    "true_place:3022": true,
+    "true_place:3024": true,
+    "true_place:3028": true,
+    "true_place:3029": true,
+    "true_place:3050": false,
+    "true_place:3051": false,
+    "true_place:3052": false,
+    "true_place:3053": true,
+    "true_place:3054": false,
+    "true_place:3055": true,
+    "true_place:3056": false,
+    "true_place:3057": true,
+    "true_place:3059": false,
+    "true_place:3060": false,
+    "true_place:3061": true,
+    "true_place:3062": false,
+    "true_place:3064": true
+   },
+   "w10d10": {
+    "true_place:3014": true,
+    "true_place:3020": true,
+    "true_place:3026": false,
+    "true_place:3058": true,
+    "true_place:3063": true,
+    "true_place:3065": false,
+    "true_place:3023": false,
+    "pick:3202": true,
+    "pick:3203": true,
+    "place:3002": true,
+    "place:3003": true,
+    "true_place:3011": true,
+    "true_place:3012": true,
+    "true_place:3114": true,
+    "true_place:3021": true,
+    "true_place:3022": true,
+    "true_place:3024": true,
+    "true_place:3028": true,
+    "true_place:3029": true,
+    "true_place:3050": true,
+    "true_place:3051": true,
+    "true_place:3052": false,
+    "true_place:3053": false,
+    "true_place:3054": false,
+    "true_place:3055": true,
+    "true_place:3056": false,
+    "true_place:3057": false,
+    "true_place:3059": false,
+    "true_place:3060": false,
+    "true_place:3061": true,
+    "true_place:3062": false,
+    "true_place:3064": true
+   },
+   "w10d6": {
+    "true_place:3014": true,
+    "true_place:3020": true,
+    "true_place:3026": false,
+    "true_place:3058": true,
+    "true_place:3063": true,
+    "true_place:3065": false,
+    "true_place:3023": false,
+    "pick:3202": true,
+    "pick:3203": true,
+    "place:3002": true,
+    "place:3003": true,
+    "true_place:3011": true,
+    "true_place:3012": true,
+    "true_place:3114": true,
+    "true_place:3021": true,
+    "true_place:3022": true,
+    "true_place:3024": true,
+    "true_place:3028": true,
+    "true_place:3029": true,
+    "true_place:3050": true,
+    "true_place:3051": false,
+    "true_place:3052": true,
+    "true_place:3053": false,
+    "true_place:3054": false,
+    "true_place:3055": true,
+    "true_place:3056": false,
+    "true_place:3057": true,
+    "true_place:3059": false,
+    "true_place:3060": true,
+    "true_place:3061": true,
+    "true_place:3062": false,
+    "true_place:3064": true
+   },
+   "w3d10": {
+    "true_place:3014": true,
+    "true_place:3020": true,
+    "true_place:3026": false,
+    "true_place:3058": true,
+    "true_place:3063": true,
+    "true_place:3065": false,
+    "true_place:3023": false,
+    "pick:3202": true,
+    "pick:3203": true,
+    "place:3002": true,
+    "place:3003": true,
+    "true_place:3011": true,
+    "true_place:3012": true,
+    "true_place:3114": true,
+    "true_place:3021": true,
+    "true_place:3022": true,
+    "true_place:3024": true,
+    "true_place:3028": true,
+    "true_place:3029": true,
+    "true_place:3050": false,
+    "true_place:3051": true,
+    "true_place:3052": false,
+    "true_place:3053": true,
+    "true_place:3054": false,
+    "true_place:3055": true,
+    "true_place:3056": false,
+    "true_place:3057": true,
+    "true_place:3059": false,
+    "true_place:3060": false,
+    "true_place:3061": true,
+    "true_place:3062": false,
+    "true_place:3064": true
+   },
+   "w3d6": {
+    "true_place:3014": true,
+    "true_place:3020": true,
+    "true_place:3026": false,
+    "true_place:3058": true,
+    "true_place:3063": true,
+    "true_place:3065": false,
+    "true_place:3023": false,
+    "pick:3202": true,
+    "pick:3203": true,
+    "place:3002": true,
+    "place:3003": true,
+    "true_place:3011": true,
+    "true_place:3012": true,
+    "true_place:3114": true,
+    "true_place:3021": true,
+    "true_place:3022": true,
+    "true_place:3024": true,
+    "true_place:3028": true,
+    "true_place:3029": true,
+    "true_place:3050": true,
+    "true_place:3051": true,
+    "true_place:3052": false,
+    "true_place:3053": true,
+    "true_place:3054": false,
+    "true_place:3055": true,
+    "true_place:3056": false,
+    "true_place:3057": true,
+    "true_place:3059": false,
+    "true_place:3060": false,
+    "true_place:3061": true,
+    "true_place:3062": true,
+    "true_place:3064": true
+   }
+  },
+  "successes": {
+   "AC": 23,
+   "w50d10": 22,
+   "w50d6": 21,
+   "w10d10": 21,
+   "w10d6": 23,
+   "w3d10": 22,
+   "w3d6": 24
+  }
+ },
+ "streams": {
+  "t34-stream-AC-20260926-b": {
+   "items": [
+    {
+     "t": 0,
+     "item": "pick:3202",
+     "success": true,
+     "bank_version": 0,
+     "events": [],
+     "env_steps": 823
+    },
+    {
+     "t": 1,
+     "item": "true_place:3011",
+     "success": true,
+     "bank_version": 0,
+     "events": [],
+     "env_steps": 820
+    },
+    {
+     "t": 2,
+     "item": "true_place:3014",
+     "success": false,
+     "bank_version": 0,
+     "events": [
+      {
+       "kind": "Carrying cube but failing to make horizontal progress toward goal",
+       "decision": "adopted",
+       "history": "new_kind",
+       "candidate": "candidate_A",
+       "adoption": {
+        "lost_retention": [],
+        "event_item_success_new": true,
+        "event_item_final_dist_current": 0.13547558208975302,
+        "event_item_final_dist_new": 0.01649197550948401
+       },
+       "acquisition_env_steps": 72934,
+       "replay_env_steps": 10416
+      }
+     ],
+     "env_steps": 94827
+    },
+    {
+     "t": 3,
+     "item": "true_place:3021",
+     "success": true,
+     "bank_version": 1,
+     "events": [],
+     "env_steps": 837
+    },
+    {
+     "t": 4,
+     "item": "true_place:3013",
+     "success": false,
+     "bank_version": 1,
+     "events": [
+      {
+       "kind": "Near-goal placement stall: held in air above goal without descending",
+       "decision": "no_acquirer_for_kind",
+       "history": null,
+       "candidate": null,
+       "adoption": null,
+       "acquisition_env_steps": null,
+       "replay_env_steps": null
+      }
+     ],
+     "env_steps": 1200
+    },
+    {
+     "t": 5,
+     "item": "true_place:3026",
+     "success": false,
+     "bank_version": 1,
+     "events": [
+      {
+       "kind": "Pre-grasp approach time budget exceeded without achieving grasp",
+       "decision": "adopted",
+       "history": "new_kind",
+       "candidate": "candidate_C",
+       "adoption": {
+        "lost_retention": [],
+        "event_item_success_new": false,
+        "event_item_final_dist_current": 0.3612626072947326,
+        "event_item_final_dist_new": 0.09629129424929664
+       },
+       "acquisition_env_steps": 51446,
+       "replay_env_steps": 10416
+      }
+     ],
+     "env_steps": 73562
+    },
+    {
+     "t": 6,
+     "item": "true_place:3020",
+     "success": false,
+     "bank_version": 2,
+     "events": [
+      {
+       "kind": "Carrying cube but failing to make horizontal progress toward goal",
+       "decision": "adopted",
+       "history": "recurrence_of_known_kind",
+       "candidate": "candidate_A",
+       "adoption": {
+        "lost_retention": [],
+        "event_item_success_new": true,
+        "event_item_final_dist_current": 0.030350656394991994,
+        "event_item_final_dist_new": 0.018351105483736505
+       },
+       "acquisition_env_steps": 42933,
+       "replay_env_steps": 10416
+      }
+     ],
+     "env_steps": 64614
+    },
+    {
+     "t": 7,
+     "item": "true_place:3023",
+     "success": false,
+     "bank_version": 3,
+     "events": [],
+     "env_steps": 1200
+    },
+    {
+     "t": 8,
+     "item": "pick:3203",
+     "success": true,
+     "bank_version": 3,
+     "events": [],
+     "env_steps": 842
+    }
+   ],
+   "s_matrix": [
+    {
+     "version": 0,
+     "after_item": -1,
+     "row": {
+      "pick:3202": true,
+      "pick:3203": true,
+      "place:3002": true,
+      "true_place:3011": true,
+      "true_place:3013": false,
+      "true_place:3014": false,
+      "true_place:3020": false,
+      "true_place:3021": true,
+      "true_place:3022": true,
+      "true_place:3023": false,
+      "true_place:3026": false,
+      "true_place:3058": false,
+      "true_place:3063": false
+     },
+     "total": 6
+    },
+    {
+     "version": 1,
+     "after_item": 2,
+     "row": {
+      "pick:3202": true,
+      "pick:3203": true,
+      "place:3002": true,
+      "true_place:3011": true,
+      "true_place:3013": false,
+      "true_place:3014": true,
+      "true_place:3020": false,
+      "true_place:3021": true,
+      "true_place:3022": true,
+      "true_place:3023": false,
+      "true_place:3026": false,
+      "true_place:3058": false,
+      "true_place:3063": false
+     },
+     "total": 7
+    },
+    {
+     "version": 2,
+     "after_item": 5,
+     "row": {
+      "pick:3202": true,
+      "pick:3203": true,
+      "place:3002": true,
+      "true_place:3011": true,
+      "true_place:3013": false,
+      "true_place:3014": false,
+      "true_place:3020": false,
+      "true_place:3021": true,
+      "true_place:3022": true,
+      "true_place:3023": false,
+      "true_place:3026": false,
+      "true_place:3058": false,
+      "true_place:3063": false
+     },
+     "total": 6
+    },
+    {
+     "version": 3,
+     "after_item": 6,
+     "row": {
+      "pick:3202": true,
+      "pick:3203": true,
+      "place:3002": true,
+      "true_place:3011": true,
+      "true_place:3013": false,
+      "true_place:3014": false,
+      "true_place:3020": true,
+      "true_place:3021": true,
+      "true_place:3022": true,
+      "true_place:3023": false,
+      "true_place:3026": false,
+      "true_place:3058": false,
+      "true_place:3063": false
+     },
+     "total": 7
+    }
+   ],
+   "adopted": 3,
+   "rejected": 0,
+   "missed": [
+    "true_place:3023"
+   ],
+   "grown_retention": null,
+   "wall_seconds": 5321.0596059869995
+  },
+  "t34-stream-AC-20260926-c": {
+   "items": [
+    {
+     "t": 0,
+     "item": "pick:3202",
+     "success": true,
+     "bank_version": 0,
+     "events": [],
+     "env_steps": 823
+    },
+    {
+     "t": 1,
+     "item": "true_place:3011",
+     "success": true,
+     "bank_version": 0,
+     "events": [],
+     "env_steps": 820
+    },
+    {
+     "t": 2,
+     "item": "true_place:3014",
+     "success": false,
+     "bank_version": 0,
+     "events": [
+      {
+       "kind": "Carrying cube but failing to make horizontal progress toward goal",
+       "decision": "adopted",
+       "history": "new_kind",
+       "candidate": "candidate_A",
+       "adoption": {
+        "lost_retention": [],
+        "event_item_success_new": true,
+        "event_item_final_dist_current": 0.13547558208975302,
+        "event_item_final_dist_new": 0.01649197550948401
+       },
+       "acquisition_env_steps": 72934,
+       "replay_env_steps": 10416
+      }
+     ],
+     "env_steps": 94827
+    },
+    {
+     "t": 3,
+     "item": "true_place:3021",
+     "success": true,
+     "bank_version": 1,
+     "events": [],
+     "env_steps": 837
+    },
+    {
+     "t": 4,
+     "item": "true_place:3013",
+     "success": false,
+     "bank_version": 1,
+     "events": [
+      {
+       "kind": "Near-goal placement stall: held in air above goal without descending",
+       "decision": "no_acquirer_for_kind",
+       "history": null,
+       "candidate": null,
+       "adoption": null,
+       "acquisition_env_steps": null,
+       "replay_env_steps": null
+      }
+     ],
+     "env_steps": 1200
+    },
+    {
+     "t": 5,
+     "item": "true_place:3026",
+     "success": false,
+     "bank_version": 1,
+     "events": [
+      {
+       "kind": "Pre-grasp approach time budget exceeded without achieving grasp",
+       "decision": "rejected_update",
+       "history": "new_kind",
+       "candidate": "candidate_C",
+       "adoption": {
+        "lost_retention": [
+         "true_place:3014"
+        ],
+        "event_item_success_new": false,
+        "event_item_final_dist_current": 0.3612626072947326,
+        "event_item_final_dist_new": 0.09629129424929664
+       },
+       "acquisition_env_steps": 51446,
+       "replay_env_steps": 10416
+      }
+     ],
+     "env_steps": 75739
+    },
+    {
+     "t": 6,
+     "item": "true_place:3020",
+     "success": false,
+     "bank_version": 1,
+     "events": [
+      {
+       "kind": "Carrying cube but failing to make horizontal progress toward goal",
+       "decision": "rejected_update",
+       "history": "recurrence_of_known_kind",
+       "candidate": "candidate_A",
+       "adoption": {
+        "lost_retention": [
+         "true_place:3014"
+        ],
+        "event_item_success_new": true,
+        "event_item_final_dist_current": 0.06782619856292572,
+        "event_item_final_dist_new": 0.018351105483736505
+       },
+       "acquisition_env_steps": 43331,
+       "replay_env_steps": 10416
+      }
+     ],
+     "env_steps": 67189
+    },
+    {
+     "t": 7,
+     "item": "true_place:3023",
+     "success": false,
+     "bank_version": 1,
+     "events": [],
+     "env_steps": 1200
+    },
+    {
+     "t": 8,
+     "item": "pick:3203",
+     "success": true,
+     "bank_version": 1,
+     "events": [],
+     "env_steps": 842
+    }
+   ],
+   "s_matrix": [
+    {
+     "version": 0,
+     "after_item": -1,
+     "row": {
+      "pick:3202": true,
+      "pick:3203": true,
+      "place:3002": true,
+      "true_place:3011": true,
+      "true_place:3013": false,
+      "true_place:3014": false,
+      "true_place:3020": false,
+      "true_place:3021": true,
+      "true_place:3022": true,
+      "true_place:3023": false,
+      "true_place:3026": false,
+      "true_place:3058": false,
+      "true_place:3063": false
+     },
+     "total": 6
+    },
+    {
+     "version": 1,
+     "after_item": 2,
+     "row": {
+      "pick:3202": true,
+      "pick:3203": true,
+      "place:3002": true,
+      "true_place:3011": true,
+      "true_place:3013": false,
+      "true_place:3014": true,
+      "true_place:3020": false,
+      "true_place:3021": true,
+      "true_place:3022": true,
+      "true_place:3023": false,
+      "true_place:3026": false,
+      "true_place:3058": false,
+      "true_place:3063": false
+     },
+     "total": 7
+    }
+   ],
+   "adopted": 1,
+   "rejected": 2,
+   "missed": [
+    "true_place:3023"
+   ],
+   "grown_retention": [
+    "true_place:3014"
+   ],
+   "wall_seconds": 5117.4349264799985
+  },
+  "t34-stream-AC-20260926-d": {
+   "items": [
+    {
+     "t": 0,
+     "item": "pick:3202",
+     "success": true,
+     "bank_version": 0,
+     "events": [],
+     "env_steps": 823
+    },
+    {
+     "t": 1,
+     "item": "true_place:3011",
+     "success": true,
+     "bank_version": 0,
+     "events": [],
+     "env_steps": 820
+    },
+    {
+     "t": 2,
+     "item": "true_place:3014",
+     "success": false,
+     "bank_version": 0,
+     "events": [
+      {
+       "kind": "Carrying cube but failing to make horizontal progress toward goal",
+       "decision": "adopted",
+       "history": "new_kind",
+       "candidate": "candidate_A",
+       "adoption": {
+        "lost_retention": [],
+        "event_item_success_new": true,
+        "event_item_final_dist_current": 0.13547558208975302,
+        "event_item_final_dist_new": 0.01649197550948401
+       },
+       "acquisition_env_steps": 72934,
+       "replay_env_steps": 10416
+      }
+     ],
+     "env_steps": 94827
+    },
+    {
+     "t": 3,
+     "item": "true_place:3021",
+     "success": true,
+     "bank_version": 1,
+     "events": [],
+     "env_steps": 837
+    },
+    {
+     "t": 4,
+     "item": "true_place:3013",
+     "success": false,
+     "bank_version": 1,
+     "events": [
+      {
+       "kind": "Near-goal placement stall: held in air above goal without descending",
+       "decision": "no_acquirer_for_kind",
+       "history": null,
+       "candidate": null,
+       "adoption": null,
+       "acquisition_env_steps": null,
+       "replay_env_steps": null
+      }
+     ],
+     "env_steps": 1200
+    },
+    {
+     "t": 5,
+     "item": "true_place:3026",
+     "success": false,
+     "bank_version": 1,
+     "events": [
+      {
+       "kind": "Pre-grasp approach time budget exceeded without achieving grasp",
+       "decision": "adopted",
+       "history": "new_kind",
+       "candidate": "candidate_C",
+       "adoption": {
+        "lost_retention": [],
+        "event_item_success_new": false,
+        "event_item_final_dist_current": 0.3612626072947326,
+        "event_item_final_dist_new": 0.3612626072947326
+       },
+       "acquisition_env_steps": 51446,
+       "replay_env_steps": 11393
+      }
+     ],
+     "env_steps": 76493
+    },
+    {
+     "t": 6,
+     "item": "true_place:3020",
+     "success": false,
+     "bank_version": 2,
+     "events": [
+      {
+       "kind": "Carrying cube but failing to make horizontal progress toward goal",
+       "decision": "adopted",
+       "history": "recurrence_of_known_kind",
+       "candidate": "candidate_A",
+       "adoption": {
+        "lost_retention": [],
+        "event_item_success_new": true,
+        "event_item_final_dist_current": 0.06782619856292572,
+        "event_item_final_dist_new": 0.018351105483736505
+       },
+       "acquisition_env_steps": 43329,
+       "replay_env_steps": 11393
+      }
+     ],
+     "env_steps": 67941
+    },
+    {
+     "t": 7,
+     "item": "true_place:3023",
+     "success": false,
+     "bank_version": 3,
+     "events": [],
+     "env_steps": 1200
+    },
+    {
+     "t": 8,
+     "item": "pick:3203",
+     "success": true,
+     "bank_version": 3,
+     "events": [],
+     "env_steps": 842
+    }
+   ],
+   "s_matrix": [
+    {
+     "version": 0,
+     "after_item": -1,
+     "row": {
+      "pick:3202": true,
+      "pick:3203": true,
+      "place:3002": true,
+      "true_place:3011": true,
+      "true_place:3013": false,
+      "true_place:3014": false,
+      "true_place:3020": false,
+      "true_place:3021": true,
+      "true_place:3022": true,
+      "true_place:3023": false,
+      "true_place:3026": false,
+      "true_place:3058": false,
+      "true_place:3063": false
+     },
+     "total": 6
+    },
+    {
+     "version": 1,
+     "after_item": 2,
+     "row": {
+      "pick:3202": true,
+      "pick:3203": true,
+      "place:3002": true,
+      "true_place:3011": true,
+      "true_place:3013": false,
+      "true_place:3014": true,
+      "true_place:3020": false,
+      "true_place:3021": true,
+      "true_place:3022": true,
+      "true_place:3023": false,
+      "true_place:3026": false,
+      "true_place:3058": false,
+      "true_place:3063": false
+     },
+     "total": 7
+    },
+    {
+     "version": 2,
+     "after_item": 5,
+     "row": {
+      "pick:3202": true,
+      "pick:3203": true,
+      "place:3002": true,
+      "true_place:3011": true,
+      "true_place:3013": false,
+      "true_place:3014": true,
+      "true_place:3020": false,
+      "true_place:3021": true,
+      "true_place:3022": true,
+      "true_place:3023": false,
+      "true_place:3026": false,
+      "true_place:3058": false,
+      "true_place:3063": false
+     },
+     "total": 7
+    },
+    {
+     "version": 3,
+     "after_item": 6,
+     "row": {
+      "pick:3202": true,
+      "pick:3203": true,
+      "place:3002": true,
+      "true_place:3011": true,
+      "true_place:3013": false,
+      "true_place:3014": true,
+      "true_place:3020": true,
+      "true_place:3021": true,
+      "true_place:3022": true,
+      "true_place:3023": false,
+      "true_place:3026": false,
+      "true_place:3058": false,
+      "true_place:3063": false
+     },
+     "total": 8
+    }
+   ],
+   "adopted": 3,
+   "rejected": 0,
+   "missed": [
+    "true_place:3023"
+   ],
+   "grown_retention": [
+    "true_place:3014",
+    "true_place:3020"
+   ],
+   "wall_seconds": 5497.0954322180005
+  },
+  "t35-stream-CA-20260926-a": {
+   "items": [
+    {
+     "t": 0,
+     "item": "pick:3202",
+     "success": true,
+     "bank_version": 0,
+     "events": [],
+     "env_steps": 823
+    },
+    {
+     "t": 1,
+     "item": "true_place:3011",
+     "success": true,
+     "bank_version": 0,
+     "events": [],
+     "env_steps": 820
+    },
+    {
+     "t": 2,
+     "item": "true_place:3026",
+     "success": false,
+     "bank_version": 0,
+     "events": [
+      {
+       "kind": "Pre-grasp approach time budget exceeded without achieving grasp",
+       "decision": "adopted",
+       "history": "new_kind",
+       "candidate": "candidate_C",
+       "adoption": {
+        "lost_retention": [],
+        "event_item_success_new": false,
+        "event_item_final_dist_current": 0.09629129424929664,
+        "event_item_final_dist_new": 0.09629129424929664
+       },
+       "acquisition_env_steps": 51446,
+       "replay_env_steps": 10416
+      }
+     ],
+     "env_steps": 73562
+    },
+    {
+     "t": 3,
+     "item": "true_place:3021",
+     "success": true,
+     "bank_version": 1,
+     "events": [],
+     "env_steps": 837
+    },
+    {
+     "t": 4,
+     "item": "true_place:3013",
+     "success": false,
+     "bank_version": 1,
+     "events": [
+      {
+       "kind": "Near-goal placement stall: held in air above goal without descending",
+       "decision": "no_acquirer_for_kind",
+       "history": null,
+       "candidate": null,
+       "adoption": null,
+       "acquisition_env_steps": null,
+       "replay_env_steps": null
+      }
+     ],
+     "env_steps": 1200
+    },
+    {
+     "t": 5,
+     "item": "true_place:3014",
+     "success": false,
+     "bank_version": 1,
+     "events": [
+      {
+       "kind": "Carrying cube but failing to make horizontal progress toward goal",
+       "decision": "adopted",
+       "history": "new_kind",
+       "candidate": "candidate_A",
+       "adoption": {
+        "lost_retention": [],
+        "event_item_success_new": true,
+        "event_item_final_dist_current": 0.13547558208975302,
+        "event_item_final_dist_new": 0.01649197550948401
+       },
+       "acquisition_env_steps": 72935,
+       "replay_env_steps": 10416
+      }
+     ],
+     "env_steps": 94828
+    },
+    {
+     "t": 6,
+     "item": "true_place:3023",
+     "success": false,
+     "bank_version": 2,
+     "events": [],
+     "env_steps": 1200
+    },
+    {
+     "t": 7,
+     "item": "true_place:3020",
+     "success": false,
+     "bank_version": 2,
+     "events": [
+      {
+       "kind": "Carrying cube but failing to make horizontal progress toward goal",
+       "decision": "adopted",
+       "history": "recurrence_of_known_kind",
+       "candidate": "candidate_A",
+       "adoption": {
+        "lost_retention": [],
+        "event_item_success_new": true,
+        "event_item_final_dist_current": 0.030350656394991994,
+        "event_item_final_dist_new": 0.018351105483736505
+       },
+       "acquisition_env_steps": 42933,
+       "replay_env_steps": 11393
+      }
+     ],
+     "env_steps": 67545
+    },
+    {
+     "t": 8,
+     "item": "pick:3203",
+     "success": true,
+     "bank_version": 3,
+     "events": [],
+     "env_steps": 842
+    }
+   ],
+   "s_matrix": [
+    {
+     "version": 0,
+     "after_item": -1,
+     "row": {
+      "pick:3202": true,
+      "pick:3203": true,
+      "place:3002": true,
+      "true_place:3011": true,
+      "true_place:3013": false,
+      "true_place:3014": false,
+      "true_place:3020": false,
+      "true_place:3021": true,
+      "true_place:3022": true,
+      "true_place:3023": false,
+      "true_place:3026": false,
+      "true_place:3058": false,
+      "true_place:3063": false
+     },
+     "total": 6
+    },
+    {
+     "version": 1,
+     "after_item": 2,
+     "row": {
+      "pick:3202": true,
+      "pick:3203": true,
+      "place:3002": true,
+      "true_place:3011": true,
+      "true_place:3013": false,
+      "true_place:3014": false,
+      "true_place:3020": false,
+      "true_place:3021": true,
+      "true_place:3022": true,
+      "true_place:3023": false,
+      "true_place:3026": false,
+      "true_place:3058": false,
+      "true_place:3063": false
+     },
+     "total": 6
+    },
+    {
+     "version": 2,
+     "after_item": 5,
+     "row": {
+      "pick:3202": true,
+      "pick:3203": true,
+      "place:3002": true,
+      "true_place:3011": true,
+      "true_place:3013": false,
+      "true_place:3014": true,
+      "true_place:3020": false,
+      "true_place:3021": true,
+      "true_place:3022": true,
+      "true_place:3023": false,
+      "true_place:3026": false,
+      "true_place:3058": false,
+      "true_place:3063": false
+     },
+     "total": 7
+    },
+    {
+     "version": 3,
+     "after_item": 7,
+     "row": {
+      "pick:3202": true,
+      "pick:3203": true,
+      "place:3002": true,
+      "true_place:3011": true,
+      "true_place:3013": false,
+      "true_place:3014": true,
+      "true_place:3020": true,
+      "true_place:3021": true,
+      "true_place:3022": true,
+      "true_place:3023": false,
+      "true_place:3026": false,
+      "true_place:3058": false,
+      "true_place:3063": false
+     },
+     "total": 8
+    }
+   ],
+   "adopted": 3,
+   "rejected": 0,
+   "missed": [
+    "true_place:3023"
+   ],
+   "grown_retention": [
+    "true_place:3014",
+    "true_place:3020"
+   ],
+   "wall_seconds": 5554.223032151
+  }
+ },
+ "t37": {
+  "direct_rows": 5,
+  "query_rows": 10,
+  "relabelled": 9,
+  "queries": [
+   {
+    "seed": 3014,
+    "task": "true_place",
+    "step": 780,
+    "own_option": [
+     1,
+     3
+    ],
+    "best_option": [
+     1,
+     3
+    ],
+    "baseline_score": 0.182508024490516,
+    "best_score": 0.18226802449051602,
+    "label": [
+     1,
+     3
+    ],
+    "relabelled": false
+   },
+   {
+    "seed": 3020,
+    "task": "true_place",
+    "step": 622,
+    "own_option": [
+     2,
+     3
+    ],
+    "best_option": [
+     4,
+     1
+    ],
+    "baseline_score": 0.1816488945162635,
+    "best_score": 0.19572889392131382,
+    "label": [
+     4,
+     1
+    ],
+    "relabelled": true
+   },
+   {
+    "seed": 3051,
+    "task": "true_place",
+    "step": 961,
+    "own_option": [
+     1,
+     3
+    ],
+    "best_option": [
+     2,
+     3
+    ],
+    "baseline_score": 0.17750990528920688,
+    "best_score": 0.18339776277111103,
+    "label": [
+     2,
+     3
+    ],
+    "relabelled": true
+   },
+   {
+    "seed": 3052,
+    "task": "true_place",
+    "step": 769,
+    "own_option": [
+     13,
+     1
+    ],
+    "best_option": [
+     1,
+     1
+    ],
+    "baseline_score": -0.0892734048093791,
+    "best_score": 0.18024422959835482,
+    "label": [
+     1,
+     1
+    ],
+    "relabelled": true
+   },
+   {
+    "seed": 3054,
+    "task": "true_place",
+    "step": 792,
+    "own_option": [
+     13,
+     1
+    ],
+    "best_option": [
+     0,
+     1
+    ],
+    "baseline_score": -0.11194088924579262,
+    "best_score": 0.18021408501053846,
+    "label": [
+     0,
+     1
+    ],
+    "relabelled": true
+   },
+   {
+    "seed": 3058,
+    "task": "true_place",
+    "step": 830,
+    "own_option": [
+     13,
+     1
+    ],
+    "best_option": [
+     1,
+     3
+    ],
+    "baseline_score": -0.02482167574592968,
+    "best_score": 0.19168960463961282,
+    "label": [
+     1,
+     3
+    ],
+    "relabelled": true
+   },
+   {
+    "seed": 3060,
+    "task": "true_place",
+    "step": 1029,
+    "own_option": [
+     1,
+     3
+    ],
+    "best_option": [
+     2,
+     3
+    ],
+    "baseline_score": -0.21696117977326934,
+    "best_score": -0.017324208490266092,
+    "label": [
+     2,
+     3
+    ],
+    "relabelled": true
+   },
+   {
+    "seed": 3061,
+    "task": "true_place",
+    "step": 1024,
+    "own_option": [
+     13,
+     1
+    ],
+    "best_option": [
+     2,
+     3
+    ],
+    "baseline_score": 0.1758787395368161,
+    "best_score": 0.18032847020633805,
+    "label": [
+     2,
+     3
+    ],
+    "relabelled": true
+   },
+   {
+    "seed": 3063,
+    "task": "true_place",
+    "step": 759,
+    "own_option": [
+     1,
+     3
+    ],
+    "best_option": [
+     0,
+     1
+    ],
+    "baseline_score": -0.29542091594872705,
+    "best_score": 0.18132119628055418,
+    "label": [
+     0,
+     1
+    ],
+    "relabelled": true
+   },
+   {
+    "seed": 3065,
+    "task": "true_place",
+    "step": 891,
+    "own_option": [
+     13,
+     1
+    ],
+    "best_option": [
+     18,
+     1
+    ],
+    "baseline_score": -0.23523681452050477,
+    "best_score": -0.08634324457016451,
+    "label": [
+     18,
+     1
+    ],
+    "relabelled": true
+   }
+  ],
+  "cost": {
+   "deploy_env_steps": 16877,
+   "query_env_steps": 195151,
+   "fit_seconds": 0.04690914000093471,
+   "wall_seconds": 3406.3104425540005
+  },
+  "candidate": {
+   "path": "runs/t37-distill-20260926-a/candidate_A_distilled.pt",
+   "sha256": "69c07c9cc96f12b6f1ddd93a16a9c46acf0b1f1fe279b38531dcf5e7e7129483",
+   "bytes": 5747,
+   "tree_nodes": 13
+  }
+ },
+ "t39": {
+  "rounds": [
+   {
+    "round": 0,
+    "rows": 28303,
+    "model": {
+     "nodes": 385
+    },
+    "bank": "runs/t39-dagger-20260926-a/bank_r0",
+    "deploy_success": 10,
+    "deploy_n": 23,
+    "added_rows": 24137,
+    "deploy_env_steps": 24137
+   },
+   {
+    "round": 1,
+    "rows": 52440,
+    "model": {
+     "nodes": 511
+    },
+    "bank": "runs/t39-dagger-20260926-a/bank_r1",
+    "deploy_success": 10,
+    "deploy_n": 23,
+    "added_rows": 24447,
+    "deploy_env_steps": 24447
+   },
+   {
+    "round": 2,
+    "rows": 76887,
+    "model": {
+     "nodes": 863
+    },
+    "bank": "runs/t39-dagger-20260926-a/bank_r2"
+   }
+  ],
+  "env_steps": 48584
+ },
+ "t42_final": {
+  "initial": {
+   "successes": 23,
+   "n": 40,
+   "wilson95": [
+    0.422,
+    0.715
+   ],
+   "gained_vs_initial": [],
+   "lost_vs_initial": [],
+   "candidate_invoked": 0,
+   "candidate_invoked_success": 0,
+   "candidate_invoked_failed": [],
+   "run_errors": [],
+   "ik_or_table_rejections": 4643
+  },
+  "AC_manual": {
+   "successes": 22,
+   "n": 40,
+   "wilson95": [
+    0.398,
+    0.693
+   ],
+   "gained_vs_initial": [
+    3111
+   ],
+   "lost_vs_initial": [
+    3097,
+    3124
+   ],
+   "candidate_invoked": 7,
+   "candidate_invoked_success": 2,
+   "candidate_invoked_failed": [
+    3097,
+    3098,
+    3107,
+    3119,
+    3124
+   ],
+   "run_errors": [],
+   "ik_or_table_rejections": 4233
+  },
+  "stream_v3": {
+   "successes": 22,
+   "n": 40,
+   "wilson95": [
+    0.398,
+    0.693
+   ],
+   "gained_vs_initial": [
+    3103,
+    3112
+   ],
+   "lost_vs_initial": [
+    3097,
+    3121,
+    3128
+   ],
+   "candidate_invoked": 8,
+   "candidate_invoked_success": 3,
+   "candidate_invoked_failed": [
+    3097,
+    3098,
+    3102,
+    3111,
+    3121
+   ],
+   "run_errors": [],
+   "ik_or_table_rejections": 4352
+  },
+  "stream_v3_distilled": {
+   "successes": 20,
+   "n": 40,
+   "wilson95": [
+    0.352,
+    0.648
+   ],
+   "gained_vs_initial": [],
+   "lost_vs_initial": [
+    3121,
+    3124,
+    3128
+   ],
+   "candidate_invoked": 8,
+   "candidate_invoked_success": 1,
+   "candidate_invoked_failed": [
+    3098,
+    3102,
+    3103,
+    3111,
+    3112,
+    3121,
+    3124
+   ],
+   "run_errors": [],
+   "ik_or_table_rejections": 4441
+  },
+  "sweep_w3d6": {
+   "successes": 23,
+   "n": 40,
+   "wilson95": [
+    0.422,
+    0.715
+   ],
+   "gained_vs_initial": [
+    3112
+   ],
+   "lost_vs_initial": [
+    3124
+   ],
+   "candidate_invoked": 16,
+   "candidate_invoked_success": 5,
+   "candidate_invoked_failed": [
+    3095,
+    3098,
+    3100,
+    3102,
+    3103,
+    3107,
+    3111,
+    3120,
+    3123,
+    3124,
+    3126
+   ],
+   "run_errors": [],
+   "ik_or_table_rejections": 3462
+  },
+  "shared_dagger": {
+   "successes": 4,
+   "n": 40,
+   "wilson95": [
+    0.04,
+    0.231
+   ],
+   "gained_vs_initial": [
+    3102
+   ],
+   "lost_vs_initial": [
+    3090,
+    3091,
+    3093,
+    3094,
+    3099,
+    3101,
+    3106,
+    3108,
+    3109,
+    3110,
+    3113,
+    3114,
+    3117,
+    3118,
+    3121,
+    3122,
+    3124,
+    3125,
+    3127,
+    3128
+   ],
+   "candidate_invoked": 0,
+   "candidate_invoked_success": 0,
+   "candidate_invoked_failed": [],
+   "run_errors": [],
+   "ik_or_table_rejections": 3988
+  }
+ }
+}
