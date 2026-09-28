@@ -1,0 +1,514 @@
+{
+ "note": "Collected by scripts/collect_t61_t64.py; success = 20 consecutive steps.",
+ "t61_candidates": {
+  "C_old": null,
+  "C_succ": {
+   "path": "runs/t61-cand-succ-20260927-a/candidate_A.pt",
+   "sha256": "36c348bfc88b83f05369cc79544f0921eb9304cf143e4c8b5ca88105df5e2df9",
+   "bytes": 6661,
+   "tree_nodes": 19
+  }
+ },
+ "t62_factor": {
+  "oldR_oldC": {
+   "vs_initial": {
+    "successes": 134,
+    "n": 240,
+    "wilson95": [
+     0.495,
+     0.62
+    ],
+    "gained": [
+     3141,
+     3168,
+     3180,
+     3450,
+     3463,
+     3477,
+     3503,
+     3508,
+     3520,
+     3536,
+     3570
+    ],
+    "lost": [
+     3447,
+     3465,
+     3469,
+     3475
+    ],
+    "sign_test_p": 0.11846923828125
+   },
+   "vs_oldR_oldC": {
+    "successes": 134,
+    "n": 240,
+    "wilson95": [
+     0.495,
+     0.62
+    ],
+    "gained": [],
+    "lost": [],
+    "sign_test_p": 1.0
+   }
+  },
+  "oldR_newC": {
+   "vs_initial": {
+    "successes": 129,
+    "n": 240,
+    "wilson95": [
+     0.474,
+     0.599
+    ],
+    "gained": [
+     3168,
+     3180,
+     3450,
+     3463,
+     3508,
+     3511,
+     3536
+    ],
+    "lost": [
+     3439,
+     3465,
+     3469,
+     3475,
+     3506
+    ],
+    "sign_test_p": 0.7744140625
+   },
+   "vs_oldR_oldC": {
+    "successes": 129,
+    "n": 240,
+    "wilson95": [
+     0.474,
+     0.599
+    ],
+    "gained": [
+     3447,
+     3511
+    ],
+    "lost": [
+     3141,
+     3439,
+     3477,
+     3503,
+     3506,
+     3520,
+     3570
+    ],
+    "sign_test_p": 0.1796875
+   }
+  },
+  "oldR_succC": {
+   "vs_initial": {
+    "successes": 124,
+    "n": 240,
+    "wilson95": [
+     0.454,
+     0.579
+    ],
+    "gained": [
+     3152,
+     3520
+    ],
+    "lost": [
+     3439,
+     3447,
+     3465,
+     3475,
+     3506
+    ],
+    "sign_test_p": 0.453125
+   },
+   "vs_oldR_oldC": {
+    "successes": 124,
+    "n": 240,
+    "wilson95": [
+     0.454,
+     0.579
+    ],
+    "gained": [
+     3152,
+     3469
+    ],
+    "lost": [
+     3141,
+     3168,
+     3180,
+     3439,
+     3450,
+     3463,
+     3477,
+     3503,
+     3506,
+     3508,
+     3536,
+     3570
+    ],
+    "sign_test_p": 0.012939453125
+   }
+  },
+  "newR_oldC": {
+   "vs_initial": {
+    "successes": 128,
+    "n": 240,
+    "wilson95": [
+     0.47,
+     0.595
+    ],
+    "gained": [
+     3435,
+     3540
+    ],
+    "lost": [
+     3488
+    ],
+    "sign_test_p": 1.0
+   },
+   "vs_oldR_oldC": {
+    "successes": 128,
+    "n": 240,
+    "wilson95": [
+     0.47,
+     0.595
+    ],
+    "gained": [
+     3435,
+     3447,
+     3465,
+     3469,
+     3475,
+     3540
+    ],
+    "lost": [
+     3141,
+     3168,
+     3180,
+     3450,
+     3463,
+     3477,
+     3488,
+     3503,
+     3508,
+     3520,
+     3536,
+     3570
+    ],
+    "sign_test_p": 0.237884521484375
+   }
+  },
+  "newR_newC": {
+   "vs_initial": {
+    "successes": 126,
+    "n": 240,
+    "wilson95": [
+     0.462,
+     0.587
+    ],
+    "gained": [
+     3435
+    ],
+    "lost": [
+     3446,
+     3517
+    ],
+    "sign_test_p": 1.0
+   },
+   "vs_oldR_oldC": {
+    "successes": 126,
+    "n": 240,
+    "wilson95": [
+     0.462,
+     0.587
+    ],
+    "gained": [
+     3435,
+     3447,
+     3465,
+     3469,
+     3475
+    ],
+    "lost": [
+     3141,
+     3168,
+     3180,
+     3446,
+     3450,
+     3463,
+     3477,
+     3503,
+     3508,
+     3517,
+     3520,
+     3536,
+     3570
+    ],
+    "sign_test_p": 0.09625244140625
+   }
+  },
+  "initial": {
+   "successes": 127,
+   "n": 240
+  }
+ },
+ "t62_option_counts": {
+  "oldR_newC": {
+   "0": 3,
+   "1": 37,
+   "2": 24,
+   "3": 249,
+   "4": 115,
+   "16": 1
+  },
+  "oldR_succC": {
+   "0": 176,
+   "1": 76,
+   "2": 33,
+   "3": 51,
+   "4": 431,
+   "13": 3,
+   "16": 6
+  },
+  "oldR_oldC_t59": {
+   "0": 7,
+   "1": 18,
+   "2": 42,
+   "13": 49
+  }
+ },
+ "t63_final": {
+  "initial": {
+   "successes": 51,
+   "n": 100,
+   "wilson95": [
+    0.413,
+    0.606
+   ],
+   "gained_vs_initial": [],
+   "lost_vs_initial": [],
+   "candidate_invoked": 0,
+   "candidate_invoked_success": 0,
+   "candidate_invoked_failed": [],
+   "run_errors": [],
+   "ik_or_table_rejections": 14444,
+   "sign_test_p_vs_initial": 1.0,
+   "vs_oldR_oldC": {
+    "successes": 51,
+    "n": 100,
+    "wilson95": [
+     0.413,
+     0.606
+    ],
+    "gained": [
+     3654,
+     3662
+    ],
+    "lost": [
+     3605,
+     3650,
+     3655,
+     3658
+    ],
+    "sign_test_p": 0.6875
+   }
+  },
+  "oldR_oldC": {
+   "successes": 53,
+   "n": 100,
+   "wilson95": [
+    0.433,
+    0.625
+   ],
+   "gained_vs_initial": [
+    3605,
+    3650,
+    3655,
+    3658
+   ],
+   "lost_vs_initial": [
+    3654,
+    3662
+   ],
+   "candidate_invoked": 13,
+   "candidate_invoked_success": 5,
+   "candidate_invoked_failed": [
+    3598,
+    3604,
+    3642,
+    3645,
+    3649,
+    3654,
+    3662,
+    3666
+   ],
+   "run_errors": [],
+   "ik_or_table_rejections": 12825,
+   "sign_test_p_vs_initial": 0.6875,
+   "vs_oldR_oldC": {
+    "successes": 53,
+    "n": 100,
+    "wilson95": [
+     0.433,
+     0.625
+    ],
+    "gained": [],
+    "lost": [],
+    "sign_test_p": 1.0
+   }
+  },
+  "oldR_succC": {
+   "successes": 50,
+   "n": 100,
+   "wilson95": [
+    0.404,
+    0.596
+   ],
+   "gained_vs_initial": [
+    3649
+   ],
+   "lost_vs_initial": [
+    3614,
+    3654
+   ],
+   "candidate_invoked": 13,
+   "candidate_invoked_success": 2,
+   "candidate_invoked_failed": [
+    3598,
+    3604,
+    3605,
+    3614,
+    3642,
+    3645,
+    3650,
+    3654,
+    3655,
+    3658,
+    3666
+   ],
+   "run_errors": [],
+   "ik_or_table_rejections": 13305,
+   "sign_test_p_vs_initial": 1.0,
+   "vs_oldR_oldC": {
+    "successes": 50,
+    "n": 100,
+    "wilson95": [
+     0.404,
+     0.596
+    ],
+    "gained": [
+     3649,
+     3662
+    ],
+    "lost": [
+     3605,
+     3614,
+     3650,
+     3655,
+     3658
+    ],
+    "sign_test_p": 0.453125
+   }
+  },
+  "oldR_newC": {
+   "successes": 50,
+   "n": 100,
+   "wilson95": [
+    0.404,
+    0.596
+   ],
+   "gained_vs_initial": [
+    3655
+   ],
+   "lost_vs_initial": [
+    3614,
+    3662
+   ],
+   "candidate_invoked": 13,
+   "candidate_invoked_success": 2,
+   "candidate_invoked_failed": [
+    3598,
+    3604,
+    3605,
+    3614,
+    3642,
+    3645,
+    3649,
+    3650,
+    3658,
+    3662,
+    3666
+   ],
+   "run_errors": [],
+   "ik_or_table_rejections": 12672,
+   "sign_test_p_vs_initial": 1.0,
+   "vs_oldR_oldC": {
+    "successes": 50,
+    "n": 100,
+    "wilson95": [
+     0.404,
+     0.596
+    ],
+    "gained": [
+     3654
+    ],
+    "lost": [
+     3605,
+     3614,
+     3650,
+     3658
+    ],
+    "sign_test_p": 0.375
+   }
+  }
+ },
+ "oldR_oldC_pooled_independent": {
+  "successes": 187,
+  "n": 340,
+  "wilson95": [
+   0.497,
+   0.602
+  ],
+  "gained": [
+   3141,
+   3168,
+   3180,
+   3450,
+   3463,
+   3477,
+   3503,
+   3508,
+   3520,
+   3536,
+   3570,
+   3605,
+   3650,
+   3655,
+   3658
+  ],
+  "lost": [
+   3447,
+   3465,
+   3469,
+   3475,
+   3654,
+   3662
+  ],
+  "sign_test_p": 0.0783538818359375
+ },
+ "ledger": [
+  {
+   "run": "t62-oldR-20260927-a",
+   "env_steps": 70724
+  },
+  {
+   "run": "t62-newR-20260927-a",
+   "env_steps": 22638
+  },
+  {
+   "run": "t63-final-20260927-a",
+   "env_steps": 396294
+  }
+ ],
+ "env_steps_total": 489656
+}

@@ -536,6 +536,21 @@ python scripts/run_t34_stream.py --out runs/<new> --stream true_place:3014 --eva
 - 獲得イベントを16件に増やしたA′（決定行36行）は、最終独立100条件で初期と同等（49対50）で、旧Aより悪かった（0/−6）。差の多くはルーターの起動判断による。
 - 旧A（親委譲）の独立240条件の合算は、初期127に対して134（得11・失4、p=0.12）。
 
+### T61〜T64（2026-09-28）
+
+[T61_T64_EVIDENCE.md](docs/T61_T64_EVIDENCE.md) と [T61_T64_RESULTS.json](docs/T61_T64_RESULTS.json)。
+
+```bash
+# 成功した獲得軌道の行のみでCandidateを学習し直す
+python scripts/refit_candidate.py --acquisition runs/<acq run> --success-only --reference <candidate.pt> --out runs/<new>/candidate_A.pt
+# 銀行の役割を差し替えた版を作る
+python scripts/swap_bank_role.py --bank <bank dir> --role candidate_A=<candidate.pt> --out runs/<new>
+```
+
+要点：
+- ルーター × Candidateの要因分解で、旧A（5行のCandidate）が最良だった。データの増量・選別はいずれも下回った。
+- 旧Aの独立340条件の合算：初期178 → 187（得15・失6、p=0.078）。
+
 ## 上流資料（2026-09-22確認）
 
 - [S1: インストール・対応OS](https://maniskill.readthedocs.io/en/latest/user_guide/getting_started/installation.html)
